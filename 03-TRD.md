@@ -126,7 +126,7 @@ GET    /targets            PUT  /targets
 POST   /body-metrics       GET  /body-metrics?from=&to=
 POST   /workouts           GET  /workouts?from=&to=
 GET    /export/me                       -- full user data, JSON
-GET    /export/foods/community          -- CC0 dump
+GET    /export/foods/community          -- CC0 dump preserving source_uri/source_license/contributed_by
 GET    /export/foods/odbl               -- separate, attributed, only if integration enabled
 GET    /export/exercises                -- separately identified, per-entry license and attribution
 ```

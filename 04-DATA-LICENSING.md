@@ -51,7 +51,7 @@ A single `foods` table containing USDA rows, OFF rows, and community rows is a l
 Rules the implementing agent must enforce:
 
 1. **No cross-table writes.** A row never moves from `foods_odbl` into `foods_community`. If a user edits an OFF-sourced food, the edit creates a new `foods_community` row with `derived_from: null` and values re-entered from the label — not copied.
-2. **Every row carries `source` and `license` columns.** Non-nullable. No exceptions.
+2. **Every redistributable source record carries non-nullable provenance and license metadata appropriate to its store.** Community rows preserve `provenance`, `source_uri`, `source_license`, and `pack_license`; Open Food Facts rows preserve `source`, `source_url`, `database_license`, and `contents_license`; exercise rows preserve their full per-entry attribution record. Private user-created foods and logs are not third-party source records and instead carry authenticated owner IDs.
 3. **Export respects licence.** `foods_community` exports as a clean CC0 dump. `foods_odbl` exports separately, with ODbL notice attached, or not at all.
 4. **User log data is never included in public or dataset bulk exports.** A user can still download their own private data through `/export/me`; that authenticated personal export is separate from every food or exercise dataset export.
 5. **OFF integration is optional, not a core dependency.** Its code ships in v1, but it is disabled until configured. The default deployment remains usable without network access or bundled OFF data. This also protects users if OFF's terms or availability change.
@@ -72,7 +72,7 @@ People will scrape data from MyFitnessPal, Cronometer, Nutritionix, or a nationa
 
 Mitigations, in order of usefulness:
 
-1. **Mandatory `source` field per entry** with an enum: `lab_analysis`, `government_database`, `manufacturer_label`, `published_recipe_calculation`, `own_measurement`. No free-text "internet."
+1. **Mandatory structured provenance per entry:** `provenance` uses the enum `lab_analysis`, `government_database`, `manufacturer_label`, `published_recipe_calculation`, or `own_measurement`; `source_uri` and `source_license` follow the allowlist in `docs/foodpack-spec.md`. No free-text "internet" source and no unknown license.
 2. **CI check** rejecting packs with missing or invalid provenance.
 3. **PR template checkbox**: "I confirm this data was not copied from a proprietary database or app."
 4. **Statistical smell test** in CI — entries matching a known commercial dataset's rounding signature get flagged for manual review.
