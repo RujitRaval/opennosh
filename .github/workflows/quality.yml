@@ -132,9 +132,9 @@ jobs:
         run: npm --prefix web run build
 
   compose:
-    name: Compose configuration
+    name: Compose migration boot
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Check out repository
@@ -142,3 +142,13 @@ jobs:
 
       - name: Validate Compose configuration
         run: docker compose config --quiet
+
+      - name: Start PostgreSQL and API
+        run: docker compose up --build --wait db api
+
+      - name: Verify the Alembic head
+        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260819_0001'
+
+      - name: Stop Compose services
+        if: always()
+        run: docker compose down --volumes

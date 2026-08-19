@@ -19,4 +19,4 @@ RUN useradd --create-home --uid 10001 opennosh \
 USER opennosh
 
 EXPOSE 8000
-CMD ["uvicorn", "opennosh_api.main:app", "--app-dir", "api", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "alembic -c api/alembic.ini upgrade head && exec uvicorn opennosh_api.main:app --app-dir api --host 0.0.0.0 --port 8000"]

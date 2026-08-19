@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.2.0.0] - 2026-08-19
+
+### Added
+
+- Create the complete nutrition and strength schema on a clean PostgreSQL 16 database, with a tested development rollback to the empty Alembic base revision.
+- Keep USDA reference foods, CC0 community foods, Open Food Facts data, and private custom foods in distinct stores with their required provenance, licensing, and attribution fields.
+- Protect every user-owned record with a required indexed owner reference, including database-enforced same-owner recipe ingredients and workout sets.
+- Model recipes, food logs, body metrics, exercises, workouts, workout sets, and nutrition targets with validated units and value constraints.
+
+### Changed
+
+- Apply pending database migrations before the API starts and verify the full migration boot path in continuous integration.
+- Provide native development commands for upgrading or downgrading the database schema.
+
 ## [0.1.0.0] - 2026-08-19
 
 ### Added

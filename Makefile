@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build compose-config
+.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade
 
 install:
 	uv sync --frozen
@@ -23,3 +23,9 @@ build:
 
 compose-config:
 	docker compose config --quiet
+
+db-upgrade:
+	uv run alembic -c api/alembic.ini upgrade head
+
+db-downgrade:
+	uv run alembic -c api/alembic.ini downgrade base
