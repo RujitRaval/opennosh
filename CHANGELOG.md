@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.4.0.0] - 2026-08-19
+
+### Added
+
+- Represent source nutrition on a validated per-100-gram or per-100-millilitre basis and canonicalise it to one immutable per-100-gram profile before persistence.
+- Convert grams, millilitres, and case-insensitive named household portions into deterministic nutrient snapshots without guessing food density.
+- Reject missing macros, invalid nutrient codes, impossible physical values, non-finite numbers, unsafe numeric magnitudes, and inconsistent macro-derived energy.
+- Produce explicitly rounded API payloads as exact decimal strings while retaining full internal precision for stored calculations.
+
+### Changed
+
+- Run nutrition arithmetic under a fixed 50-significant-digit decimal context so process-wide precision settings cannot change stored or computed results.
+- Add property, boundary, schema, immutability, overflow, and wire-format tests covering every new nutrient calculation path.
+
 ## [0.3.0.0] - 2026-08-19
 
 ### Added
