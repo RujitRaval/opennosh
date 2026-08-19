@@ -28,6 +28,12 @@ Licence separation from `04-DATA-LICENSING.md` is enforced in the schema. Do not
 users
   id, email, password_hash, created_at, settings_json
 
+auth_sessions
+  id, user_id, token_hash, csrf_token_hash, expires_at, revoked_at, created_at
+
+auth_rate_limits
+  scope, key_hash, window_started_at, attempt_count, updated_at
+
 foods_reference          -- CC0, from USDA. Read-only at runtime.
   id, fdc_id, description, food_category, source='usda',
   license='CC0', nutrients_json, portions_json, updated_at
@@ -115,6 +121,7 @@ REST, JSON, `/api/v1`. The UI consumes only this API — no server-side data acc
 
 ```
 POST   /auth/register | /auth/login | /auth/logout
+GET    /auth/session
 GET    /foods/search?q=&locale=&source=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration

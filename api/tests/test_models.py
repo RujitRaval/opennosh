@@ -2,6 +2,8 @@ from opennosh_api.models import Base
 from sqlalchemy import CheckConstraint
 
 EXPECTED_TABLES = {
+    "auth_rate_limits",
+    "auth_sessions",
     "users",
     "foods_reference",
     "foods_community",
@@ -18,6 +20,7 @@ EXPECTED_TABLES = {
 }
 
 OWNER_TABLES = {
+    "auth_sessions",
     "foods_custom",
     "recipes",
     "recipe_ingredients",

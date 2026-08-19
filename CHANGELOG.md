@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.3.0.0] - 2026-08-19
+
+### Added
+
+- Add local account registration, login, session inspection, and CSRF-protected logout endpoints under `/api/v1/auth`.
+- Store passwords with Argon2id and opaque browser sessions as hashes, with secure `__Host-` cookies enabled in production.
+- Add atomic per-IP and per-account authentication throttling with bounded retention and recovery after each rate-limit window.
+- Provide reusable tenant-isolation helpers that derive ownership exclusively from the authenticated session and deny cross-account reads, updates, and deletes.
+
+### Changed
+
+- Extend the PostgreSQL schema with authenticated sessions and authentication rate-limit state, including a tested Alembic upgrade and downgrade.
+- Document the development and production session-cookie behavior and environment configuration.
+
 ## [0.2.0.0] - 2026-08-19
 
 ### Added
