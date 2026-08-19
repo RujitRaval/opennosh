@@ -58,10 +58,10 @@ Rules the implementing agent must enforce:
 
 ## The licence decisions to make
 
-**Application code: MIT.**
+**Recommended application license: MIT.**
 Rationale: the entire strategic opening here is that the leading competitor is non-commercially licensed. Permissive is the differentiator. AGPL would protect against a cloud provider running a hosted version — but nobody is going to build a business hosting a self-hosted calorie tracker, so AGPL buys protection against a threat that doesn't exist while costing you the positioning that matters. MIT.
 
-**Community food packs: CC0.**
+**Recommended community food-pack license: CC0.**
 Rationale: you want these reused everywhere, including by competitors. Every app that imports your food packs is a project that has a reason to send corrections upstream. CC0 maximises adoption; adoption is the moat. Requires a lightweight contributor sign-off in the PR template so contributors knowingly waive rights.
 
 **Do not** accept food packs under ODbL, CC BY-SA, or anything share-alike. State this in `CONTRIBUTING.md` and enforce it in CI. A single share-alike pack merged into `foods_community` contaminates the whole dataset and is genuinely painful to unwind.

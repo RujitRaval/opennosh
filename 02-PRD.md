@@ -16,7 +16,7 @@ The open-source alternatives each solve one piece, and the most complete one is 
 
 ## 2. What we're building
 
-A self-hosted, MIT-licensed nutrition and training tracker where **the food database is a git repository**.
+A self-hosted nutrition and training tracker where **the food database is a git repository**. The application and dataset licenses remain open decisions; MIT and CC0 are the current recommendations, not grants.
 
 The application is deliberately unremarkable — log food, log lifts, log weight, see trends. The differentiator is that when a food is missing, a user can add it permanently for everyone, in a text file, via a pull request, in under fifteen minutes.
 
@@ -24,7 +24,7 @@ The application is deliberately unremarkable — log food, log lifts, log weight
 
 **Primary:** technically-capable people who already self-host something, track their intake deliberately (body recomposition, athletic goals, medical necessity), and eat food that mainstream trackers handle badly.
 
-**Secondary:** developers of *other* nutrition apps who want a CC0 food dataset. They are a distribution channel, not a burden — every downstream app is a source of upstream corrections.
+**Secondary:** developers of *other* nutrition apps who want a freely reusable food dataset. They are a distribution channel, not a burden — every downstream app is a source of upstream corrections.
 
 **Explicitly not for:** casual weight-loss users who want a polished mobile app with social features. That user is well served and we will lose to MyFitnessPal on every axis they care about.
 
@@ -73,7 +73,7 @@ The build succeeds if, ninety days after launch:
 
 - Ten or more food packs merged from five or more distinct contributors *(the real test — see `01-RESEARCH.md` §7)*
 - A stranger can go from `git clone` to logging their first meal in under ten minutes
-- At least one other open-source project has imported the CC0 food dataset
+- At least one other open-source project has imported the dataset under the selected open-data license
 
 Stars are a lagging indicator of the above, not a goal.
 
@@ -87,7 +87,7 @@ The implementing agent must treat these as hard requirements, not suggestions:
 - **No streaks, no shaming, no "you went over" language.** Report numbers neutrally. A day over target renders identically in tone to a day under.
 - **No goal weight validation against BMI charts**, and no unsolicited commentary on the user's target.
 - **No social comparison surfaces of any kind.**
-- **A dismissible resource pointer in settings** linking to eating disorder support, with the National Alliance for Eating Disorders helpline. Do not use NEDA — that line has been permanently disconnected.
+- **A dismissible resource pointer in settings** linking to the National Alliance for Eating Disorders' [current treatment-finder and helpline page](https://www.allianceforeatingdisorders.com/find-treatment/). Verify the published contact details before every release.
 - **Fasting-window tracking is out of scope for v1.** It attracts a use pattern this project should not optimise for.
 
 Put this section verbatim into `CONVENTIONS.md` in the repo so both the implementing and reviewing agents see it.

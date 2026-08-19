@@ -78,7 +78,7 @@ targets
 
 ## 3. Food pack loader
 
-The most important subsystem. See `05-FOODPACK-SPEC.md` for the format.
+The most important subsystem. See `docs/foodpack-spec.md` for the format.
 
 Pipeline: `discover → parse → validate (JSON Schema) → check provenance → dedupe by slug → upsert → record pack version`
 
