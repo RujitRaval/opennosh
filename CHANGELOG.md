@@ -6,11 +6,11 @@ All notable changes to opennosh will be documented in this file.
 
 ### Added
 
-- Added a working local application stack with a FastAPI service, PostgreSQL database, and responsive Next.js landing page.
-- Added database-aware health reporting with bounded probes, safe degraded responses, operator logging, and a documented OpenAPI contract.
-- Added Docker images and Docker Compose orchestration with service health checks and configurable development credentials.
-- Added Python and TypeScript dependency locks, developer commands, and tests for API success, failure, timeout, lifecycle, settings, and web rendering paths.
-- Added GitHub Actions checks for API linting, strict typing, unit and PostgreSQL integration tests, web linting, typing, tests, production builds, Compose validation, documentation, and whitespace.
+- Run a working local FastAPI, PostgreSQL, and responsive Next.js application stack with one Docker Compose command.
+- Use the database-aware health endpoint to distinguish a healthy service from a safe degraded response, with bounded probes, operator logging, and a documented OpenAPI contract.
+- Configure development database credentials while Docker images, Compose dependencies, and service health checks handle local orchestration.
+- Develop reproducibly from locked Python and TypeScript dependencies, with commands and tests covering API success, failure, timeout, lifecycle, settings, and web rendering paths.
+- Trust every pull request to run API linting, strict typing, unit and PostgreSQL integration tests, web linting, typing, tests, production builds, Compose validation, documentation, and whitespace checks.
 
 ## [0.0.1.0] - 2026-08-19
 

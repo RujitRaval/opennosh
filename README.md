@@ -17,7 +17,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>.
+Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>; it returns `200` when PostgreSQL is reachable and a safe `503` degraded response when the database is unavailable.
 
 For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
 
@@ -40,6 +40,12 @@ make lint typecheck test build compose-config
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
 | `08-PRODUCT-DECISIONS.md` | Settled product, licensing, scope, and operating decisions | You + implementing agent |
+| `CONTRIBUTING.md` | Contribution workflow, boundaries, and validation commands | Contributors |
+| `CONVENTIONS.md` | Health-safety, product, and data constraints | Contributors + implementing agent |
+| `SECURITY.md` | Private vulnerability-reporting process | Security reporters + maintainers |
+| `AUTHORS.md` | Maintainer and contributor credit | Contributors + users |
+| `CHANGELOG.md` | Versioned record of shipped changes | Users + maintainers |
+| `TODOS.md` | Deferred launch-readiness work | Maintainers |
 
 ---
 
