@@ -5,6 +5,7 @@ description = "Self-hosted nutrition and strength tracking."
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
+  "alembic>=1.16,<2",
   "asyncpg>=0.30,<1",
   "fastapi>=0.116,<1",
   "pydantic-settings>=2.10,<3",
