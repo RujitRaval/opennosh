@@ -19,7 +19,7 @@ docker compose up --build
 
 Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>.
 
-For native development, install Python 3.11+, uv, Node.js 24+, npm, and Docker, then run:
+For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
 
 ```bash
 make install
