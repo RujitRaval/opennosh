@@ -16,6 +16,8 @@ INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
 
 EXPECTED_TABLES = {
     "alembic_version",
+    "auth_rate_limits",
+    "auth_sessions",
     "users",
     "foods_reference",
     "foods_community",
@@ -161,6 +163,7 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
         assert table_names == EXPECTED_TABLES
 
         for table_name in (
+            "auth_sessions",
             "foods_custom",
             "recipes",
             "recipe_ingredients",

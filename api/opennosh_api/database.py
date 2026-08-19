@@ -4,7 +4,7 @@ from typing import Protocol
 
 from fastapi import Request
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 
 class DatabaseHealthProbe(Protocol):
@@ -28,3 +28,8 @@ def build_engine(database_url: str) -> AsyncEngine:
 
 async def get_database_probe(request: Request) -> AsyncIterator[DatabaseHealthProbe]:
     yield request.app.state.database_probe
+
+
+async def get_database_session(request: Request) -> AsyncIterator[AsyncSession]:
+    async with request.app.state.session_factory() as session:
+        yield session

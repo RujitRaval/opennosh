@@ -3,7 +3,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from opennosh_api.auth.router import router as auth_router
 from opennosh_api.database import SqlAlchemyHealthProbe, build_engine
 from opennosh_api.health import router as health_router
 from opennosh_api.settings import Settings, get_settings
@@ -23,13 +25,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             engine,
             timeout_seconds=resolved_settings.database_healthcheck_timeout_seconds,
         )
+        app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
         try:
             yield
         finally:
             await engine.dispose()
 
     application = FastAPI(title="opennosh API", version=read_app_version(), lifespan=lifespan)
+    application.state.settings = resolved_settings
     application.include_router(health_router)
+    application.include_router(auth_router)
     return application
 
 
