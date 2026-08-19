@@ -15,11 +15,19 @@
 Run:
 
 ```bash
+uv sync --frozen
+npm --prefix web ci
+uv run ruff check api
+uv run mypy
+uv run pytest
+npm --prefix web run lint
+npm --prefix web run typecheck
+npm --prefix web test
+npm --prefix web run build
+docker compose config --quiet
 python3 -m unittest discover -s tests -v
 python3 scripts/check_docs.py
 ```
-
-When application runtimes are added, extend `.github/workflows/quality.yml` with their test, lint, migration, and build checks. Do not replace the repository checks above.
 
 ## Skill routing
 
