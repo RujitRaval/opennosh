@@ -1,0 +1,3 @@
+[tool.openplate]
+repository-kind = "documentation-foundation"
+python-version = "3.11"

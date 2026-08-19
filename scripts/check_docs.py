@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Validate the repository's Markdown documents without external dependencies."""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+from urllib.parse import unquote
+
+
+CORE_DOCUMENTS = {
+    "README.md",
+    "02-PRD.md",
+    "03-TRD.md",
+    "04-DATA-LICENSING.md",
+    "08-OPEN-QUESTIONS.md",
+    "docs/foodpack-spec.md",
+}
+IGNORED_DIRECTORIES = {
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "vendor",
+}
+HEADING_RE = re.compile(r"^(#{1,6})\s+\S")
+LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]*)\)")
+LINK_DEFINITION_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(<[^>]+>|\S+)")
+INLINE_CODE_RE = re.compile(r"`+[^`]*`+")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+
+def markdown_files(root: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in root.rglob("*.md")
+        if not any(part in IGNORED_DIRECTORIES for part in path.parts)
+    )
+
+
+def link_destination(raw: str) -> str:
+    value = raw.strip()
+    if not value:
+        return ""
+    if value.startswith("<") and ">" in value:
+        return value[1 : value.index(">")]
+    return value.split(maxsplit=1)[0]
+
+
+def validate_markdown_tree(root: Path, require_core: bool = True) -> list[str]:
+    issues: list[str] = []
+    files = markdown_files(root)
+
+    if not files:
+        return ["repository contains no Markdown documents"]
+
+    if require_core:
+        missing = sorted(name for name in CORE_DOCUMENTS if not (root / name).is_file())
+        issues.extend(f"missing core document: {name}" for name in missing)
+
+    for path in files:
+        relative = path.relative_to(root)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            issues.append(f"{relative}: file is not valid UTF-8")
+            continue
+
+        if not text.strip():
+            issues.append(f"{relative}: document is empty")
+            continue
+
+        h1_count = 0
+        previous_level = 0
+        fence_marker: tuple[str, int] | None = None
+
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if line.endswith(" ") or line.endswith("\t"):
+                issues.append(f"{relative}:{line_number}: trailing whitespace")
+
+            fence = FENCE_RE.match(line)
+            if fence_marker is not None:
+                if fence:
+                    marker, suffix = fence.groups()
+                    if (
+                        marker[0] == fence_marker[0]
+                        and len(marker) >= fence_marker[1]
+                        and not suffix.strip()
+                    ):
+                        fence_marker = None
+                continue
+            if fence:
+                marker = fence.group(1)
+                fence_marker = (marker[0], len(marker))
+                continue
+
+            heading = HEADING_RE.match(line)
+            if heading:
+                level = len(heading.group(1))
+                if level == 1:
+                    h1_count += 1
+                if previous_level and level > previous_level + 1:
+                    issues.append(
+                        f"{relative}:{line_number}: heading jumps from H{previous_level} to H{level}"
+                    )
+                previous_level = level
+
+            line_without_code = INLINE_CODE_RE.sub("", line)
+            raw_targets = [match.group(1) for match in LINK_RE.finditer(line_without_code)]
+            definition = LINK_DEFINITION_RE.match(line_without_code)
+            if definition:
+                raw_targets.append(definition.group(1))
+
+            for raw_target in raw_targets:
+                raw_target = link_destination(raw_target)
+                if not raw_target or raw_target.startswith(("#", "http://", "https://", "mailto:")):
+                    continue
+                target_path = unquote(raw_target.split("#", maxsplit=1)[0])
+                resolved_target = (path.parent / target_path).resolve()
+                try:
+                    resolved_target.relative_to(root.resolve())
+                except ValueError:
+                    issues.append(
+                        f"{relative}:{line_number}: local link escapes repository: {target_path}"
+                    )
+                    continue
+                if target_path and not resolved_target.exists():
+                    issues.append(
+                        f"{relative}:{line_number}: local link target does not exist: {target_path}"
+                    )
+
+        if fence_marker is not None:
+            issues.append(f"{relative}: unclosed fenced code block")
+        if h1_count != 1:
+            issues.append(f"{relative}: expected exactly one H1 heading, found {h1_count}")
+
+    return issues
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parents[1]
+    issues = validate_markdown_tree(root)
+    if issues:
+        print("Markdown validation failed:")
+        for issue in issues:
+            print(f"- {issue}")
+        return 1
+
+    print(f"Markdown validation passed for {len(markdown_files(root))} files.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
