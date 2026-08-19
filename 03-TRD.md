@@ -86,7 +86,7 @@ targets
 - **`computed_nutrients_json` is denormalised on write.** A log entry must not change retroactively when the underlying food data is corrected. Users' historical logs are immutable records of what they believed they ate.
 - **`food_ref` is polymorphic** across four tables. Store as `(source_table, source_id)`. Ugly but correct — the licence separation is worth more than schema elegance here.
 - **Every user-owned row carries an indexed, non-nullable `user_id`.** Child rows also use composite owner-and-parent foreign keys, so a recipe ingredient or workout set cannot point at another user's parent record.
-- **Nutrient values are always per 100g internally.** All display conversion happens at the edge. Every unit bug in this category comes from mixed internal representations.
+- **Nutrient values are always per 100g internally.** Sources may declare `per_100g` or `per_100ml`; volume-based declarations require an explicit `density_g_per_ml` and are canonicalised before persistence. Gram, millilitre, and named-portion calculations use a fixed 50-significant-digit decimal context, produce immutable snapshots, and quantize only at display or API boundaries. Every unit bug in this category comes from mixed internal representations, ambient decimal settings, or an assumed density.
 
 ## 3. Food pack loader
 

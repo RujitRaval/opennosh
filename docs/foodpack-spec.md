@@ -95,7 +95,7 @@ entry_count: 47
 There is deliberately no `internet` or `unknown` option. An entry without defensible provenance does not get merged.
 
 ### `basis`
-`per_100g` or `per_100ml`. Nothing else. All portion conversion derives from this.
+`per_100g` or `per_100ml`. Nothing else. A `per_100ml` entry must also provide `density_g_per_ml` between `0.01` and `5` inclusive; the loader uses it to canonicalise nutrients to the application's per-100-gram storage basis. All portion conversion derives from the canonical profile, and opennosh never assumes that one millilitre weighs one gram.
 
 ## 4. Portions matter more than you think
 
@@ -118,6 +118,7 @@ The validator is a standalone module. Same code runs in CI and in the runtime lo
 - `slug` collision within or across packs
 - Macro/energy mismatch beyond tolerance: `|(4·protein + 4·carb + 9·fat) − energy_kcal| > 15%`
 - Any nutrient negative, or `energy_kcal > 900` per 100g (nothing exceeds pure fat)
+- `basis: per_100ml` without a finite `density_g_per_ml` in the inclusive range `0.01`–`5`
 - `license` anything other than `CC0-1.0`
 - Portion with `grams <= 0`
 
