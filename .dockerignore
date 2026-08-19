@@ -1,0 +1,10 @@
+.git
+.github
+.gstack
+.venv
+__pycache__
+*.pyc
+docs.zip
+web/.next
+web/coverage
+web/node_modules

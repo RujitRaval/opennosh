@@ -1,16 +1,34 @@
-# opennosh — spec bundle
+# opennosh
 
-The product, repository, and package slug are `opennosh`. The GitHub repository name has been selected; package-registry and domain availability remain launch checks.
+Self-hosted nutrition and strength tracking built around food data the community can improve.
 
-A proposed self-hosted nutrition and training tracker whose differentiator is a **community-contributed food database**, structured so that one pull request equals one food pack.
+> **Build status:** The application foundation is underway. Follow the [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) for the dependency-ordered two-month build plan.
 
-> **Planning status:** Product decisions are settled in `08-PRODUCT-DECISIONS.md`. The application is MIT-licensed, community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private during the two-month build window.
+The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private during the build window.
 
 See [`LICENSES.md`](LICENSES.md) for the repository-wide licensing map.
 
+## Quick start
+
+Docker Compose starts PostgreSQL, the FastAPI service, and the Next.js app:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>; it returns `200` when PostgreSQL is reachable and a safe `503` degraded response when the database is unavailable.
+
+For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
+
+```bash
+make install
+make lint typecheck test build compose-config
+```
+
 ---
 
-## What's in here
+## Product documents
 
 | File | Purpose | Who reads it |
 |---|---|---|
@@ -22,6 +40,12 @@ See [`LICENSES.md`](LICENSES.md) for the repository-wide licensing map.
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
 | `08-PRODUCT-DECISIONS.md` | Settled product, licensing, scope, and operating decisions | You + implementing agent |
+| `CONTRIBUTING.md` | Contribution workflow, boundaries, and validation commands | Contributors |
+| `CONVENTIONS.md` | Health-safety, product, and data constraints | Contributors + implementing agent |
+| `SECURITY.md` | Private vulnerability-reporting process | Security reporters + maintainers |
+| `AUTHORS.md` | Maintainer and contributor credit | Contributors + users |
+| `CHANGELOG.md` | Versioned record of shipped changes | Users + maintainers |
+| `TODOS.md` | Deferred launch-readiness work | Maintainers |
 
 ---
 

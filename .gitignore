@@ -1,7 +1,16 @@
 .DS_Store
+.env
+.gstack/
 __pycache__/
 *.py[cod]
+.mypy_cache/
 .pytest_cache/
+.ruff_cache/
+.venv/
 .coverage
 htmlcov/
 docs.zip
+web/.next/
+web/coverage/
+web/node_modules/
+web/*.tsbuildinfo

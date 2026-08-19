@@ -8,8 +8,8 @@
 
 <!-- List the exact checks you ran and their results. -->
 
-- [ ] `python3 -m unittest discover -s tests -v`
-- [ ] `python3 scripts/check_docs.py`
+- [ ] `make lint typecheck test build compose-config`
+- [ ] `docker compose up --build` smoke test completed when service behavior changes
 - [ ] Maintainer PR: GStack `/review` completed with no unresolved blocking findings
 
 ## Scope
