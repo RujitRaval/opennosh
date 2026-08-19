@@ -26,6 +26,15 @@ make install
 make lint typecheck test build compose-config
 ```
 
+The API container upgrades the PostgreSQL schema to the latest Alembic revision before it starts. For native development, set `DATABASE_URL` and manage the schema directly:
+
+```bash
+make db-upgrade
+make db-downgrade
+```
+
+`db-downgrade` returns a development database to the empty base revision. Do not run it against data you need to keep.
+
 ---
 
 ## Product documents
