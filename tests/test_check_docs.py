@@ -6,7 +6,11 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from scripts import check_docs
-from scripts.check_docs import CORE_DOCUMENTS, validate_markdown_tree
+from scripts.check_docs import (
+    CORE_DOCUMENTS,
+    validate_markdown_tree,
+    validate_project_identity,
+)
 
 
 class CheckDocsTests(TestCase):
@@ -78,6 +82,52 @@ class CheckDocsTests(TestCase):
         expected_missing = len(CORE_DOCUMENTS) - 1
         self.assertEqual(expected_missing, sum("missing core document" in issue for issue in issues))
 
+    def test_core_documents_use_settled_decision_record(self) -> None:
+        self.assertIn("08-PRODUCT-DECISIONS.md", CORE_DOCUMENTS)
+        self.assertIn("LICENSES.md", CORE_DOCUMENTS)
+        self.assertNotIn("08-OPEN-QUESTIONS.md", CORE_DOCUMENTS)
+
+    def test_rejects_retired_project_identity_references(self) -> None:
+        issues = self.validate(
+            {
+                "README.md": (
+                    "# Title\n\nOpenPlate used `open-plate` and "
+                    "`08-OPEN-QUESTIONS.md`.\n"
+                )
+            }
+        )
+        self.assertEqual(2, sum("retired project identity" in issue for issue in issues))
+        self.assertEqual(1, sum("retired decision filename" in issue for issue in issues))
+
+    def test_rejects_identity_variants_in_user_facing_metadata(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = root / ".github" / "ISSUE_TEMPLATE" / "bug.yml"
+            metadata.parent.mkdir(parents=True)
+            metadata.write_text(
+                "name: Open Plate\ndescription: OPENPLATE\nlabel: OpenNosh\n",
+                encoding="utf-8",
+            )
+            issues = validate_project_identity(root)
+        self.assertEqual(2, sum("retired project identity" in issue for issue in issues))
+        self.assertEqual(1, sum("exact lowercase" in issue for issue in issues))
+
+    def test_identity_scan_handles_suffix_boundaries_and_ignored_directories(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            uppercase_yaml = root / "metadata.YML"
+            uppercase_yaml.write_text("name: OPENPLATE\nnote: OpenPlateau\n", encoding="utf-8")
+            ignored = root / "node_modules" / "package.yml"
+            ignored.parent.mkdir()
+            ignored.write_text("name: OpenPlate\n", encoding="utf-8")
+            issues = validate_project_identity(root)
+        self.assertEqual(1, sum("retired project identity" in issue for issue in issues))
+
+    def test_yaml_identity_is_reported_even_without_markdown(self) -> None:
+        issues = self.validate({"metadata.yml": "name: Open Plate\n"})
+        self.assertIn("repository contains no Markdown documents", issues)
+        self.assertTrue(any("retired project identity" in issue for issue in issues))
+
     def test_reports_empty_invalid_utf8_and_trailing_whitespace(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -109,7 +159,10 @@ class CheckDocsTests(TestCase):
             root = Path(directory)
             script_path = root / "scripts" / "check_docs.py"
             script_path.parent.mkdir()
-            (root / "README.md").write_text("no H1\n", encoding="utf-8")
+            (root / "README.md").write_text("# OpenPlate\n", encoding="utf-8")
             with patch.object(check_docs, "__file__", str(script_path)):
-                with redirect_stdout(io.StringIO()):
+                output = io.StringIO()
+                with redirect_stdout(output):
                     self.assertEqual(1, check_docs.main())
+        self.assertIn("Repository documentation validation failed:", output.getvalue())
+        self.assertIn("retired project identity", output.getvalue())

@@ -21,6 +21,6 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include the OpenPlate version, deployment method, browser, and operating system where relevant.
+      description: Include the opennosh version, deployment method, browser, and operating system where relevant.
     validations:
       required: true

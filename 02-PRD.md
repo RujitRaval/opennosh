@@ -1,6 +1,6 @@
-# 02 — PRD: OpenPlate
+# 02 — PRD: opennosh
 
-Status: draft. Resolve `08-OPEN-QUESTIONS.md` before running the issue pipeline.
+Status: decision-complete. The issue pipeline may run against this document and `03-TRD.md`.
 
 ---
 
@@ -16,7 +16,7 @@ The open-source alternatives each solve one piece, and the most complete one is 
 
 ## 2. What we're building
 
-A self-hosted nutrition and training tracker where **the food database is a git repository**. The application and dataset licenses remain open decisions; MIT and CC0 are the current recommendations, not grants.
+A self-hosted nutrition and training tracker where **the food database is a git repository**. The application is licensed under MIT. Community food packs are dedicated under CC0 1.0, while opennosh still surfaces contributor credit in the UI and exported metadata.
 
 The application is deliberately unremarkable — log food, log lifts, log weight, see trends. The differentiator is that when a food is missing, a user can add it permanently for everyone, in a text file, via a pull request, in under fifteen minutes.
 
@@ -34,6 +34,7 @@ The application is deliberately unremarkable — log food, log lifts, log weight
 - Seed import of USDA FoodData Central (Foundation + SR Legacy) from bulk download
 - Food pack loader — reads community packs from a directory, validates against schema, imports
 - Food search across reference + community tables, with generic foods ranked above branded duplicates
+- Opt-in barcode lookup backed by Open Food Facts, shipped in v1 with ODbL data isolated from the CC0 food-pack database
 - Manual custom food entry (private to the user, not published)
 - Recipe composition — a recipe is a food built from other foods, with a yield weight
 
@@ -42,6 +43,7 @@ The application is deliberately unremarkable — log food, log lifts, log weight
 - Portion entry by weight, by named household serving, or by recipe portion
 - Body weight and measurement logging
 - Strength training log: exercise, sets, reps, load. Free-form enough to accommodate cable/digital-resistance equipment where "weight" is a machine-reported number
+- Exercise catalogue seeded from clearly licensed wger entries, preserving each entry's source, license, and required attribution
 
 ### 4.3 Targets and views
 - User-set macro and calorie targets, including per-day-type targets (a user may run different targets on training vs rest days)
@@ -63,7 +65,6 @@ Stated so an agent doesn't invent them:
 - No wearable ingestion. Deliberate — it's a separate project and possibly a separate repo.
 - No social feed, friends, challenges, or leaderboards.
 - No AI food-photo estimation. Adds a model dependency and an accuracy liability on day one.
-- No barcode scanning in the default build. It requires the ODbL layer; ship it as an opt-in plugin.
 - No meal planning or recipe recommendation.
 - No coaching, no "insights," no automated advice.
 
@@ -73,7 +74,7 @@ The build succeeds if, ninety days after launch:
 
 - Ten or more food packs merged from five or more distinct contributors *(the real test — see `01-RESEARCH.md` §7)*
 - A stranger can go from `git clone` to logging their first meal in under ten minutes
-- At least one other open-source project has imported the dataset under the selected open-data license
+- At least one other open-source project has imported the community dataset under CC0 1.0
 
 Stars are a lagging indicator of the above, not a goal.
 
@@ -99,3 +100,5 @@ Put this section verbatim into `CONVENTIONS.md` in the repo so both the implemen
 3. **Recipe:** define "Sunday dal" from six ingredients with a 1,400g yield → log 300g → correct macros attributed
 4. **Contribution:** fork repo → copy pack template → add ten entries → CI validates → PR merged → entry appears in next release for every user
 5. **Exit:** export all data as JSON and leave. This must be as frictionless as signing up. It's the whole promise.
+6. **Barcode:** scan a packaged food → fetch it through the enabled Open Food Facts integration → log it → retain ODbL attribution and keep it out of the CC0 export.
+7. **Workout:** choose an attributed exercise definition → log sets, reps, and machine-specific load units → see volume trends without combining incompatible units.

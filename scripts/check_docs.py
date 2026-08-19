@@ -14,8 +14,17 @@ CORE_DOCUMENTS = {
     "02-PRD.md",
     "03-TRD.md",
     "04-DATA-LICENSING.md",
-    "08-OPEN-QUESTIONS.md",
+    "08-PRODUCT-DECISIONS.md",
+    "LICENSES.md",
     "docs/foodpack-spec.md",
+}
+RETIRED_IDENTITY_RE = re.compile(r"\bopen[-_ ]?plate\b", re.IGNORECASE)
+RETIRED_DOCUMENT_RE = re.compile(r"08-open-questions\.md", re.IGNORECASE)
+CURRENT_IDENTITY_RE = re.compile(r"\bopennosh\b", re.IGNORECASE)
+USER_FACING_TEXT_SUFFIXES = {".md", ".toml", ".txt", ".yaml", ".yml"}
+IDENTITY_SCAN_EXCLUSIONS = {
+    Path("scripts/check_docs.py"),
+    Path("tests/test_check_docs.py"),
 }
 IGNORED_DIRECTORIES = {
     ".git",
@@ -45,6 +54,43 @@ def markdown_files(root: Path) -> list[Path]:
     )
 
 
+def user_facing_text_files(root: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in root.rglob("*")
+        if path.is_file()
+        and path.suffix.lower() in USER_FACING_TEXT_SUFFIXES
+        and path.relative_to(root) not in IDENTITY_SCAN_EXCLUSIONS
+        and not any(part in IGNORED_DIRECTORIES for part in path.parts)
+    )
+
+
+def validate_project_identity(root: Path) -> list[str]:
+    issues: list[str] = []
+    for path in user_facing_text_files(root):
+        relative = path.relative_to(root)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for _match in RETIRED_IDENTITY_RE.finditer(line):
+                issues.append(
+                    f"{relative}:{line_number}: retired project identity; use 'opennosh'"
+                )
+            if RETIRED_DOCUMENT_RE.search(line):
+                issues.append(
+                    f"{relative}:{line_number}: retired decision filename; "
+                    "use '08-PRODUCT-DECISIONS.md'"
+                )
+            for match in CURRENT_IDENTITY_RE.finditer(line):
+                if match.group(0) != "opennosh":
+                    issues.append(
+                        f"{relative}:{line_number}: project name must be exact lowercase 'opennosh'"
+                    )
+    return issues
+
+
 def link_destination(raw: str) -> str:
     value = raw.strip()
     if not value:
@@ -59,7 +105,7 @@ def validate_markdown_tree(root: Path, require_core: bool = True) -> list[str]:
     files = markdown_files(root)
 
     if not files:
-        return ["repository contains no Markdown documents"]
+        return ["repository contains no Markdown documents", *validate_project_identity(root)]
 
     if require_core:
         missing = sorted(name for name in CORE_DOCUMENTS if not (root / name).is_file())
@@ -141,6 +187,7 @@ def validate_markdown_tree(root: Path, require_core: bool = True) -> list[str]:
         if h1_count != 1:
             issues.append(f"{relative}: expected exactly one H1 heading, found {h1_count}")
 
+    issues.extend(validate_project_identity(root))
     return issues
 
 
@@ -148,7 +195,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     issues = validate_markdown_tree(root)
     if issues:
-        print("Markdown validation failed:")
+        print("Repository documentation validation failed:")
         for issue in issues:
             print(f"- {issue}")
         return 1
