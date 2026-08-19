@@ -30,7 +30,7 @@ This is the same structural pattern that made n8n's node library, Home Assistant
 
 ## Recognition, which matters more than it sounds
 
-- `contributed_by` is a field on every food entry, surfaced in the UI. Someone logging thepla sees who added it.
+- `contributed_by` is a field on every food entry, surfaced in the opennosh UI. Someone logging thepla sees who added it.
 - Per-pack maintainer credit in `pack.yaml`, rendered on the pack's page.
 - An `AUTHORS.md` that lists every contributor, not just code contributors.
 - A pack maintainer role: after three merged packs, a contributor gets merge rights on `packs/` only. Delegating review authority on the highest-volume, lowest-risk surface is the single best defence against your own burnout.
@@ -57,7 +57,7 @@ What it is worth:
 - A community that isn't your customers, which is worth something on its own as a solo founder
 - Genuine daily utility for your own training program
 
-What it is not worth: your AARO time. Cap it. Two months to build, then maintenance only.
+What it is not worth: your AARO time. The owner selected a hard two-month build cap, followed by maintenance and evaluation of the contributor thesis.
 
 ## Kill criteria
 

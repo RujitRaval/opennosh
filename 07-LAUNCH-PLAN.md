@@ -6,9 +6,7 @@ Strategy document. Does not go in the repo.
 
 ## Naming
 
-"OpenPlate" is a placeholder. Check npm, PyPI, GitHub org, and the .app/.dev domain before committing — food-adjacent names are heavily taken.
-
-Alternatives worth checking: **Kitchn** (taken, likely), **Thali**, **Larder**, **Portion**, **Grams**, **Mise**, **Nourish**.
+The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is available and selected. Check npm, PyPI, and preferred domains before publishing packages or launching a public site.
 
 Naming criteria that matter here: pronounceable by non-English speakers (your contributor base is global), doesn't contain "fitness" or "calorie" (those searches are dominated and commercially poisoned), and doesn't imply weight loss.
 
@@ -31,7 +29,7 @@ Before posting anywhere:
 - [ ] The four starter packs are merged and demonstrate real quality
 - [ ] `docs/foodpack-spec.md` is complete, with a copy-paste template
 - [ ] CI validator runs green on a deliberately broken example PR you file against yourself
-- [ ] LICENSE (MIT) and the CC0 declaration for `packs/` are both present and unambiguous
+- [x] LICENSE (MIT) and the CC0 declaration for `packs/` are both present and unambiguous
 - [ ] Data export works. Someone will test this first to check the promise is real.
 - [ ] Health-safety copy reviewed end to end against PRD §7
 

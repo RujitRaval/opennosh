@@ -1,4 +1,4 @@
-# OpenPlate agent instructions
+# opennosh agent instructions
 
 ## Development workflow
 
@@ -8,7 +8,7 @@
 - Run the repository checks before review.
 - Run GStack `/review` when implementation is complete, resolve all blocking findings, then run GStack `/ship` to commit, push, and create or update the pull request.
 - Do not merge a pull request with failing required checks.
-- Do not make the unresolved decisions in `08-OPEN-QUESTIONS.md` on the user's behalf.
+- Treat `08-PRODUCT-DECISIONS.md` as settled product scope. Do not silently reopen or contradict those decisions.
 
 ## Testing
 

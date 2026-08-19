@@ -1,6 +1,6 @@
 # 05 — Food pack specification
 
-This is the canonical contributor specification at `docs/foodpack-spec.md`. The current examples assume the recommended CC0 license; that grant is not final until open question 2 is explicitly resolved.
+This is the canonical contributor specification at `docs/foodpack-spec.md`. Eligible original food-pack material is dedicated under CC0 1.0 as described in [`packs/LICENSE.md`](../packs/LICENSE.md). opennosh still preserves and visibly displays contributor credit.
 
 This is the load-bearing document. If contributing a food pack takes longer than fifteen minutes or a review takes longer than ten, the community model fails and this becomes a solo-maintained tracker.
 
@@ -47,8 +47,11 @@ entry_count: 47
   name_local: મેથી થેપલા
   category: bread
   tags: [vegetarian, indian, gujarati]
+  contributed_by: someuser
 
   provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
   source_note: >
     Calculated from a standard household recipe (whole wheat flour 100g,
     fresh fenugreek 30g, oil 15g, yogurt 20g) yielding 6 pieces at 42g each.
@@ -74,7 +77,11 @@ entry_count: 47
 ```
 
 ### Required fields
-`slug`, `name`, `category`, `provenance`, `basis`, `nutrients.energy_kcal`, `nutrients.protein_g`, `nutrients.fat_g`, `nutrients.carbohydrate_g`
+`slug`, `name`, `category`, `contributed_by`, `provenance`, `source_uri`, `source_license`, `basis`, `nutrients.energy_kcal`, `nutrients.protein_g`, `nutrients.fat_g`, `nutrients.carbohydrate_g`
+
+`contributed_by` is the contributor's GitHub username without `@`. opennosh preserves it in exports and displays it as visible entry-level credit.
+
+`source_license` is one of `contributor-original`, `CC0-1.0`, or `public-domain`. Use `contributor-original` only for material the contributor created and may dedicate under CC0. `government_database` entries require an `https` `source_uri` and a source license of `CC0-1.0` or `public-domain`. CI rejects restrictive, unknown, or free-text license values; those sources belong outside community packs under their own isolated license boundary.
 
 ### `provenance` enum — no free text
 | Value | Meaning |
@@ -107,6 +114,7 @@ The validator is a standalone module. Same code runs in CI and in the runtime lo
 **Hard failures (block merge):**
 - Schema violation, missing required field
 - Invalid `provenance` value
+- Missing or invalid structured source URI/license, including a non-CC0-compatible government source
 - `slug` collision within or across packs
 - Macro/energy mismatch beyond tolerance: `|(4·protein + 4·carb + 9·fat) − energy_kcal| > 15%`
 - Any nutrient negative, or `energy_kcal > 900` per 100g (nothing exceeds pure fat)
