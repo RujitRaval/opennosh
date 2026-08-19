@@ -1,0 +1,26 @@
+name: Feature proposal
+description: Discuss a product change before implementation starts.
+title: "proposal: "
+labels: [proposal]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the user and the concrete problem, without prescribing a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe what users should be able to do if this is solved.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and alternatives
+      description: Note licensing, health-safety, privacy, deployment, or scope implications.
+    validations:
+      required: true

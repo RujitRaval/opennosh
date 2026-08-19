@@ -1,6 +1,6 @@
 # 05 — Food pack specification
 
-**Commit this into the repo at `docs/foodpack-spec.md`.** Contributors need it, and the validator issue implements against it.
+This is the canonical contributor specification at `docs/foodpack-spec.md`. The current examples assume the recommended CC0 license; that grant is not final until open question 2 is explicitly resolved.
 
 This is the load-bearing document. If contributing a food pack takes longer than fifteen minutes or a review takes longer than ten, the community model fails and this becomes a solo-maintained tracker.
 
