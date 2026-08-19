@@ -49,7 +49,7 @@ foods_custom             -- private to one user, never exported in bulk
 recipes
   id, user_id, name, yield_grams, is_public
 recipe_ingredients
-  id, recipe_id, food_ref (polymorphic: table + id), grams
+  id, user_id, recipe_id, food_source_table, food_source_id, grams
 
 log_entries
   id, user_id, logged_at, meal_slot, food_ref, grams,
@@ -61,7 +61,7 @@ body_metrics
 workouts
   id, user_id, performed_at, notes
 workout_sets
-  id, workout_id, exercise_id, set_index, reps,
+  id, user_id, workout_id, exercise_id, set_index, reps,
   load_value, load_unit             -- unit is an enum, see §4
 
 exercises
@@ -79,6 +79,7 @@ targets
 - **`nutrients_json` not a nutrient table.** Micronutrient sets vary wildly by source; a normalised `food_nutrients` table with 150 sparse rows per food is a performance and complexity tax. Store a validated JSON object keyed by nutrient code. Index the handful used in search and totals as generated columns.
 - **`computed_nutrients_json` is denormalised on write.** A log entry must not change retroactively when the underlying food data is corrected. Users' historical logs are immutable records of what they believed they ate.
 - **`food_ref` is polymorphic** across four tables. Store as `(source_table, source_id)`. Ugly but correct — the licence separation is worth more than schema elegance here.
+- **Every user-owned row carries an indexed, non-nullable `user_id`.** Child rows also use composite owner-and-parent foreign keys, so a recipe ingredient or workout set cannot point at another user's parent record.
 - **Nutrient values are always per 100g internally.** All display conversion happens at the edge. Every unit bug in this category comes from mixed internal representations.
 
 ## 3. Food pack loader
