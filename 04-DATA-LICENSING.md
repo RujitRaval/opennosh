@@ -103,6 +103,6 @@ Source references: [wger documentation license summary](https://wger.readthedocs
 
 ## Open Food Facts API boundary
 
-The v1 integration stores ODbL 1.0 database rights separately from DbCL 1.0 individual-content rights. Product images are out of scope and are neither requested nor cached; a future image feature would need its own CC BY-SA attribution path. Every API request uses a descriptive identifying `User-Agent` containing the opennosh version and maintainer contact, and every export carries the applicable Open Food Facts notices.
+The v1 integration stores ODbL 1.0 database rights separately from DbCL 1.0 individual-content rights. It is disabled by default, and an enabled cache miss writes only a reduced, validated nutrition record to `foods_odbl`; no runtime path writes that record to `foods_community`. Product images are out of scope and are omitted from the upstream field allowlist, so they are neither requested nor cached. A future image feature would need its own CC BY-SA attribution path. Every API request uses a descriptive identifying `User-Agent` containing the opennosh version and maintainer contact. `/api/v1/export/foods/openfoodfacts` is the only bulk export for this cache and carries both applicable Open Food Facts notices; the cache is never included in a CC0 food-pack export.
 
 Source reference: [Open Food Facts API licensing guidance](https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/tutorials/license-be-on-the-legal-side/).

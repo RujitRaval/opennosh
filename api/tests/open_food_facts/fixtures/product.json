@@ -1,0 +1,21 @@
+{
+  "status": "success",
+  "product": {
+    "code": "3017620422003",
+    "product_name": "Hazelnut cocoa spread",
+    "brands": "Fixture Foods",
+    "nutriments": {
+      "energy-kcal_100g": 539,
+      "proteins_100g": 6.3,
+      "fat_100g": 30.9,
+      "carbohydrates_100g": 57.5,
+      "fiber_100g": 3.4,
+      "sugars_100g": 56.3,
+      "saturated-fat_100g": 10.6,
+      "salt_100g": 0.107,
+      "sodium_100g": 0.0428
+    },
+    "image_front_url": "https://images.openfoodfacts.org/fixture.jpg",
+    "images": {"front": {"sizes": {"100": {"w": 100, "h": 100}}}}
+  }
+}

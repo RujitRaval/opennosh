@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.15.0.0] - 2026-08-20
+
+### Added
+
+- Look up valid GTIN-8, GTIN-12, GTIN-13, and GTIN-14 barcodes through Open Food Facts when an operator explicitly enables the integration.
+- Reuse successful Open Food Facts lookups in food logs and private recipes while keeping imported ODbL/DbCL records isolated from community-contributed foods.
+- Export cached Open Food Facts records separately with explicit source, attribution, ODbL, and DbCL notices.
+- Cover disabled mode, barcode validation, cache behavior, tenant safety, upstream failures, shared rate limits, response bounds, export limits, and client lifecycle with automated tests.
+
+### Changed
+
+- Bound third-party traffic with cache-first reads, per-client and shared egress rate limits, total request deadlines, an identifying user agent, and strict response-size limits before JSON decoding.
+- Request only the Open Food Facts fields opennosh needs, discard image and unknown data, and sanitize untrusted text before persistence or API responses.
+- Bound the public Open Food Facts export with its own rate limit, database statement timeout, row limit, and serialized-response size ceiling.
+
+### Fixed
+
+- Treat Open Food Facts throttling, malformed payloads, unsupported content encoding, invalid nutrition, unsafe Unicode, slow streams, and oversized responses as controlled API errors without caching partial data.
+- Release database transactions before external network calls and share one lifecycle-managed HTTP client instead of holding database connections or creating a client for every lookup.
+
 ## [0.14.0.0] - 2026-08-20
 
 ### Added

@@ -71,6 +71,40 @@ PostgreSQL full-text and trigram indexes back the search. The integration perfor
 10,000 representative rows, requires both full-text indexes in the analyzed unified-query plan,
 and budgets less than 100 ms of PostgreSQL execution time.
 
+### Open Food Facts barcode lookup
+
+Open Food Facts access is off by default, so local food search, logging, and startup never require
+network access. Enable it deliberately and identify your deployment:
+
+```dotenv
+OPEN_FOOD_FACTS_ENABLED=true
+OPEN_FOOD_FACTS_USER_AGENT_CONTACT=https://example.org/contact
+```
+
+Then look up a valid GTIN-8, GTIN-12, GTIN-13, or GTIN-14 barcode:
+
+```text
+GET /api/v1/foods/barcode/3017620422003
+GET /api/v1/export/foods/openfoodfacts
+```
+
+The first uncached lookup uses the current Open Food Facts product API with a three-second timeout,
+an identifying `opennosh/<version> (<contact>)` User-Agent, and an explicit field allowlist. Product
+images are not requested or cached. Later lookups use the isolated `foods_odbl` cache. That cache is
+never written to `foods_community` and is exported only through its attributed ODbL/DbCL endpoint;
+it is not part of the CC0 food-pack export.
+
+Public lookup traffic defaults to 10 requests per source IP per minute, below Open Food Facts'
+published product-read limit. Configure the integration with `OPEN_FOOD_FACTS_BASE_URL`,
+`OPEN_FOOD_FACTS_TIMEOUT_SECONDS`, `OPEN_FOOD_FACTS_LOOKUP_RATE_LIMIT_ATTEMPTS`, and
+`OPEN_FOOD_FACTS_LOOKUP_RATE_LIMIT_WINDOW_SECONDS`. A second database-backed global limit applies
+only to cache misses so callers sharing the deployment's outbound IP cannot collectively exceed the
+upstream budget; configure it with `OPEN_FOOD_FACTS_UPSTREAM_RATE_LIMIT_ATTEMPTS` and
+`OPEN_FOOD_FACTS_UPSTREAM_RATE_LIMIT_WINDOW_SECONDS`. The separate export has its own rate limit,
+PostgreSQL statement timeout, and a 64 MiB serialized-response ceiling. Invalid GTINs return 422,
+missing products return 404, upstream rate limits return 503, upstream timeouts return 504, and
+other unusable upstream responses return 502.
+
 ## Authentication
 
 The API provides local account registration, login, session inspection, and logout under `/api/v1/auth`. Passwords are hashed with Argon2id and opaque sessions are stored in PostgreSQL; no third-party identity provider is required.

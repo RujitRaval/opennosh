@@ -122,7 +122,19 @@ Treat every imported attribution field as untrusted input. Enforce types and con
 
 Exercise search uses PostgreSQL full-text plus exact muscle and equipment filters, bounded pagination, a statement timeout, and per-IP rate limiting. Search, detail, UI notices, and export return the complete attribution record. The exercise export has its own per-IP limit and statement timeout, and rejects catalogues above 10,000 rows or 64 MiB of stored data. It remains separately identified as `CC-BY-SA-3.0`, includes the license, source, and ShareAlike notices, and is never combined with the CC0 food-pack dump.
 
-The Open Food Facts client sends a descriptive identifying `User-Agent` containing the opennosh version and maintainer contact. It preserves ODbL database and DbCL contents notices in storage and export. v1 does not request, cache, or display product images; adding images later requires a separate CC BY-SA attribution design.
+The Open Food Facts client is disabled by default and never runs during startup. When enabled, a
+cache miss calls `GET /api/v3/product/{barcode}` with only `code`, `product_name`, `brands`,
+`nutriments`, and `nutrition`; image fields are neither requested nor retained. The client validates
+the GTIN check digit before network access, applies a total request deadline without retries,
+requests identity encoding, rejects encoded responses, streams through a response size cap, and
+sends a descriptive identifying `User-Agent`
+containing the opennosh version and
+maintainer contact. Successful products are reduced to canonical per-100g nutrition before an
+idempotent write to `foods_odbl`. It preserves ODbL database and DbCL contents notices in storage,
+lookup, and the separate `/api/v1/export/foods/openfoodfacts` response. Adding images later requires
+a separate CC BY-SA attribution design. Cache misses share one database-backed outbound quota, and
+the reusable HTTP client is closed during application shutdown. No database transaction remains
+open while the external request is in flight.
 
 ## 5. API surface
 
@@ -134,6 +146,7 @@ GET    /auth/session
 GET    /foods/search?q=&locale=&source=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
+GET    /export/foods/openfoodfacts      -- isolated attributed ODbL/DbCL cache export
 POST   /foods/custom
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
