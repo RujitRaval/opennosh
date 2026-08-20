@@ -84,6 +84,22 @@ def test_community_food_pack_lookups_are_indexed() -> None:
     assert "pack_id" in indexed_columns
 
 
+def test_food_search_indexes_are_declared_in_model_metadata() -> None:
+    reference_indexes = {index.name for index in Base.metadata.tables["foods_reference"].indexes}
+    community_indexes = {index.name for index in Base.metadata.tables["foods_community"].indexes}
+
+    assert {
+        "ix_foods_reference_search_tsv",
+        "ix_foods_reference_description_trgm",
+    }.issubset(reference_indexes)
+    assert {
+        "ix_foods_community_search_tsv",
+        "ix_foods_community_slug_trgm",
+        "ix_foods_community_name_trgm",
+        "ix_foods_community_name_local_trgm",
+    }.issubset(community_indexes)
+
+
 def test_every_user_owned_table_has_an_indexed_non_null_owner_foreign_key() -> None:
     for table_name in OWNER_TABLES:
         table = Base.metadata.tables[table_name]
