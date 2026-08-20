@@ -128,6 +128,10 @@ ingredients with gram quantities:
 }
 ```
 
+Ingredient sources may be `usda`, `community`, `openfoodfacts`, or `custom`. List recipes with
+`GET /api/v1/recipes?limit=50&offset=0`; `limit` accepts 1–100, `offset` accepts 0–10,000, and the
+response includes `has_more`. `POST`, `PUT`, and `DELETE` require the session CSRF token.
+
 `POST` and `PUT` snapshot each ingredient's identity, exact mass, and nutrients. Recipe detail and
 totals therefore remain stable if an underlying public food changes or a private custom food is
 deleted. The response includes whole-recipe totals and a yield-derived per-100-gram profile. All

@@ -132,7 +132,7 @@ GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
 POST   /foods/custom
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
-GET    /recipes            POST /recipes
+GET    /recipes?limit=&offset=            POST /recipes
 GET    /recipes/{id}       PUT /recipes/{id}        DELETE /recipes/{id}
 GET    /logs?day=&timezone=           POST /logs
 GET    /logs/{id}                     DELETE /logs/{id}
