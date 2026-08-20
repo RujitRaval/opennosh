@@ -236,6 +236,15 @@ class LogEntry(UUIDPrimaryKeyMixin, Base):
             f"food_source_table IN ({FOOD_SOURCE_TABLE_VALUES})", name="food_source_allowed"
         ),
         CheckConstraint("grams > 0", name="grams_positive"),
+        CheckConstraint("quantity_amount > 0", name="quantity_amount_positive"),
+        CheckConstraint(
+            "quantity_unit IN ('g', 'ml', 'portion')", name="quantity_unit_allowed"
+        ),
+        CheckConstraint(
+            "(quantity_unit = 'portion' AND portion_name IS NOT NULL) OR "
+            "(quantity_unit <> 'portion' AND portion_name IS NULL)",
+            name="portion_name_matches_unit",
+        ),
         Index("ix_log_entries_user_id_logged_at", "user_id", "logged_at"),
     )
 
@@ -246,7 +255,12 @@ class LogEntry(UUIDPrimaryKeyMixin, Base):
     meal_slot: Mapped[str] = mapped_column(String(64), nullable=False)
     food_source_table: Mapped[str] = mapped_column(String(32), nullable=False)
     food_source_id: Mapped[UUID] = mapped_column(nullable=False)
-    grams: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    food_source_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    food_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    quantity_amount: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    quantity_unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    portion_name: Mapped[str | None] = mapped_column(String(80))
+    grams: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
     computed_nutrients_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 

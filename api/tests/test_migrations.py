@@ -188,6 +188,26 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
             "ix_foods_reference_description_trgm",
         }.issubset({index["name"] for index in reference_indexes})
 
+        log_columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: inspector.get_columns("log_entries"),
+            )
+        )
+        assert {
+            "food_source_key",
+            "food_name",
+            "quantity_amount",
+            "quantity_unit",
+            "portion_name",
+        }.issubset({column["name"] for column in log_columns})
+        assert all(
+            not column["nullable"]
+            for column in log_columns
+            if column["name"]
+            in {"food_source_key", "food_name", "quantity_amount", "quantity_unit"}
+        )
+
         for table_name in (
             "auth_sessions",
             "foods_custom",
