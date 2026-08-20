@@ -13,6 +13,15 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.food_search_rate_limit_attempts == 120
     assert settings.food_search_rate_limit_window_seconds == 60
     assert settings.food_search_statement_timeout_ms == 500
+    assert settings.open_food_facts_enabled is False
+    assert settings.open_food_facts_base_url == "https://world.openfoodfacts.org"
+    assert settings.open_food_facts_timeout_seconds == 3.0
+    assert settings.open_food_facts_lookup_rate_limit_attempts == 10
+    assert settings.open_food_facts_lookup_rate_limit_window_seconds == 60
+    assert settings.open_food_facts_upstream_rate_limit_attempts == 10
+    assert settings.open_food_facts_upstream_rate_limit_window_seconds == 60
+    assert settings.open_food_facts_export_rate_limit_attempts == 10
+    assert settings.open_food_facts_export_statement_timeout_ms == 2_000
     assert settings.exercise_search_rate_limit_attempts == 120
     assert settings.exercise_search_rate_limit_window_seconds == 60
     assert settings.exercise_search_statement_timeout_ms == 500
@@ -67,6 +76,18 @@ def test_settings_reject_rate_limit_retention_shorter_than_window() -> None:
         )
     with pytest.raises(ValidationError):
         Settings(
+            open_food_facts_lookup_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            open_food_facts_export_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
             exercise_search_rate_limit_window_seconds=300,
             auth_rate_limit_retention_seconds=299,
             _env_file=None,
@@ -86,3 +107,22 @@ def test_settings_reject_an_invalid_target_floor() -> None:
         Settings(target_kcal_floor=20_001, _env_file=None)
     with pytest.raises(ValidationError):
         Settings(target_kcal_floor="1200.001", _env_file=None)
+
+
+def test_open_food_facts_settings_reject_unsafe_values() -> None:
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_base_url="http://world.openfoodfacts.org", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_timeout_seconds=0, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_lookup_rate_limit_attempts=16, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_upstream_rate_limit_attempts=16, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_upstream_rate_limit_window_seconds=59, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_base_url="https://example.test:99999", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_user_agent_contact="contact\nInjected: header", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(open_food_facts_user_agent_contact="Maintainer 🚀", _env_file=None)

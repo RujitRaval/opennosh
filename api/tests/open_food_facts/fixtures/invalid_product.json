@@ -1,0 +1,14 @@
+{
+  "status": "success",
+  "product": {
+    "code": "3017620422003",
+    "product_name": "Broken product",
+    "brands": "Fixture Foods",
+    "nutriments": {
+      "energy-kcal_100g": 100,
+      "proteins_100g": 1,
+      "fat_100g": -1,
+      "carbohydrates_100g": 20
+    }
+  }
+}

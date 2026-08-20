@@ -21,6 +21,11 @@ must never call the live wger service. Keep the v1 license allowlist exact: only
 translation attribution must remain intact. Add hostile fixtures for any newly accepted input shape,
 including markup and unsafe URL cases. Import wger data only; do not copy AGPL application code.
 
+Open Food Facts changes must use local HTTP fixtures and the PostgreSQL integration suite; tests
+must never call the live service. Keep barcode access disabled by default, request only the explicit
+non-image field allowlist, write fetched records only to `foods_odbl`, and preserve the ODbL 1.0
+database and DbCL 1.0 contents notices in lookup and separate export responses.
+
 ## Scope boundaries
 
 Accepted contribution types include food packs, translations, and bug fixes with tests. Exercise-catalogue changes must follow the per-entry license and attribution boundary in `04-DATA-LICENSING.md`; do not submit bulk exercise data without a prior issue.
