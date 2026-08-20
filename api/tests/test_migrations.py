@@ -162,6 +162,14 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
         )
         assert table_names == EXPECTED_TABLES
 
+        community_indexes = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: inspector.get_indexes("foods_community"),
+            )
+        )
+        assert any(index["column_names"] == ["pack_id"] for index in community_indexes)
+
         for table_name in (
             "auth_sessions",
             "foods_custom",

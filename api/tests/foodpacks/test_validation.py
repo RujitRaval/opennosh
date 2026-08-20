@@ -84,6 +84,35 @@ def test_valid_directory_fixture_passes_without_warnings() -> None:
     assert report.warnings == ()
 
 
+@pytest.mark.parametrize(
+    ("target", "value", "path"),
+    [
+        ("version", "1.0.0+" + "a" * 64, ("pack", "version")),
+        ("locale", "en-" + "-".join(["Latin"] * 8), ("pack", "locale")),
+        (
+            "source_uri",
+            "https://example.gov/" + "a" * 2048,
+            ("foods", 0, "source_uri"),
+        ),
+    ],
+)
+def test_storage_bounded_strings_are_rejected_before_database_write(
+    target: str, value: str, path: tuple[str | int, ...]
+) -> None:
+    document = _valid_document()
+    if target == "source_uri":
+        entry = _first_food(document)
+        entry["provenance"] = "government_database"
+        entry["source_license"] = "public-domain"
+        entry[target] = value
+    else:
+        _manifest(document)[target] = value
+
+    report = validate_pack_document(document)
+
+    assert any(issue.code == "schema.maxLength" and issue.path == path for issue in report.errors)
+
+
 def test_hostile_fixtures_cover_every_documented_hard_failure() -> None:
     report = validate_pack_directories([HOSTILE_A, HOSTILE_B])
     error_codes = {issue.code for issue in report.errors}
