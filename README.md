@@ -235,7 +235,7 @@ Both dates are required, results are newest first, and the response includes `ha
 Every query is owner-scoped; deleting another user's ID returns the same `404` as a missing
 record. Successful and failed responses send `Cache-Control: no-store`. The stable record
 shape (`id`, `recorded_at`, `metric_type`, `value`, and `unit`) is also the representation
-reserved for the future authenticated `/export/me` response. opennosh stores and reports
+used by the authenticated `/export/me` response. opennosh stores and reports
 these numbers without streaks, shaming, or automated medical interpretation.
 
 ## Private strength workouts

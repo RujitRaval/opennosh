@@ -147,7 +147,7 @@ GET    /auth/session
 GET    /foods/search?q=&locale=&source=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
-GET    /export/foods/openfoodfacts      -- isolated attributed ODbL/DbCL cache export
+GET    /export/foods/openfoodfacts      -- compatibility alias for /export/foods/odbl
 POST   /foods/custom
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
