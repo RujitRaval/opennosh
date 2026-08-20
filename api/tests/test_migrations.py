@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Callable
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -1075,6 +1076,262 @@ def test_body_metric_migration_rejects_invalid_legacy_rows(
             )
         )
         with pytest.raises(DBAPIError, match="Cannot migrate invalid legacy body metrics"):
+            command.upgrade(config, "head")
+    finally:
+        command.downgrade(config, "base")
+
+
+async def seed_legacy_workout(database_url: str, *, invalid_kind: str | None = None) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('legacy-workout@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+            exercise_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO exercises (
+                        slug, name, source, source_id, source_url, license_spdx,
+                        license_url, attribution_text
+                    ) VALUES (
+                        'legacy-squat', 'Legacy squat', 'wger', 'legacy-1',
+                        'https://example.test/exercise', 'CC-BY-SA-3.0',
+                        'https://creativecommons.org/licenses/by-sa/3.0/',
+                        'Legacy attribution'
+                    ) RETURNING id
+                    """
+                )
+            )
+            performed_at = (
+                datetime.max.replace(tzinfo=UTC)
+                if invalid_kind == "timestamp"
+                else datetime(2026, 8, 20, 12, tzinfo=UTC)
+            )
+            notes = "x" * 5001 if invalid_kind == "notes" else "legacy notes"
+            workout_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO workouts (user_id, performed_at, notes)
+                    VALUES (:user_id, CAST(:performed_at AS timestamptz), :notes)
+                    RETURNING id
+                    """
+                ),
+                {"user_id": user_id, "performed_at": performed_at, "notes": notes},
+            )
+            load_value = (
+                None if invalid_kind in {"contract", "rpe_null"} else Decimal("100")
+            )
+            load_unit = "rpe_only" if invalid_kind == "rpe_null" else "kg"
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO workout_sets (
+                        user_id, workout_id, exercise_id, set_index, reps,
+                        load_value, load_unit
+                    ) VALUES (
+                        :user_id, :workout_id, :exercise_id, 0, 5,
+                        CAST(:load_value AS numeric), :load_unit
+                    )
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "workout_id": workout_id,
+                    "exercise_id": exercise_id,
+                    "load_value": load_value,
+                    "load_unit": load_unit,
+                },
+            )
+            if invalid_kind is None:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO workout_sets (
+                            user_id, workout_id, exercise_id, set_index, reps,
+                            load_value, load_unit
+                        ) VALUES (
+                            :user_id, :workout_id, :exercise_id, 1, 8, NULL,
+                            'bodyweight'
+                        )
+                        """
+                    ),
+                    {
+                        "user_id": user_id,
+                        "workout_id": workout_id,
+                        "exercise_id": exercise_id,
+                    },
+                )
+    finally:
+        await engine.dispose()
+
+
+async def read_legacy_workout(database_url: str) -> list[dict[str, str | None]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT ws.set_index, ws.reps, ws.load_value, ws.load_unit
+                        FROM workout_sets ws
+                        JOIN workouts w ON w.id = ws.workout_id
+                        WHERE w.notes = 'legacy notes'
+                        ORDER BY ws.set_index
+                        """
+                    )
+                )
+            ).mappings()
+            return [
+                {
+                    "set_index": str(row["set_index"]),
+                    "reps": str(row["reps"]),
+                    "load_value": (
+                        None if row["load_value"] is None else format(row["load_value"], "f")
+                    ),
+                    "load_unit": str(row["load_unit"]),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def assert_invalid_workout_sets_are_rejected(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        for position, load_value, load_unit in (
+            (2, Decimal("1"), "bodyweight"),
+            (3, None, "rpe_only"),
+        ):
+            with pytest.raises(IntegrityError):
+                async with engine.begin() as connection:
+                    row = (
+                        (
+                            await connection.execute(
+                                text(
+                                    """
+                                SELECT w.user_id, w.id AS workout_id, ws.exercise_id
+                                FROM workouts w
+                                JOIN workout_sets ws ON ws.workout_id = w.id
+                                LIMIT 1
+                                """
+                                )
+                            )
+                        )
+                        .mappings()
+                        .one()
+                    )
+                    await connection.execute(
+                        text(
+                            """
+                            INSERT INTO workout_sets (
+                                user_id, workout_id, exercise_id, set_index, reps,
+                                load_value, load_unit
+                            ) VALUES (
+                                :user_id, :workout_id, :exercise_id, :position, 8,
+                                CAST(:load_value AS numeric), :load_unit
+                            )
+                            """
+                        ),
+                        {
+                            **dict(row),
+                            "position": position,
+                            "load_value": load_value,
+                            "load_unit": load_unit,
+                        },
+                    )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_workout_migration_preserves_valid_rows_and_enforces_contract() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0008")
+        asyncio.run(seed_legacy_workout(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        assert asyncio.run(read_legacy_workout(INTEGRATION_DATABASE_URL)) == [
+            {
+                "set_index": "0",
+                "reps": "5",
+                "load_value": "100.000",
+                "load_unit": "kg",
+            },
+            {
+                "set_index": "1",
+                "reps": "8",
+                "load_value": None,
+                "load_unit": "bodyweight",
+            },
+        ]
+        workout_constraints = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"] for constraint in inspector.get_check_constraints("workouts")
+                },
+            )
+        )
+        set_constraints = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"]
+                    for constraint in inspector.get_check_constraints("workout_sets")
+                },
+            )
+        )
+        assert {
+            "ck_workouts_performed_at_supported",
+            "ck_workouts_notes_bounded",
+        }.issubset(workout_constraints)
+        assert {
+            "ck_workout_sets_set_index_bounded",
+            "ck_workout_sets_reps_bounded",
+            "ck_workout_sets_load_value_bounded",
+            "ck_workout_sets_load_contract_valid",
+        }.issubset(set_constraints)
+        asyncio.run(assert_invalid_workout_sets_are_rejected(INTEGRATION_DATABASE_URL))
+
+        command.downgrade(config, "20260820_0008")
+        downgraded = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"]
+                    for constraint in inspector.get_check_constraints("workout_sets")
+                },
+            )
+        )
+        assert "ck_workout_sets_load_contract_valid" not in downgraded
+        assert len(asyncio.run(read_legacy_workout(INTEGRATION_DATABASE_URL))) == 2
+    finally:
+        command.downgrade(config, "base")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+@pytest.mark.parametrize("invalid_kind", ["contract", "rpe_null", "timestamp", "notes"])
+def test_workout_migration_rejects_invalid_legacy_rows(invalid_kind: str) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0008")
+        asyncio.run(seed_legacy_workout(INTEGRATION_DATABASE_URL, invalid_kind=invalid_kind))
+        with pytest.raises(DBAPIError, match="Cannot migrate invalid legacy workouts"):
             command.upgrade(config, "head")
     finally:
         command.downgrade(config, "base")
