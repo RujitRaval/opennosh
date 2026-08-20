@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.7.0.0] - 2026-08-20
+
+### Added
+
+- Load one validated CC0 food pack or every pack below a repository root with `opennosh foods load`, including stable human-readable and JSON reports.
+- Preserve canonical per-100-gram nutrition, portions, contributor credit, provenance, source URI, and source-license metadata for every accepted community food.
+- Keep valid entries when a pack contains invalid ones, while reporting each rejected entry with its precise validation issue.
+- Add PostgreSQL integration coverage for unchanged reloads, versioned updates, stale-pack protection, partial failures, metadata export, and concurrent retries.
+
+### Changed
+
+- Make food-pack loading idempotent and concurrency-safe with per-pack transaction locks, version ordering, conflict-safe inserts, and bounded transaction retries.
+- Index community foods by pack ID and verify the new Alembic head during the container migration boot check.
+- Package the API command entry point and food-pack schema in the production container, with documented loader usage.
+
 ## [0.6.0.0] - 2026-08-20
 
 ### Added
