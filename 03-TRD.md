@@ -131,7 +131,9 @@ POST   /foods/custom
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
 GET    /recipes            POST /recipes            PUT /recipes/{id}
-GET    /log?date=          POST /log                DELETE /log/{id}
+GET    /logs?day=&timezone=           POST /logs
+GET    /logs/{id}                     DELETE /logs/{id}
+GET    /logs/daily-totals?day=&timezone=
 GET    /targets            PUT  /targets
 POST   /body-metrics       GET  /body-metrics?from=&to=
 POST   /workouts           GET  /workouts?from=&to=
