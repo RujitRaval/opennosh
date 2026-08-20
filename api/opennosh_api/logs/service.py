@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import Select, func, select, text
+from sqlalchemy import Select, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.dependencies import CurrentSession
@@ -87,9 +87,12 @@ def resolve_timezone(requested: str | None, settings_json: dict[str, Any]) -> Zo
 
 
 def utc_day_bounds(day: date, timezone: ZoneInfo) -> tuple[datetime, datetime]:
-    start_local = datetime.combine(day, time.min, tzinfo=timezone)
-    end_local = datetime.combine(day + timedelta(days=1), time.min, tzinfo=timezone)
-    return start_local.astimezone(UTC), end_local.astimezone(UTC)
+    try:
+        start_local = datetime.combine(day, time.min, tzinfo=timezone)
+        end_local = datetime.combine(day + timedelta(days=1), time.min, tzinfo=timezone)
+        return start_local.astimezone(UTC), end_local.astimezone(UTC)
+    except OverflowError as error:
+        raise FoodLogInputError("day is outside the supported timezone range") from error
 
 
 async def _resolve_food(
@@ -180,7 +183,12 @@ def _source_for_entry(entry: LogEntry) -> FoodLogSource:
 
 
 def _response(entry: LogEntry) -> LogEntryResponse:
-    snapshot = NutrientSnapshot.model_validate(entry.computed_nutrients_json)
+    # Stored snapshots were computed from a profile validated at write time. USDA
+    # snapshots may legitimately retain food-specific energy-factor differences.
+    snapshot = NutrientSnapshot.model_validate(
+        entry.computed_nutrients_json,
+        context={"authoritative_source": True},
+    )
     return LogEntryResponse(
         id=entry.id,
         logged_at=entry.logged_at,
@@ -299,39 +307,56 @@ async def daily_totals(
     current: CurrentSession,
 ) -> DailyTotalsResponse:
     start, end = utc_day_bounds(day, timezone)
-    entry_count, grams = (
-        await database.execute(
-            select(func.count(LogEntry.id), func.coalesce(func.sum(LogEntry.grams), 0)).where(
-                LogEntry.user_id == current.user_id,
-                LogEntry.logged_at >= start,
-                LogEntry.logged_at < end,
+    totals = (
+        (
+            await database.execute(
+                text(
+                    """
+                WITH scoped_entries AS MATERIALIZED (
+                    SELECT grams, computed_nutrients_json
+                    FROM log_entries
+                    WHERE user_id = :user_id
+                      AND logged_at >= :start
+                      AND logged_at < :end
+                ),
+                summary AS (
+                    SELECT count(*) AS entry_count,
+                           coalesce(sum(grams), 0) AS grams
+                    FROM scoped_entries
+                ),
+                nutrient_totals AS (
+                    SELECT nutrient.key AS code,
+                           sum((nutrient.value #>> '{}')::numeric) AS amount
+                    FROM scoped_entries AS entry
+                    CROSS JOIN LATERAL jsonb_each(
+                        entry.computed_nutrients_json -> 'nutrients'
+                    ) AS nutrient(key, value)
+                    GROUP BY nutrient.key
+                )
+                SELECT summary.entry_count,
+                       summary.grams,
+                       coalesce(
+                           (
+                               SELECT jsonb_object_agg(
+                                   code, amount::text ORDER BY code
+                               )
+                               FROM nutrient_totals
+                           ),
+                           '{}'::jsonb
+                       ) AS nutrients
+                FROM summary
+                """
+                ),
+                {"user_id": current.user_id, "start": start, "end": end},
             )
         )
-    ).one()
-    nutrient_rows = (
-        await database.execute(
-            text(
-                """
-                SELECT nutrient.key AS code,
-                       sum((nutrient.value #>> '{}')::numeric) AS amount
-                FROM log_entries AS entry
-                CROSS JOIN LATERAL jsonb_each(
-                    entry.computed_nutrients_json -> 'nutrients'
-                ) AS nutrient(key, value)
-                WHERE entry.user_id = :user_id
-                  AND entry.logged_at >= :start
-                  AND entry.logged_at < :end
-                GROUP BY nutrient.key
-                ORDER BY nutrient.key
-                """
-            ),
-            {"user_id": current.user_id, "start": start, "end": end},
-        )
-    ).mappings()
+        .mappings()
+        .one()
+    )
     return DailyTotalsResponse(
         day=day,
         timezone=timezone.key,
-        entry_count=int(entry_count),
-        grams=Decimal(grams),
-        nutrients={row["code"]: Decimal(row["amount"]) for row in nutrient_rows},
+        entry_count=int(totals["entry_count"]),
+        grams=Decimal(totals["grams"]),
+        nutrients={code: Decimal(amount) for code, amount in totals["nutrients"].items()},
     )

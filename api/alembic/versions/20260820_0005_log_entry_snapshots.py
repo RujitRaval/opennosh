@@ -25,10 +25,65 @@ def upgrade() -> None:
     op.execute(
         """
         UPDATE log_entries
-        SET food_source_key = food_source_id::text,
-            food_name = food_source_table || ':' || food_source_id::text,
-            quantity_amount = grams,
+        SET quantity_amount = grams,
             quantity_unit = 'g'
+        """
+    )
+    op.execute(
+        """
+        UPDATE log_entries AS entry
+        SET food_source_key = food.fdc_id,
+            food_name = food.description
+        FROM foods_reference AS food
+        WHERE entry.food_source_table = 'foods_reference'
+          AND entry.food_source_id = food.id
+        """
+    )
+    op.execute(
+        """
+        UPDATE log_entries AS entry
+        SET food_source_key = food.slug,
+            food_name = food.name
+        FROM foods_community AS food
+        WHERE entry.food_source_table = 'foods_community'
+          AND entry.food_source_id = food.id
+        """
+    )
+    op.execute(
+        """
+        UPDATE log_entries AS entry
+        SET food_source_key = food.barcode,
+            food_name = food.product_name
+        FROM foods_odbl AS food
+        WHERE entry.food_source_table = 'foods_odbl'
+          AND entry.food_source_id = food.id
+        """
+    )
+    op.execute(
+        """
+        UPDATE log_entries AS entry
+        SET food_source_key = food.id::text,
+            food_name = food.name
+        FROM foods_custom AS food
+        WHERE entry.food_source_table = 'foods_custom'
+          AND entry.food_source_id = food.id
+          AND entry.user_id = food.user_id
+        """
+    )
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM log_entries
+                WHERE food_source_key IS NULL OR food_name IS NULL
+            ) THEN
+                RAISE EXCEPTION
+                    'Cannot migrate log entries with missing or cross-tenant source foods';
+            END IF;
+        END
+        $$
         """
     )
     op.alter_column("log_entries", "food_source_key", nullable=False)
@@ -76,13 +131,8 @@ def downgrade() -> None:
         "log_entries",
         type_="check",
     )
-    op.alter_column(
-        "log_entries",
-        "grams",
-        existing_type=sa.Numeric(),
-        type_=sa.Numeric(12, 3),
-        existing_nullable=False,
-    )
+    # Keep the backward-compatible unbounded NUMERIC type. Narrowing exact v0005
+    # values to NUMERIC(12, 3) can round them to zero and make rollback fail.
     op.drop_column("log_entries", "portion_name")
     op.drop_column("log_entries", "quantity_unit")
     op.drop_column("log_entries", "quantity_amount")

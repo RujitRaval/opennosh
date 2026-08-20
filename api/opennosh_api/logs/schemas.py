@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import Annotated
@@ -103,6 +103,10 @@ class LogEntryCreate(BaseModel):
     def require_aware_logged_at(cls, value: datetime) -> datetime:
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("logged_at must include a UTC offset")
+        try:
+            value.astimezone(UTC)
+        except OverflowError as error:
+            raise ValueError("logged_at is outside the supported UTC range") from error
         return value
 
 

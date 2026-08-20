@@ -35,6 +35,15 @@ _COMMUNITY_NUTRIENTS = """{
     "fat_g": "10"
   }
 }"""
+_AUTHORITATIVE_NUTRIENTS = """{
+  "basis": "per_100g",
+  "nutrients": {
+    "energy_kcal": "100",
+    "protein_g": "0",
+    "carbohydrate_g": "0",
+    "fat_g": "0"
+  }
+}"""
 
 
 @dataclass(frozen=True)
@@ -44,6 +53,7 @@ class LogClients:
     owner_csrf: str
     attacker_csrf: str
     attacker_custom_food_id: str
+    owner_custom_food_id: str
     owner_user_id: str
 
 
@@ -55,7 +65,8 @@ async def _reset_database(database_url: str) -> None:
                 text(
                     """
                     TRUNCATE auth_rate_limits, auth_sessions, log_entries,
-                             foods_reference, foods_community, foods_custom, users CASCADE
+                             foods_reference, foods_community, foods_odbl,
+                             foods_custom, users CASCADE
                     """
                 )
             )
@@ -63,7 +74,9 @@ async def _reset_database(database_url: str) -> None:
         await engine.dispose()
 
 
-async def _seed_foods(database_url: str, attacker_user_id: str) -> str:
+async def _seed_foods(
+    database_url: str, attacker_user_id: str, owner_user_id: str
+) -> tuple[str, str]:
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
@@ -72,13 +85,18 @@ async def _seed_foods(database_url: str, attacker_user_id: str) -> str:
                     """
                     INSERT INTO foods_reference (
                         fdc_id, description, food_category, nutrients_json, portions_json
-                    ) VALUES (
+                    ) VALUES
+                    (
                         '100', 'Stable oats', 'grain', CAST(:usda AS jsonb),
                         '[{"name":"1 cup","grams":"80"}]'::jsonb
+                    ),
+                    (
+                        '101', 'Published energy-factor food', 'test',
+                        CAST(:authoritative AS jsonb), '[]'::jsonb
                     )
                     """
                 ),
-                {"usda": _USDA_NUTRIENTS},
+                {"usda": _USDA_NUTRIENTS, "authoritative": _AUTHORITATIVE_NUTRIENTS},
             )
             await connection.execute(
                 text(
@@ -97,7 +115,22 @@ async def _seed_foods(database_url: str, attacker_user_id: str) -> str:
                 ),
                 {"community": _COMMUNITY_NUTRIENTS},
             )
-            custom_id = await connection.scalar(
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO foods_odbl (
+                        barcode, product_name, nutrients_json, source_url,
+                        attribution_text
+                    ) VALUES (
+                        '0012345678905', 'Packaged dal', CAST(:community AS jsonb),
+                        'https://world.openfoodfacts.org/product/0012345678905',
+                        'Open Food Facts contributors'
+                    )
+                    """
+                ),
+                {"community": _COMMUNITY_NUTRIENTS},
+            )
+            attacker_custom_id = await connection.scalar(
                 text(
                     """
                     INSERT INTO foods_custom (
@@ -110,7 +143,20 @@ async def _seed_foods(database_url: str, attacker_user_id: str) -> str:
                 ),
                 {"user_id": attacker_user_id, "community": _COMMUNITY_NUTRIENTS},
             )
-            return str(custom_id)
+            owner_custom_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO foods_custom (
+                        user_id, name, nutrients_json, portions_json
+                    ) VALUES (
+                        CAST(:user_id AS uuid), 'Private owner food',
+                        CAST(:community AS jsonb), '[]'::jsonb
+                    ) RETURNING id
+                    """
+                ),
+                {"user_id": owner_user_id, "community": _COMMUNITY_NUTRIENTS},
+            )
+            return str(attacker_custom_id), str(owner_custom_id)
     finally:
         await engine.dispose()
 
@@ -178,10 +224,11 @@ def log_clients() -> Iterator[LogClients]:
         )
         assert owner_registration.status_code == 201
         assert attacker_registration.status_code == 201
-        custom_id = asyncio.run(
+        attacker_custom_id, owner_custom_id = asyncio.run(
             _seed_foods(
                 INTEGRATION_DATABASE_URL,
                 attacker_registration.json()["user"]["id"],
+                owner_registration.json()["user"]["id"],
             )
         )
         yield LogClients(
@@ -189,7 +236,8 @@ def log_clients() -> Iterator[LogClients]:
             attacker=attacker,
             owner_csrf=owner_registration.json()["csrf_token"],
             attacker_csrf=attacker_registration.json()["csrf_token"],
-            attacker_custom_food_id=custom_id,
+            attacker_custom_food_id=attacker_custom_id,
+            owner_custom_food_id=owner_custom_id,
             owner_user_id=owner_registration.json()["user"]["id"],
         )
 
@@ -266,6 +314,38 @@ def test_create_list_detail_totals_and_immutable_snapshot(log_clients: LogClient
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_create_supports_every_v1_food_store_and_authoritative_usda(
+    log_clients: LogClients,
+) -> None:
+    cases = (
+        (
+            {"source": "usda", "source_id": "101"},
+            "Published energy-factor food",
+            "50.00",
+        ),
+        (
+            {"source": "openfoodfacts", "source_id": "0012345678905"},
+            "Packaged dal",
+            "95.00",
+        ),
+        (
+            {"source": "custom", "source_id": log_clients.owner_custom_food_id},
+            "Private owner food",
+            "95.00",
+        ),
+    )
+    for food, expected_name, expected_energy in cases:
+        created = _create(
+            log_clients.owner,
+            log_clients.owner_csrf,
+            food=food,
+        )
+        assert created.status_code == 201
+        assert created.json()["food"] == {**food, "name": expected_name}
+        assert created.json()["snapshot"]["nutrients"]["energy_kcal"] == expected_energy
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_daily_queries_use_local_day_boundaries_across_dst(log_clients: LogClients) -> None:
     timestamps = (
         "2026-03-08T04:59:59Z",
@@ -296,11 +376,47 @@ def test_daily_queries_use_local_day_boundaries_across_dst(log_clients: LogClien
     )
     assert new_york.json()["timezone"] == "America/New_York"
     assert [item["meal_slot"] for item in new_york.json()["items"]] == ["slot-1", "slot-2"]
+    new_york_totals = log_clients.owner.get(
+        "/api/v1/logs/daily-totals",
+        params={"day": "2026-03-08"},
+    )
+    assert new_york_totals.json()["timezone"] == "America/New_York"
+    assert new_york_totals.json()["entry_count"] == 2
+    assert new_york_totals.json()["grams"] == "100.00"
     utc = log_clients.owner.get(
         "/api/v1/logs",
         params={"day": "2026-03-08", "timezone": "UTC"},
     )
     assert [item["meal_slot"] for item in utc.json()["items"]] == ["slot-0", "slot-1"]
+
+    fall_timestamps = (
+        "2026-11-01T03:59:59Z",
+        "2026-11-01T04:00:00Z",
+        "2026-11-02T04:59:59Z",
+        "2026-11-02T05:00:00Z",
+    )
+    for index, logged_at in enumerate(fall_timestamps):
+        response = _create(
+            log_clients.owner,
+            log_clients.owner_csrf,
+            logged_at=logged_at,
+            meal_slot=f"fall-{index}",
+        )
+        assert response.status_code == 201
+    fall_day = log_clients.owner.get(
+        "/api/v1/logs",
+        params={"day": "2026-11-01"},
+    )
+    assert [item["meal_slot"] for item in fall_day.json()["items"]] == [
+        "fall-1",
+        "fall-2",
+    ]
+    fall_totals = log_clients.owner.get(
+        "/api/v1/logs/daily-totals",
+        params={"day": "2026-11-01"},
+    )
+    assert fall_totals.json()["entry_count"] == 2
+    assert fall_totals.json()["grams"] == "100.00"
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -308,7 +424,9 @@ def test_every_log_endpoint_is_tenant_isolated(log_clients: LogClients) -> None:
     created = _create(log_clients.owner, log_clients.owner_csrf)
     entry_id = created.json()["id"]
 
-    assert log_clients.attacker.get(f"/api/v1/logs/{entry_id}").status_code == 404
+    attacker_detail = log_clients.attacker.get(f"/api/v1/logs/{entry_id}")
+    assert attacker_detail.status_code == 404
+    assert attacker_detail.headers["cache-control"] == "no-store"
     attacker_list = log_clients.attacker.get(
         "/api/v1/logs", params={"day": "2026-08-20", "timezone": "UTC"}
     )
@@ -318,6 +436,8 @@ def test_every_log_endpoint_is_tenant_isolated(log_clients: LogClients) -> None:
         params={"day": "2026-08-20", "timezone": "UTC"},
     )
     assert attacker_totals.json()["entry_count"] == 0
+    assert attacker_totals.json()["grams"] == "0.00"
+    assert attacker_totals.json()["nutrients"] == {}
     assert (
         log_clients.attacker.delete(
             f"/api/v1/logs/{entry_id}",
@@ -342,7 +462,9 @@ def test_every_log_endpoint_is_tenant_isolated(log_clients: LogClients) -> None:
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_log_validation_and_authentication_errors_are_stable(log_clients: LogClients) -> None:
-    assert log_clients.owner.post("/api/v1/logs", json={}).status_code == 403
+    missing_csrf = log_clients.owner.post("/api/v1/logs", json={})
+    assert missing_csrf.status_code == 403
+    assert missing_csrf.headers["cache-control"] == "no-store"
     assert INTEGRATION_DATABASE_URL is not None
     unauthenticated_settings = Settings(
         database_url=INTEGRATION_DATABASE_URL,
@@ -350,12 +472,11 @@ def test_log_validation_and_authentication_errors_are_stable(log_clients: LogCli
         _env_file=None,
     )
     with TestClient(create_app(unauthenticated_settings)) as unauthenticated:
-        assert (
-            unauthenticated.get(
-                "/api/v1/logs", params={"day": "2026-08-20", "timezone": "UTC"}
-            ).status_code
-            == 401
+        unauthenticated_list = unauthenticated.get(
+            "/api/v1/logs", params={"day": "2026-08-20", "timezone": "UTC"}
         )
+        assert unauthenticated_list.status_code == 401
+        assert unauthenticated_list.headers["cache-control"] == "no-store"
 
     invalid_payloads = (
         {"quantity": {"amount": "0", "unit": "g"}},
@@ -376,6 +497,7 @@ def test_log_validation_and_authentication_errors_are_stable(log_clients: LogCli
             json=payload,
         )
         assert response.status_code == 422
+        assert response.headers["cache-control"] == "no-store"
 
     millilitres = _create(
         log_clients.owner,
@@ -398,3 +520,14 @@ def test_log_validation_and_authentication_errors_are_stable(log_clients: LogCli
         {"day": "2026-08-20", "timezone": "UTC", "offset": 10001},
     ):
         assert log_clients.owner.get("/api/v1/logs", params=params).status_code == 422
+
+    for path, params in (
+        ("/api/v1/logs", {"day": "9999-12-31", "timezone": "UTC"}),
+        (
+            "/api/v1/logs/daily-totals",
+            {"day": "0001-01-01", "timezone": "Asia/Kolkata"},
+        ),
+    ):
+        response = log_clients.owner.get(path, params=params)
+        assert response.status_code == 422
+        assert response.json()["detail"] == "day is outside the supported timezone range"

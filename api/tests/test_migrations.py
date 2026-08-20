@@ -145,6 +145,162 @@ async def assert_database_constraints(database_url: str) -> None:
         await engine.dispose()
 
 
+async def seed_pre_snapshot_log_entries(database_url: str) -> dict[str, tuple[str, str]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('migration@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+            sources = {
+                "foods_reference": (
+                    await connection.scalar(
+                        text(
+                            """
+                            INSERT INTO foods_reference (
+                                fdc_id, description, nutrients_json, portions_json
+                            ) VALUES ('12345', 'Legacy oats', '{}'::jsonb, '[]'::jsonb)
+                            RETURNING id
+                            """
+                        )
+                    ),
+                    "12345",
+                    "Legacy oats",
+                ),
+                "foods_community": (
+                    await connection.scalar(
+                        text(
+                            """
+                            INSERT INTO foods_community (
+                                pack_id, pack_version, slug, name, category, provenance,
+                                source_license, nutrients_json, portions_json, contributed_by
+                            ) VALUES (
+                                'migration-pack', '1.0.0', 'legacy-dal', 'Legacy dal',
+                                'meal', 'own_measurement', 'contributor-original',
+                                '{}'::jsonb, '[]'::jsonb, 'Migration Tester'
+                            ) RETURNING id
+                            """
+                        )
+                    ),
+                    "legacy-dal",
+                    "Legacy dal",
+                ),
+                "foods_odbl": (
+                    await connection.scalar(
+                        text(
+                            """
+                            INSERT INTO foods_odbl (
+                                barcode, product_name, nutrients_json, source_url,
+                                attribution_text
+                            ) VALUES (
+                                '0012345678905', 'Legacy cereal', '{}'::jsonb,
+                                'https://example.test/product', 'Open Food Facts'
+                            ) RETURNING id
+                            """
+                        )
+                    ),
+                    "0012345678905",
+                    "Legacy cereal",
+                ),
+                "foods_custom": (
+                    await connection.scalar(
+                        text(
+                            """
+                            INSERT INTO foods_custom (
+                                user_id, name, nutrients_json, portions_json
+                            ) VALUES (
+                                :user_id, 'Legacy private food', '{}'::jsonb, '[]'::jsonb
+                            ) RETURNING id
+                            """
+                        ),
+                        {"user_id": user_id},
+                    ),
+                    None,
+                    "Legacy private food",
+                ),
+            }
+            snapshot = (
+                '{"basis":"computed","grams":"50","nutrients":'
+                '{"energy_kcal":"50","protein_g":"5","fat_g":"0",'
+                '"carbohydrate_g":"7.5"}}'
+            )
+            for source_table, (source_id, _, _) in sources.items():
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO log_entries (
+                            user_id, logged_at, meal_slot, food_source_table,
+                            food_source_id, grams, computed_nutrients_json
+                        ) VALUES (
+                            :user_id, '2026-08-20T12:00:00Z', 'lunch', :source_table,
+                            :source_id, 50, CAST(:snapshot AS jsonb)
+                        )
+                        """
+                    ),
+                    {
+                        "user_id": user_id,
+                        "source_table": source_table,
+                        "source_id": source_id,
+                        "snapshot": snapshot,
+                    },
+                )
+            return {
+                source_table: (
+                    expected_key if expected_key is not None else str(source_id),
+                    expected_name,
+                )
+                for source_table, (source_id, expected_key, expected_name) in sources.items()
+            }
+    finally:
+        await engine.dispose()
+
+
+async def read_snapshot_backfill(database_url: str) -> dict[str, tuple[str, str, str, str]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT food_source_table, food_source_key, food_name,
+                               quantity_amount::text, quantity_unit
+                        FROM log_entries
+                        """
+                    )
+                )
+            ).mappings()
+            return {
+                row["food_source_table"]: (
+                    row["food_source_key"],
+                    row["food_name"],
+                    row["quantity_amount"],
+                    row["quantity_unit"],
+                )
+                for row in rows
+            }
+    finally:
+        await engine.dispose()
+
+
+async def replace_and_read_log_grams(database_url: str, grams: str) -> str:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE log_entries SET grams = CAST(:grams AS numeric)"),
+                {"grams": grams},
+            )
+            return str(await connection.scalar(text("SELECT min(grams) FROM log_entries")))
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
     assert INTEGRATION_DATABASE_URL is not None
@@ -250,3 +406,30 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
         )
     )
     assert remaining_tables == {"alembic_version"}
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_log_snapshot_migration_preserves_external_food_identity() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0004")
+        expected = asyncio.run(seed_pre_snapshot_log_entries(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        actual = asyncio.run(read_snapshot_backfill(INTEGRATION_DATABASE_URL))
+        assert actual == {
+            source_table: (source_key, source_name, "50.000", "g")
+            for source_table, (source_key, source_name) in expected.items()
+        }
+        assert (
+            asyncio.run(replace_and_read_log_grams(INTEGRATION_DATABASE_URL, "0.0001")) == "0.0001"
+        )
+        command.downgrade(config, "20260820_0004")
+        assert (
+            asyncio.run(replace_and_read_log_grams(INTEGRATION_DATABASE_URL, "0.0001")) == "0.0001"
+        )
+    finally:
+        command.downgrade(config, "base")

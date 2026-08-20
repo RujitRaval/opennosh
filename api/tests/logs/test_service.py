@@ -12,6 +12,11 @@ def test_day_bounds_follow_dst_and_user_timezone_defaults() -> None:
     assert end.isoformat() == "2026-03-09T04:00:00+00:00"
     assert (end - start).total_seconds() == 23 * 60 * 60
 
+    fall_start, fall_end = utc_day_bounds(date(2026, 11, 1), timezone)
+    assert fall_start.isoformat() == "2026-11-01T04:00:00+00:00"
+    assert fall_end.isoformat() == "2026-11-02T05:00:00+00:00"
+    assert (fall_end - fall_start).total_seconds() == 25 * 60 * 60
+
 
 def test_timezone_override_and_invalid_names() -> None:
     assert resolve_timezone("Asia/Kolkata", {"timezone": "UTC"}).key == "Asia/Kolkata"
@@ -19,3 +24,12 @@ def test_timezone_override_and_invalid_names() -> None:
     for name in ("", "../UTC", "Unknown/Nowhere", "UTC\x00"):
         with pytest.raises(FoodLogInputError, match="IANA timezone"):
             resolve_timezone(name, {})
+
+
+def test_day_bounds_reject_calendar_edges_that_overflow_timezone_conversion() -> None:
+    for day, timezone_name in (
+        (date.max, "UTC"),
+        (date.min, "Asia/Kolkata"),
+    ):
+        with pytest.raises(FoodLogInputError, match="supported timezone range"):
+            utc_day_bounds(day, resolve_timezone(timezone_name, {}))

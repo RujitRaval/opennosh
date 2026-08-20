@@ -63,6 +63,25 @@ def test_log_payload_rejects_naive_time_control_slots_and_bad_quantities() -> No
             LogEntryCreate.model_validate({**valid, **changes})
 
 
+@pytest.mark.parametrize(
+    "logged_at",
+    [
+        "9999-12-31T23:59:59-12:00",
+        "0001-01-01T00:00:00+14:00",
+    ],
+)
+def test_log_payload_rejects_timestamps_outside_utc_range(logged_at: str) -> None:
+    with pytest.raises(ValueError, match="supported UTC range"):
+        LogEntryCreate.model_validate(
+            {
+                "logged_at": logged_at,
+                "meal_slot": "lunch",
+                "food": {"source": "usda", "source_id": "100"},
+                "quantity": {"amount": "10", "unit": "g"},
+            }
+        )
+
+
 def test_openapi_registers_all_food_log_operations() -> None:
     paths = create_app().openapi()["paths"]
 
