@@ -112,6 +112,27 @@ def upgrade() -> None:
         BEGIN
             IF EXISTS (
                 SELECT 1
+                FROM recipes AS recipe
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM recipe_ingredients AS ingredient
+                    WHERE ingredient.recipe_id = recipe.id
+                      AND ingredient.user_id = recipe.user_id
+                )
+            ) THEN
+                RAISE EXCEPTION
+                    'Cannot migrate recipes without ingredients';
+            END IF;
+        END
+        $$
+        """
+    )
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
                 FROM recipe_ingredients
                 WHERE food_source_key IS NULL
                    OR food_name IS NULL

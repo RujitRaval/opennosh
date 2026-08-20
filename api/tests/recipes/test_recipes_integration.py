@@ -350,6 +350,29 @@ def test_recipe_crud_composes_exact_snapshots_and_preserves_order(
     assert updated.json()["name"] == "Oat bowl"
     assert len(updated.json()["ingredients"]) == 1
 
+    failed_update = recipe_clients.owner.put(
+        f"/api/v1/recipes/{body['id']}",
+        headers={"X-CSRF-Token": recipe_clients.owner_csrf},
+        json={
+            "name": "Must not persist",
+            "yield_grams": "999",
+            "ingredients": [
+                {
+                    "food": {
+                        "source": "custom",
+                        "source_id": recipe_clients.attacker_custom_food_id,
+                    },
+                    "grams": "1",
+                }
+            ],
+        },
+    )
+    assert failed_update.status_code == 404
+    after_failed_update = recipe_clients.owner.get(f"/api/v1/recipes/{body['id']}")
+    assert after_failed_update.json()["name"] == "Oat bowl"
+    assert after_failed_update.json()["yield_grams"] == "200"
+    assert len(after_failed_update.json()["ingredients"]) == 1
+
     deleted = recipe_clients.owner.delete(
         f"/api/v1/recipes/{body['id']}",
         headers={"X-CSRF-Token": recipe_clients.owner_csrf},
@@ -570,6 +593,23 @@ def test_recipe_snapshots_survive_source_mutation_and_drive_deterministic_logs(
     assert first_log.json()["snapshot"]["grams"] == "150.00"
     assert first_log.json()["snapshot"]["nutrients"]["energy_kcal"] == "97.50"
 
+    invalid_portion = recipe_clients.owner.post(
+        "/api/v1/logs",
+        headers={"X-CSRF-Token": recipe_clients.owner_csrf},
+        json={
+            "logged_at": "2026-08-20T13:00:00Z",
+            "meal_slot": "lunch",
+            "food": {"source": "recipe", "source_id": recipe_id},
+            "quantity": {
+                "amount": "1",
+                "unit": "portion",
+                "portion_name": "scoop",
+            },
+        },
+    )
+    assert invalid_portion.status_code == 422
+    assert invalid_portion.json()["detail"] == "Unknown household portion: scoop"
+
     assert INTEGRATION_DATABASE_URL is not None
     asyncio.run(
         _mutate_and_delete_sources(
@@ -675,6 +715,26 @@ def test_recipe_authentication_validation_and_pagination_are_private(
         recipe_clients.owner.get("/api/v1/recipes", params={"offset": 10001}).status_code
         == 422
     )
+
+    first = _create_recipe(recipe_clients)
+    second = recipe_clients.owner.post(
+        "/api/v1/recipes",
+        headers={"X-CSRF-Token": recipe_clients.owner_csrf},
+        json={**_recipe_payload(recipe_clients.owner_custom_food_id), "name": "Ziti"},
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+    first_page = recipe_clients.owner.get(
+        "/api/v1/recipes", params={"limit": 1, "offset": 0}
+    ).json()
+    second_page = recipe_clients.owner.get(
+        "/api/v1/recipes", params={"limit": 1, "offset": 1}
+    ).json()
+    assert first_page["has_more"] is True
+    assert len(first_page["items"]) == 1
+    assert second_page["has_more"] is False
+    assert len(second_page["items"]) == 1
+    assert first_page["items"][0]["id"] != second_page["items"][0]["id"]
 
     assert INTEGRATION_DATABASE_URL is not None
     settings = Settings(
