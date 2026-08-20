@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.16.0.0] - 2026-08-20
+
+### Added
+
+- Download a private, authenticated account export containing the signed-in user's settings, custom foods, recipes, food logs, nutrition targets, body metrics, workouts, and sets without exposing credentials or another tenant's data.
+- Download community foods, Open Food Facts records, and wger exercises from separate public endpoints with stable schemas and complete source, license, attribution, and contributor metadata.
+- Cover tenant isolation, authentication, license boundaries, schema snapshots, source round-tripping, serialized-size limits, capacity exhaustion, client disconnects, and PostgreSQL-backed export behavior with automated tests.
+
+### Changed
+
+- Generate each export from one read-only, repeatable PostgreSQL snapshot, spool it before sending response headers, and release the database transaction before the client starts downloading.
+- Bound public export rows, exact serialized bytes, concurrency, capacity wait time, and response duration while reserving independent capacity for private account exports.
+- Document the canonical export endpoints, license separation rules, operator limits, and cache behavior in the README, technical design, data-licensing policy, and environment template.
+
+### Fixed
+
+- Close export iterators and temporary spools on completion, timeout, cancellation, disconnect, or send failure so abandoned downloads cannot retain resources or capacity slots.
+- Reject oversized Open Food Facts exports based on actual serialized JSON rather than compressed PostgreSQL storage size.
+
 ## [0.15.0.0] - 2026-08-20
 
 ### Added
