@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.auth.client_address import client_address
 from opennosh_api.auth.dependencies import (
     CurrentSession,
     get_app_settings,
@@ -44,9 +45,7 @@ async def _acquire_capacity(
         else request.app.state.public_export_semaphore
     )
     try:
-        await acquire_export_capacity(
-            semaphore, wait_seconds=settings.export_capacity_wait_seconds
-        )
+        await acquire_export_capacity(semaphore, wait_seconds=settings.export_capacity_wait_seconds)
     except ExportCapacityError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -104,11 +103,11 @@ async def community_export(
     database: Annotated[AsyncSession, Depends(get_database_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> ExportStreamingResponse:
-    client_address = request.client.host if request.client is not None else "unknown"
+    rate_limit_key = client_address(request, settings)
     await enforce_rate_limit(
         database,
         scope="community-food-export-ip",
-        key=client_address,
+        key=rate_limit_key,
         attempts=settings.community_export_rate_limit_attempts,
         window_seconds=settings.community_export_rate_limit_window_seconds,
         retention_seconds=settings.auth_rate_limit_retention_seconds,

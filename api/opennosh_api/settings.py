@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import Field, PositiveFloat, PositiveInt, field_validator, model_validator
+from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from opennosh_api.targets.constants import (
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh"
     database_healthcheck_timeout_seconds: PositiveFloat = 2.0
     session_lifetime_seconds: PositiveInt = 43_200
+    trusted_web_proxy_token: SecretStr | None = Field(default=None, min_length=32)
     auth_rate_limit_attempts: PositiveInt = 5
     auth_rate_limit_window_seconds: PositiveInt = 300
     auth_rate_limit_retention_seconds: PositiveInt = 86_400
@@ -79,7 +80,7 @@ class Settings(BaseSettings):
             or parsed.path not in {"", "/"}
             or parsed.query
             or parsed.fragment
-            or any(character.isspace() or character in '<>"\'\\' for character in normalized)
+            or any(character.isspace() or character in "<>\"'\\" for character in normalized)
         ):
             raise ValueError("Open Food Facts base URL must be a safe HTTPS URL")
         return normalized
@@ -98,6 +99,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if (
+            self.app_environment == "production"
+            and self.trusted_web_proxy_token is not None
+            and self.trusted_web_proxy_token.get_secret_value()
+            in {
+                "opennosh-local-web-proxy-token-2026",
+                "replace-with-a-unique-32-character-secret",
+            }
+        ):
+            raise ValueError("Production requires a unique trusted web proxy token")
         longest_window = max(
             self.auth_rate_limit_window_seconds,
             self.food_search_rate_limit_window_seconds,
