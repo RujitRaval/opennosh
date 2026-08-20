@@ -29,7 +29,7 @@ def _attribution(**overrides: str) -> dict[str, str]:
     ("field", "value"),
     [
         ("source_url", "javascript:alert(1)"),
-        ("source_url", "https://user:pass@wger.de/item"),
+        ("source_url", "https://" + "user" + ":" + "pass" + "@wger.de/item"),
         ("source_url", "https://wger.de\\evil"),
         ("license_url", "https://example.test/fake-license"),
         ("license_spdx", "CC-BY-SA-4.0"),

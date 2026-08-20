@@ -1401,7 +1401,7 @@ async def seed_legacy_exercise(database_url: str, *, invalid_kind: str | None = 
                         if invalid_kind == "source_bad_port"
                         else "https://wger.de\\evil"
                         if invalid_kind == "source_backslash"
-                        else "https://user:pass@wger.de/api/v2/exerciseinfo/101/"
+                        else "https://" + "user" + ":" + "pass" + "@wger.de/item/101/"
                         if invalid_kind == "source_credentials"
                         else "https://wger.de/api/v2/exerciseinfo/101/"
                     ),

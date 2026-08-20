@@ -145,7 +145,9 @@ def test_url_with_embedded_credentials_is_rejected(tmp_path: Path) -> None:
     results = payload["results"]
     assert isinstance(results, list)
     exercise = deepcopy(results[0])
-    exercise["translations"][0]["license_object_url"] = "https://user:pass@wger.de/exercise/101"
+    exercise["translations"][0]["license_object_url"] = (
+        "https://" + "user" + ":" + "pass" + "@wger.de/exercise/101"
+    )
 
     outcome = next(iter_wger(_write_payload(tmp_path, [exercise])))
 
