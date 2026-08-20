@@ -76,6 +76,17 @@ class FoodReference(UUIDPrimaryKeyMixin, Base):
     __table_args__ = (
         CheckConstraint("source = 'usda'", name="source_usda"),
         CheckConstraint("license = 'CC0'", name="license_cc0"),
+        Index(
+            "ix_foods_reference_search_tsv",
+            text("to_tsvector('simple'::regconfig, coalesce(description, ''))"),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_foods_reference_description_trgm",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
     )
 
     fdc_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
@@ -99,6 +110,35 @@ class FoodCommunity(UUIDPrimaryKeyMixin, Base):
             f"source_license IN ({SOURCE_LICENSE_VALUES})", name="source_license_allowed"
         ),
         CheckConstraint("pack_license = 'CC0-1.0'", name="pack_license_cc0"),
+        Index(
+            "ix_foods_community_search_tsv",
+            text(
+                "to_tsvector('simple'::regconfig, ((((("
+                "coalesce(slug, ''::character varying)::text || ' '::text) || "
+                "coalesce(name, ''::character varying)::text) || ' '::text) || "
+                "coalesce(name_local, ''::character varying)::text) || ' '::text) || "
+                "coalesce(category, ''::character varying)::text)"
+            ),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_foods_community_slug_trgm",
+            "slug",
+            postgresql_using="gin",
+            postgresql_ops={"slug": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_foods_community_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_foods_community_name_local_trgm",
+            "name_local",
+            postgresql_using="gin",
+            postgresql_ops={"name_local": "gin_trgm_ops"},
+        ),
     )
 
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)

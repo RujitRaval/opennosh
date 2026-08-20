@@ -169,6 +169,24 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
             )
         )
         assert any(index["column_names"] == ["pack_id"] for index in community_indexes)
+        community_index_names = {index["name"] for index in community_indexes}
+        assert {
+            "ix_foods_community_search_tsv",
+            "ix_foods_community_slug_trgm",
+            "ix_foods_community_name_trgm",
+            "ix_foods_community_name_local_trgm",
+        }.issubset(community_index_names)
+
+        reference_indexes = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: inspector.get_indexes("foods_reference"),
+            )
+        )
+        assert {
+            "ix_foods_reference_search_tsv",
+            "ix_foods_reference_description_trgm",
+        }.issubset({index["name"] for index in reference_indexes})
 
         for table_name in (
             "auth_sessions",
