@@ -134,10 +134,16 @@ jobs:
       - name: Build web app
         run: npm --prefix web run build
 
+      - name: Install Playwright Chromium
+        run: npx --prefix web playwright install --with-deps chromium
+
+      - name: Test accessible daily-log journey
+        run: npm --prefix web run test:e2e
+
   compose:
-    name: Compose migration boot
+    name: Compose application boot
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
@@ -146,8 +152,20 @@ jobs:
       - name: Validate Compose configuration
         run: docker compose config --quiet
 
-      - name: Start PostgreSQL and API
-        run: docker compose up --build --wait db api
+      - name: Start the application stack
+        run: docker compose up --build --wait db api web ingress
+
+      - name: Verify trusted ingress and rate-limit identity
+        run: |
+          curl --fail --retry 10 --retry-delay 1 --retry-connrefused \
+            -H 'X-Forwarded-For: 198.51.100.10' \
+            'http://127.0.0.1:3000/api/v1/foods/search?q=apple'
+          curl --fail \
+            -H 'X-Forwarded-For: 203.0.113.20' \
+            'http://127.0.0.1:3000/api/v1/foods/search?q=apple'
+          docker compose exec -T db psql -U opennosh -d opennosh -tAc \
+            "SELECT count(DISTINCT key_hash) FROM auth_rate_limits WHERE scope = 'food-search-ip'" \
+            | grep -qx '1'
 
       - name: Verify the Alembic head
         run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260820_0010'

@@ -13,4 +13,7 @@ docs.zip
 web/.next/
 web/coverage/
 web/node_modules/
+web/playwright-report/
+web/test-results/
+web/CLAUDE.md
 web/*.tsbuildinfo

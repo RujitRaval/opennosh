@@ -112,6 +112,32 @@ The API provides local account registration, login, session inspection, and logo
 
 Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only session and CSRF cookies. Browser clients must copy the `opennosh_csrf` cookie (or `__Host-opennosh-csrf` in production) into the `X-CSRF-Token` header for authenticated state-changing requests. API handlers must use the session-derived helpers in `opennosh_api.auth.tenant`; request bodies and query parameters must never select a `user_id`.
 
+## Daily nutrition log
+
+The web app at `http://localhost:3000` provides the responsive primary journey: create an
+account or sign in, choose a date and training/rest target, search the local food catalogue, log
+an amount in grams under any meal name, compare neutral daily totals with targets, and delete an
+entry after confirmation. Loading, empty, API-error, and expired-session screens all provide a
+way forward. Keyboard focus is visible, the add-food dialog traps focus and closes with Escape,
+and the core desktop/mobile journey is checked against WCAG 2.2 AA rules in Playwright.
+
+The browser calls only same-origin `/api/v1` paths. The Next.js server forwards those requests to
+`API_URL`, which Compose sets to the internal `api` service. For local web development outside
+Compose, leave the default API address at `http://localhost:8000` or set `API_URL` explicitly. In
+Compose, nginx is the only public web ingress and replaces caller-supplied forwarding headers with
+the actual peer address. The Next.js proxy authenticates that address to the API with
+`WEB_PROXY_TOKEN`, keeping source-address rate limits isolated instead of collapsing onto the web
+container. Generate a unique token of at least 32 characters for production. The web container is
+not published, and the Compose API port is bound to loopback, so remote callers cannot forge the
+private proxy headers.
+
+Run the browser journey after installing Chromium once:
+
+```bash
+npx --prefix web playwright install chromium
+npm --prefix web run test:e2e
+```
+
 ## Nutrient calculations
 
 The `opennosh_api.nutrition` module validates nutrient maps, canonicalises source values to a per-100-gram internal basis, and converts grams, millilitres, and named household portions into immutable nutrient snapshots. Volume conversion requires an explicit food density; opennosh never guesses that one millilitre equals one gram. Calculations use a fixed 50-significant-digit decimal context, presentation rounding happens only through the API-boundary helper, and its JSON payload uses decimal strings so values do not change in transit.
