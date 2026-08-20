@@ -144,6 +144,36 @@ directly. A named portion of `"whole recipe"` maps exactly to the stored yield, 
 `"0.25"` logs one quarter of the recipe. The resulting log is itself immutable and remains readable
 after the recipe is edited or deleted.
 
+## Calorie and macro targets
+
+Authenticated users manage their own dated target schedule under `/api/v1/targets`. A full
+replacement uses the session CSRF token and supplies non-overlapping inclusive date ranges for
+`training` and `rest` days:
+
+```json
+{
+  "items": [
+    {
+      "day_type": "training",
+      "kcal": "2500",
+      "protein_g": "180",
+      "carb_g": "300",
+      "fat_g": "65",
+      "active_from": "2026-08-01",
+      "active_until": null
+    }
+  ]
+}
+```
+
+Use `GET /api/v1/targets` to read the complete schedule and
+`GET /api/v1/targets/resolve?day=2026-08-20&day_type=training` to resolve one date
+deterministically. Target values are always entered by the user; opennosh never calculates or
+prescribes them. The configurable `TARGET_KCAL_FLOOR` defaults to 1200 kcal. A lower user-entered
+value is accepted only when that schedule item includes `"confirm_below_floor": true`, and the
+confirmation plus the applicable floor are stored with the target. All target responses are
+owner-scoped and send `Cache-Control: no-store`.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,

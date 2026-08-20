@@ -81,7 +81,9 @@ exercises
   attribution_text, translation_attribution_json
 
 targets
-  id, user_id, day_type, kcal, protein_g, carb_g, fat_g, active_from
+  id, user_id, day_type, kcal, protein_g, carb_g, fat_g,
+  active_from, active_until, below_floor_confirmed,
+  safety_review_required, safety_floor_kcal
 ```
 
 ### Design decisions worth stating so they aren't relitigated
@@ -137,7 +139,8 @@ GET    /recipes/{id}       PUT /recipes/{id}        DELETE /recipes/{id}
 GET    /logs?day=&timezone=           POST /logs
 GET    /logs/{id}                     DELETE /logs/{id}
 GET    /logs/daily-totals?day=&timezone=
-GET    /targets            PUT  /targets
+GET    /targets                         PUT /targets
+GET    /targets/resolve?day=&day_type=
 POST   /body-metrics       GET  /body-metrics?from=&to=
 POST   /workouts           GET  /workouts?from=&to=
 GET    /export/me                       -- full user data, JSON

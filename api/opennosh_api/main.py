@@ -13,6 +13,7 @@ from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
 from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.settings import Settings, get_settings
+from opennosh_api.targets.router import router as targets_router
 
 
 def read_app_version() -> str:
@@ -43,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(foods_router)
     application.include_router(logs_router)
     application.include_router(recipes_router)
+    application.include_router(targets_router)
     return application
 
 

@@ -18,6 +18,11 @@ class LoadUnit(StrEnum):
     RPE_ONLY = "rpe_only"
 
 
+class TargetDayType(StrEnum):
+    TRAINING = "training"
+    REST = "rest"
+
+
 class Provenance(StrEnum):
     LAB_ANALYSIS = "lab_analysis"
     GOVERNMENT_DATABASE = "government_database"
