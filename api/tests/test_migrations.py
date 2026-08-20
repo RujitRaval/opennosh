@@ -472,6 +472,117 @@ async def read_recipe_snapshot_backfill(database_url: str) -> list[dict[str, Any
         await engine.dispose()
 
 
+async def seed_legacy_targets(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('legacy-target@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO targets (
+                        user_id, day_type, kcal, protein_g, carb_g, fat_g, active_from
+                    ) VALUES
+                        (:user_id, 'training', 2400, 180, 250, 70, '2026-08-01'),
+                        (:user_id, 'training', 2500, 180, 275, 70, '2026-09-01'),
+                        (:user_id, 'rest', 1100, 180, 100, 60, '2026-08-01')
+                    """
+                ),
+                {"user_id": user_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def read_migrated_targets(database_url: str) -> list[dict[str, Any]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT day_type, kcal::text, active_from::text,
+                               active_until::text, below_floor_confirmed,
+                               safety_review_required,
+                               safety_floor_kcal::text
+                        FROM targets
+                        ORDER BY day_type, active_from
+                        """
+                    )
+                )
+            ).mappings().all()
+            return [dict(row) for row in rows]
+    finally:
+        await engine.dispose()
+
+
+async def assert_overlapping_target_is_rejected(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        user_id: object
+        async with engine.connect() as connection:
+            user_id = await connection.scalar(
+                text("SELECT id FROM users WHERE email = 'legacy-target@example.test'")
+            )
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO targets (
+                            user_id, day_type, kcal, protein_g, carb_g, fat_g,
+                            active_from, active_until, safety_floor_kcal
+                        ) VALUES (
+                            :user_id, 'training', 2450, 180, 260, 70,
+                            '2026-08-15', '2026-09-15', 1200
+                        )
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+    finally:
+        await engine.dispose()
+
+
+async def assert_unconfirmed_below_floor_target_is_rejected(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('unsafe-target@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO targets (
+                            user_id, day_type, kcal, protein_g, carb_g, fat_g,
+                            active_from
+                        ) VALUES (
+                            :user_id, 'rest', 1100, 180, 100, 60, '2026-08-01'
+                        )
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
     assert INTEGRATION_DATABASE_URL is not None
@@ -709,5 +820,69 @@ def test_recipe_snapshot_migration_rejects_empty_legacy_recipes() -> None:
         asyncio.run(seed_empty_recipe())
         with pytest.raises(DBAPIError, match="Cannot migrate recipes without ingredients"):
             command.upgrade(config, "head")
+    finally:
+        command.downgrade(config, "base")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_target_schedule_migration_preserves_and_bounds_legacy_ranges() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0006")
+        asyncio.run(seed_legacy_targets(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        assert asyncio.run(read_migrated_targets(INTEGRATION_DATABASE_URL)) == [
+            {
+                "day_type": "rest",
+                "kcal": "1100.00",
+                "active_from": "2026-08-01",
+                "active_until": None,
+                "below_floor_confirmed": False,
+                "safety_review_required": True,
+                "safety_floor_kcal": "1200.00",
+            },
+            {
+                "day_type": "training",
+                "kcal": "2400.00",
+                "active_from": "2026-08-01",
+                "active_until": "2026-08-31",
+                "below_floor_confirmed": False,
+                "safety_review_required": True,
+                "safety_floor_kcal": "1200.00",
+            },
+            {
+                "day_type": "training",
+                "kcal": "2500.00",
+                "active_from": "2026-09-01",
+                "active_until": None,
+                "below_floor_confirmed": False,
+                "safety_review_required": True,
+                "safety_floor_kcal": "1200.00",
+            },
+        ]
+        asyncio.run(assert_overlapping_target_is_rejected(INTEGRATION_DATABASE_URL))
+        asyncio.run(
+            assert_unconfirmed_below_floor_target_is_rejected(
+                INTEGRATION_DATABASE_URL
+            )
+        )
+
+        command.downgrade(config, "20260820_0006")
+        target_columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    column["name"] for column in inspector.get_columns("targets")
+                },
+            )
+        )
+        assert "active_until" not in target_columns
+        assert "below_floor_confirmed" not in target_columns
+        assert "safety_review_required" not in target_columns
+        assert "safety_floor_kcal" not in target_columns
     finally:
         command.downgrade(config, "base")

@@ -21,11 +21,16 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
-from opennosh_api.models.enums import FoodSourceTable, LoadUnit, Provenance
+from opennosh_api.models.enums import FoodSourceTable, LoadUnit, Provenance, TargetDayType
+from opennosh_api.targets.constants import (
+    DEFAULT_TARGET_KCAL_FLOOR,
+    MAX_KCAL,
+    MAX_MACRO_GRAMS,
+)
 
 INGREDIENT_SOURCE_TABLE_VALUES = ", ".join(
     repr(value.value) for value in FoodSourceTable if value is not FoodSourceTable.RECIPE
@@ -34,6 +39,7 @@ LOG_SOURCE_TABLE_VALUES = ", ".join(repr(value.value) for value in FoodSourceTab
 PROVENANCE_VALUES = ", ".join(repr(value.value) for value in Provenance)
 SOURCE_LICENSE_VALUES = "'contributor-original', 'CC0-1.0', 'public-domain'"
 LOAD_UNIT_VALUES = ", ".join(repr(value.value) for value in LoadUnit)
+TARGET_DAY_TYPE_VALUES = ", ".join(repr(value.value) for value in TargetDayType)
 
 
 class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -356,13 +362,6 @@ class WorkoutSet(UUIDPrimaryKeyMixin, Base):
 
 class Target(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "targets"
-    __table_args__ = (
-        CheckConstraint("kcal >= 0", name="kcal_nonnegative"),
-        CheckConstraint("protein_g >= 0", name="protein_nonnegative"),
-        CheckConstraint("carb_g >= 0", name="carb_nonnegative"),
-        CheckConstraint("fat_g >= 0", name="fat_nonnegative"),
-        UniqueConstraint("user_id", "day_type", "active_from", name="uq_targets_schedule"),
-    )
 
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
@@ -373,3 +372,52 @@ class Target(UUIDPrimaryKeyMixin, Base):
     carb_g: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     fat_g: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     active_from: Mapped[date] = mapped_column(Date, nullable=False)
+    active_until: Mapped[date | None] = mapped_column(Date)
+    below_floor_confirmed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    safety_review_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    safety_floor_kcal: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        server_default=str(DEFAULT_TARGET_KCAL_FLOOR),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            f"day_type IN ({TARGET_DAY_TYPE_VALUES})", name="day_type_allowed"
+        ),
+        CheckConstraint(f"kcal >= 0 AND kcal <= {MAX_KCAL}", name="kcal_bounded"),
+        CheckConstraint(
+            f"protein_g >= 0 AND protein_g <= {MAX_MACRO_GRAMS}",
+            name="protein_bounded",
+        ),
+        CheckConstraint(
+            f"carb_g >= 0 AND carb_g <= {MAX_MACRO_GRAMS}", name="carb_bounded"
+        ),
+        CheckConstraint(
+            f"fat_g >= 0 AND fat_g <= {MAX_MACRO_GRAMS}", name="fat_bounded"
+        ),
+        CheckConstraint("safety_floor_kcal > 0", name="safety_floor_positive"),
+        CheckConstraint(
+            "(safety_review_required AND NOT below_floor_confirmed) OR "
+            "(NOT safety_review_required AND "
+            "((kcal >= safety_floor_kcal AND NOT below_floor_confirmed) OR "
+            "(kcal < safety_floor_kcal AND below_floor_confirmed)))",
+            name="safety_state_valid",
+        ),
+        CheckConstraint(
+            "active_until IS NULL OR active_until >= active_from",
+            name="active_range_ordered",
+        ),
+        UniqueConstraint("user_id", "day_type", "active_from", name="uq_targets_schedule"),
+        ExcludeConstraint(
+            ("user_id", "="),
+            ("day_type", "="),
+            (func.daterange(active_from, active_until, "[]"), "&&"),
+            name="excl_targets_active_range",
+            using="gist",
+        ),
+    )

@@ -1,8 +1,15 @@
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import PositiveFloat, PositiveInt, model_validator
+from pydantic import Field, PositiveFloat, PositiveInt, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from opennosh_api.targets.constants import (
+    DEFAULT_TARGET_KCAL_FLOOR,
+    MAX_KCAL,
+    TARGET_QUANTUM,
+)
 
 
 class Settings(BaseSettings):
@@ -16,6 +23,14 @@ class Settings(BaseSettings):
     food_search_rate_limit_attempts: PositiveInt = 120
     food_search_rate_limit_window_seconds: PositiveInt = 60
     food_search_statement_timeout_ms: PositiveInt = 500
+    target_kcal_floor: Decimal = Field(default=DEFAULT_TARGET_KCAL_FLOOR, gt=0, le=MAX_KCAL)
+
+    @field_validator("target_kcal_floor")
+    @classmethod
+    def validate_target_kcal_floor_scale(cls, value: Decimal) -> Decimal:
+        if value != value.quantize(TARGET_QUANTUM):
+            raise ValueError("Target calorie floor must have at most two decimal places")
+        return value
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:

@@ -1,5 +1,6 @@
 from opennosh_api.models import Base
 from sqlalchemy import CheckConstraint
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 
 EXPECTED_TABLES = {
     "auth_rate_limits",
@@ -171,3 +172,30 @@ def test_recipe_ingredients_preserve_order_identity_and_nutrient_snapshots() -> 
         if isinstance(constraint, CheckConstraint)
     }
     assert any("recipes" in constraint for constraint in log_constraints)
+
+
+def test_targets_enforce_safe_non_overlapping_day_type_ranges() -> None:
+    table = Base.metadata.tables["targets"]
+
+    assert {
+        "active_until",
+        "below_floor_confirmed",
+        "safety_review_required",
+        "safety_floor_kcal",
+    }.issubset(table.columns.keys())
+    check_names = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert {
+        "ck_targets_day_type_allowed",
+        "ck_targets_kcal_bounded",
+        "ck_targets_safety_state_valid",
+        "ck_targets_active_range_ordered",
+    }.issubset(check_names)
+    assert any(
+        constraint.name == "excl_targets_active_range"
+        for constraint in table.constraints
+        if isinstance(constraint, ExcludeConstraint)
+    )

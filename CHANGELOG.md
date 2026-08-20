@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.11.0.0] - 2026-08-20
+
+### Added
+
+- Create owner-set calorie, protein, carbohydrate, and fat targets for training and rest days across explicit active date ranges.
+- Resolve the one applicable target for a requested date and day type with deterministic boundary behavior.
+- Cover target validation, tenant isolation, safety confirmation, concurrent replacement, date resolution, and migration rollback with automated tests.
+
+### Changed
+
+- Keep every target operation private with authenticated ownership checks, CSRF protection on replacement, and `Cache-Control: no-store` responses.
+- Require explicit confirmation for calorie targets below the configured neutral safety floor, and re-review unconfirmed schedules when that floor increases.
+- Replace each owner's complete target schedule atomically while preventing overlapping ranges for the same day type.
+
+### Fixed
+
+- Preserve legacy target rows during migration without treating them as safety-confirmed, so they cannot resolve until the owner reviews and resaves them.
+
 ## [0.10.0.0] - 2026-08-20
 
 ### Added
