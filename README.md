@@ -81,6 +81,36 @@ Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only s
 
 The `opennosh_api.nutrition` module validates nutrient maps, canonicalises source values to a per-100-gram internal basis, and converts grams, millilitres, and named household portions into immutable nutrient snapshots. Volume conversion requires an explicit food density; opennosh never guesses that one millilitre equals one gram. Calculations use a fixed 50-significant-digit decimal context, presentation rounding happens only through the API-boundary helper, and its JSON payload uses decimal strings so values do not change in transit.
 
+## Food logging
+
+Authenticated users can create, list, read, and delete tenant-isolated food-log entries under
+`/api/v1/logs`. Create requests use the `source` and `source_id` returned by food search, plus an
+offset-aware timestamp, a configurable meal-slot label, and a quantity in grams, millilitres, or
+a named household portion:
+
+```json
+{
+  "logged_at": "2026-08-20T18:30:00-04:00",
+  "meal_slot": "post workout",
+  "food": {"source": "community", "source_id": "dal-rice"},
+  "quantity": {"amount": "1.5", "unit": "portion", "portion_name": "1 bowl"}
+}
+```
+
+`POST /api/v1/logs` and `DELETE /api/v1/logs/{entry_id}` require the authenticated session's
+CSRF token in `X-CSRF-Token`. The server resolves the source food, converts the quantity, and
+stores the food identity, original quantity, gram mass, and computed nutrients on the log row.
+Later source-food corrections therefore never rewrite historical nutrition. To correct an entry,
+delete it and create a replacement; there is deliberately no recalculating update endpoint.
+
+Use `GET /api/v1/logs?day=2026-08-20&timezone=America/New_York` for a stable paginated local-day
+view and `GET /api/v1/logs/daily-totals?day=2026-08-20&timezone=America/New_York` for exact daily
+mass and nutrient totals. The timezone parameter accepts IANA names and overrides the user's saved
+`settings_json.timezone`; when neither exists, the API uses UTC. Day boundaries are converted to
+UTC after applying the selected timezone, including 23- and 25-hour daylight-saving days. Every
+read and mutation derives `user_id` from the session, returns `404` for another user's entry or
+custom food, and sends `Cache-Control: no-store`.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,

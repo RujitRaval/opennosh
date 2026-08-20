@@ -58,8 +58,10 @@ recipe_ingredients
   id, user_id, recipe_id, food_source_table, food_source_id, grams
 
 log_entries
-  id, user_id, logged_at, meal_slot, food_ref, grams,
-  computed_nutrients_json          -- denormalised at write time
+  id, user_id, logged_at, meal_slot,
+  food_source_table, food_source_id, food_source_key, food_name,
+  quantity_amount, quantity_unit, portion_name, grams,
+  computed_nutrients_json          -- identity + nutrients denormalised at write time
 
 body_metrics
   id, user_id, recorded_at, metric_type, value, unit
