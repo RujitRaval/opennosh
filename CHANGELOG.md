@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.13.0.0] - 2026-08-20
+
+### Added
+
+- Record private strength workouts with timezone-aware dates, notes, attributed exercises, reps, and ordered sets using `kg`, `lb`, `bodyweight`, `band`, `machine_units`, or `rpe_only`.
+- Create, browse, update, and delete workouts and their sets while keeping surviving set order stable after edits and deletions.
+- View exact exercise volume for compatible numeric units while refusing to combine kilograms, pounds, and machine units into a misleading total.
+- Cover workout validation, attribution, authentication, CSRF protection, tenant isolation, concurrent appends, UTC boundaries, migration safety, and rollback with PostgreSQL-backed tests.
+
+### Changed
+
+- Keep every workout operation private with session-derived ownership and `Cache-Control: no-store` responses, including indistinguishable missing and cross-tenant nested resources.
+- Aggregate date-range workout volume inside PostgreSQL, returning only unit-grouped totals instead of loading a user's workout history into API memory.
+- Constrain workout notes, timestamps, set positions, reps, loads, and unit-value combinations in PostgreSQL while preserving valid legacy rows.
+
+### Fixed
+
+- Compact deleted set positions in a deterministic order so immediate uniqueness checks cannot fail because of database row-update order.
+- Reject null RPE values, boolean rep counts, and numeric epoch timestamps at the applicable API and database boundaries.
+
 ## [0.12.0.0] - 2026-08-20
 
 ### Added
