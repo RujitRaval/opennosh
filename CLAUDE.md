@@ -23,6 +23,7 @@ uv run pytest
 npm --prefix web run lint
 npm --prefix web run typecheck
 npm --prefix web test
+npm --prefix web run test:e2e
 npm --prefix web run build
 docker compose config --quiet
 python3 -m unittest discover -s tests -v

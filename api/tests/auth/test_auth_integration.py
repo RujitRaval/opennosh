@@ -8,8 +8,8 @@ import pytest
 from alembic import command
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
+from opennosh_api.auth.client_address import client_address
 from opennosh_api.auth.rate_limit import enforce_auth_rate_limit
-from opennosh_api.auth.router import _client_address
 from opennosh_api.auth.schemas import Credentials
 from opennosh_api.auth.tokens import hash_token
 from opennosh_api.main import create_app
@@ -239,7 +239,47 @@ def test_credentials_enforce_password_character_and_byte_boundaries() -> None:
 
 def test_client_address_has_a_stable_fallback() -> None:
     request = Request({"type": "http", "headers": [], "client": None})
-    assert _client_address(request) == "unknown"
+    assert client_address(request, Settings(_env_file=None)) == "unknown"
+
+
+def test_client_address_only_trusts_authenticated_proxy_headers() -> None:
+    token = "a-unique-test-proxy-token-that-is-long-enough"
+    settings = Settings(trusted_web_proxy_token=token, _env_file=None)
+    spoofed = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"x-forwarded-for", b"198.51.100.9"),
+                (b"x-opennosh-client-address", b"198.51.100.10"),
+                (b"x-opennosh-proxy-token", b"wrong-token-that-is-still-long-enough"),
+            ],
+            "client": ("203.0.113.5", 50_000),
+        }
+    )
+    trusted = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"x-opennosh-client-address", b"2001:db8::10"),
+                (b"x-opennosh-proxy-token", token.encode()),
+            ],
+            "client": ("172.20.0.4", 50_000),
+        }
+    )
+    invalid_address = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"x-opennosh-client-address", b"not-an-address"),
+                (b"x-opennosh-proxy-token", token.encode()),
+            ],
+            "client": ("172.20.0.4", 50_000),
+        }
+    )
+
+    assert client_address(spoofed, settings) == "203.0.113.5"
+    assert client_address(trusted, settings) == "2001:db8::10"
+    assert client_address(invalid_address, settings) == "172.20.0.4"
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")

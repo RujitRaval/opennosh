@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.17.0.0] - 2026-08-20
+
+### Added
+
+- Use a responsive daily nutrition log to create an account or sign in, choose a date and training/rest target, search local foods, add gram-based meal entries, review daily calorie and macro totals, and confirm deletions.
+- Recover from loading, empty, network-error, and expired-session states with clear next actions and neutral language that treats nutrition as a record rather than a scorecard.
+- Show community-food contributor credit and use the browser locale when ranking regional foods.
+- Cover the complete login, add, totals, and delete journey on desktop and mobile with component tests, Playwright, and automated WCAG 2.2 AA checks.
+
+### Changed
+
+- Route browser requests through same-origin `/api/v1` paths while streaming request and response bodies, preserving separate authentication cookies, forwarding CSRF protection, and rejecting unsafe paths.
+- Put nginx in front of the Compose web service so source-address rate limits use a trusted, non-spoofable peer address without exposing the internal web or API services remotely.
+- Extend pull-request checks to build and test the web app, run the accessible browser journey, boot the full Compose stack, and verify spoofed forwarding headers cannot split rate-limit buckets.
+
 ## [0.16.0.0] - 2026-08-20
 
 ### Added

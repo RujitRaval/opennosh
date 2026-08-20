@@ -52,6 +52,21 @@ def test_production_settings_use_secure_host_only_cookie_names() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_proxy_token_must_be_long_and_unique_in_production() -> None:
+    with pytest.raises(ValidationError):
+        Settings(trusted_web_proxy_token="too-short", _env_file=None)
+    for unsafe_token in (
+        "opennosh-local-web-proxy-token-2026",
+        "replace-with-a-unique-32-character-secret",
+    ):
+        with pytest.raises(ValidationError):
+            Settings(
+                app_environment="production",
+                trusted_web_proxy_token=unsafe_token,
+                _env_file=None,
+            )
+
+
 def test_settings_read_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(
         "DATABASE_URL",

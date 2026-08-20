@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "opennosh",
-  description: "Self-hosted nutrition and strength tracking.",
+  title: "Daily nutrition log · opennosh",
+  description: "Accessible, self-hosted nutrition and strength tracking.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

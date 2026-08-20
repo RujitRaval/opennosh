@@ -15,7 +15,7 @@ Companion to `02-PRD.md`. Together these two are the input to the `prd-to-github
 | Frontend | **Next.js + Tailwind + shadcn/ui** | Matches your stack; responsive web only for v1 |
 | Validation | Pydantic v2 (API) + JSON Schema (food packs) | Food packs are validated by CI outside the app, so the schema must be standalone |
 | Auth | Session cookie + Argon2id | No third-party auth service. Self-hosted means no external dependency for login |
-| Container | Docker Compose: `api`, `web`, `db` | Three services maximum |
+| Container | Docker Compose: `ingress`, `web`, `api`, `db` | One-command deployment with nginx as the only public web ingress |
 | Tests | pytest (backend), Vitest (frontend) | Every issue ships tests — the pipeline requires it |
 
 **Constraint:** no external API call is required for core functionality. The app must work fully air-gapped after the initial food seed. This is a load-bearing product promise, not a nice-to-have.
@@ -208,10 +208,12 @@ services:
   db:   postgres:16     # named volume
   api:  ./api           # runs migrations on boot, then seeds if empty
   web:  ./web
+  ingress: nginx:1.27   # public web entry point; replaces forwarding headers
 ```
 
 - First boot runs migrations, then seeds USDA + bundled community packs. Seed is the slow part; show progress, don't hang silently.
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
+- nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.
 - Health endpoint at `/healthz` reporting DB connectivity and seed status.
 
 ## 7. Constraints for the implementing agent

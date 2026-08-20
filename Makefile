@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -17,6 +17,9 @@ test: foodpack-validate
 	python3 -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
 	npm --prefix web test
+
+web-e2e:
+	npm --prefix web run test:e2e
 
 build:
 	npm --prefix web run build

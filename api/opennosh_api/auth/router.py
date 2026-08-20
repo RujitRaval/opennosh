@@ -7,6 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.auth.client_address import client_address
 from opennosh_api.auth.dependencies import (
     CurrentSession,
     get_app_settings,
@@ -26,10 +27,6 @@ from opennosh_api.models import AuthSession, User
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
-
-
-def _client_address(request: Request) -> str:
-    return request.client.host if request.client is not None else "unknown"
 
 
 def _set_session_cookies(
@@ -114,7 +111,7 @@ async def register(
     await enforce_auth_rate_limit(
         database,
         scope="register-ip",
-        key=_client_address(request),
+        key=client_address(request, settings),
         settings=settings,
     )
     password_hash = await asyncio.to_thread(hash_password, credentials.password)
@@ -150,7 +147,7 @@ async def login(
     await enforce_auth_rate_limit(
         database,
         scope="login-ip",
-        key=_client_address(request),
+        key=client_address(request, settings),
         settings=settings,
     )
     await enforce_auth_rate_limit(

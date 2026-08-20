@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.auth.client_address import client_address
 from opennosh_api.auth.dependencies import get_app_settings
 from opennosh_api.auth.rate_limit import enforce_rate_limit
 from opennosh_api.database import get_database_session
@@ -70,11 +71,11 @@ async def search(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
-    client_address = request.client.host if request.client is not None else "unknown"
+    rate_limit_key = client_address(request, settings)
     await enforce_rate_limit(
         database,
         scope="food-search-ip",
-        key=client_address,
+        key=rate_limit_key,
         attempts=settings.food_search_rate_limit_attempts,
         window_seconds=settings.food_search_rate_limit_window_seconds,
         retention_seconds=settings.auth_rate_limit_retention_seconds,
@@ -115,11 +116,11 @@ async def barcode_lookup(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
-    client_address = request.client.host if request.client is not None else "unknown"
+    rate_limit_key = client_address(request, settings)
     await enforce_rate_limit(
         database,
         scope="open-food-facts-lookup-ip",
-        key=client_address,
+        key=rate_limit_key,
         attempts=settings.open_food_facts_lookup_rate_limit_attempts,
         window_seconds=settings.open_food_facts_lookup_rate_limit_window_seconds,
         retention_seconds=settings.auth_rate_limit_retention_seconds,
@@ -181,11 +182,11 @@ async def open_food_facts_export(
     database: Annotated[AsyncSession, Depends(get_database_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> ExportStreamingResponse:
-    client_address = request.client.host if request.client is not None else "unknown"
+    rate_limit_key = client_address(request, settings)
     await enforce_rate_limit(
         database,
         scope="open-food-facts-export-ip",
-        key=client_address,
+        key=rate_limit_key,
         attempts=settings.open_food_facts_export_rate_limit_attempts,
         window_seconds=settings.open_food_facts_export_rate_limit_window_seconds,
         retention_seconds=settings.auth_rate_limit_retention_seconds,
@@ -218,9 +219,7 @@ async def open_food_facts_export(
         timeout_seconds=settings.public_export_response_timeout_seconds,
         media_type="application/json",
         headers={
-            "Content-Disposition": (
-                'attachment; filename="opennosh-open-food-facts-odbl.json"'
-            ),
+            "Content-Disposition": ('attachment; filename="opennosh-open-food-facts-odbl.json"'),
             "X-Content-Type-Options": "nosniff",
         },
     )
