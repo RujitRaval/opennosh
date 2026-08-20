@@ -122,3 +122,26 @@ def test_polymorphic_food_references_are_allowlisted() -> None:
         }
         assert any("foods_reference" in constraint for constraint in constraints)
         assert {"food_source_table", "food_source_id"}.issubset(table.columns.keys())
+
+
+def test_log_entries_preserve_source_identity_and_original_quantity() -> None:
+    table = Base.metadata.tables["log_entries"]
+
+    assert {
+        "food_source_key",
+        "food_name",
+        "quantity_amount",
+        "quantity_unit",
+        "portion_name",
+        "computed_nutrients_json",
+    }.issubset(table.columns.keys())
+    constraints = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert {
+        "ck_log_entries_quantity_amount_positive",
+        "ck_log_entries_quantity_unit_allowed",
+        "ck_log_entries_portion_name_matches_unit",
+    }.issubset(constraints)

@@ -146,3 +146,22 @@ def test_conversion_rejects_a_resulting_mass_above_the_snapshot_limit() -> None:
             profile(density=Decimal(5)),
             Quantity(amount=Decimal("1000000"), unit=QuantityUnit.MILLILITRE),
         )
+
+
+def test_conversion_preserves_valid_authoritative_energy_factors() -> None:
+    authoritative = NutrientProfile.from_authoritative_source(
+        {
+            "energy_kcal": Decimal("100"),
+            "protein_g": Decimal("0"),
+            "fat_g": Decimal("0"),
+            "carbohydrate_g": Decimal("0"),
+        }
+    )
+
+    result = convert_quantity(
+        authoritative,
+        Quantity(amount=Decimal("50"), unit=QuantityUnit.GRAM),
+    )
+
+    assert result.nutrients["energy_kcal"] == Decimal("50")
+    assert result.nutrients["protein_g"] == Decimal("0")

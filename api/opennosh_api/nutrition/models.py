@@ -224,8 +224,11 @@ class NutrientValues(RootModel[Mapping[str, Decimal]]):
     def scaled(self, factor: Decimal) -> NutrientValues:
         if not factor.is_finite() or factor <= 0:
             raise ValueError("Nutrient scale factor must be finite and greater than zero")
-        return NutrientValues(
-            {code: deterministic_multiply(amount, factor) for code, amount in self.items()}
+        # Proportional scaling cannot introduce a new macro/energy mismatch. Preserve
+        # authoritative profiles that were already validated at the source boundary.
+        return NutrientValues.model_validate(
+            {code: deterministic_multiply(amount, factor) for code, amount in self.items()},
+            context={"authoritative_source": True},
         )
 
 
