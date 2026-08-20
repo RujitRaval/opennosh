@@ -1,0 +1,6 @@
+"id","name","unit_name","nutrient_nbr","rank"
+"1003","Protein","G","203","600"
+"1004","Total lipid (fat)","G","204","800"
+"1005","Carbohydrate, by difference","G","205","1110"
+"1008","Energy","KCAL","208","300"
+"1093","Sodium, Na","MG","307","5800"

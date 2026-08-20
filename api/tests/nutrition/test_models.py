@@ -58,6 +58,39 @@ def test_nutrient_values_require_core_macros_and_reject_booleans() -> None:
         nutrient_values(sodium_mg=True)
 
 
+def test_authoritative_source_values_may_use_food_specific_energy_factors() -> None:
+    published = {
+        "energy_kcal": Decimal("472"),
+        "protein_g": Decimal("12.1"),
+        "fat_g": Decimal("47.7"),
+        "carbohydrate_g": Decimal("36.2"),
+    }
+
+    with pytest.raises(ValidationError, match="Macro-derived energy"):
+        NutrientValues.model_validate(published)
+
+    exact = NutrientValues.from_authoritative_source(published)
+
+    assert exact["energy_kcal"] == Decimal("472")
+
+
+def test_authoritative_source_accepts_valid_high_energy_oil() -> None:
+    published = {
+        "energy_kcal": Decimal("902"),
+        "energy_kj": Decimal("3774"),
+        "protein_g": Decimal("0"),
+        "fat_g": Decimal("100"),
+        "carbohydrate_g": Decimal("0"),
+    }
+
+    with pytest.raises(ValidationError, match="cannot exceed 900"):
+        NutrientProfile(nutrients=NutrientValues.from_authoritative_source(published))
+
+    profile = NutrientProfile.from_authoritative_source(published)
+
+    assert profile.nutrients["energy_kcal"] == Decimal("902")
+
+
 def test_zero_energy_requires_zero_energy_macros() -> None:
     zero = nutrient_values(energy_kcal="0", protein_g="0", fat_g="0", carbohydrate_g="0")
     assert zero["energy_kcal"] == 0

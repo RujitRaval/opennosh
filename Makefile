@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade
+.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import
 
 install:
 	uv sync --frozen
@@ -29,3 +29,6 @@ db-upgrade:
 
 db-downgrade:
 	uv run alembic -c api/alembic.ini downgrade base
+
+usda-import:
+	PYTHONPATH=api uv run python -m opennosh_api.importers.usda $(USDA_PATHS)

@@ -1,0 +1,41 @@
+{
+  "FoundationFoods": [
+    {
+      "fdcId": 321358,
+      "dataType": "Foundation",
+      "description": "Hummus, commercial",
+      "foodCategory": {"description": "Legumes and Legume Products"},
+      "publicationDate": "4/1/2019",
+      "foodNutrients": [
+        {"nutrient": {"id": 1003, "name": "Protein", "unitName": "g"}, "amount": 7.35},
+        {"nutrient": {"id": 1004, "name": "Total lipid (fat)", "unitName": "g"}, "amount": 17.1},
+        {"nutrient": {"id": 1005, "name": "Carbohydrate, by difference", "unitName": "g"}, "amount": 14.9},
+        {"nutrient": {"id": 2047, "name": "Energy (Atwater General Factors)", "unitName": "kcal"}, "amount": 230},
+        {"nutrient": {"id": 2048, "name": "Energy (Atwater Specific Factors)", "unitName": "kcal"}, "amount": 229},
+        {"nutrient": {"id": 1093, "name": "Sodium, Na", "unitName": "mg"}, "amount": 438},
+        {"nutrient": {"id": 1110, "name": "Vitamin D (D2 + D3), International Units", "unitName": "IU"}, "amount": 40},
+        {"nutrient": {"id": 1114, "name": "Vitamin D (D2 + D3)", "unitName": "UG"}, "amount": 1},
+        {"nutrient": {"id": 1024, "name": "Specific Gravity", "unitName": "sp gr"}, "amount": 1.04}
+      ],
+      "foodPortions": [
+        {
+          "amount": 2,
+          "measureUnit": {"name": "tablespoon", "abbreviation": "tbsp"},
+          "modifier": "",
+          "gramWeight": 33.9
+        }
+      ]
+    },
+    {},
+    {
+      "fdcId": 999999,
+      "dataType": "Foundation",
+      "description": "Incomplete analytical sample",
+      "publicationDate": "2026-04-30",
+      "foodNutrients": [
+        {"nutrient": {"id": 1003, "name": "Protein", "unitName": "g"}, "amount": 1}
+      ],
+      "foodPortions": []
+    }
+  ]
+}
