@@ -101,6 +101,24 @@ def test_food_search_indexes_are_declared_in_model_metadata() -> None:
     }.issubset(community_indexes)
 
 
+def test_exercise_search_indexes_are_declared_in_model_metadata() -> None:
+    exercise_indexes = {index.name for index in Base.metadata.tables["exercises"].indexes}
+
+    assert {
+        "ix_exercises_search_tsv",
+        "ix_exercises_name_trgm",
+        "ix_exercises_muscle_groups_gin",
+        "ix_exercises_equipment_gin",
+    }.issubset(exercise_indexes)
+
+    check_names = {
+        constraint.name
+        for constraint in Base.metadata.tables["exercises"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert "ck_exercises_source_updated_at_supported" in check_names
+
+
 def test_every_user_owned_table_has_an_indexed_non_null_owner_foreign_key() -> None:
     for table_name in OWNER_TABLES:
         table = Base.metadata.tables[table_name]
@@ -241,3 +259,38 @@ def test_workouts_enforce_order_load_and_timestamp_contracts() -> None:
         "ck_workout_sets_load_unit_allowed",
         "ck_workout_sets_load_contract_valid",
     }.issubset(set_checks)
+
+
+def test_exercises_enforce_attribution_json_urls_and_search_indexes() -> None:
+    table = Base.metadata.tables["exercises"]
+    assert {
+        "search_text",
+        "translations_json",
+        "translation_attribution_json",
+        "source_updated_at",
+    }.issubset(table.columns.keys())
+    check_names = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert {
+        "ck_exercises_wger_license_allowed",
+        "ck_exercises_source_url_http",
+        "ck_exercises_author_url_http",
+        "ck_exercises_translations_array",
+        "ck_exercises_translation_attribution_array",
+        "ck_exercises_muscles_strings",
+        "ck_exercises_muscles_plain",
+        "ck_exercises_equipment_strings",
+        "ck_exercises_equipment_plain",
+        "ck_exercises_translations_objects",
+        "ck_exercises_translation_attribution_objects",
+        "ck_exercises_slug_plain",
+        "ck_exercises_name_plain",
+    }.issubset(check_names)
+    assert {
+        "ix_exercises_search_tsv",
+        "ix_exercises_muscle_groups_gin",
+        "ix_exercises_equipment_gin",
+    }.issubset({index.name for index in table.indexes})

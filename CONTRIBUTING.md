@@ -15,6 +15,12 @@ review warnings remain machine-readable but do not change its exit status.
 
 Food-pack contributors do not need GStack or an `agent/` branch. Maintainer and agent-authored development uses the stricter workflow in `CLAUDE.md`: `agent/<short-description>` branch, GStack `/review`, then GStack `/ship`. Those maintainer pull-request titles use `vMAJOR.MINOR.PATCH.MICRO type: summary`.
 
+Exercise importer changes must run the offline fixture tests and PostgreSQL integration suite. Tests
+must never call the live wger service. Keep the v1 license allowlist exact: only unambiguous
+`CC-BY-SA-3.0` records may enter the catalogue, and source, derivative, author, license, and
+translation attribution must remain intact. Add hostile fixtures for any newly accepted input shape,
+including markup and unsafe URL cases. Import wger data only; do not copy AGPL application code.
+
 ## Scope boundaries
 
 Accepted contribution types include food packs, translations, and bug fixes with tests. Exercise-catalogue changes must follow the per-entry license and attribution boundary in `04-DATA-LICENSING.md`; do not submit bulk exercise data without a prior issue.

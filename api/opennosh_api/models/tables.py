@@ -346,7 +346,92 @@ class Workout(UUIDPrimaryKeyMixin, Base):
 
 class Exercise(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "exercises"
-    __table_args__ = (UniqueConstraint("source", "source_id", name="uq_exercises_source_id"),)
+    __table_args__ = (
+        UniqueConstraint("source", "source_id", name="uq_exercises_source_id"),
+        CheckConstraint("length(slug) BETWEEN 1 AND 160", name="slug_bounded"),
+        CheckConstraint("length(name) BETWEEN 1 AND 255", name="name_bounded"),
+        CheckConstraint("slug !~ '[<>[:cntrl:]]'", name="slug_plain"),
+        CheckConstraint("name !~ '[<>[:cntrl:]]'", name="name_plain"),
+        CheckConstraint("length(search_text) <= 50000", name="search_text_bounded"),
+        CheckConstraint(
+            "source_updated_at IS NULL OR ("
+            "source_updated_at >= TIMESTAMPTZ '0001-01-01 00:00:00.000001+00' AND "
+            "source_updated_at <= TIMESTAMPTZ '9999-12-31 23:59:59.999998+00')",
+            name="source_updated_at_supported",
+        ),
+        CheckConstraint("jsonb_typeof(muscle_groups) = 'array'", name="muscles_array"),
+        CheckConstraint("jsonb_typeof(equipment) = 'array'", name="equipment_array"),
+        CheckConstraint("jsonb_typeof(translations_json) = 'array'", name="translations_array"),
+        CheckConstraint(
+            "jsonb_typeof(translation_attribution_json) = 'array'",
+            name="translation_attribution_array",
+        ),
+        CheckConstraint(
+            "NOT jsonb_path_exists(muscle_groups, "
+            "'$[*] ? (@.type() != \"string\")')",
+            name="muscles_strings",
+        ),
+        CheckConstraint("muscle_groups::text !~ '[<>]'", name="muscles_plain"),
+        CheckConstraint(
+            "NOT jsonb_path_exists(equipment, '$[*] ? (@.type() != \"string\")')",
+            name="equipment_strings",
+        ),
+        CheckConstraint("equipment::text !~ '[<>]'", name="equipment_plain"),
+        CheckConstraint(
+            "NOT jsonb_path_exists(translations_json, "
+            "'$[*] ? (@.type() != \"object\")')",
+            name="translations_objects",
+        ),
+        CheckConstraint(
+            "NOT jsonb_path_exists(translation_attribution_json, "
+            "'$[*] ? (@.type() != \"object\")')",
+            name="translation_attribution_objects",
+        ),
+        CheckConstraint(
+            "source <> 'wger' OR (license_spdx = 'CC-BY-SA-3.0' "
+            "AND license_url = 'https://creativecommons.org/licenses/by-sa/3.0/')",
+            name="wger_license_allowed",
+        ),
+        CheckConstraint(
+            "source_url ~ '^https?://[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?"
+            "(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|"
+            "65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?"
+            "(/[^[:space:]<>\"''\\]*)?$'",
+            name="source_url_http",
+        ),
+        CheckConstraint(
+            "derivative_source_url IS NULL OR derivative_source_url ~ '^https?://"
+            "[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?"
+            "(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|"
+            "65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?"
+            "(/[^[:space:]<>\"''\\]*)?$'",
+            name="derivative_source_url_http",
+        ),
+        CheckConstraint(
+            "author_url IS NULL OR author_url ~ '^https?://"
+            "[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?"
+            "(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|"
+            "65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?"
+            "(/[^[:space:]<>\"''\\]*)?$'",
+            name="author_url_http",
+        ),
+        Index("ix_exercises_muscle_groups_gin", "muscle_groups", postgresql_using="gin"),
+        Index("ix_exercises_equipment_gin", "equipment", postgresql_using="gin"),
+        Index(
+            "ix_exercises_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_exercises_search_tsv",
+            text(
+                "to_tsvector('simple'::regconfig, "
+                "(name::text || ' '::text) || search_text)"
+            ),
+            postgresql_using="gin",
+        ),
+    )
 
     slug: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -356,6 +441,7 @@ class Exercise(UUIDPrimaryKeyMixin, Base):
     equipment: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
+    search_text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     source_id: Mapped[str] = mapped_column(String(160), nullable=False)
     source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
@@ -365,9 +451,13 @@ class Exercise(UUIDPrimaryKeyMixin, Base):
     author: Mapped[str | None] = mapped_column(String(255))
     author_url: Mapped[str | None] = mapped_column(String(2048))
     attribution_text: Mapped[str] = mapped_column(Text, nullable=False)
+    translations_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     translation_attribution_json: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WorkoutSet(UUIDPrimaryKeyMixin, Base):

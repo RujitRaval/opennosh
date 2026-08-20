@@ -1,0 +1,91 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 101,
+      "uuid": "d58cda1d-707d-4b02-94a6-1f9fd32f7842",
+      "last_update_global": "2026-08-19T12:00:00+00:00",
+      "category": {"id": 9, "name": "Legs"},
+      "muscles": [
+        {"id": 10, "name": "Quadriceps femoris", "name_en": "Quads"},
+        {"id": 8, "name": "Gluteus maximus", "name_en": "Glutes"}
+      ],
+      "muscles_secondary": [],
+      "equipment": [{"id": 1, "name": "Barbell"}],
+      "license": {
+        "id": 1,
+        "full_name": "Creative Commons Attribution Share Alike 3",
+        "short_name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
+      "license_author": "wger contributors",
+      "translations": [
+        {
+          "id": 1001,
+          "uuid": "36f2f438-fb4e-4a60-a57e-8f742665c207",
+          "name": "Barbell Back Squat",
+          "description": "<p>Brace your torso and squat with the bar across your upper back.</p>",
+          "language": 2,
+          "aliases": [{"alias": "Back Squat"}],
+          "notes": [{"note": "Keep the knees tracking over the feet."}],
+          "license": 1,
+          "license_title": "Barbell Back Squat",
+          "license_object_url": "https://wger.de/en/exercise/101/view/",
+          "license_author": "wger contributors",
+          "license_author_url": "https://wger.de/",
+          "license_derivative_source_url": "https://example.org/source/back-squat"
+        },
+        {
+          "id": 1002,
+          "uuid": "63ddf6e0-cc82-4a19-aab6-b847fd7bc63c",
+          "name": "Kniebeuge mit Langhantel",
+          "description": "<p>Beuge kontrolliert Knie und Hüfte.</p>",
+          "language": 1,
+          "aliases": [],
+          "notes": [],
+          "license": 1,
+          "license_title": "Kniebeuge",
+          "license_object_url": "https://wger.de/de/exercise/101/view/",
+          "license_author": "wger contributors",
+          "license_author_url": "https://wger.de/",
+          "license_derivative_source_url": ""
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "uuid": "13664f6e-54fa-4e28-803e-99a74df79f30",
+      "last_update_global": "2026-08-19T12:05:00+00:00",
+      "category": {"id": 12, "name": "Back"},
+      "muscles": [{"id": 12, "name": "Latissimus dorsi", "name_en": "Lats"}],
+      "muscles_secondary": [{"id": 5, "name": "Biceps brachii", "name_en": "Biceps"}],
+      "equipment": [{"id": 8, "name": "Cable"}],
+      "license": {
+        "id": 1,
+        "full_name": "Creative Commons Attribution Share Alike 3",
+        "short_name": "CC-BY-SA 3",
+        "url": "https://creativecommons.org/licenses/by-sa/3.0/deed.en"
+      },
+      "license_author": "Open exercise authors",
+      "translations": [
+        {
+          "id": 1003,
+          "uuid": "21ad6554-fec4-42bd-933e-48c76f2d559e",
+          "name": "Seated Cable Row",
+          "description": "<p>Pull the handle toward your torso while keeping your back neutral.</p>",
+          "language": 2,
+          "aliases": ["Cable Row"],
+          "notes": [],
+          "license": 1,
+          "license_title": "Seated Cable Row",
+          "license_object_url": "https://wger.de/en/exercise/102/view/",
+          "license_author": "Open exercise authors",
+          "license_author_url": "https://wger.de/",
+          "license_derivative_source_url": ""
+        }
+      ]
+    }
+  ]
+}

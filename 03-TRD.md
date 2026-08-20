@@ -77,10 +77,11 @@ workout_sets
   load_value, load_unit             -- unit is an enum, see §4
 
 exercises
-  id, slug, name, muscle_groups, equipment, source,
+  id, slug, name, muscle_groups, equipment, search_text, source,
   source_id, source_url, derivative_source_url,
   license_spdx, license_url, author, author_url,
-  attribution_text, translation_attribution_json
+  attribution_text, translations_json, translation_attribution_json,
+  source_updated_at
 
 targets
   id, user_id, day_type, kcal, protein_g, carb_g, fat_g,
@@ -115,11 +116,11 @@ Deliberately loose, because equipment is heterogeneous.
 
 Rationale: cable and digital-resistance machines report a number that isn't a true weight and isn't comparable across devices. Forcing it into a `weight_kg` field produces silently wrong volume totals. Store the unit, compute volume only within matching units, and refuse to aggregate across incompatible ones.
 
-The v1 exercise catalogue imports data from wger, not code. Its versioned v1 allowlist contains only `CC-BY-SA-3.0`; entries with missing, ambiguous, NC, ND, or any other license are rejected until legal review explicitly expands that list. The importer stores the source identifier, object URL, derivative source URL, exact SPDX identifier and license URL, author and author URL, attribution text, and translation-level attribution. It never relabels imported exercise data as CC0. The wger application is AGPL-licensed and none of its application code may be copied into the MIT opennosh codebase.
+The v1 exercise catalogue imports downloaded `exerciseinfo` data from wger, not code. Its versioned v1 allowlist contains only `CC-BY-SA-3.0`; the short name, full name, and license URL must all agree, and entries with missing, ambiguous, NC, ND, or any other license are rejected until legal review explicitly expands that list. The offline, idempotent importer stores the source identifier and timestamp, object URL, derivative source URL, exact SPDX identifier and license URL, author and author URL, attribution text, cleaned translations, and translation-level attribution. An older source timestamp never overwrites a newer row. It never relabels imported exercise data as CC0. The wger application is AGPL-licensed and none of its application code may be copied into the MIT opennosh codebase.
 
 Treat every imported attribution field as untrusted input. Enforce types and conservative length limits, allow only `http` or `https` source URLs, render author and attribution values as escaped text, and render validated URLs through safe link components. Never store or render source-supplied HTML. Importer tests must include malicious attribution and URL fixtures that prove script markup and unsafe schemes cannot execute.
 
-Exercise search, detail, UI notices, and export return the complete attribution record. The exercise export remains separately identified as `CC-BY-SA-3.0`, includes the license and source notices, and is never combined with the CC0 food-pack dump.
+Exercise search uses PostgreSQL full-text plus exact muscle and equipment filters, bounded pagination, a statement timeout, and per-IP rate limiting. Search, detail, UI notices, and export return the complete attribution record. The exercise export has its own per-IP limit and statement timeout, and rejects catalogues above 10,000 rows or 64 MiB of stored data. It remains separately identified as `CC-BY-SA-3.0`, includes the license, source, and ShareAlike notices, and is never combined with the CC0 food-pack dump.
 
 The Open Food Facts client sends a descriptive identifying `User-Agent` containing the opennosh version and maintainer contact. It preserves ODbL database and DbCL contents notices in storage and export. v1 does not request, cache, or display product images; adding images later requires a separate CC BY-SA attribution design.
 

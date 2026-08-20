@@ -245,6 +245,40 @@ refuses to combine incompatible units; add `&load_unit=kg` or another exact unit
 Bodyweight, band, and RPE-only sets remain useful records but are never converted into an invented
 numeric volume.
 
+## Attributed wger exercise catalogue
+
+Import a downloaded wger `exerciseinfo` JSON export after upgrading the database:
+
+```shell
+make db-upgrade
+make wger-import WGER_PATHS="downloads/exerciseinfo.json --json"
+```
+
+The command reads local files only; neither runtime imports nor automated tests call the live wger
+service. It accepts only records whose short name, full name, and license URL unambiguously identify
+`CC-BY-SA-3.0`. Missing, NC, ND, conflicting, or unsupported license metadata is reported and
+skipped. Safe source and derivative URLs, author information, cleaned plain-text translations, and
+complete per-translation attribution are retained. Re-importing the same export is a no-op, and an
+older source timestamp cannot replace a newer record.
+
+Search and retrieve the catalogue through the public API:
+
+```text
+GET /api/v1/exercises/search?q=squat&muscle=quads&equipment=barbell&limit=20&offset=0
+GET /api/v1/exercises/{exercise_id}
+GET /api/v1/export/exercises
+```
+
+Search is bounded and rate-limited per source IP, with PostgreSQL full-text and taxonomy indexes.
+Every search, detail, and export record carries its source, author, license, derivative, and
+translation attribution. The export has an explicit Creative Commons Attribution-ShareAlike 3.0
+notice and remains separate from the CC0 community-food export; importing exercises never changes
+their license to CC0.
+
+Public search and export have independent per-IP limits and PostgreSQL statement timeouts. The JSON
+export also refuses catalogues above 10,000 rows or 64 MiB of stored exercise data so one anonymous
+request cannot consume unbounded server resources.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,

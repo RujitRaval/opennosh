@@ -1,0 +1,64 @@
+[
+  {
+    "id": 201,
+    "last_update_global": "2026-08-19T13:00:00+00:00",
+    "category": {"id": 9, "name": "Legs"},
+    "muscles": [{"id": 10, "name": "Quadriceps", "name_en": "Quads"}],
+    "muscles_secondary": [],
+    "equipment": [{"id": 4, "name": "Machine"}],
+    "license": {
+      "id": 1,
+      "full_name": "Creative Commons Attribution Share Alike 3",
+      "short_name": "CC-BY-SA 3",
+      "url": "https://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    "license_author": "Safe author",
+    "translations": [
+      {
+        "id": 2001,
+        "name": "Safe Leg Extension",
+        "description": "<script>alert('stored xss')</script><style>body{display:none}</style><p>Extend the knee under control.</p>",
+        "language": 2,
+        "aliases": [],
+        "notes": [],
+        "license": 1,
+        "license_title": "Safe Leg Extension",
+        "license_object_url": "https://wger.de/en/exercise/201/view/",
+        "license_author": "Safe author",
+        "license_author_url": "https://wger.de/",
+        "license_derivative_source_url": ""
+      }
+    ]
+  },
+  {
+    "id": 202,
+    "last_update_global": "2026-08-19T13:05:00+00:00",
+    "category": {"id": 9, "name": "Legs"},
+    "muscles": [],
+    "muscles_secondary": [],
+    "equipment": [],
+    "license": {
+      "id": 1,
+      "full_name": "Creative Commons Attribution Share Alike 3",
+      "short_name": "CC-BY-SA 3",
+      "url": "https://creativecommons.org/licenses/by-sa/3.0/"
+    },
+    "license_author": "Safe author",
+    "translations": [
+      {
+        "id": 2002,
+        "name": "Unsafe URL Exercise",
+        "description": "<p>Never imported.</p>",
+        "language": 2,
+        "aliases": [],
+        "notes": [],
+        "license": 1,
+        "license_title": "Unsafe URL Exercise",
+        "license_object_url": "javascript:alert(1)",
+        "license_author": "Safe author",
+        "license_author_url": "https://wger.de/",
+        "license_derivative_source_url": ""
+      }
+    ]
+  }
+]
