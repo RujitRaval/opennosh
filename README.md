@@ -208,7 +208,9 @@ these numbers without streaks, shaming, or automated medical interpretation.
 Authenticated users can create and manage their own workouts under `/api/v1/workouts`. A workout
 has a timezone-aware `performed_at`, optional notes, and up to 500 ordered sets. Each set refers to
 an attributed exercise and records reps plus one of `kg`, `lb`, `bodyweight`, `band`,
-`machine_units`, or `rpe_only`. For example:
+`machine_units`, or `rpe_only`. `kg`, `lb`, and `machine_units` require a nonnegative
+`load_value`; `bodyweight` and `band` omit it; and `rpe_only` stores a rating from 1 through 10 in
+`load_value`. For example:
 
 ```json
 {
@@ -225,11 +227,17 @@ an attributed exercise and records reps plus one of `kg`, `lb`, `bodyweight`, `b
 }
 ```
 
-Use `GET /api/v1/workouts?from=2026-08-01&to=2026-08-31` for an inclusive UTC-date
-range. `POST /api/v1/workouts/{workout_id}/sets`,
+Use `GET /api/v1/workouts?from=2026-08-01&to=2026-08-31&limit=50&offset=0` for an inclusive
+UTC-date range. `limit` accepts 1–100, `offset` accepts 0–10,000, and the response includes
+`has_more`. Read, replace workout metadata, or delete a workout with `GET`, `PUT`, or `DELETE`
+at `/api/v1/workouts/{workout_id}`. `POST /api/v1/workouts/{workout_id}/sets`,
 `PUT /api/v1/workouts/{workout_id}/sets/{set_id}`, and the corresponding `DELETE` endpoint
 append, edit, and remove sets without changing the surviving sets' relative order. Mutations
 require the session CSRF token, and all responses send `Cache-Control: no-store`.
+
+Every returned set embeds the exercise's source identifier and URL, license identifier and URL,
+author fields, attribution text, and translation-level attribution so clients can display the
+required credit without a second lookup.
 
 Volume is computed only for `kg`, `lb`, and `machine_units`, and remains separated by exercise
 and unit. `GET /api/v1/workouts/volume?from=2026-08-01&to=2026-08-31&exercise_id=<id>`
