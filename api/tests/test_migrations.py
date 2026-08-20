@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -133,9 +134,15 @@ async def assert_database_constraints(database_url: str) -> None:
                     text(
                         """
                         INSERT INTO recipe_ingredients (
-                            user_id, recipe_id, food_source_table, food_source_id, grams
+                            user_id, recipe_id, position, food_source_table,
+                            food_source_id, food_source_key, food_name, grams,
+                            computed_nutrients_json
                         ) VALUES (
-                            :user_id, :recipe_id, 'foods_custom', gen_random_uuid(), 10
+                            :user_id, :recipe_id, 0, 'foods_custom', gen_random_uuid(),
+                            gen_random_uuid()::text, 'Cross-tenant food', 10,
+                            '{"basis":"computed","grams":"10","nutrients":{
+                              "energy_kcal":"10","protein_g":"1","fat_g":"0",
+                              "carbohydrate_g":"1.5"}}'::jsonb
                         )
                         """
                     ),
@@ -301,6 +308,91 @@ async def replace_and_read_log_grams(database_url: str, grams: str) -> str:
         await engine.dispose()
 
 
+async def replace_and_read_recipe_yield(database_url: str, grams: str) -> str:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE recipes SET yield_grams = CAST(:grams AS numeric)"),
+                {"grams": grams},
+            )
+            return str(await connection.scalar(text("SELECT min(yield_grams) FROM recipes")))
+    finally:
+        await engine.dispose()
+
+
+async def seed_pre_snapshot_recipe_ingredient(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('recipe-migration@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+            food_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO foods_reference (
+                        fdc_id, description, nutrients_json, portions_json
+                    ) VALUES (
+                        '98765', 'Legacy recipe oats',
+                        '{"basis":"per_100g","nutrients":{
+                          "energy_kcal":"100","protein_g":"10",
+                          "fat_g":"0","carbohydrate_g":"15"}}'::jsonb,
+                        '[]'::jsonb
+                    ) RETURNING id
+                    """
+                )
+            )
+            recipe_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO recipes (user_id, name, yield_grams)
+                    VALUES (:user_id, 'Legacy recipe', 300) RETURNING id
+                    """
+                ),
+                {"user_id": user_id},
+            )
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO recipe_ingredients (
+                        user_id, recipe_id, food_source_table, food_source_id, grams
+                    ) VALUES (
+                        :user_id, :recipe_id, 'foods_reference', :food_id, 150
+                    )
+                    """
+                ),
+                {"user_id": user_id, "recipe_id": recipe_id, "food_id": food_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def read_recipe_snapshot_backfill(database_url: str) -> dict[str, Any]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            row = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT position, food_source_key, food_name, grams::text,
+                               computed_nutrients_json
+                        FROM recipe_ingredients
+                        """
+                    )
+                )
+            ).mappings().one()
+            return dict(row)
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
     assert INTEGRATION_DATABASE_URL is not None
@@ -362,6 +454,25 @@ def test_initial_migration_upgrades_and_downgrades_cleanly() -> None:
             for column in log_columns
             if column["name"]
             in {"food_source_key", "food_name", "quantity_amount", "quantity_unit"}
+        )
+
+        recipe_ingredient_columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: inspector.get_columns("recipe_ingredients"),
+            )
+        )
+        assert {
+            "position",
+            "food_source_key",
+            "food_name",
+            "computed_nutrients_json",
+        }.issubset({column["name"] for column in recipe_ingredient_columns})
+        assert all(
+            not column["nullable"]
+            for column in recipe_ingredient_columns
+            if column["name"]
+            in {"position", "food_source_key", "food_name", "computed_nutrients_json"}
         )
 
         for table_name in (
@@ -430,6 +541,50 @@ def test_log_snapshot_migration_preserves_external_food_identity() -> None:
         command.downgrade(config, "20260820_0004")
         assert (
             asyncio.run(replace_and_read_log_grams(INTEGRATION_DATABASE_URL, "0.0001")) == "0.0001"
+        )
+    finally:
+        command.downgrade(config, "base")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_recipe_snapshot_migration_preserves_existing_composition() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0005")
+        asyncio.run(seed_pre_snapshot_recipe_ingredient(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        actual = asyncio.run(read_recipe_snapshot_backfill(INTEGRATION_DATABASE_URL))
+        assert actual["position"] == 0
+        assert actual["food_source_key"] == "98765"
+        assert actual["food_name"] == "Legacy recipe oats"
+        assert actual["grams"] == "150.000"
+        snapshot = actual["computed_nutrients_json"]
+        assert snapshot["basis"] == "computed"
+        assert Decimal(snapshot["grams"]) == Decimal("150")
+        assert {
+            code: Decimal(amount) for code, amount in snapshot["nutrients"].items()
+        } == {
+            "energy_kcal": Decimal("150"),
+            "protein_g": Decimal("15"),
+            "fat_g": Decimal("0"),
+            "carbohydrate_g": Decimal("22.5"),
+        }
+        assert (
+            asyncio.run(
+                replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001")
+            )
+            == "0.0001"
+        )
+        command.downgrade(config, "20260820_0005")
+        assert (
+            asyncio.run(
+                replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001")
+            )
+            == "0.0001"
         )
     finally:
         command.downgrade(config, "base")

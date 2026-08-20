@@ -55,7 +55,9 @@ foods_custom             -- private to one user, never exported in bulk
 recipes
   id, user_id, name, yield_grams, is_public
 recipe_ingredients
-  id, user_id, recipe_id, food_source_table, food_source_id, grams
+  id, user_id, recipe_id, position, food_source_table, food_source_id,
+  food_source_key, food_name, grams, computed_nutrients_json
+  -- identity + nutrients denormalised at composition time
 
 log_entries
   id, user_id, logged_at, meal_slot,
@@ -130,7 +132,8 @@ GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
 POST   /foods/custom
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
-GET    /recipes            POST /recipes            PUT /recipes/{id}
+GET    /recipes            POST /recipes
+GET    /recipes/{id}       PUT /recipes/{id}        DELETE /recipes/{id}
 GET    /logs?day=&timezone=           POST /logs
 GET    /logs/{id}                     DELETE /logs/{id}
 GET    /logs/daily-totals?day=&timezone=

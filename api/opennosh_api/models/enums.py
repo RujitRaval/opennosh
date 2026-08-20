@@ -6,6 +6,7 @@ class FoodSourceTable(StrEnum):
     COMMUNITY = "foods_community"
     ODBL = "foods_odbl"
     CUSTOM = "foods_custom"
+    RECIPE = "recipes"
 
 
 class LoadUnit(StrEnum):

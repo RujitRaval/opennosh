@@ -11,6 +11,9 @@ from opennosh_api.nutrition.models import (
     NutrientValues,
     Quantity,
     QuantityUnit,
+    deterministic_add,
+    deterministic_divide,
+    deterministic_multiply,
 )
 
 __all__ = [
@@ -24,4 +27,7 @@ __all__ = [
     "Quantity",
     "QuantityUnit",
     "convert_quantity",
+    "deterministic_add",
+    "deterministic_divide",
+    "deterministic_multiply",
 ]

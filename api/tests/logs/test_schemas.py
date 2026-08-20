@@ -36,6 +36,7 @@ def test_log_payload_normalizes_meal_slot_and_preserves_exact_quantity() -> None
         (FoodLogSource.COMMUNITY, "Not-A-Slug"),
         (FoodLogSource.OPEN_FOOD_FACTS, "123x"),
         (FoodLogSource.CUSTOM, "not-a-uuid"),
+        (FoodLogSource.RECIPE, "not-a-uuid"),
     ],
 )
 def test_food_reference_rejects_source_incompatible_identifiers(

@@ -92,6 +92,18 @@ def deterministic_multiply(left: Decimal, right: Decimal) -> Decimal:
     return result
 
 
+def deterministic_add(left: Decimal, right: Decimal) -> Decimal:
+    """Add under opennosh's fixed decimal context."""
+    try:
+        with localcontext(_ARITHMETIC_CONTEXT):
+            result = left + right
+    except DecimalException as error:
+        raise ValueError("Decimal addition exceeds the supported numeric range") from error
+    if not result.is_finite():
+        raise ValueError("Decimal addition must produce a finite value")
+    return result
+
+
 def deterministic_divide(numerator: Decimal, denominator: Decimal) -> Decimal:
     """Divide under opennosh's fixed decimal context."""
     try:

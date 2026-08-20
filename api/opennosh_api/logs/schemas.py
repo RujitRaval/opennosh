@@ -24,6 +24,7 @@ class FoodLogSource(StrEnum):
     COMMUNITY = "community"
     OPEN_FOOD_FACTS = "openfoodfacts"
     CUSTOM = "custom"
+    RECIPE = "recipe"
 
 
 def _validate_meal_slot(value: str) -> str:
@@ -62,11 +63,12 @@ class FoodLogReference(BaseModel):
         elif self.source is FoodLogSource.OPEN_FOOD_FACTS:
             if not self.source_id.isascii() or not self.source_id.isdigit():
                 raise ValueError("Open Food Facts source_id must contain only digits")
-        else:
+        elif self.source in {FoodLogSource.CUSTOM, FoodLogSource.RECIPE}:
             try:
                 UUID(self.source_id)
             except ValueError as error:
-                raise ValueError("Custom source_id must be a UUID") from error
+                label = "Custom" if self.source is FoodLogSource.CUSTOM else "Recipe"
+                raise ValueError(f"{label} source_id must be a UUID") from error
         return self
 
 
