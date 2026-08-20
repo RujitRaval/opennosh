@@ -1363,3 +1363,227 @@ def test_workout_migration_rejects_invalid_legacy_rows(invalid_kind: str) -> Non
             command.upgrade(config, "head")
     finally:
         command.downgrade(config, "base")
+
+
+async def seed_legacy_exercise(database_url: str, *, invalid_kind: str | None = None) -> None:
+    engine = create_async_engine(database_url)
+    slug = "legacy-wger-squat" if invalid_kind is None else f"invalid-wger-{invalid_kind}"
+    source_id = "legacy-101" if invalid_kind is None else f"invalid-{invalid_kind}"
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO exercises (
+                        slug, name, muscle_groups, equipment, source, source_id,
+                        source_url, derivative_source_url, license_spdx, license_url,
+                        author, author_url, attribution_text,
+                        translation_attribution_json
+                    ) VALUES (
+                        :slug, 'Legacy wger squat', '["quads"]'::jsonb,
+                        '["barbell"]'::jsonb, 'wger', :source_id, :source_url,
+                        'https://example.test/source', :license_spdx,
+                        'https://creativecommons.org/licenses/by-sa/3.0/',
+                        'Legacy author', :author_url, 'Legacy attribution',
+                        CAST(:translation_attribution AS jsonb)
+                    )
+                    """
+                ),
+                {
+                    "slug": slug,
+                    "source_id": source_id,
+                    "source_url": (
+                        "javascript:alert(1)"
+                        if invalid_kind == "source_url"
+                        else "https://?bad"
+                        if invalid_kind == "source_missing_host"
+                        else "https://wger.de:bad/item"
+                        if invalid_kind == "source_bad_port"
+                        else "https://wger.de\\evil"
+                        if invalid_kind == "source_backslash"
+                        else "https://" + "user" + ":" + "pass" + "@wger.de/item/101/"
+                        if invalid_kind == "source_credentials"
+                        else "https://wger.de/api/v2/exerciseinfo/101/"
+                    ),
+                    "license_spdx": (
+                        "CC-BY-SA-4.0" if invalid_kind == "license" else "CC-BY-SA-3.0"
+                    ),
+                    "author_url": (
+                        "javascript:alert(1)"
+                        if invalid_kind == "author_url"
+                        else "https://wger.de/"
+                    ),
+                    "translation_attribution": (
+                        '[{"source_id":"101","language_id":"2",'
+                        '"license_spdx":"CC-BY-SA-3.0",'
+                        '"license_url":"javascript:alert(1)",'
+                        '"author":"wger","attribution_text":"credit"}]'
+                        if invalid_kind == "translation_url"
+                        else "[]"
+                    ),
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
+async def read_legacy_exercise(database_url: str) -> dict[str, object] | None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            row = (
+                (
+                    await connection.execute(
+                        text(
+                            """
+                        SELECT slug, search_text, translations_json, source_updated_at
+                        FROM exercises
+                        WHERE source = 'wger' AND source_id = 'legacy-101'
+                        """
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            return dict(row) if row is not None else None
+    finally:
+        await engine.dispose()
+
+
+async def write_invalid_exercise_value(database_url: str, invalid_kind: str) -> None:
+    statements = {
+        "source_url": "UPDATE exercises SET source_url = 'https://?bad'",
+        "author_url": "UPDATE exercises SET author_url = 'javascript:alert(1)'",
+        "timestamp": (
+            "UPDATE exercises SET source_updated_at = "
+            "TIMESTAMPTZ '9999-12-31 23:59:59.999999+00'"
+        ),
+        "muscle_type": "UPDATE exercises SET muscle_groups = '[1]'::jsonb",
+        "muscle_markup": "UPDATE exercises SET muscle_groups = '[\"<img>\"]'::jsonb",
+        "translation_type": "UPDATE exercises SET translations_json = '[1]'::jsonb",
+    }
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(f"{statements[invalid_kind]} WHERE source_id = 'legacy-101'")
+            )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_wger_catalogue_migration_preserves_rows_enforces_contract_and_downgrades() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0009")
+        asyncio.run(seed_legacy_exercise(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        row = asyncio.run(read_legacy_exercise(INTEGRATION_DATABASE_URL))
+        assert row is not None
+        assert row["slug"] == "legacy-wger-squat"
+        assert row["search_text"] == ""
+        assert row["translations_json"] == []
+        assert row["source_updated_at"] is None
+        constraints = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"]
+                    for constraint in inspector.get_check_constraints("exercises")
+                },
+            )
+        )
+        indexes = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {index["name"] for index in inspector.get_indexes("exercises")},
+            )
+        )
+        assert {
+            "ck_exercises_wger_license_allowed",
+            "ck_exercises_source_url_http",
+            "ck_exercises_author_url_http",
+            "ck_exercises_translations_array",
+            "ck_exercises_muscles_strings",
+            "ck_exercises_muscles_plain",
+            "ck_exercises_translations_objects",
+            "ck_exercises_source_updated_at_supported",
+        }.issubset(constraints)
+        assert {
+            "ix_exercises_search_tsv",
+            "ix_exercises_name_trgm",
+            "ix_exercises_muscle_groups_gin",
+            "ix_exercises_equipment_gin",
+        }.issubset(indexes)
+
+        with pytest.raises(IntegrityError):
+            asyncio.run(seed_legacy_exercise(INTEGRATION_DATABASE_URL, invalid_kind="license"))
+        for invalid_kind in (
+            "source_url",
+            "author_url",
+            "timestamp",
+            "muscle_type",
+            "muscle_markup",
+            "translation_type",
+        ):
+            with pytest.raises(IntegrityError):
+                asyncio.run(write_invalid_exercise_value(INTEGRATION_DATABASE_URL, invalid_kind))
+
+        command.downgrade(config, "20260820_0009")
+        columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {column["name"] for column in inspector.get_columns("exercises")},
+            )
+        )
+        assert "translations_json" not in columns
+        assert "search_text" not in columns
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+
+        async def legacy_count() -> int:
+            try:
+                async with engine.connect() as connection:
+                    value = await connection.scalar(
+                        text("SELECT count(*) FROM exercises WHERE source_id = 'legacy-101'")
+                    )
+                    return int(value or 0)
+            finally:
+                await engine.dispose()
+
+        assert asyncio.run(legacy_count()) == 1
+    finally:
+        command.downgrade(config, "base")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+@pytest.mark.parametrize(
+    "invalid_kind",
+    [
+        "license",
+        "source_url",
+        "source_missing_host",
+        "source_bad_port",
+        "source_backslash",
+        "source_credentials",
+        "author_url",
+        "translation_url",
+    ],
+)
+def test_wger_catalogue_migration_rejects_invalid_legacy_rows(invalid_kind: str) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0009")
+        asyncio.run(seed_legacy_exercise(INTEGRATION_DATABASE_URL, invalid_kind=invalid_kind))
+        with pytest.raises(DBAPIError, match="Cannot migrate invalid legacy exercise"):
+            command.upgrade(config, "head")
+    finally:
+        command.downgrade(config, "base")

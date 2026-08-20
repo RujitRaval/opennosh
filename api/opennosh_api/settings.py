@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     food_search_rate_limit_attempts: PositiveInt = 120
     food_search_rate_limit_window_seconds: PositiveInt = 60
     food_search_statement_timeout_ms: PositiveInt = 500
+    exercise_search_rate_limit_attempts: PositiveInt = 120
+    exercise_search_rate_limit_window_seconds: PositiveInt = 60
+    exercise_search_statement_timeout_ms: PositiveInt = 500
+    exercise_export_rate_limit_attempts: PositiveInt = 10
+    exercise_export_rate_limit_window_seconds: PositiveInt = 60
+    exercise_export_statement_timeout_ms: PositiveInt = 2_000
     target_kcal_floor: Decimal = Field(default=DEFAULT_TARGET_KCAL_FLOOR, gt=0, le=MAX_KCAL)
 
     @field_validator("target_kcal_floor")
@@ -37,6 +43,8 @@ class Settings(BaseSettings):
         longest_window = max(
             self.auth_rate_limit_window_seconds,
             self.food_search_rate_limit_window_seconds,
+            self.exercise_search_rate_limit_window_seconds,
+            self.exercise_export_rate_limit_window_seconds,
         )
         if self.auth_rate_limit_retention_seconds < longest_window:
             raise ValueError("Rate-limit retention must cover every configured window")

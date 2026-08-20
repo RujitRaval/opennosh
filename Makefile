@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import foodpack-validate
+.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -32,6 +32,9 @@ db-downgrade:
 
 usda-import:
 	PYTHONPATH=api uv run python -m opennosh_api.importers.usda $(USDA_PATHS)
+
+wger-import:
+	PYTHONPATH=api uv run opennosh exercises import-wger $(WGER_PATHS)
 
 foodpack-validate:
 	PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json

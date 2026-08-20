@@ -13,6 +13,12 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.food_search_rate_limit_attempts == 120
     assert settings.food_search_rate_limit_window_seconds == 60
     assert settings.food_search_statement_timeout_ms == 500
+    assert settings.exercise_search_rate_limit_attempts == 120
+    assert settings.exercise_search_rate_limit_window_seconds == 60
+    assert settings.exercise_search_statement_timeout_ms == 500
+    assert settings.exercise_export_rate_limit_attempts == 10
+    assert settings.exercise_export_rate_limit_window_seconds == 60
+    assert settings.exercise_export_statement_timeout_ms == 2_000
     assert settings.target_kcal_floor == Decimal("1200")
     assert settings.session_cookie_name == "opennosh_session"
     assert settings.session_cookie_secure is False
@@ -56,6 +62,18 @@ def test_settings_reject_rate_limit_retention_shorter_than_window() -> None:
     with pytest.raises(ValidationError):
         Settings(
             food_search_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            exercise_search_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            exercise_export_rate_limit_window_seconds=300,
             auth_rate_limit_retention_seconds=299,
             _env_file=None,
         )

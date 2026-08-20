@@ -1,0 +1,1 @@
+"""Attributed exercise catalogue APIs."""
