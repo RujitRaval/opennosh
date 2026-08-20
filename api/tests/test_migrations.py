@@ -1124,10 +1124,24 @@ async def seed_legacy_workout(database_url: str, *, invalid_kind: str | None = N
                 ),
                 {"user_id": user_id, "performed_at": performed_at, "notes": notes},
             )
+            if invalid_kind == "load_unit":
+                await connection.execute(
+                    text(
+                        "ALTER TABLE workout_sets "
+                        "DROP CONSTRAINT ck_workout_sets_load_unit_allowed"
+                    )
+                )
+            set_index = 500 if invalid_kind == "set_index" else 0
+            reps = 100_001 if invalid_kind == "reps" else 5
             load_value = (
                 None if invalid_kind in {"contract", "rpe_null"} else Decimal("100")
             )
-            load_unit = "rpe_only" if invalid_kind == "rpe_null" else "kg"
+            if invalid_kind == "load_value":
+                load_value = Decimal("1000000.001")
+            load_unit = {
+                "rpe_null": "rpe_only",
+                "load_unit": "unknown",
+            }.get(invalid_kind, "kg")
             await connection.execute(
                 text(
                     """
@@ -1135,7 +1149,7 @@ async def seed_legacy_workout(database_url: str, *, invalid_kind: str | None = N
                         user_id, workout_id, exercise_id, set_index, reps,
                         load_value, load_unit
                     ) VALUES (
-                        :user_id, :workout_id, :exercise_id, 0, 5,
+                        :user_id, :workout_id, :exercise_id, :set_index, :reps,
                         CAST(:load_value AS numeric), :load_unit
                     )
                     """
@@ -1144,6 +1158,8 @@ async def seed_legacy_workout(database_url: str, *, invalid_kind: str | None = N
                     "user_id": user_id,
                     "workout_id": workout_id,
                     "exercise_id": exercise_id,
+                    "set_index": set_index,
+                    "reps": reps,
                     "load_value": load_value,
                     "load_unit": load_unit,
                 },
@@ -1322,7 +1338,19 @@ def test_workout_migration_preserves_valid_rows_and_enforces_contract() -> None:
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
-@pytest.mark.parametrize("invalid_kind", ["contract", "rpe_null", "timestamp", "notes"])
+@pytest.mark.parametrize(
+    "invalid_kind",
+    [
+        "contract",
+        "rpe_null",
+        "timestamp",
+        "notes",
+        "set_index",
+        "reps",
+        "load_value",
+        "load_unit",
+    ],
+)
 def test_workout_migration_rejects_invalid_legacy_rows(invalid_kind: str) -> None:
     assert INTEGRATION_DATABASE_URL is not None
     config = migration_config(INTEGRATION_DATABASE_URL)

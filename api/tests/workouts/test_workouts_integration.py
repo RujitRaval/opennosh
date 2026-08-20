@@ -353,6 +353,96 @@ def test_workout_and_set_crud_preserve_order_and_attribution(
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_workout_list_paginates_with_stable_offset_and_has_more(
+    workout_clients: WorkoutClients,
+) -> None:
+    older = _create(workout_clients, performed_at="2026-08-20T12:00:00Z", sets=[])
+    newer = _create(workout_clients, performed_at="2026-08-20T13:00:00Z", sets=[])
+    assert older.status_code == newer.status_code == 201
+
+    first_page = workout_clients.owner.get(
+        "/api/v1/workouts",
+        params={"from": "2026-08-20", "to": "2026-08-20", "limit": 1},
+    )
+    second_page = workout_clients.owner.get(
+        "/api/v1/workouts",
+        params={
+            "from": "2026-08-20",
+            "to": "2026-08-20",
+            "limit": 1,
+            "offset": 1,
+        },
+    )
+
+    assert first_page.status_code == second_page.status_code == 200
+    assert [item["id"] for item in first_page.json()["items"]] == [newer.json()["id"]]
+    assert first_page.json()["offset"] == 0
+    assert first_page.json()["has_more"] is True
+    assert [item["id"] for item in second_page.json()["items"]] == [older.json()["id"]]
+    assert second_page.json()["offset"] == 1
+    assert second_page.json()["has_more"] is False
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_append_rejects_a_501st_set_without_changing_the_workout(
+    workout_clients: WorkoutClients,
+) -> None:
+    created = _create(
+        workout_clients,
+        sets=[_set(workout_clients.exercise_id)] * 500,
+    )
+    assert created.status_code == 201
+    workout_id = created.json()["id"]
+    original_set_ids = [item["id"] for item in created.json()["sets"]]
+
+    rejected = workout_clients.owner.post(
+        f"/api/v1/workouts/{workout_id}/sets",
+        headers={"X-CSRF-Token": workout_clients.owner_csrf},
+        json=_set(workout_clients.exercise_id),
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"] == "A workout may contain at most 500 sets"
+    detail = workout_clients.owner.get(f"/api/v1/workouts/{workout_id}")
+    assert detail.status_code == 200
+    assert [item["id"] for item in detail.json()["sets"]] == original_set_ids
+    assert [item["position"] for item in detail.json()["sets"]] == list(range(500))
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_append_and_update_reject_unknown_exercises_without_changing_state(
+    workout_clients: WorkoutClients,
+) -> None:
+    created = _create(
+        workout_clients,
+        sets=[_set(workout_clients.exercise_id)],
+    )
+    assert created.status_code == 201
+    original = created.json()
+    workout_id = original["id"]
+    set_id = original["sets"][0]["id"]
+    missing_exercise = str(uuid4())
+
+    appended = workout_clients.owner.post(
+        f"/api/v1/workouts/{workout_id}/sets",
+        headers={"X-CSRF-Token": workout_clients.owner_csrf},
+        json=_set(missing_exercise),
+    )
+    assert appended.status_code == 404
+    assert appended.headers["cache-control"] == "no-store"
+    assert workout_clients.owner.get(f"/api/v1/workouts/{workout_id}").json() == original
+
+    updated = workout_clients.owner.put(
+        f"/api/v1/workouts/{workout_id}/sets/{set_id}",
+        headers={"X-CSRF-Token": workout_clients.owner_csrf},
+        json=_set(missing_exercise),
+    )
+    assert updated.status_code == 404
+    assert updated.headers["cache-control"] == "no-store"
+    assert workout_clients.owner.get(f"/api/v1/workouts/{workout_id}").json() == original
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_set_deletion_compacts_rows_independent_of_database_row_order(
     workout_clients: WorkoutClients,
 ) -> None:

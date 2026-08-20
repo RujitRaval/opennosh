@@ -82,6 +82,36 @@ def test_reps_reject_boolean_coercion() -> None:
         )
 
 
+@pytest.mark.parametrize("reps", [0, 100_001])
+def test_reps_are_bounded(reps: int) -> None:
+    with pytest.raises(ValidationError):
+        WorkoutSetWrite.model_validate(
+            {
+                "exercise_id": EXERCISE_ID,
+                "reps": reps,
+                "load_value": "100",
+                "load_unit": "kg",
+            }
+        )
+
+
+def test_workout_create_rejects_more_than_500_sets() -> None:
+    workout_set = {
+        "exercise_id": EXERCISE_ID,
+        "reps": 8,
+        "load_value": "100",
+        "load_unit": "kg",
+    }
+
+    with pytest.raises(ValidationError):
+        WorkoutCreate.model_validate(
+            {
+                "performed_at": "2026-08-20T12:00:00Z",
+                "sets": [workout_set] * 501,
+            }
+        )
+
+
 @pytest.mark.parametrize("load_value", ["-0.001", "1000000.001", "NaN", "Infinity"])
 def test_load_value_is_finite_nonnegative_and_bounded(load_value: str) -> None:
     with pytest.raises(ValidationError):
@@ -143,9 +173,34 @@ def test_workout_timestamp_notes_and_extra_fields_are_bounded() -> None:
     workout = WorkoutCreate.model_validate(payload)
     assert workout.notes == "useful notes"
 
+    payload["notes"] = " \n\t "
+    workout = WorkoutCreate.model_validate(payload)
+    assert workout.notes is None
+
     payload["user_id"] = EXERCISE_ID
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         WorkoutCreate.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("notes", "message"),
+    [
+        ("x" * 5001, "notes must be at most 5000 characters"),
+        ("unsafe\x00notes", "notes must not contain control characters"),
+        ("unsafe\x7fnotes", "notes must not contain control characters"),
+    ],
+)
+def test_workout_notes_reject_overlong_and_control_characters(
+    notes: str, message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        WorkoutCreate.model_validate(
+            {
+                "performed_at": "2026-08-20T12:00:00Z",
+                "notes": notes,
+                "sets": [],
+            }
+        )
 
 
 @pytest.mark.parametrize(
