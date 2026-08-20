@@ -24,6 +24,7 @@ For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 2
 ```bash
 make install
 make lint typecheck test build compose-config
+make foodpack-validate
 ```
 
 The API container upgrades the PostgreSQL schema to the latest Alembic revision before it starts. For native development, set `DATABASE_URL` and manage the schema directly:

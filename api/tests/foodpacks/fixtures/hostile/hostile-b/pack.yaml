@@ -1,0 +1,9 @@
+id: hostile-b
+name: Hostile fixture B
+description: A second pack used to prove cross-pack slug detection.
+version: 1.0.0
+locale: en-US
+license: CC0-1.0
+maintainers:
+  - github: hostile-tester
+entry_count: 1

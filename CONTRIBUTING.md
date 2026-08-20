@@ -10,6 +10,9 @@ opennosh is currently in specification and foundation work. Discuss feature chan
 4. Install locked dependencies with `make install`, then run `make lint typecheck test build compose-config`.
 5. Open a pull request and complete the template. Merge only after all required checks pass.
 
+Food-pack changes must also run `make foodpack-validate`. Blocking errors make that command fail;
+review warnings remain machine-readable but do not change its exit status.
+
 Food-pack contributors do not need GStack or an `agent/` branch. Maintainer and agent-authored development uses the stricter workflow in `CLAUDE.md`: `agent/<short-description>` branch, GStack `/review`, then GStack `/ship`. Those maintainer pull-request titles use `vMAJOR.MINOR.PATCH.MICRO type: summary`.
 
 ## Scope boundaries

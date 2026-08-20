@@ -1,0 +1,66 @@
+- slug: duplicate-food
+  category: test
+  contributed_by: hostile-tester
+  provenance: internet
+  source_uri: http://restricted.example/food
+  source_license: ODbL-1.0
+  source_note: short
+  basis: per_100ml
+  nutrients:
+    energy_kcal: 1000
+    protein_g: 10
+    fat_g: 10
+    carbohydrate_g: 10
+    sodium_mg: -1
+  portions:
+    - name: zero portion
+      grams: 0
+
+- slug: duplicate-food
+  name: Duplicate food
+  category: test
+  contributed_by: hostile-tester
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: short
+  basis: per_100g
+  nutrients:
+    energy_kcal: 170
+    protein_g: 10
+    fat_g: 10
+    carbohydrate_g: 10
+    fiber_g: 11
+
+- slug: near-copy
+  name: Near copy
+  category: test
+  contributed_by: hostile-tester
+  provenance: own_measurement
+  source_uri: null
+  source_license: contributor-original
+  source_note: Measured with a calibrated kitchen scale and checked twice.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 171
+    protein_g: 10.01
+    fat_g: 10.01
+    carbohydrate_g: 10.01
+
+- slug: bad-government-source
+  name: Bad government source
+  category: test
+  contributed_by: hostile-tester
+  provenance: government_database
+  source_uri: null
+  source_license: contributor-original
+  source_note: gov
+  basis: per_100g
+  nutrients:
+    energy_kcal: 170
+    protein_g: 10
+    fat_g: 10
+    carbohydrate_g: 10
+  portions:
+    - name: 1 item
+      grams: 100

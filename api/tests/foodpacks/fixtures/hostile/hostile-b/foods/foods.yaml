@@ -1,0 +1,17 @@
+- slug: duplicate-food
+  name: Cross-pack duplicate
+  category: test
+  contributed_by: hostile-tester
+  provenance: lab_analysis
+  source_uri: https://example.org/lab/duplicate-food
+  source_license: CC0-1.0
+  source_note: Laboratory analysis published with the complete test method.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 200
+    protein_g: 15
+    fat_g: 8
+    carbohydrate_g: 17
+  portions:
+    - name: 1 sample
+      grams: 50
