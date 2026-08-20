@@ -77,6 +77,13 @@ def test_redistributable_stores_require_license_provenance() -> None:
         assert all(not table.columns[column_name].nullable for column_name in non_nullable_columns)
 
 
+def test_community_food_pack_lookups_are_indexed() -> None:
+    table = Base.metadata.tables["foods_community"]
+    indexed_columns = {column.name for index in table.indexes for column in index.columns}
+
+    assert "pack_id" in indexed_columns
+
+
 def test_every_user_owned_table_has_an_indexed_non_null_owner_foreign_key() -> None:
     for table_name in OWNER_TABLES:
         table = Base.metadata.tables[table_name]

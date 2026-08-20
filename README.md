@@ -36,6 +36,15 @@ make db-downgrade
 
 `db-downgrade` returns a development database to the empty base revision. Do not run it against data you need to keep.
 
+After upgrading the database, validate and load one pack or every pack below a repository root:
+
+```bash
+uv run opennosh foods load ./packs --json
+```
+
+The loader commits valid entries, reports and skips invalid entries, treats an unchanged pack as a
+no-op, and refuses to overwrite a newer pack version.
+
 ## Authentication
 
 The API provides local account registration, login, session inspection, and logout under `/api/v1/auth`. Passwords are hashed with Argon2id and opaque sessions are stored in PostgreSQL; no third-party identity provider is required.

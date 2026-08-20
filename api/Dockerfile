@@ -10,9 +10,11 @@ WORKDIR /app
 
 COPY --from=uv /uv /uvx /bin/
 COPY pyproject.toml uv.lock VERSION ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY api ./api
+COPY schemas ./schemas
+RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home --uid 10001 opennosh \
     && chown -R opennosh:opennosh /app

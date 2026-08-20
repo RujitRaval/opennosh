@@ -101,7 +101,7 @@ class FoodCommunity(UUIDPrimaryKeyMixin, Base):
         CheckConstraint("pack_license = 'CC0-1.0'", name="pack_license_cc0"),
     )
 
-    pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    pack_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     pack_version: Mapped[str] = mapped_column(String(64), nullable=False)
     slug: Mapped[str] = mapped_column(String(160), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
