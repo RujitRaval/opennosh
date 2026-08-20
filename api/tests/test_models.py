@@ -199,3 +199,20 @@ def test_targets_enforce_safe_non_overlapping_day_type_ranges() -> None:
         for constraint in table.constraints
         if isinstance(constraint, ExcludeConstraint)
     )
+
+
+def test_body_metrics_enforce_explicit_type_unit_and_value_contract() -> None:
+    table = Base.metadata.tables["body_metrics"]
+    check_names = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert {
+        "ck_body_metrics_metric_type_allowed",
+        "ck_body_metrics_unit_allowed",
+        "ck_body_metrics_type_unit_valid",
+        "ck_body_metrics_value_bounded",
+        "ck_body_metrics_recorded_at_supported",
+    }.issubset(check_names)

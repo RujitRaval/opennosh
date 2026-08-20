@@ -174,6 +174,35 @@ value is accepted only when that schedule item includes `"confirm_below_floor": 
 confirmation plus the applicable floor are stored with the target. All target responses are
 owner-scoped and send `Cache-Control: no-store`.
 
+## Private body metrics
+
+Authenticated users can create, list, and delete their own measurements under
+`/api/v1/body-metrics`. Create a record with the session CSRF token:
+
+```json
+{
+  "recorded_at": "2026-08-20T08:30:00-04:00",
+  "metric_type": "body_weight",
+  "value": "80.125",
+  "unit": "kg"
+}
+```
+
+Supported pairs are `body_weight` with `kg` or `lb`, `body_fat_percentage` with
+`percent`, and `height`, `waist_circumference`, `hip_circumference`,
+`chest_circumference`, `neck_circumference`, `upper_arm_circumference`, or
+`thigh_circumference` with `cm` or `in`. Values are positive exact decimals with at most
+four decimal places.
+
+List an inclusive UTC date range with
+`GET /api/v1/body-metrics?from=2026-08-01&to=2026-08-31&limit=100&offset=0`.
+Both dates are required, results are newest first, and the response includes `has_more`.
+Every query is owner-scoped; deleting another user's ID returns the same `404` as a missing
+record. Successful and failed responses send `Cache-Control: no-store`. The stable record
+shape (`id`, `recorded_at`, `metric_type`, `value`, and `unit`) is also the representation
+reserved for the future authenticated `/export/me` response. opennosh stores and reports
+these numbers without streaks, shaming, or automated medical interpretation.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,

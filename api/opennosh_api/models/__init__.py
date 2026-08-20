@@ -1,5 +1,12 @@
 from opennosh_api.models.base import Base
-from opennosh_api.models.enums import FoodSourceTable, LoadUnit, Provenance, TargetDayType
+from opennosh_api.models.enums import (
+    BodyMetricType,
+    BodyMetricUnit,
+    FoodSourceTable,
+    LoadUnit,
+    Provenance,
+    TargetDayType,
+)
 from opennosh_api.models.tables import (
     AuthRateLimit,
     AuthSession,
@@ -23,6 +30,8 @@ __all__ = [
     "AuthSession",
     "Base",
     "BodyMetric",
+    "BodyMetricType",
+    "BodyMetricUnit",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",
