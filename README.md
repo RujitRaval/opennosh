@@ -279,6 +279,13 @@ Public search and export have independent per-IP limits and PostgreSQL statement
 export also refuses catalogues above 10,000 rows or 64 MiB of stored exercise data so one anonymous
 request cannot consume unbounded server resources.
 
+Search defaults to 120 requests per source IP per 60 seconds and a 500 ms statement timeout;
+configure those guards with `EXERCISE_SEARCH_RATE_LIMIT_ATTEMPTS`,
+`EXERCISE_SEARCH_RATE_LIMIT_WINDOW_SECONDS`, and `EXERCISE_SEARCH_STATEMENT_TIMEOUT_MS`. Export
+defaults to 10 requests per source IP per 60 seconds and a 2,000 ms statement timeout; configure it
+with `EXERCISE_EXPORT_RATE_LIMIT_ATTEMPTS`, `EXERCISE_EXPORT_RATE_LIMIT_WINDOW_SECONDS`, and
+`EXERCISE_EXPORT_STATEMENT_TIMEOUT_MS`.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,
