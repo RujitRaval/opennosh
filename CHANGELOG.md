@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.12.0.0] - 2026-08-20
+
+### Added
+
+- Record body weight, body-fat percentage, height, and circumference measurements with explicit compatible units and exact decimal values.
+- Browse private measurements across inclusive UTC date ranges with stable newest-first pagination, and delete individual records without exposing whether another user's record exists.
+- Cover body metric validation, tenant isolation, CSRF protection, timestamp boundaries, migration safety, rollback, and export-compatible response shapes with automated tests.
+
+### Changed
+
+- Keep every body metric operation private with authenticated ownership checks and `Cache-Control: no-store` responses.
+- Return one canonical UTC representation from create and list operations so future personal-data exports can reuse the same stable shape.
+- Constrain stored metric types, units, values, compatible type-unit pairs, and finite timestamps in PostgreSQL while preserving valid legacy rows.
+
+### Fixed
+
+- Reject the Python timestamp extrema that asyncpg reserves for PostgreSQL infinity sentinels, preventing accepted API inputs from failing during database writes.
+
 ## [0.11.0.0] - 2026-08-20
 
 ### Added
