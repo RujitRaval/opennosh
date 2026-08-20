@@ -45,6 +45,32 @@ uv run opennosh foods load ./packs --json
 The loader commits valid entries, reports and skips invalid entries, treats an unchanged pack as a
 no-op, and refuses to overwrite a newer pack version.
 
+### Food search API
+
+Search USDA reference foods and CC0 community foods without combining their source records:
+
+```text
+GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&offset=0
+GET /api/v1/foods/community/apple
+GET /api/v1/foods/usda/171688
+```
+
+Every result uses a source-qualified ID such as `community:apple` or `usda:171688` and returns
+the source and license metadata needed for attribution. Results rank exact community slugs first,
+then community foods matching the requested locale, USDA generic foods, and community foods from
+other locales. The optional `source` filter accepts `community` or `usda`.
+
+Raw queries must contain 2–100 characters; after whitespace normalization they must still contain
+at least two characters and a letter or number. A request returns at most 50 rows and accepts
+offsets up to 10,000. Public search defaults to 120 requests per source IP per 60 seconds and a
+500 ms PostgreSQL statement timeout. Configure those guards with
+`FOOD_SEARCH_RATE_LIMIT_ATTEMPTS`, `FOOD_SEARCH_RATE_LIMIT_WINDOW_SECONDS`, and
+`FOOD_SEARCH_STATEMENT_TIMEOUT_MS`.
+
+PostgreSQL full-text and trigram indexes back the search. The integration performance gate loads
+10,000 representative rows, requires both full-text indexes in the analyzed unified-query plan,
+and budgets less than 100 ms of PostgreSQL execution time.
+
 ## Authentication
 
 The API provides local account registration, login, session inspection, and logout under `/api/v1/auth`. Passwords are hashed with Argon2id and opaque sessions are stored in PostgreSQL; no third-party identity provider is required.

@@ -41,11 +41,31 @@ async def enforce_auth_rate_limit(
     key: str,
     settings: Settings,
 ) -> None:
+    await enforce_rate_limit(
+        session,
+        scope=scope,
+        key=key,
+        attempts=settings.auth_rate_limit_attempts,
+        window_seconds=settings.auth_rate_limit_window_seconds,
+        retention_seconds=settings.auth_rate_limit_retention_seconds,
+        detail="Too many authentication attempts. Try again later.",
+    )
+
+
+async def enforce_rate_limit(
+    session: AsyncSession,
+    *,
+    scope: str,
+    key: str,
+    attempts: int,
+    window_seconds: int,
+    retention_seconds: int,
+    detail: str,
+) -> None:
     now = datetime.now(UTC)
     await session.execute(
         delete(AuthRateLimit).where(
-            AuthRateLimit.updated_at
-            <= now - timedelta(seconds=settings.auth_rate_limit_retention_seconds)
+            AuthRateLimit.updated_at <= now - timedelta(seconds=retention_seconds)
         )
     )
     result = await session.execute(
@@ -54,16 +74,16 @@ async def enforce_auth_rate_limit(
             "scope": scope,
             "key_hash": hash_token(key),
             "now": now,
-            "window_seconds": settings.auth_rate_limit_window_seconds,
+            "window_seconds": window_seconds,
         },
     )
     attempt_count, window_started_at = result.one()
     await session.commit()
-    if attempt_count > settings.auth_rate_limit_attempts:
+    if attempt_count > attempts:
         elapsed = max(0, int((now - window_started_at).total_seconds()))
-        retry_after = max(1, settings.auth_rate_limit_window_seconds - elapsed)
+        retry_after = max(1, window_seconds - elapsed)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many authentication attempts. Try again later.",
+            detail=detail,
             headers={"Retry-After": str(retry_after)},
         )

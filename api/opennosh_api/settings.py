@@ -13,11 +13,18 @@ class Settings(BaseSettings):
     auth_rate_limit_attempts: PositiveInt = 5
     auth_rate_limit_window_seconds: PositiveInt = 300
     auth_rate_limit_retention_seconds: PositiveInt = 86_400
+    food_search_rate_limit_attempts: PositiveInt = 120
+    food_search_rate_limit_window_seconds: PositiveInt = 60
+    food_search_statement_timeout_ms: PositiveInt = 500
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
-        if self.auth_rate_limit_retention_seconds < self.auth_rate_limit_window_seconds:
-            raise ValueError("Rate-limit retention must be at least as long as its window")
+        longest_window = max(
+            self.auth_rate_limit_window_seconds,
+            self.food_search_rate_limit_window_seconds,
+        )
+        if self.auth_rate_limit_retention_seconds < longest_window:
+            raise ValueError("Rate-limit retention must cover every configured window")
         return self
 
     @property
