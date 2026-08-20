@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.9.0.0] - 2026-08-20
+
+### Added
+
+- Log USDA, CC0 community, Open Food Facts, and private custom foods in grams, millilitres, or named portions through authenticated create, list, read, and delete endpoints.
+- Preserve each logged food's public identity, display name, original quantity, exact gram mass, and computed nutrient snapshot so later source edits never rewrite nutrition history.
+- View stable paginated log entries and exact daily nutrient totals using saved or requested IANA timezones, including 23- and 25-hour daylight-saving days.
+- Cover every log endpoint with PostgreSQL integration tests for tenant isolation, CSRF, invalid quantities, all four food stores, immutable snapshots, pagination, timezone boundaries, and migration rollback.
+
+### Changed
+
+- Keep successful and failed food-log responses private with `Cache-Control: no-store`, and return stable validation errors for unsupported calendar and timestamp edges.
+- Preserve valid USDA food-specific energy factors through quantity conversion and stored-snapshot reads.
+- Extend log storage with exact quantity and immutable food-identity fields while preserving legacy external IDs during migration and exact sub-milligram values during rollback.
+
+### Fixed
+
+- Compute entry count, gram mass, and nutrient totals from one PostgreSQL statement so concurrent log changes cannot mix two database snapshots in one response.
+
 ## [0.8.0.0] - 2026-08-20
 
 ### Added
