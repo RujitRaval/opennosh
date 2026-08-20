@@ -22,8 +22,8 @@ INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
 FIXTURE = Path(__file__).parent / "fixtures" / "valid" / "balanced-pack"
 
 
-def _copy_pack(tmp_path: Path) -> Path:
-    destination = tmp_path / "balanced-pack"
+def _copy_pack(tmp_path: Path, name: str = "balanced-pack") -> Path:
+    destination = tmp_path / name
     shutil.copytree(FIXTURE, destination)
     return destination
 
@@ -59,7 +59,26 @@ async def _exercise_loader(database_url: str, tmp_path: Path) -> None:
 
         _update_pack(pack, version="1.2.0", invalid_second=True)
         partial = await load_food_pack_with_retries(factory, pack)
-        stale = await load_food_pack_with_retries(factory, FIXTURE)
+
+        stale_pack = _copy_pack(tmp_path, "stale-pack")
+        stale_foods_path = stale_pack / "foods" / "foods.yaml"
+        stale_foods = yaml.safe_load(stale_foods_path.read_text(encoding="utf-8"))
+        stale_foods[1]["slug"] = "stale-only-lassi"
+        stale_foods_path.write_text(
+            yaml.safe_dump(stale_foods, sort_keys=False), encoding="utf-8"
+        )
+        stale = await load_food_pack_with_retries(factory, stale_pack)
+
+        colliding_pack = _copy_pack(tmp_path, "colliding-pack")
+        colliding_manifest_path = colliding_pack / "pack.yaml"
+        colliding_manifest = yaml.safe_load(
+            colliding_manifest_path.read_text(encoding="utf-8")
+        )
+        colliding_manifest["id"] = "colliding-pack"
+        colliding_manifest_path.write_text(
+            yaml.safe_dump(colliding_manifest, sort_keys=False), encoding="utf-8"
+        )
+        collision = await load_food_pack_with_retries(factory, colliding_pack)
 
         async with factory() as session:
             rows = list(
@@ -78,8 +97,11 @@ async def _exercise_loader(database_url: str, tmp_path: Path) -> None:
         assert partial.entries_rejected == 1
         assert stale.entries_written == 0
         assert stale.entries_skipped_stale == 2
+        assert collision.entries_rejected == 2
+        assert {issue.code for issue in collision.issues} == {"slug_collision"}
         assert len(rows) == 2
         by_slug = {row.slug: row for row in rows}
+        assert "stale-only-lassi" not in by_slug
         assert by_slug["balanced-thepla"].pack_version == "1.2.0"
         assert by_slug["public-domain-lassi"].pack_version == "1.1.0"
         assert by_slug["public-domain-lassi"].contributed_by == "test-contributor"

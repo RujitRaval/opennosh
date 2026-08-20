@@ -19,7 +19,7 @@ from opennosh_api.foodpacks.loader import (
     load_food_pack_with_retries,
     prepare_food_pack,
 )
-from opennosh_api.foodpacks.validation import FoodPackLoadError
+from opennosh_api.foodpacks.validation import FoodPackLoadError, ValidationIssue
 from sqlalchemy.exc import DBAPIError
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid" / "balanced-pack"
@@ -78,6 +78,31 @@ def test_prepare_food_pack_reports_one_bad_entry_and_keeps_valid_entries(
     assert [record.slug for record in prepared.records] == ["balanced-thepla"]
     assert any(issue.path[:2] == ("foods", 1) for issue in prepared.errors)
     assert any(issue.slug == "public-domain-lassi" for issue in prepared.errors)
+
+
+def test_prepare_food_pack_reports_conversion_failure_and_keeps_valid_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    convert = loader_module._record_from_entry
+
+    def fail_one_entry(
+        pack: dict[str, object], entry: dict[str, object]
+    ) -> loader_module.CommunityFoodRecord:
+        if entry["slug"] == "public-domain-lassi":
+            raise ValueError("cannot canonicalise entry")
+        return convert(pack, entry)
+
+    monkeypatch.setattr(loader_module, "_record_from_entry", fail_one_entry)
+
+    prepared = prepare_food_pack(FIXTURE)
+
+    assert [record.slug for record in prepared.records] == ["balanced-thepla"]
+    assert any(
+        issue.code == "entry_conversion_failed"
+        and issue.path == ("foods", 1)
+        and issue.slug == "public-domain-lassi"
+        for issue in prepared.errors
+    )
 
 
 def test_prepare_food_pack_rejects_invalid_manifest(tmp_path: Path) -> None:
@@ -288,13 +313,35 @@ def test_cli_reports_success_as_json(
 def test_cli_returns_failure_after_reporting_rejected_entries(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    error = ValidationIssue(
+        severity="error",
+        code="schema.required",
+        message="name is required",
+        path=("foods", 0, "name"),
+    )
+    warning = ValidationIssue(
+        severity="warning",
+        code="short_source_note",
+        message="source note is short",
+        path=("foods", 0, "source_note"),
+    )
     batch = FoodPackBatchLoadReport(
-        packs=(FoodPackLoadReport(pack_id="balanced-pack", entries_rejected=1),)
+        packs=(
+            FoodPackLoadReport(
+                pack_id="balanced-pack",
+                entries_rejected=1,
+                issues=[error],
+                warnings=[warning],
+            ),
+        )
     )
     monkeypatch.setattr(cli_module, "_run_load", AsyncMock(return_value=batch))
 
     assert run_food_command(_cli_arguments()) == 2
-    assert "1 rejected" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "1 rejected" in captured.out
+    assert "ERROR schema.required /foods/0/name: name is required" in captured.err
+    assert "WARNING short_source_note /foods/0/source_note: source note is short" in captured.err
 
 
 @pytest.mark.parametrize(
