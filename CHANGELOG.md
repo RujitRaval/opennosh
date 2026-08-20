@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.14.0.0] - 2026-08-20
+
+### Added
+
+- Import downloaded wger `exerciseinfo` JSON into an offline, idempotent exercise catalogue while preserving source timestamps and complete per-translation attribution.
+- Search attributed wger exercises by name and text with exact muscle and equipment filters, stable pagination, and source-aware detail responses.
+- Export the wger catalogue separately with explicit Creative Commons Attribution-ShareAlike 3.0 source, license, author, and ShareAlike notices.
+- Cover hostile imports, migration safety, concurrent re-imports, source isolation, search plans, rate limits, timeouts, and export bounds with PostgreSQL-backed tests.
+
+### Changed
+
+- Normalize accepted wger license metadata to the canonical `CC-BY-SA-3.0` URL and reject ambiguous, unsupported, unsafe, or incomplete attribution records.
+- Bound public exercise search and export with independent per-IP rate limits, PostgreSQL statement timeouts, indexed query plans, row limits, and a stored-data byte ceiling.
+
+### Fixed
+
+- Prevent stale or concurrent imports from replacing newer exercise records and reject partial paginated exports that could silently create incomplete catalogues.
+- Validate legacy nested attribution, JSON element shapes, finite timestamps, safe URLs, and exact wger licensing before applying the catalogue migration.
+
 ## [0.13.0.0] - 2026-08-20
 
 ### Added
