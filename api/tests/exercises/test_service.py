@@ -8,11 +8,13 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 from opennosh_api.exercises import router
+from opennosh_api.exercises import service as exercise_service
 from opennosh_api.exercises.service import (
     ExerciseExportLimitError,
     ExerciseExportTimeoutError,
     ExerciseSearchTimeoutError,
     export_exercises,
+    prepare_exercise_export,
     search_exercises,
 )
 from opennosh_api.models import Exercise
@@ -48,6 +50,24 @@ def _exercise(source_id: str) -> Exercise:
         translations_json=[],
         translation_attribution_json=[],
     )
+
+
+class _AsyncExerciseRows:
+    def __init__(self, rows: list[Exercise]) -> None:
+        self._rows = iter(rows)
+        self.closed = False
+
+    def __aiter__(self) -> _AsyncExerciseRows:
+        return self
+
+    async def __anext__(self) -> Exercise:
+        try:
+            return next(self._rows)
+        except StopIteration as error:
+            raise StopAsyncIteration from error
+
+    async def close(self) -> None:
+        self.closed = True
 
 
 def test_search_timeout_rolls_back_and_other_database_errors_pass_through() -> None:
@@ -111,6 +131,24 @@ def test_export_enforces_row_boundary_and_translates_timeout(
     asyncio.run(run())
 
 
+def test_production_exercise_export_enforces_streamed_row_ceiling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def run() -> None:
+        monkeypatch.setattr(exercise_service, "EXPORT_ROW_LIMIT", 1)
+        rows = _AsyncExerciseRows([_exercise("1"), _exercise("2")])
+        database = AsyncMock()
+        database.stream_scalars.return_value = rows
+
+        with pytest.raises(ExerciseExportLimitError):
+            await prepare_exercise_export(database, statement_timeout_ms=10)
+
+        assert rows.closed is True
+        database.rollback.assert_awaited_once()
+
+    asyncio.run(run())
+
+
 def test_router_returns_controlled_503_for_database_timeouts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -136,7 +174,12 @@ def test_router_returns_controlled_503_for_database_timeouts(
         assert search_error.value.status_code == 503
 
         monkeypatch.setattr(
-            router, "export_exercises", AsyncMock(side_effect=ExerciseExportTimeoutError)
+            router,
+            "prepare_exercise_export",
+            AsyncMock(side_effect=ExerciseExportTimeoutError),
+        )
+        monkeypatch.setattr(
+            router, "_acquire_capacity", AsyncMock(return_value=asyncio.Semaphore(1))
         )
         with pytest.raises(HTTPException) as export_error:
             await router.attributed_export(request, database, settings)

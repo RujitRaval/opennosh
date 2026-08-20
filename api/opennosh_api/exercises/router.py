@@ -18,12 +18,14 @@ from opennosh_api.exercises.service import (
     ExerciseExportLimitError,
     ExerciseExportTimeoutError,
     ExerciseSearchTimeoutError,
-    export_exercises,
     get_exercise,
     normalize_filter,
     normalize_search_query,
+    prepare_exercise_export,
     search_exercises,
 )
+from opennosh_api.exports.router import _acquire_capacity
+from opennosh_api.exports.streaming import ExportStreamingResponse
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/exercises", tags=["exercises"])
@@ -94,7 +96,7 @@ async def attributed_export(
     request: Request,
     database: Annotated[AsyncSession, Depends(get_database_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
-) -> ExerciseExport:
+) -> ExportStreamingResponse:
     client_address = request.client.host if request.client is not None else "unknown"
     await enforce_rate_limit(
         database,
@@ -105,17 +107,33 @@ async def attributed_export(
         retention_seconds=settings.auth_rate_limit_retention_seconds,
         detail="Too many exercise exports. Try again later.",
     )
+    lease = await _acquire_capacity(request, settings, private=False)
     try:
-        return await export_exercises(
+        body = await prepare_exercise_export(
             database, statement_timeout_ms=settings.exercise_export_statement_timeout_ms
         )
     except ExerciseExportLimitError as error:
+        lease.release()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Exercise export is temporarily too large for the JSON endpoint.",
         ) from error
     except ExerciseExportTimeoutError as error:
+        lease.release()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Exercise export timed out. Try again later.",
         ) from error
+    except BaseException:
+        lease.release()
+        raise
+    return ExportStreamingResponse(
+        body,
+        lease=lease,
+        timeout_seconds=settings.public_export_response_timeout_seconds,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": 'attachment; filename="opennosh-wger-exercises.json"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

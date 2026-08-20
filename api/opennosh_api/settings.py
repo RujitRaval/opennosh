@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     exercise_export_rate_limit_attempts: PositiveInt = 10
     exercise_export_rate_limit_window_seconds: PositiveInt = 60
     exercise_export_statement_timeout_ms: PositiveInt = 2_000
+    community_export_rate_limit_attempts: PositiveInt = 10
+    community_export_rate_limit_window_seconds: PositiveInt = 60
+    community_export_statement_timeout_ms: PositiveInt = 2_000
+    private_export_rate_limit_attempts: PositiveInt = 10
+    private_export_rate_limit_window_seconds: PositiveInt = 60
+    private_export_statement_timeout_ms: PositiveInt = 5_000
+    public_export_concurrency_limit: PositiveInt = Field(default=2, le=8)
+    private_export_concurrency_limit: PositiveInt = Field(default=1, le=4)
+    export_capacity_wait_seconds: PositiveFloat = 1.0
+    public_export_response_timeout_seconds: PositiveFloat = 300.0
+    private_export_response_timeout_seconds: PositiveFloat = 1_800.0
     target_kcal_floor: Decimal = Field(default=DEFAULT_TARGET_KCAL_FLOOR, gt=0, le=MAX_KCAL)
 
     @field_validator("target_kcal_floor")
@@ -95,6 +106,8 @@ class Settings(BaseSettings):
             self.open_food_facts_export_rate_limit_window_seconds,
             self.exercise_search_rate_limit_window_seconds,
             self.exercise_export_rate_limit_window_seconds,
+            self.community_export_rate_limit_window_seconds,
+            self.private_export_rate_limit_window_seconds,
         )
         if self.auth_rate_limit_retention_seconds < longest_window:
             raise ValueError("Rate-limit retention must cover every configured window")

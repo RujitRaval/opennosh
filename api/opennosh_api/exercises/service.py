@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 from sqlalchemy import Text, case, func, literal_column, select, text, union
@@ -14,6 +15,12 @@ from opennosh_api.exercises.schemas import (
     ExerciseSearchResponse,
     ExerciseTranslation,
     ExerciseTranslationAttribution,
+)
+from opennosh_api.exports.streaming import (
+    ExportByteLimitError,
+    JsonSection,
+    spool_json_stream,
+    stream_json_sections,
 )
 from opennosh_api.models import Exercise
 
@@ -219,3 +226,58 @@ async def export_exercises(
     if len(rows) > EXPORT_ROW_LIMIT:
         raise ExerciseExportLimitError
     return ExerciseExport(entries=[exercise_detail(row) for row in rows])
+
+
+async def prepare_exercise_export(
+    database: AsyncSession, *, statement_timeout_ms: int
+) -> AsyncIterator[bytes]:
+    """Prepare a bounded CC BY-SA export whose response body streams row by row."""
+    await database.execute(
+        text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+    )
+    await database.execute(
+        text("SELECT set_config('statement_timeout', :timeout, true)"),
+        {"timeout": f"{statement_timeout_ms}ms"},
+    )
+
+    async def rows() -> AsyncIterator[ExerciseDetail]:
+        result = await database.stream_scalars(
+            select(Exercise)
+            .where(
+                Exercise.source == "wger",
+                Exercise.license_spdx == "CC-BY-SA-3.0",
+            )
+            .order_by(func.lower(Exercise.name), Exercise.source_id)
+            .execution_options(yield_per=100)
+        )
+        count = 0
+        try:
+            async for row in result:
+                count += 1
+                if count > EXPORT_ROW_LIMIT:
+                    raise ExerciseExportLimitError
+                yield exercise_detail(row)
+        finally:
+            await result.close()
+
+    try:
+        body = await spool_json_stream(
+            stream_json_sections(
+                ExerciseExport(entries=[]), [JsonSection("entries", rows)]
+            ),
+            max_bytes=EXPORT_MAX_DATABASE_BYTES,
+        )
+    except (ExerciseExportLimitError, ExportByteLimitError) as error:
+        await database.rollback()
+        raise ExerciseExportLimitError from error
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) != "57014":
+            await database.rollback()
+            raise
+        await database.rollback()
+        raise ExerciseExportTimeoutError from error
+    except BaseException:
+        await database.rollback()
+        raise
+    await database.rollback()
+    return body

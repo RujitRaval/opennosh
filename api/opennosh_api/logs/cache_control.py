@@ -7,6 +7,7 @@ _PRIVATE_PATHS = (
     "/api/v1/targets",
     "/api/v1/body-metrics",
     "/api/v1/workouts",
+    "/api/v1/export/me",
 )
 
 

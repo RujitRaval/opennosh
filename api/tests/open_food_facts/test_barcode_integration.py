@@ -90,6 +90,31 @@ async def _odbl_count(database_url: str) -> int:
         await engine.dispose()
 
 
+async def _store_compressible_attribution(database_url: str, value: str) -> int:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "UPDATE foods_odbl SET attribution_text = :value "
+                    "WHERE barcode = :barcode"
+                ),
+                {"value": value, "barcode": BARCODE},
+            )
+            return int(
+                await connection.scalar(
+                    text(
+                        "SELECT pg_column_size(foods_odbl) FROM foods_odbl "
+                        "WHERE barcode = :barcode"
+                    ),
+                    {"barcode": BARCODE},
+                )
+                or 0
+            )
+    finally:
+        await engine.dispose()
+
+
 async def _reset_all_consumption_data(database_url: str) -> None:
     engine = create_async_engine(database_url)
     try:
@@ -480,7 +505,7 @@ def test_export_timeout_is_mapped_to_a_stable_api_error(
     async def timeout(*_args: object, **_kwargs: object) -> object:
         raise OpenFoodFactsExportTimeoutError
 
-    monkeypatch.setattr(foods_router, "export_cached_products", timeout)
+    monkeypatch.setattr(foods_router, "prepare_cached_product_export", timeout)
     with TestClient(create_app(_settings(INTEGRATION_DATABASE_URL))) as client:
         response = client.get("/api/v1/export/foods/openfoodfacts")
 
@@ -588,7 +613,14 @@ def test_export_caps_serialized_json_not_compressed_database_storage(
     monkeypatch.setattr(OpenFoodFactsClient, "fetch", fetch)
     with TestClient(create_app(_settings(INTEGRATION_DATABASE_URL))) as client:
         assert client.get(f"/api/v1/foods/barcode/{BARCODE}").status_code == 200
-        monkeypatch.setattr(open_food_facts_service, "EXPORT_MAX_SERIALIZED_BYTES", 100)
+        limit = 100_000
+        stored_bytes = asyncio.run(
+            _store_compressible_attribution(INTEGRATION_DATABASE_URL, "x" * 1_000_000)
+        )
+        assert stored_bytes < limit
+        monkeypatch.setattr(
+            open_food_facts_service, "EXPORT_MAX_SERIALIZED_BYTES", limit
+        )
         exported = client.get("/api/v1/export/foods/openfoodfacts")
 
     assert exported.status_code == 503
