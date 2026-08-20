@@ -14,7 +14,7 @@ All notable changes to opennosh will be documented in this file.
 
 - Rank exact community slugs first, followed by requested-locale community foods, USDA foods, and other community locales.
 - Bound public search with strict query validation, stable pagination, per-IP rate limiting, and a transaction-local statement timeout.
-- Advance the continuous-integration migration check to the unified food-search schema revision.
+- Verify the unified food-search schema revision during the container migration boot check, so continuous integration catches stale database state before merge.
 
 ## [0.7.0.0] - 2026-08-20
 
