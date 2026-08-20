@@ -53,12 +53,17 @@ Foundation and SR Legacy foods into `foods_reference`; branded, FNDDS, and exper
 rows are ignored. Each accepted row retains its FDC ID, USDA source, CC0 license, source
 publication timestamp, nutrients per 100 grams, and gram-based household portions.
 
-Run migrations first, then pass one or more downloaded archives:
+Download the bulk files from the [FoodData Central dataset page](https://fdc.nal.usda.gov/download-datasets/),
+run migrations, then pass one or more archives:
 
 ```shell
 make db-upgrade
 make usda-import USDA_PATHS="downloads/foundation.zip downloads/sr-legacy.zip"
 ```
+
+The importer uses `DATABASE_URL` by default and writes 500 records per batch. Override
+either setting by including `--database-url <url>` or `--batch-size <count>` in
+`USDA_PATHS` after the input paths.
 
 The job streams large JSON archives, bounds archive expansion and record collections,
 upserts on FDC ID, and prints progress after each database batch. A rerun updates the same
