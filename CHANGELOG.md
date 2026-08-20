@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.8.0.0] - 2026-08-20
+
+### Added
+
+- Search USDA and CC0 community foods through unified, source-aware API endpoints with source-qualified IDs and complete attribution metadata.
+- Fetch source-specific food details, including canonical nutrients and household portions.
+- Add PostgreSQL full-text and trigram indexes plus an analyzed-plan performance gate against a representative 10,000-row dataset.
+
+### Changed
+
+- Rank exact community slugs first, followed by requested-locale community foods, USDA foods, and other community locales.
+- Bound public search with strict query validation, stable pagination, per-IP rate limiting, and a transaction-local statement timeout.
+- Advance the continuous-integration migration check to the unified food-search schema revision.
+
 ## [0.7.0.0] - 2026-08-20
 
 ### Added
