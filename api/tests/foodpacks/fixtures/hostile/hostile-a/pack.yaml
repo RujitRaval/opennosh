@@ -1,0 +1,9 @@
+id: hostile-a
+name: Hostile fixture A
+description: Deliberately invalid pack covering every blocking rule.
+version: 1.0.0
+locale: en-US
+license: ODbL-1.0
+maintainers:
+  - github: hostile-tester
+entry_count: 99

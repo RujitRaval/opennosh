@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import
+.PHONY: install lint typecheck test build compose-config db-upgrade db-downgrade usda-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -12,7 +12,7 @@ typecheck:
 	uv run mypy
 	npm --prefix web run typecheck
 
-test:
+test: foodpack-validate
 	uv run pytest
 	python3 -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
@@ -32,3 +32,6 @@ db-downgrade:
 
 usda-import:
 	PYTHONPATH=api uv run python -m opennosh_api.importers.usda $(USDA_PATHS)
+
+foodpack-validate:
+	PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json

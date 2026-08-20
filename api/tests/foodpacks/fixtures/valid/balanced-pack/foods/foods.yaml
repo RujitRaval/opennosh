@@ -1,0 +1,39 @@
+- slug: balanced-thepla
+  name: Balanced thepla
+  name_local: સંતુલિત થેપલા
+  category: bread
+  tags: [vegetarian, indian]
+  contributed_by: test-contributor
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: Calculated from weighed ingredients in a six-piece household recipe.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 308
+    protein_g: 8
+    fat_g: 12
+    carbohydrate_g: 42
+    fiber_g: 6
+  portions:
+    - name: 1 piece
+      grams: 42
+
+- slug: public-domain-lassi
+  name: Public-domain lassi
+  category: beverage
+  contributed_by: test-contributor
+  provenance: government_database
+  source_uri: https://example.gov/foods/lassi
+  source_license: public-domain
+  source_note: Published by the example national food composition database.
+  basis: per_100ml
+  density_g_per_ml: 1.03
+  nutrients:
+    energy_kcal: 80
+    protein_g: 4
+    fat_g: 4
+    carbohydrate_g: 7
+  portions:
+    - name: 1 glass
+      grams: 257.5

@@ -1,0 +1,9 @@
+id: balanced-pack
+name: Balanced test foods
+description: Valid fixture covering mass and volume nutrient declarations.
+version: 1.0.0
+locale: en-US
+license: CC0-1.0
+maintainers:
+  - github: test-contributor
+entry_count: 2

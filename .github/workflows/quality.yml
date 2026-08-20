@@ -97,6 +97,9 @@ jobs:
       - name: Type-check API
         run: uv run mypy
 
+      - name: Validate food packs
+        run: PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json
+
       - name: Test API
         run: uv run pytest api/tests
 

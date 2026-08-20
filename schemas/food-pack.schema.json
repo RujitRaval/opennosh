@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/food-pack.schema.json",
+  "title": "opennosh food pack",
+  "description": "The normalized representation assembled from pack.yaml and foods/*.yaml.",
+  "x-opennosh-schema-version": "1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pack", "foods"],
+  "properties": {
+    "pack": {"$ref": "#/$defs/pack"},
+    "foods": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {"$ref": "#/$defs/food"}
+    }
+  },
+  "$defs": {
+    "githubUsername": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 39,
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+    },
+    "pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "description",
+        "version",
+        "locale",
+        "license",
+        "maintainers",
+        "entry_count"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+        },
+        "license": {"const": "CC0-1.0"},
+        "maintainers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["github"],
+            "properties": {"github": {"$ref": "#/$defs/githubUsername"}}
+          }
+        },
+        "entry_count": {"type": "integer", "minimum": 1, "maximum": 100}
+      }
+    },
+    "nutrients": {
+      "type": "object",
+      "minProperties": 4,
+      "required": ["energy_kcal", "protein_g", "fat_g", "carbohydrate_g"],
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,54}_(?:g|mg|mcg|kcal|kj|iu)$"},
+      "properties": {
+        "energy_kcal": {"type": "number", "minimum": 0},
+        "protein_g": {"type": "number", "minimum": 0},
+        "fat_g": {"type": "number", "minimum": 0},
+        "carbohydrate_g": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": {"type": "number", "minimum": 0}
+    },
+    "portion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "grams"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "grams": {"type": "number", "exclusiveMinimum": 0, "maximum": 10000}
+      }
+    },
+    "food": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slug",
+        "name",
+        "category",
+        "contributed_by",
+        "provenance",
+        "source_uri",
+        "source_license",
+        "basis",
+        "nutrients"
+      ],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "name": {"type": "string", "minLength": 1, "maxLength": 160},
+        "name_local": {"type": "string", "minLength": 1, "maxLength": 160},
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 30,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+          }
+        },
+        "contributed_by": {"$ref": "#/$defs/githubUsername"},
+        "provenance": {
+          "enum": [
+            "lab_analysis",
+            "government_database",
+            "manufacturer_label",
+            "published_recipe_calculation",
+            "own_measurement"
+          ]
+        },
+        "source_uri": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://[^/?#\\s]+(?:[/?#]|$)"
+            }
+          ]
+        },
+        "source_license": {
+          "enum": ["contributor-original", "CC0-1.0", "public-domain"]
+        },
+        "source_note": {"type": "string", "maxLength": 4000},
+        "basis": {"enum": ["per_100g", "per_100ml"]},
+        "density_g_per_ml": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 5
+        },
+        "nutrients": {"$ref": "#/$defs/nutrients"},
+        "portions": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {"$ref": "#/$defs/portion"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"basis": {"const": "per_100ml"}}, "required": ["basis"]},
+          "then": {"required": ["density_g_per_ml"]}
+        },
+        {
+          "if": {
+            "properties": {"provenance": {"const": "government_database"}},
+            "required": ["provenance"]
+          },
+          "then": {
+            "required": ["source_note"],
+            "properties": {
+              "source_uri": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://[^/?#\\s]+(?:[/?#]|$)"
+              },
+              "source_license": {"enum": ["CC0-1.0", "public-domain"]},
+              "source_note": {"type": "string", "minLength": 1, "maxLength": 4000}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provenance": {
+                "enum": ["published_recipe_calculation", "own_measurement"]
+              }
+            },
+            "required": ["provenance"]
+          },
+          "then": {
+            "required": ["source_note"],
+            "properties": {
+              "source_note": {"type": "string", "minLength": 1, "maxLength": 4000}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"source_license": {"const": "contributor-original"}},
+            "required": ["source_license"]
+          },
+          "then": {
+            "properties": {
+              "provenance": {
+                "enum": [
+                  "lab_analysis",
+                  "published_recipe_calculation",
+                  "own_measurement"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

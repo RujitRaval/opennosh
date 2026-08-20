@@ -111,6 +111,26 @@ A pack with perfect nutrient data and no portions is worse in practice than one 
 
 The validator is a standalone module. Same code runs in CI and in the runtime loader, so they cannot drift.
 
+Contributor files remain YAML for quick editing. The loader combines `pack.yaml` and every
+`foods/*.yaml` list into the normalized document described by the versioned Draft 2020-12 schema at
+`schemas/food-pack.schema.json`. Validate all repository packs locally with:
+
+```bash
+make foodpack-validate
+```
+
+The command exits non-zero only for blocking errors and can emit a stable JSON report for CI and
+other tools. Runtime code calls `validate_pack_document` or `validate_pack_directories` from
+`opennosh_api.foodpacks.validation`; those are the same functions used by the command. Possible
+duplicate profiles are defined as core macro/energy values within 1% after conversion to the
+canonical per-100-gram basis.
+
+To keep contributor input safe and validation predictable, each pack is limited to 100 entries,
+100 food files, 1 MB per YAML file, 5 MB total YAML, and 40 YAML nesting levels. One validation run
+accepts at most 100 packs and 1,000 total entries. YAML aliases, symbolic-link YAML files,
+non-string mapping keys, duplicate keys, and non-UTF-8 input are blocking errors. Runtime callers
+receive the same bounded, machine-readable failures before schema traversal.
+
 **Hard failures (block merge):**
 - Schema violation, missing required field
 - Invalid `provenance` value
