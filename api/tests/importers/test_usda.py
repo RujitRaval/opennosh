@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from shutil import copytree
@@ -11,6 +14,7 @@ import pytest
 from opennosh_api.importers.usda import USDADataType, USDAFormatError, iter_usda
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "usda"
+REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 def test_json_parser_keeps_provenance_and_reports_bad_records() -> None:
@@ -302,3 +306,19 @@ def test_malformed_json_is_reported_as_a_format_error(tmp_path: Path) -> None:
 
     with pytest.raises(USDAFormatError, match="malformed JSON"):
         list(iter_usda(source))
+
+
+def test_module_cli_help_loads_without_runpy_warning() -> None:
+    environment = {**os.environ, "PYTHONPATH": str(REPOSITORY_ROOT / "api")}
+
+    result = subprocess.run(
+        [sys.executable, "-W", "error", "-m", "opennosh_api.importers.usda", "--help"],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "RuntimeWarning" not in result.stderr
