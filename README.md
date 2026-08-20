@@ -45,6 +45,34 @@ Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only s
 
 The `opennosh_api.nutrition` module validates nutrient maps, canonicalises source values to a per-100-gram internal basis, and converts grams, millilitres, and named household portions into immutable nutrient snapshots. Volume conversion requires an explicit food density; opennosh never guesses that one millilitre equals one gram. Calculations use a fixed 50-significant-digit decimal context, presentation rounding happens only through the API-boundary helper, and its JSON payload uses decimal strings so values do not change in transit.
 
+### USDA reference-food import
+
+The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,
+official relational CSV ZIP archives, or extracted CSV directories. It imports only
+Foundation and SR Legacy foods into `foods_reference`; branded, FNDDS, and experimental
+rows are ignored. Each accepted row retains its FDC ID, USDA source, CC0 license, source
+publication timestamp, nutrients per 100 grams, and gram-based household portions.
+
+Download the bulk files from the [FoodData Central dataset page](https://fdc.nal.usda.gov/download-datasets/),
+run migrations, then pass one or more archives:
+
+```shell
+make db-upgrade
+make usda-import USDA_PATHS="downloads/foundation.zip downloads/sr-legacy.zip"
+```
+
+The importer uses `DATABASE_URL` by default and writes 500 records per batch. Override
+either setting by including `--database-url <url>` or `--batch-size <count>` in
+`USDA_PATHS` after the input paths.
+
+The job streams large JSON archives, bounds archive expansion and record collections,
+upserts on FDC ID, and prints progress after each database batch. A rerun updates the same
+rows instead of duplicating them, while an older USDA release cannot overwrite a newer
+one. Malformed or incomplete source records are identified by FDC ID on standard error;
+valid records are still written, and the command exits nonzero when any rows were
+rejected. Error output retains a bounded sample and reports how many additional issues
+were omitted.
+
 ---
 
 ## Product documents

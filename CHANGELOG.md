@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.5.0.0] - 2026-08-19
+
+### Added
+
+- Import official USDA Foundation and SR Legacy bulk data from JSON files, JSON ZIP archives, relational CSV ZIP archives, or extracted CSV directories without requiring network access during the job.
+- Preserve each accepted food's FDC ID, publication timestamp, USDA source, CC0 license, per-100-gram nutrients, category, and gram-based household portions in the reference-food store.
+- Stream and validate source records in bounded batches, report malformed rows by source location and FDC ID, and retain valid rows for database import.
+- Provide a documented `make usda-import` command with fixture-driven parser tests and real PostgreSQL coverage for repeat imports and release ordering.
+
+### Changed
+
+- Make USDA imports idempotent and concurrency-safe while preventing an older dataset release from replacing newer reference data.
+- Accept bounded authoritative energy values and food-specific Atwater factors while retaining strict validation for ordinary nutrition data.
+- Reject ambiguous or oversized archives, conflicting nutrient and portion values, unsupported units, and unbounded record collections before they can corrupt or exhaust the import process.
+
 ## [0.4.0.0] - 2026-08-19
 
 ### Added

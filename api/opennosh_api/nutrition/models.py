@@ -14,6 +14,7 @@ from pydantic import (
     Field,
     GetJsonSchemaHandler,
     RootModel,
+    ValidationInfo,
     field_serializer,
     field_validator,
     model_serializer,
@@ -36,6 +37,10 @@ _MAX_CANONICAL_VALUE_BY_UNIT = {
     "kcal": Decimal("900"),
     "kj": Decimal("3766"),
     "iu": Decimal("10000000000"),
+}
+_MAX_AUTHORITATIVE_ENERGY_BY_UNIT = {
+    "kcal": Decimal("1000"),
+    "kj": Decimal("4184"),
 }
 _ENERGY_TOLERANCE = Decimal("0.15")
 _ARITHMETIC_CONTEXT = Context(prec=50, rounding=ROUND_HALF_EVEN)
@@ -99,10 +104,18 @@ def deterministic_divide(numerator: Decimal, denominator: Decimal) -> Decimal:
     return result
 
 
-def _validate_basis_limits(nutrients: NutrientValues) -> None:
+def _validate_basis_limits(
+    nutrients: NutrientValues, *, authoritative_source: bool = False
+) -> None:
     for code, amount in nutrients.items():
         unit = code.rsplit("_", maxsplit=1)[1]
-        maximum = _MAX_CANONICAL_VALUE_BY_UNIT[unit]
+        maximum = (
+            _MAX_AUTHORITATIVE_ENERGY_BY_UNIT.get(
+                unit, _MAX_CANONICAL_VALUE_BY_UNIT[unit]
+            )
+            if authoritative_source
+            else _MAX_CANONICAL_VALUE_BY_UNIT[unit]
+        )
         if amount > maximum:
             raise ValueError(f"{code} cannot exceed {maximum} per 100g")
 
@@ -151,7 +164,9 @@ class NutrientValues(RootModel[Mapping[str, Decimal]]):
 
     @field_validator("root")
     @classmethod
-    def validate_and_freeze(cls, value: Mapping[str, Decimal]) -> Mapping[str, Decimal]:
+    def validate_and_freeze(
+        cls, value: Mapping[str, Decimal], info: ValidationInfo
+    ) -> Mapping[str, Decimal]:
         missing = sorted(_REQUIRED_MACROS - value.keys())
         if missing:
             raise ValueError(f"Missing required nutrients: {', '.join(missing)}")
@@ -180,10 +195,18 @@ class NutrientValues(RootModel[Mapping[str, Decimal]]):
                     mismatch = abs(calculated_energy - energy) / energy > _ENERGY_TOLERANCE
         except DecimalException as error:
             raise ValueError("Nutrient arithmetic exceeds the supported numeric range") from error
-        if mismatch:
+        authoritative_source = bool(
+            info.context and info.context.get("authoritative_source") is True
+        )
+        if mismatch and not authoritative_source:
             raise ValueError("Macro-derived energy differs from energy_kcal by more than 15%")
 
         return MappingProxyType(dict(sorted(validated.items())))
+
+    @classmethod
+    def from_authoritative_source(cls, value: Mapping[str, Decimal]) -> NutrientValues:
+        """Validate exact published values that may use food-specific energy factors."""
+        return cls.model_validate(value, context={"authoritative_source": True})
 
     @model_serializer
     def serialize(self) -> dict[str, Decimal]:
@@ -292,9 +315,24 @@ class NutrientProfile(BaseModel):
         return _optional_density(value)
 
     @model_validator(mode="after")
-    def validate_canonical_basis(self) -> NutrientProfile:
-        _validate_basis_limits(self.nutrients)
+    def validate_canonical_basis(self, info: ValidationInfo) -> NutrientProfile:
+        authoritative_source = bool(
+            info.context and info.context.get("authoritative_source") is True
+        )
+        _validate_basis_limits(
+            self.nutrients, authoritative_source=authoritative_source
+        )
         return self
+
+    @classmethod
+    def from_authoritative_source(
+        cls, nutrients: Mapping[str, Decimal]
+    ) -> NutrientProfile:
+        """Validate published per-100g values with bounded source tolerances."""
+        return cls.model_validate(
+            {"nutrients": NutrientValues.from_authoritative_source(nutrients)},
+            context={"authoritative_source": True},
+        )
 
 
 class NutrientSnapshot(BaseModel):

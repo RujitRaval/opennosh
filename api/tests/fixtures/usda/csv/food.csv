@@ -1,0 +1,5 @@
+"fdc_id","data_type","description","food_category_id","publication_date"
+"170001","foundation_food","Oats, whole grain","20","2026-04-30"
+"170002","sr_legacy_food","Rice, brown, cooked","20","2019-04-01"
+"170003","foundation_food","Incomplete sample","20","2026-04-30"
+"170004","branded_food","Ignored branded cereal","20","2026-04-30"
