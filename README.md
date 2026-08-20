@@ -203,6 +203,40 @@ shape (`id`, `recorded_at`, `metric_type`, `value`, and `unit`) is also the repr
 reserved for the future authenticated `/export/me` response. opennosh stores and reports
 these numbers without streaks, shaming, or automated medical interpretation.
 
+## Private strength workouts
+
+Authenticated users can create and manage their own workouts under `/api/v1/workouts`. A workout
+has a timezone-aware `performed_at`, optional notes, and up to 500 ordered sets. Each set refers to
+an attributed exercise and records reps plus one of `kg`, `lb`, `bodyweight`, `band`,
+`machine_units`, or `rpe_only`. For example:
+
+```json
+{
+  "performed_at": "2026-08-20T18:00:00-04:00",
+  "notes": "Upper body",
+  "sets": [
+    {
+      "exercise_id": "66fef1bf-7bb3-4ccf-bd52-dd661006075b",
+      "reps": 8,
+      "load_value": "60",
+      "load_unit": "kg"
+    }
+  ]
+}
+```
+
+Use `GET /api/v1/workouts?from=2026-08-01&to=2026-08-31` for an inclusive UTC-date
+range. `POST /api/v1/workouts/{workout_id}/sets`,
+`PUT /api/v1/workouts/{workout_id}/sets/{set_id}`, and the corresponding `DELETE` endpoint
+append, edit, and remove sets without changing the surviving sets' relative order. Mutations
+require the session CSRF token, and all responses send `Cache-Control: no-store`.
+
+Volume is computed only for `kg`, `lb`, and `machine_units`, and remains separated by exercise
+and unit. `GET /api/v1/workouts/volume?from=2026-08-01&to=2026-08-31&exercise_id=<id>`
+refuses to combine incompatible units; add `&load_unit=kg` or another exact unit to select one.
+Bodyweight, band, and RPE-only sets remain useful records but are never converted into an invented
+numeric volume.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,
