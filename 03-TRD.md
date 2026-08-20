@@ -67,6 +67,8 @@ log_entries
 
 body_metrics
   id, user_id, recorded_at, metric_type, value, unit
+  -- metric_type: body_weight, body_fat_percentage, height, or named circumference
+  -- unit pairs are constrained: weight kg/lb, body fat percent, length cm/in
 
 workouts
   id, user_id, performed_at, notes
@@ -141,7 +143,7 @@ GET    /logs/{id}                     DELETE /logs/{id}
 GET    /logs/daily-totals?day=&timezone=
 GET    /targets                         PUT /targets
 GET    /targets/resolve?day=&day_type=
-POST   /body-metrics       GET  /body-metrics?from=&to=
+POST   /body-metrics       GET  /body-metrics?from=&to=       DELETE /body-metrics/{id}
 POST   /workouts           GET  /workouts?from=&to=
 GET    /export/me                       -- full user data, JSON
 GET    /export/foods/community          -- CC0 dump preserving source_uri/source_license/contributed_by
@@ -150,6 +152,10 @@ GET    /export/exercises                -- separately identified, per-entry lice
 ```
 
 Search ranking: exact slug > community pack matching user locale > USDA generic > community other locales > ODbL branded. Generic before branded is the single ranking rule that most improves perceived quality.
+
+Body metric list bounds are required inclusive UTC calendar dates. Records use a stable
+`id`, `recorded_at`, `metric_type`, `value`, and `unit` JSON shape so `/export/me` can reuse
+the same private representation without conversion or interpretation.
 
 ## 6. Deployment
 

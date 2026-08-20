@@ -25,7 +25,14 @@ from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
-from opennosh_api.models.enums import FoodSourceTable, LoadUnit, Provenance, TargetDayType
+from opennosh_api.models.enums import (
+    BodyMetricType,
+    BodyMetricUnit,
+    FoodSourceTable,
+    LoadUnit,
+    Provenance,
+    TargetDayType,
+)
 from opennosh_api.targets.constants import (
     DEFAULT_TARGET_KCAL_FLOOR,
     MAX_KCAL,
@@ -40,6 +47,8 @@ PROVENANCE_VALUES = ", ".join(repr(value.value) for value in Provenance)
 SOURCE_LICENSE_VALUES = "'contributor-original', 'CC0-1.0', 'public-domain'"
 LOAD_UNIT_VALUES = ", ".join(repr(value.value) for value in LoadUnit)
 TARGET_DAY_TYPE_VALUES = ", ".join(repr(value.value) for value in TargetDayType)
+BODY_METRIC_TYPE_VALUES = ", ".join(repr(value.value) for value in BodyMetricType)
+BODY_METRIC_UNIT_VALUES = ", ".join(repr(value.value) for value in BodyMetricUnit)
 
 
 class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -282,7 +291,29 @@ class LogEntry(UUIDPrimaryKeyMixin, Base):
 
 class BodyMetric(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "body_metrics"
-    __table_args__ = (Index("ix_body_metrics_user_id_recorded_at", "user_id", "recorded_at"),)
+    __table_args__ = (
+        CheckConstraint(
+            f"metric_type IN ({BODY_METRIC_TYPE_VALUES})",
+            name="metric_type_allowed",
+        ),
+        CheckConstraint(f"unit IN ({BODY_METRIC_UNIT_VALUES})", name="unit_allowed"),
+        CheckConstraint(
+            "(metric_type = 'body_weight' AND unit IN ('kg', 'lb')) OR "
+            "(metric_type = 'body_fat_percentage' AND unit = 'percent') OR "
+            "(metric_type IN ('height', 'waist_circumference', "
+            "'hip_circumference', 'chest_circumference', 'neck_circumference', "
+            "'upper_arm_circumference', 'thigh_circumference') "
+            "AND unit IN ('cm', 'in'))",
+            name="type_unit_valid",
+        ),
+        CheckConstraint("value > 0 AND value <= 1000000", name="value_bounded"),
+        CheckConstraint(
+            "recorded_at >= TIMESTAMPTZ '0001-01-01 00:00:00.000001+00' AND "
+            "recorded_at <= TIMESTAMPTZ '9999-12-31 23:59:59.999998+00'",
+            name="recorded_at_supported",
+        ),
+        Index("ix_body_metrics_user_id_recorded_at", "user_id", "recorded_at"),
+    )
 
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

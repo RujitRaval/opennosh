@@ -886,3 +886,195 @@ def test_target_schedule_migration_preserves_and_bounds_legacy_ranges() -> None:
         assert "safety_floor_kcal" not in target_columns
     finally:
         command.downgrade(config, "base")
+
+
+async def seed_legacy_body_metrics(
+    database_url: str, *, invalid_kind: str | None = None
+) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (email, password_hash)
+                    VALUES ('legacy-metric@example.test', 'hash') RETURNING id
+                    """
+                )
+            )
+            if invalid_kind is None:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO body_metrics (
+                            user_id, recorded_at, metric_type, value, unit
+                        ) VALUES
+                            (:user_id, '2026-08-20T12:00:00Z', 'body_weight', 80.125, 'kg'),
+                            (:user_id, '2026-08-21T12:00:00Z', 'waist_circumference', 84.2, 'cm')
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+            elif invalid_kind == "contract":
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO body_metrics (
+                            user_id, recorded_at, metric_type, value, unit
+                        ) VALUES (:user_id, '2026-08-20T12:00:00Z', 'weight', 80, 'percent')
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+            elif invalid_kind == "timestamp":
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO body_metrics (
+                            user_id, recorded_at, metric_type, value, unit
+                        ) VALUES (:user_id, 'infinity', 'body_weight', 80, 'kg')
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+            elif invalid_kind == "negative_timestamp":
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO body_metrics (
+                            user_id, recorded_at, metric_type, value, unit
+                        ) VALUES (:user_id, '-infinity', 'body_weight', 80, 'kg')
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+            else:
+                raise ValueError(f"unsupported invalid body metric kind: {invalid_kind}")
+    finally:
+        await engine.dispose()
+
+
+async def read_body_metrics(database_url: str) -> list[dict[str, str]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT metric_type, value, unit
+                        FROM body_metrics
+                        ORDER BY recorded_at
+                        """
+                    )
+                )
+            ).mappings()
+            return [
+                {
+                    "metric_type": str(row["metric_type"]),
+                    "value": format(row["value"], "f"),
+                    "unit": str(row["unit"]),
+                }
+                for row in rows
+            ]
+    finally:
+        await engine.dispose()
+
+
+async def assert_invalid_body_metric_is_rejected(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                user_id = await connection.scalar(text("SELECT id FROM users LIMIT 1"))
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO body_metrics (
+                            user_id, recorded_at, metric_type, value, unit
+                        ) VALUES (:user_id, now(), 'body_weight', 80, 'percent')
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_body_metric_migration_preserves_valid_rows_and_enforces_contract() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0007")
+        asyncio.run(seed_legacy_body_metrics(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "head")
+
+        assert asyncio.run(read_body_metrics(INTEGRATION_DATABASE_URL)) == [
+            {"metric_type": "body_weight", "value": "80.1250", "unit": "kg"},
+            {
+                "metric_type": "waist_circumference",
+                "value": "84.2000",
+                "unit": "cm",
+            },
+        ]
+        constraint_names = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"]
+                    for constraint in inspector.get_check_constraints("body_metrics")
+                },
+            )
+        )
+        assert {
+            "ck_body_metrics_metric_type_allowed",
+            "ck_body_metrics_unit_allowed",
+            "ck_body_metrics_type_unit_valid",
+            "ck_body_metrics_value_bounded",
+            "ck_body_metrics_recorded_at_supported",
+        }.issubset(constraint_names)
+        asyncio.run(assert_invalid_body_metric_is_rejected(INTEGRATION_DATABASE_URL))
+
+        command.downgrade(config, "20260820_0007")
+        downgraded_constraint_names = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"]
+                    for constraint in inspector.get_check_constraints("body_metrics")
+                },
+            )
+        )
+        assert not any(
+            name.startswith("ck_body_metrics_") for name in downgraded_constraint_names
+        )
+        assert len(asyncio.run(read_body_metrics(INTEGRATION_DATABASE_URL))) == 2
+    finally:
+        command.downgrade(config, "base")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+@pytest.mark.parametrize(
+    "invalid_kind", ["contract", "timestamp", "negative_timestamp"]
+)
+def test_body_metric_migration_rejects_invalid_legacy_rows(
+    invalid_kind: str,
+) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260820_0007")
+        asyncio.run(
+            seed_legacy_body_metrics(
+                INTEGRATION_DATABASE_URL, invalid_kind=invalid_kind
+            )
+        )
+        with pytest.raises(DBAPIError, match="Cannot migrate invalid legacy body metrics"):
+            command.upgrade(config, "head")
+    finally:
+        command.downgrade(config, "base")

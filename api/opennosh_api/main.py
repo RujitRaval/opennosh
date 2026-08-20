@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.auth.router import router as auth_router
+from opennosh_api.body_metrics.router import router as body_metrics_router
 from opennosh_api.database import SqlAlchemyHealthProbe, build_engine
 from opennosh_api.foods.router import router as foods_router
 from opennosh_api.health import router as health_router
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(logs_router)
     application.include_router(recipes_router)
     application.include_router(targets_router)
+    application.include_router(body_metrics_router)
     return application
 
 

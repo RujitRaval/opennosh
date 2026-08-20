@@ -1,7 +1,12 @@
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-_PRIVATE_PATHS = ("/api/v1/logs", "/api/v1/recipes", "/api/v1/targets")
+_PRIVATE_PATHS = (
+    "/api/v1/logs",
+    "/api/v1/recipes",
+    "/api/v1/targets",
+    "/api/v1/body-metrics",
+)
 
 
 class FoodLogNoStoreMiddleware:
