@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.6.0.0] - 2026-08-20
+
+### Added
+
+- Validate contributor food packs with a versioned Draft 2020-12 JSON Schema and one reusable implementation shared by local commands, continuous integration, and runtime callers.
+- Emit stable machine-readable errors and non-blocking warnings for schema violations, provenance and licensing rules, nutrient plausibility, missing portions, short source notes, slug collisions, and near-duplicate profiles.
+- Load editable YAML packs safely with deterministic discovery and explicit limits for files, bytes, nesting, entries, packs, and aggregate repository work.
+- Provide valid and hostile fixtures plus boundary, loader, security, CLI, and cross-pack tests for every documented validation rule.
+
+### Changed
+
+- Reject aliases, duplicate or non-string YAML keys, symbolic links, invalid UTF-8, unsafe numeric values, and oversized runtime structures before expensive validation work begins.
+- Document the food-pack validation command, contributor contract, CI gate, runtime API, and repository-level GStack workflow routing.
+
 ## [0.5.0.0] - 2026-08-19
 
 ### Added
