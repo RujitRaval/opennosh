@@ -23,7 +23,7 @@ ODbL is a **share-alike licence for databases**. In plain terms: if you take Ope
 That is fine for the food data. It is **not** fine if OFF-derived rows sit in the same table as:
 
 - Your own original food packs (which you want under a permissive licence so anyone can reuse them)
-- User-generated logging data (which is private and must never be publishable under any circumstance)
+- User-generated logs and recipes (which are private and must never be publishable under any circumstance)
 
 A single `foods` table containing USDA rows, OFF rows, and community rows is a licensing mess with no clean answer.
 
@@ -53,7 +53,7 @@ Rules the implementing agent must enforce:
 1. **No cross-table writes.** A row never moves from `foods_odbl` into `foods_community`. If a user edits an OFF-sourced food, the edit creates a new `foods_community` row with `derived_from: null` and values re-entered from the label — not copied.
 2. **Every redistributable source record carries non-nullable provenance and license metadata appropriate to its store.** Community rows preserve `provenance`, `source_uri`, `source_license`, and `pack_license`; Open Food Facts rows preserve `source`, `source_url`, `database_license`, and `contents_license`; exercise rows preserve their full per-entry attribution record. Private user-created foods and logs are not third-party source records and instead carry authenticated owner IDs.
 3. **Export respects licence.** `foods_community` exports as a clean CC0 dump. `foods_odbl` exports separately, with ODbL notice attached, or not at all.
-4. **User log data is never included in public or dataset bulk exports.** A user can still download their own private data through `/export/me`; that authenticated personal export is separate from every food or exercise dataset export.
+4. **User log and recipe data is never included in public or dataset bulk exports.** A user can still download their own private data through `/export/me`; that authenticated personal export is separate from every food or exercise dataset export.
 5. **OFF integration is optional, not a core dependency.** Its code ships in v1, but it is disabled until configured. The default deployment remains usable without network access or bundled OFF data. This also protects users if OFF's terms or availability change.
 
 ## Selected licences

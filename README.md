@@ -111,6 +111,39 @@ UTC after applying the selected timezone, including 23- and 25-hour daylight-sav
 read and mutation derives `user_id` from the session, returns `404` for another user's entry or
 custom food, and sends `Cache-Control: no-store`.
 
+## Private recipes
+
+Authenticated recipe CRUD is available under `/api/v1/recipes`. A create or full-replacement
+request supplies a name, the finished recipe's yield in grams, and one to 100 source-qualified
+ingredients with gram quantities:
+
+```json
+{
+  "name": "Sunday dal",
+  "yield_grams": "1400",
+  "ingredients": [
+    {"food": {"source": "usda", "source_id": "169090"}, "grams": "200"},
+    {"food": {"source": "custom", "source_id": "7d735537-5ddf-4ec4-91ad-1f8153229619"}, "grams": "30"}
+  ]
+}
+```
+
+Ingredient sources may be `usda`, `community`, `openfoodfacts`, or `custom`. List recipes with
+`GET /api/v1/recipes?limit=50&offset=0`; `limit` accepts 1–100, `offset` accepts 0–10,000, and the
+response includes `has_more`. `POST`, `PUT`, and `DELETE` require the session CSRF token.
+
+`POST` and `PUT` snapshot each ingredient's identity, exact mass, and nutrients. Recipe detail and
+totals therefore remain stable if an underlying public food changes or a private custom food is
+deleted. The response includes whole-recipe totals and a yield-derived per-100-gram profile. All
+recipe reads and writes are owner-scoped, respond with `Cache-Control: no-store`, and keep recipes
+out of public food-pack data.
+
+Log a recipe through the ordinary `POST /api/v1/logs` endpoint with
+`{"source":"recipe","source_id":"<recipe UUID>"}`. A gram quantity scales the stored profile
+directly. A named portion of `"whole recipe"` maps exactly to the stored yield, so an amount of
+`"0.25"` logs one quarter of the recipe. The resulting log is itself immutable and remains readable
+after the recipe is edited or deleted.
+
 ### USDA reference-food import
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,

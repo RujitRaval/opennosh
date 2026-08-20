@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -34,8 +35,10 @@ from opennosh_api.nutrition import (
     HouseholdPortion,
     NutrientProfile,
     NutrientSnapshot,
+    Quantity,
     QuantityUnit,
     convert_quantity,
+    deterministic_multiply,
 )
 
 LOG_LIST_LIMIT_DEFAULT = 100
@@ -48,6 +51,7 @@ _SOURCE_TO_TABLE = {
     FoodLogSource.COMMUNITY: FoodSourceTable.COMMUNITY,
     FoodLogSource.OPEN_FOOD_FACTS: FoodSourceTable.ODBL,
     FoodLogSource.CUSTOM: FoodSourceTable.CUSTOM,
+    FoodLogSource.RECIPE: FoodSourceTable.RECIPE,
 }
 _TABLE_TO_SOURCE = {table.value: source for source, table in _SOURCE_TO_TABLE.items()}
 
@@ -65,6 +69,7 @@ class ResolvedFood:
     nutrients_json: dict[str, Any]
     portions_json: list[dict[str, Any]]
     authoritative: bool = False
+    recipe_yield_grams: Decimal | None = None
 
 
 def resolve_timezone(requested: str | None, settings_json: dict[str, Any]) -> ZoneInfo:
@@ -95,74 +100,153 @@ def utc_day_bounds(day: date, timezone: ZoneInfo) -> tuple[datetime, datetime]:
         raise FoodLogInputError("day is outside the supported timezone range") from error
 
 
-async def _resolve_food(
+async def resolve_foods(
+    database: AsyncSession,
+    references: Sequence[FoodLogReference],
+    current: CurrentSession,
+) -> dict[tuple[FoodLogSource, str], ResolvedFood]:
+    """Resolve regular food references in at most one query per license store."""
+    if any(reference.source is FoodLogSource.RECIPE for reference in references):
+        raise ValueError("Batch food resolution does not accept recipe references")
+    source_ids = {
+        source: {
+            canonical_food_source_id(reference)
+            for reference in references
+            if reference.source is source
+        }
+        for source in (
+            FoodLogSource.USDA,
+            FoodLogSource.COMMUNITY,
+            FoodLogSource.OPEN_FOOD_FACTS,
+            FoodLogSource.CUSTOM,
+        )
+    }
+    resolved: dict[tuple[FoodLogSource, str], ResolvedFood] = {}
+    if source_ids[FoodLogSource.USDA]:
+        reference_foods = (
+            await database.scalars(
+                select(FoodReference).where(
+                    FoodReference.fdc_id.in_(source_ids[FoodLogSource.USDA])
+                )
+            )
+        ).all()
+        for reference_food in reference_foods:
+            resolved[(FoodLogSource.USDA, reference_food.fdc_id)] = ResolvedFood(
+                table=FoodSourceTable.REFERENCE,
+                internal_id=reference_food.id,
+                source_key=reference_food.fdc_id,
+                name=reference_food.description,
+                nutrients_json=reference_food.nutrients_json,
+                portions_json=reference_food.portions_json,
+                authoritative=True,
+            )
+    if source_ids[FoodLogSource.COMMUNITY]:
+        community_foods = (
+            await database.scalars(
+                select(FoodCommunity).where(
+                    FoodCommunity.slug.in_(source_ids[FoodLogSource.COMMUNITY])
+                )
+            )
+        ).all()
+        for community_food in community_foods:
+            resolved[(FoodLogSource.COMMUNITY, community_food.slug)] = ResolvedFood(
+                table=FoodSourceTable.COMMUNITY,
+                internal_id=community_food.id,
+                source_key=community_food.slug,
+                name=community_food.name,
+                nutrients_json=community_food.nutrients_json,
+                portions_json=community_food.portions_json,
+            )
+    if source_ids[FoodLogSource.OPEN_FOOD_FACTS]:
+        odbl_foods = (
+            await database.scalars(
+                select(FoodOdbl).where(
+                    FoodOdbl.barcode.in_(
+                        source_ids[FoodLogSource.OPEN_FOOD_FACTS]
+                    )
+                )
+            )
+        ).all()
+        for odbl_food in odbl_foods:
+            resolved[(FoodLogSource.OPEN_FOOD_FACTS, odbl_food.barcode)] = ResolvedFood(
+                table=FoodSourceTable.ODBL,
+                internal_id=odbl_food.id,
+                source_key=odbl_food.barcode,
+                name=odbl_food.product_name,
+                nutrients_json=odbl_food.nutrients_json,
+                portions_json=[],
+            )
+    if source_ids[FoodLogSource.CUSTOM]:
+        custom_ids = [UUID(source_id) for source_id in source_ids[FoodLogSource.CUSTOM]]
+        custom_foods = (
+            await database.scalars(
+                select(FoodCustom).where(
+                    FoodCustom.id.in_(custom_ids),
+                    FoodCustom.user_id == current.user_id,
+                )
+            )
+        ).all()
+        for custom_food in custom_foods:
+            source_id = str(custom_food.id)
+            resolved[(FoodLogSource.CUSTOM, source_id)] = ResolvedFood(
+                table=FoodSourceTable.CUSTOM,
+                internal_id=custom_food.id,
+                source_key=source_id,
+                name=custom_food.name,
+                nutrients_json=custom_food.nutrients_json,
+                portions_json=custom_food.portions_json,
+            )
+    return resolved
+
+
+def canonical_food_source_id(reference: FoodLogReference) -> str:
+    """Return the stable lookup key for a validated food reference."""
+    if reference.source in {FoodLogSource.CUSTOM, FoodLogSource.RECIPE}:
+        return str(UUID(reference.source_id))
+    return reference.source_id
+
+
+async def resolve_food(
     database: AsyncSession,
     reference: FoodLogReference,
     current: CurrentSession,
 ) -> ResolvedFood | None:
-    if reference.source is FoodLogSource.USDA:
-        food = await database.scalar(
-            select(FoodReference).where(FoodReference.fdc_id == reference.source_id)
-        )
-        if food is None:
-            return None
-        return ResolvedFood(
-            table=FoodSourceTable.REFERENCE,
-            internal_id=food.id,
-            source_key=food.fdc_id,
-            name=food.description,
-            nutrients_json=food.nutrients_json,
-            portions_json=food.portions_json,
-            authoritative=True,
-        )
-    if reference.source is FoodLogSource.COMMUNITY:
-        food = await database.scalar(
-            select(FoodCommunity).where(FoodCommunity.slug == reference.source_id)
-        )
-        if food is None:
-            return None
-        return ResolvedFood(
-            table=FoodSourceTable.COMMUNITY,
-            internal_id=food.id,
-            source_key=food.slug,
-            name=food.name,
-            nutrients_json=food.nutrients_json,
-            portions_json=food.portions_json,
-        )
-    if reference.source is FoodLogSource.OPEN_FOOD_FACTS:
-        food = await database.scalar(
-            select(FoodOdbl).where(FoodOdbl.barcode == reference.source_id)
-        )
-        if food is None:
-            return None
-        return ResolvedFood(
-            table=FoodSourceTable.ODBL,
-            internal_id=food.id,
-            source_key=food.barcode,
-            name=food.product_name,
-            nutrients_json=food.nutrients_json,
-            portions_json=[],
+    if reference.source is not FoodLogSource.RECIPE:
+        return (await resolve_foods(database, (reference,), current)).get(
+            (reference.source, canonical_food_source_id(reference))
         )
 
-    food = await database.scalar(
-        select(FoodCustom).where(
-            FoodCustom.id == UUID(reference.source_id),
-            FoodCustom.user_id == current.user_id,
-        )
+    from opennosh_api.recipes.service import (
+        RecipeInputError,
+        composition_from_ingredients,
+        resolve_owned_recipe,
     )
-    if food is None:
-        return None
+
+    try:
+        owned_recipe = await resolve_owned_recipe(
+            database, UUID(reference.source_id), current
+        )
+        if owned_recipe is None:
+            return None
+        recipe, ingredients = owned_recipe
+        composition = composition_from_ingredients(
+            ingredients, yield_grams=recipe.yield_grams
+        )
+    except RecipeInputError as error:
+        raise FoodLogInputError(str(error)) from error
     return ResolvedFood(
-        table=FoodSourceTable.CUSTOM,
-        internal_id=food.id,
-        source_key=str(food.id),
-        name=food.name,
-        nutrients_json=food.nutrients_json,
-        portions_json=food.portions_json,
+        table=FoodSourceTable.RECIPE,
+        internal_id=recipe.id,
+        source_key=str(recipe.id),
+        name=recipe.name,
+        nutrients_json=composition.profile.model_dump(mode="json"),
+        portions_json=[],
+        authoritative=True,
+        recipe_yield_grams=recipe.yield_grams,
     )
 
 
-def _profile(food: ResolvedFood) -> NutrientProfile:
+def profile_for_food(food: ResolvedFood) -> NutrientProfile:
     if food.authoritative:
         return NutrientProfile.model_validate(
             food.nutrients_json,
@@ -212,17 +296,34 @@ async def create_log_entry(
     payload: LogEntryCreate,
     current: CurrentSession,
 ) -> LogEntryResponse | None:
-    food = await _resolve_food(database, payload.food, current)
+    food = await resolve_food(database, payload.food, current)
     if food is None:
         return None
-    profile = _profile(food)
-    portions = _portions(food)
     try:
-        snapshot = convert_quantity(
-            profile,
-            payload.quantity.to_quantity(),
-            portions=portions,
-        )
+        profile = profile_for_food(food)
+        if (
+            food.recipe_yield_grams is not None
+            and payload.quantity.unit is QuantityUnit.NAMED_PORTION
+        ):
+            if payload.quantity.portion_name is None or (
+                payload.quantity.portion_name.casefold() != "whole recipe"
+            ):
+                raise ValueError(
+                    f"Unknown household portion: {payload.quantity.portion_name}"
+                )
+            grams = deterministic_multiply(
+                payload.quantity.amount, food.recipe_yield_grams
+            )
+            snapshot = convert_quantity(
+                profile,
+                Quantity(amount=grams, unit=QuantityUnit.GRAM),
+            )
+        else:
+            snapshot = convert_quantity(
+                profile,
+                payload.quantity.to_quantity(),
+                portions=_portions(food),
+            )
     except ValueError as error:
         raise FoodLogInputError(str(error)) from error
 

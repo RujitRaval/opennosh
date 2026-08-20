@@ -145,3 +145,29 @@ def test_log_entries_preserve_source_identity_and_original_quantity() -> None:
         "ck_log_entries_quantity_unit_allowed",
         "ck_log_entries_portion_name_matches_unit",
     }.issubset(constraints)
+
+
+def test_recipe_ingredients_preserve_order_identity_and_nutrient_snapshots() -> None:
+    table = Base.metadata.tables["recipe_ingredients"]
+
+    assert {
+        "position",
+        "food_source_key",
+        "food_name",
+        "grams",
+        "computed_nutrients_json",
+    }.issubset(table.columns.keys())
+    constraints = {
+        str(constraint.sqltext)
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert any("position >= 0" in constraint for constraint in constraints)
+    assert all("recipes" not in constraint for constraint in constraints)
+
+    log_constraints = {
+        str(constraint.sqltext)
+        for constraint in Base.metadata.tables["log_entries"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert any("recipes" in constraint for constraint in log_constraints)

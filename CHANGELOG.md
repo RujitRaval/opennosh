@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.10.0.0] - 2026-08-20
+
+### Added
+
+- Create, list, read, update, and delete private recipes made from USDA, CC0 community, Open Food Facts, or private custom foods.
+- Log recipe servings in grams or as deterministic fractions of the whole recipe yield while preserving an immutable nutrition snapshot in food history.
+- Cover recipe composition, tenant isolation, source mutation and deletion, exact decimal yields, large batches, pagination, concurrency, migrations, and all supported ingredient stores with automated tests.
+
+### Changed
+
+- Store ingredient identity, exact mass, display name, ordering, and computed nutrients inside each recipe so later source-food changes cannot rewrite the recipe.
+- Keep every recipe endpoint private with authenticated ownership checks, CSRF protection on mutations, `Cache-Control: no-store`, and no path into public contributor food packs.
+- Resolve recipe ingredients in bounded source queries and read each recipe with its ingredient snapshots from one database statement.
+
+### Fixed
+
+- Serialize concurrent recipe edits with a row lock so two updates cannot interleave parent and ingredient versions.
+- Preserve exact sub-milligram recipe yields and noncanonical valid UUID inputs, and allow whole-recipe portions for batches larger than 10 kilograms.
+
 ## [0.9.0.0] - 2026-08-20
 
 ### Added

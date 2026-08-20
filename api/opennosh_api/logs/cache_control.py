@@ -1,11 +1,11 @@
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-_FOOD_LOG_PATH = "/api/v1/logs"
+_PRIVATE_PATHS = ("/api/v1/logs", "/api/v1/recipes")
 
 
 class FoodLogNoStoreMiddleware:
-    """Prevent caches from retaining successful or failed private log responses."""
+    """Prevent caches from retaining successful or failed private nutrition data."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -15,7 +15,7 @@ class FoodLogNoStoreMiddleware:
         if (
             scope["type"] != "http"
             or not isinstance(path, str)
-            or not (path == _FOOD_LOG_PATH or path.startswith(f"{_FOOD_LOG_PATH}/"))
+            or not any(path == root or path.startswith(f"{root}/") for root in _PRIVATE_PATHS)
         ):
             await self.app(scope, receive, send)
             return

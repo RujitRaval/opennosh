@@ -27,7 +27,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
 from opennosh_api.models.enums import FoodSourceTable, LoadUnit, Provenance
 
-FOOD_SOURCE_TABLE_VALUES = ", ".join(repr(value.value) for value in FoodSourceTable)
+INGREDIENT_SOURCE_TABLE_VALUES = ", ".join(
+    repr(value.value) for value in FoodSourceTable if value is not FoodSourceTable.RECIPE
+)
+LOG_SOURCE_TABLE_VALUES = ", ".join(repr(value.value) for value in FoodSourceTable)
 PROVENANCE_VALUES = ", ".join(repr(value.value) for value in Provenance)
 SOURCE_LICENSE_VALUES = "'contributor-original', 'CC0-1.0', 'public-domain'"
 LOAD_UNIT_VALUES = ", ".join(repr(value.value) for value in LoadUnit)
@@ -203,7 +206,7 @@ class Recipe(UUIDPrimaryKeyMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    yield_grams: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    yield_grams: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
 
@@ -217,23 +220,30 @@ class RecipeIngredient(UUIDPrimaryKeyMixin, Base):
             ondelete="CASCADE",
         ),
         CheckConstraint(
-            f"food_source_table IN ({FOOD_SOURCE_TABLE_VALUES})", name="food_source_allowed"
+            f"food_source_table IN ({INGREDIENT_SOURCE_TABLE_VALUES})",
+            name="food_source_allowed",
         ),
+        CheckConstraint("position >= 0", name="position_nonnegative"),
         CheckConstraint("grams > 0", name="grams_positive"),
+        UniqueConstraint("recipe_id", "position", name="uq_recipe_ingredients_position"),
     )
 
     user_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
     recipe_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
     food_source_table: Mapped[str] = mapped_column(String(32), nullable=False)
     food_source_id: Mapped[UUID] = mapped_column(nullable=False)
-    grams: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    food_source_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    food_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    grams: Mapped[Decimal] = mapped_column(Numeric(), nullable=False)
+    computed_nutrients_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 class LogEntry(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "log_entries"
     __table_args__ = (
         CheckConstraint(
-            f"food_source_table IN ({FOOD_SOURCE_TABLE_VALUES})", name="food_source_allowed"
+            f"food_source_table IN ({LOG_SOURCE_TABLE_VALUES})", name="food_source_allowed"
         ),
         CheckConstraint("grams > 0", name="grams_positive"),
         CheckConstraint("quantity_amount > 0", name="quantity_amount_positive"),
