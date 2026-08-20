@@ -137,7 +137,7 @@ describe("daily log recovery and edge cases", () => {
     expect(await screen.findByRole("heading", { name: /nutrition at a glance/i })).toBeVisible();
   });
 
-  it("reloads for date and target-type changes and announces truncated days", async () => {
+  it("reloads for every date control and target-type changes and announces truncated days", async () => {
     const fetchMock = dailyFetch((url) => {
       if (url.startsWith("/api/v1/logs?")) return json({ ...emptyLog, has_more: true });
       return undefined;
@@ -149,6 +149,18 @@ describe("daily log recovery and edge cases", () => {
     fireEvent.click(screen.getByRole("button", { name: /previous day/i }));
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes("day=2026-08-19"))).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /next day/i }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("day=2026-08-20")).length).toBeGreaterThan(1),
+    );
+    fireEvent.change(screen.getByLabelText(/^log date$/i), { target: { value: "2026-08-17" } });
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes("day=2026-08-17"))).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^today$/i }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("day=2026-08-20")).length).toBeGreaterThan(2),
     );
     fireEvent.click(screen.getByRole("radio", { name: /rest day/i }));
     await waitFor(() =>
@@ -301,6 +313,41 @@ describe("daily log recovery and edge cases", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete entry$/i }));
     expect(await screen.findByText(/your session ended/i)).toBeVisible();
     expect(screen.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
+  });
+
+  it("prevents duplicate deletes and does not reload an old day after navigation", async () => {
+    const pendingDelete = deferred<Response>();
+    let deletes = 0;
+    const fetchMock = dailyFetch((url, init) => {
+      if (url.startsWith("/api/v1/logs?") && init?.method !== "DELETE") {
+        return json({ ...emptyLog, items: [chicken] });
+      }
+      if (url === `/api/v1/logs/${chicken.id}` && init?.method === "DELETE") {
+        deletes += 1;
+        return pendingDelete.promise;
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /delete chicken breast from lunch/i }));
+    const confirm = screen.getByRole("button", { name: /^delete entry$/i });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(deletes).toBe(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /previous day/i }));
+    expect(await screen.findByRole("heading", { name: /wednesday, august 19/i })).toBeVisible();
+    const originalDayLoadsBeforeDeleteFinishes = fetchMock.mock.calls.filter(([input]) =>
+      String(input).startsWith("/api/v1/logs?day=2026-08-20"),
+    ).length;
+    pendingDelete.resolve(new Response(null, { status: 204 }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /wednesday, august 19/i })).toBeVisible());
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).startsWith("/api/v1/logs?day=2026-08-20")),
+    ).toHaveLength(originalDayLoadsBeforeDeleteFinishes);
   });
 
   it("signs out successfully and handles both retryable and expired-session failures", async () => {
