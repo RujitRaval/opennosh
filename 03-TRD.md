@@ -120,7 +120,7 @@ The v1 exercise catalogue imports downloaded `exerciseinfo` data from wger, not 
 
 Treat every imported attribution field as untrusted input. Enforce types and conservative length limits, allow only `http` or `https` source URLs, render author and attribution values as escaped text, and render validated URLs through safe link components. Never store or render source-supplied HTML. Importer tests must include malicious attribution and URL fixtures that prove script markup and unsafe schemes cannot execute.
 
-Exercise search uses PostgreSQL full-text plus exact muscle and equipment filters, bounded pagination, a statement timeout, and per-IP rate limiting. Search, detail, UI notices, and export return the complete attribution record. The exercise export has its own per-IP limit and statement timeout, and rejects catalogues above 10,000 rows or 64 MiB of stored data. It remains separately identified as `CC-BY-SA-3.0`, includes the license, source, and ShareAlike notices, and is never combined with the CC0 food-pack dump.
+Exercise search uses PostgreSQL full-text plus exact muscle and equipment filters, bounded pagination, a statement timeout, and per-IP rate limiting. Search, detail, UI notices, and export return the complete attribution record. The exercise export has its own per-IP limit and statement timeout, and rejects catalogues above 10,000 rows or 64 MiB of serialized JSON. It remains separately identified as `CC-BY-SA-3.0`, includes the license, source, and ShareAlike notices, and is never combined with the CC0 food-pack dump.
 
 The Open Food Facts client is disabled by default and never runs during startup. When enabled, a
 cache miss calls `GET /api/v3/product/{barcode}` with only `code`, `product_name`, `brands`,
@@ -131,7 +131,8 @@ sends a descriptive identifying `User-Agent`
 containing the opennosh version and
 maintainer contact. Successful products are reduced to canonical per-100g nutrition before an
 idempotent write to `foods_odbl`. It preserves ODbL database and DbCL contents notices in storage,
-lookup, and the separate `/api/v1/export/foods/openfoodfacts` response. Adding images later requires
+lookup, and the separate `/api/v1/export/foods/odbl` response (with
+`/api/v1/export/foods/openfoodfacts` retained as a compatibility alias). Adding images later requires
 a separate CC BY-SA attribution design. Cache misses share one database-backed outbound quota, and
 the reusable HTTP client is closed during application shutdown. No database transaction remains
 open while the external request is in flight.
@@ -168,6 +169,22 @@ GET    /export/foods/community          -- CC0 dump preserving source_uri/source
 GET    /export/foods/odbl               -- separate, attributed, only if integration enabled
 GET    /export/exercises                -- separately identified, per-entry license and attribution
 ```
+
+Every export is a versioned JSON object generated under a repeatable-read, read-only PostgreSQL
+snapshot. The server validates and spools one row at a time into a secure bounded-memory temporary
+file, closes the database transaction, and streams the file to the client. Database and schema
+failures therefore occur before response headers, and slow clients never pin a database connection.
+Public exports share a bounded semaphore held through response completion, so at most two 64 MiB
+public spool files exist by default. Private exports use a separately reserved one-slot semaphore
+and no byte ceiling. Both paths impose configurable response deadlines and deterministically close
+their temporary file and release capacity on completion, timeout, or client disconnect.
+`/export/me` authenticates the owner from the session, applies the owner predicate independently to
+every private table, emits flat resource sections with stable IDs and source snapshots, excludes
+authentication secrets, and sends `Cache-Control: no-store`. It has no row ceiling. Public exports
+remain independently rate-limited, statement-time-bounded, and capped at 10,000 rows/64 MiB of
+exact serialized JSON. Their queries touch exactly one licensed store: `foods_community`, `foods_odbl`, or the
+allowlisted wger exercise rows. This keeps application memory bounded without joining private,
+CC0, ODbL/DbCL, or CC-BY-SA records into one legal surface.
 
 Search ranking: exact slug > community pack matching user locale > USDA generic > community other locales > ODbL branded. Generic before branded is the single ranking rule that most improves perceived quality.
 

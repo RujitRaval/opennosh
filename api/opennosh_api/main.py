@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,6 +11,7 @@ from opennosh_api.body_metrics.router import router as body_metrics_router
 from opennosh_api.database import SqlAlchemyHealthProbe, build_engine
 from opennosh_api.exercises.router import export_router as exercise_export_router
 from opennosh_api.exercises.router import router as exercises_router
+from opennosh_api.exports.router import router as exports_router
 from opennosh_api.foods.router import export_router as food_export_router
 from opennosh_api.foods.router import router as foods_router
 from opennosh_api.health import router as health_router
@@ -59,6 +61,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application = FastAPI(title="opennosh API", version=read_app_version(), lifespan=lifespan)
     application.state.settings = resolved_settings
+    application.state.public_export_semaphore = asyncio.Semaphore(
+        resolved_settings.public_export_concurrency_limit
+    )
+    application.state.private_export_semaphore = asyncio.Semaphore(
+        resolved_settings.private_export_concurrency_limit
+    )
     application.add_middleware(FoodLogNoStoreMiddleware)
     application.include_router(health_router)
     application.include_router(auth_router)
@@ -66,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(food_export_router)
     application.include_router(exercises_router)
     application.include_router(exercise_export_router)
+    application.include_router(exports_router)
     application.include_router(logs_router)
     application.include_router(recipes_router)
     application.include_router(targets_router)

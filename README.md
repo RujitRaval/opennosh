@@ -85,7 +85,7 @@ Then look up a valid GTIN-8, GTIN-12, GTIN-13, or GTIN-14 barcode:
 
 ```text
 GET /api/v1/foods/barcode/3017620422003
-GET /api/v1/export/foods/openfoodfacts
+GET /api/v1/export/foods/odbl
 ```
 
 The first uncached lookup uses the current Open Food Facts product API with a three-second timeout,
@@ -101,7 +101,8 @@ published product-read limit. Configure the integration with `OPEN_FOOD_FACTS_BA
 only to cache misses so callers sharing the deployment's outbound IP cannot collectively exceed the
 upstream budget; configure it with `OPEN_FOOD_FACTS_UPSTREAM_RATE_LIMIT_ATTEMPTS` and
 `OPEN_FOOD_FACTS_UPSTREAM_RATE_LIMIT_WINDOW_SECONDS`. The separate export has its own rate limit,
-PostgreSQL statement timeout, and a 64 MiB serialized-response ceiling. Invalid GTINs return 422,
+PostgreSQL statement timeout, and exact 10,000-row/64 MiB serialized-response ceilings. The legacy
+`/api/v1/export/foods/openfoodfacts` path returns the same versioned stream. Invalid GTINs return 422,
 missing products return 404, upstream rate limits return 503, upstream timeouts return 504, and
 other unusable upstream responses return 502.
 
@@ -310,8 +311,8 @@ notice and remains separate from the CC0 community-food export; importing exerci
 their license to CC0.
 
 Public search and export have independent per-IP limits and PostgreSQL statement timeouts. The JSON
-export also refuses catalogues above 10,000 rows or 64 MiB of stored exercise data so one anonymous
-request cannot consume unbounded server resources.
+export streams one validated record at a time and refuses catalogues above 10,000 rows or 64 MiB of
+serialized JSON so one anonymous request cannot consume unbounded server memory.
 
 Search defaults to 120 requests per source IP per 60 seconds and a 500 ms statement timeout;
 configure those guards with `EXERCISE_SEARCH_RATE_LIMIT_ATTEMPTS`,
@@ -319,6 +320,44 @@ configure those guards with `EXERCISE_SEARCH_RATE_LIMIT_ATTEMPTS`,
 defaults to 10 requests per source IP per 60 seconds and a 2,000 ms statement timeout; configure it
 with `EXERCISE_EXPORT_RATE_LIMIT_ATTEMPTS`, `EXERCISE_EXPORT_RATE_LIMIT_WINDOW_SECONDS`, and
 `EXERCISE_EXPORT_STATEMENT_TIMEOUT_MS`.
+
+## Private and license-separated exports
+
+opennosh provides four versioned JSON export boundaries:
+
+```text
+GET /api/v1/export/me               authenticated private account data
+GET /api/v1/export/foods/community public CC0 community-food pack
+GET /api/v1/export/foods/odbl       public ODbL/DbCL Open Food Facts cache
+GET /api/v1/export/exercises        public CC BY-SA wger catalogue
+```
+
+`/export/me` derives the owner from the session and includes that account's settings, custom foods,
+recipes and ingredient snapshots, food logs, targets, body metrics, workouts, and sets. It never
+includes password hashes, session tokens, CSRF secrets, or another tenant's records, and every
+response—including authentication failures—uses `Cache-Control: no-store`.
+
+The three public exports never contain custom foods, recipes, logs, targets, body metrics, or
+workouts. Community rows retain pack version, provenance, source-license metadata, and visible
+contributor credit under a CC0 notice. Open Food Facts rows retain the separate ODbL/DbCL notices.
+Exercise rows retain wger source, author, license, derivative, and translation attribution.
+
+All four responses are valid JSON objects with `schema_version: "1.0.0"`. The server validates and
+spools one PostgreSQL row at a time into a secure bounded-memory temporary file, closes the database
+snapshot, and then streams that file to the client. Slow downloads therefore do not retain a
+database connection. Public dataset exports retain their row, exact serialized-byte, per-IP rate,
+and statement-timeout guards. Two shared public spool slots cap retained public temporary data at
+128 MiB, while one independently reserved private slot prevents anonymous traffic from blocking a
+personal export. Response deadlines close abandoned downloads and release their slots and files.
+The private export is rate-limited per authenticated account and has no row ceiling, so a user can
+leave with all of their data. Configure the new guards with
+`COMMUNITY_EXPORT_RATE_LIMIT_ATTEMPTS`,
+`COMMUNITY_EXPORT_RATE_LIMIT_WINDOW_SECONDS`, `COMMUNITY_EXPORT_STATEMENT_TIMEOUT_MS`,
+`PRIVATE_EXPORT_RATE_LIMIT_ATTEMPTS`, `PRIVATE_EXPORT_RATE_LIMIT_WINDOW_SECONDS`, and
+`PRIVATE_EXPORT_STATEMENT_TIMEOUT_MS`. Shared capacity and deadlines use
+`PUBLIC_EXPORT_CONCURRENCY_LIMIT`, `PRIVATE_EXPORT_CONCURRENCY_LIMIT`,
+`EXPORT_CAPACITY_WAIT_SECONDS`, `PUBLIC_EXPORT_RESPONSE_TIMEOUT_SECONDS`, and
+`PRIVATE_EXPORT_RESPONSE_TIMEOUT_SECONDS`.
 
 ### USDA reference-food import
 

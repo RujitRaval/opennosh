@@ -6,12 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opennosh_api.auth.dependencies import get_app_settings
 from opennosh_api.auth.rate_limit import enforce_rate_limit
 from opennosh_api.database import get_database_session
+from opennosh_api.exports.router import _acquire_capacity
+from opennosh_api.exports.streaming import ExportStreamingResponse
 from opennosh_api.foods.open_food_facts import (
     OpenFoodFactsExportLimitError,
     OpenFoodFactsExportTimeoutError,
     cache_product,
-    export_cached_products,
     get_cached_product,
+    prepare_cached_product_export,
 )
 from opennosh_api.foods.schemas import (
     FoodDetail,
@@ -172,12 +174,13 @@ async def barcode_lookup(
     return await cache_product(database, product)
 
 
+@export_router.get("/foods/odbl", response_model=OpenFoodFactsExport)
 @export_router.get("/foods/openfoodfacts", response_model=OpenFoodFactsExport)
 async def open_food_facts_export(
     request: Request,
     database: Annotated[AsyncSession, Depends(get_database_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
-) -> OpenFoodFactsExport:
+) -> ExportStreamingResponse:
     client_address = request.client.host if request.client is not None else "unknown"
     await enforce_rate_limit(
         database,
@@ -188,21 +191,39 @@ async def open_food_facts_export(
         retention_seconds=settings.auth_rate_limit_retention_seconds,
         detail="Too many Open Food Facts exports. Try again later.",
     )
+    lease = await _acquire_capacity(request, settings, private=False)
     try:
-        return await export_cached_products(
+        body = await prepare_cached_product_export(
             database,
             statement_timeout_ms=settings.open_food_facts_export_statement_timeout_ms,
         )
     except OpenFoodFactsExportLimitError as error:
+        lease.release()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="The Open Food Facts cache is temporarily too large for JSON export.",
         ) from error
     except OpenFoodFactsExportTimeoutError as error:
+        lease.release()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Open Food Facts export timed out. Try again later.",
         ) from error
+    except BaseException:
+        lease.release()
+        raise
+    return ExportStreamingResponse(
+        body,
+        lease=lease,
+        timeout_seconds=settings.public_export_response_timeout_seconds,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="opennosh-open-food-facts-odbl.json"'
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{source}/{source_id}", response_model=FoodDetail)

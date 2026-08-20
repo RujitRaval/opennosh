@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.exports.streaming import (
+    ExportByteLimitError,
+    JsonSection,
+    spool_json_stream,
+    stream_json_sections,
+)
 from opennosh_api.foods.schemas import (
     OpenFoodFactsAttribution,
     OpenFoodFactsExport,
@@ -117,3 +125,54 @@ async def export_cached_products(
         await database.rollback()
         raise OpenFoodFactsExportTimeoutError from error
     return OpenFoodFactsExport(entries=entries)
+
+
+async def prepare_cached_product_export(
+    database: AsyncSession, *, statement_timeout_ms: int
+) -> AsyncIterator[bytes]:
+    """Prepare a bounded ODbL export whose response body streams row by row."""
+    await database.execute(
+        text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+    )
+    await database.execute(
+        text("SELECT set_config('statement_timeout', :timeout, true)"),
+        {"timeout": f"{statement_timeout_ms}ms"},
+    )
+
+    async def rows() -> AsyncIterator[OpenFoodFactsExportEntry]:
+        result = await database.stream_scalars(
+            select(FoodOdbl)
+            .order_by(FoodOdbl.barcode)
+            .execution_options(yield_per=100)
+        )
+        count = 0
+        try:
+            async for row in result:
+                count += 1
+                if count > EXPORT_ROW_LIMIT:
+                    raise OpenFoodFactsExportLimitError
+                yield _export_entry(row)
+        finally:
+            await result.close()
+
+    try:
+        body = await spool_json_stream(
+            stream_json_sections(
+                OpenFoodFactsExport(entries=[]), [JsonSection("entries", rows)]
+            ),
+            max_bytes=EXPORT_MAX_SERIALIZED_BYTES,
+        )
+    except (OpenFoodFactsExportLimitError, ExportByteLimitError) as error:
+        await database.rollback()
+        raise OpenFoodFactsExportLimitError from error
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) != "57014":
+            await database.rollback()
+            raise
+        await database.rollback()
+        raise OpenFoodFactsExportTimeoutError from error
+    except BaseException:
+        await database.rollback()
+        raise
+    await database.rollback()
+    return body

@@ -28,6 +28,17 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.exercise_export_rate_limit_attempts == 10
     assert settings.exercise_export_rate_limit_window_seconds == 60
     assert settings.exercise_export_statement_timeout_ms == 2_000
+    assert settings.community_export_rate_limit_attempts == 10
+    assert settings.community_export_rate_limit_window_seconds == 60
+    assert settings.community_export_statement_timeout_ms == 2_000
+    assert settings.private_export_rate_limit_attempts == 10
+    assert settings.private_export_rate_limit_window_seconds == 60
+    assert settings.private_export_statement_timeout_ms == 5_000
+    assert settings.public_export_concurrency_limit == 2
+    assert settings.private_export_concurrency_limit == 1
+    assert settings.export_capacity_wait_seconds == 1.0
+    assert settings.public_export_response_timeout_seconds == 300.0
+    assert settings.private_export_response_timeout_seconds == 1_800.0
     assert settings.target_kcal_floor == Decimal("1200")
     assert settings.session_cookie_name == "opennosh_session"
     assert settings.session_cookie_secure is False
@@ -95,6 +106,18 @@ def test_settings_reject_rate_limit_retention_shorter_than_window() -> None:
     with pytest.raises(ValidationError):
         Settings(
             exercise_export_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            community_export_rate_limit_window_seconds=300,
+            auth_rate_limit_retention_seconds=299,
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(
+            private_export_rate_limit_window_seconds=300,
             auth_rate_limit_retention_seconds=299,
             _env_file=None,
         )

@@ -66,6 +66,7 @@ class OpenFoodFactsFood(BaseModel):
 
 
 class OpenFoodFactsExportEntry(BaseModel):
+    source: Literal["openfoodfacts"] = "openfoodfacts"
     barcode: str
     product_name: str
     brand: str | None = None
