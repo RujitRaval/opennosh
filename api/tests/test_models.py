@@ -216,3 +216,28 @@ def test_body_metrics_enforce_explicit_type_unit_and_value_contract() -> None:
         "ck_body_metrics_value_bounded",
         "ck_body_metrics_recorded_at_supported",
     }.issubset(check_names)
+
+
+def test_workouts_enforce_order_load_and_timestamp_contracts() -> None:
+    workout_checks = {
+        constraint.name
+        for constraint in Base.metadata.tables["workouts"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    set_checks = {
+        constraint.name
+        for constraint in Base.metadata.tables["workout_sets"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+
+    assert {
+        "ck_workouts_performed_at_supported",
+        "ck_workouts_notes_bounded",
+    }.issubset(workout_checks)
+    assert {
+        "ck_workout_sets_set_index_bounded",
+        "ck_workout_sets_reps_bounded",
+        "ck_workout_sets_load_value_bounded",
+        "ck_workout_sets_load_unit_allowed",
+        "ck_workout_sets_load_contract_valid",
+    }.issubset(set_checks)

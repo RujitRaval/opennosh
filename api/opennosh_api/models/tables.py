@@ -328,6 +328,12 @@ class Workout(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "workouts"
     __table_args__ = (
         UniqueConstraint("user_id", "id", name="uq_workouts_user_id_id"),
+        CheckConstraint(
+            "performed_at >= TIMESTAMPTZ '0001-01-01 00:00:00.000001+00' AND "
+            "performed_at <= TIMESTAMPTZ '9999-12-31 23:59:59.999998+00'",
+            name="performed_at_supported",
+        ),
+        CheckConstraint("notes IS NULL OR length(notes) <= 5000", name="notes_bounded"),
         Index("ix_workouts_user_id_performed_at", "user_id", "performed_at"),
     )
 
@@ -374,9 +380,23 @@ class WorkoutSet(UUIDPrimaryKeyMixin, Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("set_index >= 0", name="set_index_nonnegative"),
+        CheckConstraint("set_index < 500", name="set_index_bounded"),
         CheckConstraint("reps > 0", name="reps_positive"),
+        CheckConstraint("reps <= 100000", name="reps_bounded"),
         CheckConstraint("load_value IS NULL OR load_value >= 0", name="load_value_nonnegative"),
+        CheckConstraint(
+            "load_value IS NULL OR load_value <= 1000000",
+            name="load_value_bounded",
+        ),
         CheckConstraint(f"load_unit IN ({LOAD_UNIT_VALUES})", name="load_unit_allowed"),
+        CheckConstraint(
+            "(load_unit IN ('kg', 'lb', 'machine_units') "
+            "AND load_value IS NOT NULL) OR "
+            "(load_unit IN ('bodyweight', 'band') AND load_value IS NULL) OR "
+            "(load_unit = 'rpe_only' AND load_value IS NOT NULL "
+            "AND load_value BETWEEN 1 AND 10)",
+            name="load_contract_valid",
+        ),
         UniqueConstraint("workout_id", "set_index", name="uq_workout_sets_position"),
     )
 

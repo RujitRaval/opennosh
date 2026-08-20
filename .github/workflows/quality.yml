@@ -150,7 +150,7 @@ jobs:
         run: docker compose up --build --wait db api
 
       - name: Verify the Alembic head
-        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260820_0008'
+        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260820_0009'
 
       - name: Stop Compose services
         if: always()

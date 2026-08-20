@@ -144,7 +144,11 @@ GET    /logs/daily-totals?day=&timezone=
 GET    /targets                         PUT /targets
 GET    /targets/resolve?day=&day_type=
 POST   /body-metrics       GET  /body-metrics?from=&to=       DELETE /body-metrics/{id}
-POST   /workouts           GET  /workouts?from=&to=
+GET    /workouts?from=&to=&limit=&offset=       POST /workouts
+GET    /workouts/{id}       PUT /workouts/{id} DELETE /workouts/{id}
+POST   /workouts/{id}/sets
+PUT    /workouts/{id}/sets/{set_id}            DELETE /workouts/{id}/sets/{set_id}
+GET    /workouts/volume?from=&to=&exercise_id=&load_unit=
 GET    /export/me                       -- full user data, JSON
 GET    /export/foods/community          -- CC0 dump preserving source_uri/source_license/contributed_by
 GET    /export/foods/odbl               -- separate, attributed, only if integration enabled
@@ -156,6 +160,15 @@ Search ranking: exact slug > community pack matching user locale > USDA generic 
 Body metric list bounds are required inclusive UTC calendar dates. Records use a stable
 `id`, `recorded_at`, `metric_type`, `value`, and `unit` JSON shape so `/export/me` can reuse
 the same private representation without conversion or interpretation.
+
+Workout sets preserve explicit units: `kg`, `lb`, `bodyweight`, `band`, `machine_units`, and
+`rpe_only`. Kilograms, pounds, and machine units require a nonnegative `load_value`; bodyweight and
+band sets omit it; and RPE-only sets store a rating from 1 through 10 in that field. Ordered set
+positions remain stable after edits and compact after deletion. Volume is available only for `kg`,
+`lb`, and `machine_units`, is grouped by exercise and unit, and is never aggregated across
+incompatible units. Workout set responses embed the complete exercise attribution record. Workout
+and nested set reads and writes are owner-scoped; cross-tenant identifiers are indistinguishable
+from missing records.
 
 ## 6. Deployment
 
