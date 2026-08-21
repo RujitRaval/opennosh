@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, sta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.client_address import client_address
-from opennosh_api.auth.dependencies import get_app_settings
+from opennosh_api.auth.dependencies import CurrentSession, get_app_settings, require_csrf
 from opennosh_api.auth.rate_limit import enforce_rate_limit
 from opennosh_api.database import get_database_session
 from opennosh_api.exports.router import _acquire_capacity
@@ -17,6 +17,9 @@ from opennosh_api.foods.open_food_facts import (
     prepare_cached_product_export,
 )
 from opennosh_api.foods.schemas import (
+    CustomFoodCreate,
+    CustomFoodResponse,
+    FoodCapabilities,
     FoodDetail,
     FoodSearchResponse,
     FoodSource,
@@ -30,6 +33,7 @@ from opennosh_api.foods.service import (
     SEARCH_QUERY_MAX_LENGTH,
     SEARCH_QUERY_MIN_LENGTH,
     FoodSearchTimeoutError,
+    create_custom_food,
     get_food_detail,
     normalize_locale,
     normalize_search_query,
@@ -47,6 +51,15 @@ from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/foods", tags=["foods"])
 export_router = APIRouter(prefix="/api/v1/export", tags=["exports"])
+
+
+@router.get("/capabilities", response_model=FoodCapabilities)
+async def capabilities(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> FoodCapabilities:
+    return FoodCapabilities(
+        barcode_lookup_enabled=settings.open_food_facts_enabled,
+    )
 
 
 @router.get("/search", response_model=FoodSearchResponse)
@@ -173,6 +186,19 @@ async def barcode_lookup(
             detail="Open Food Facts returned an unusable response.",
         ) from error
     return await cache_product(database, product)
+
+
+@router.post(
+    "/custom",
+    response_model=CustomFoodResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def custom_food_create(
+    payload: CustomFoodCreate,
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> CustomFoodResponse:
+    return await create_custom_food(database, payload, current)
 
 
 @export_router.get("/foods/odbl", response_model=OpenFoodFactsExport)

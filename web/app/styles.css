@@ -34,7 +34,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -47,6 +48,7 @@ input {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
+select:focus-visible,
 [tabindex]:focus-visible {
   outline: 3px solid #b65b16;
   outline-offset: 3px;
@@ -275,6 +277,16 @@ input[list] {
   min-height: 2.75rem;
   width: 100%;
   padding: 0.65rem 0.75rem;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.45rem;
+}
+
+select {
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 0.65rem 2rem 0.65rem 0.75rem;
   color: var(--ink);
   background: white;
   border: 1px solid var(--line-strong);
@@ -803,6 +815,10 @@ tbody tr:last-child td {
   box-shadow: 0 24px 70px rgb(0 0 0 / 30%);
 }
 
+.dialog-food {
+  width: min(100%, 46rem);
+}
+
 .dialog-heading {
   display: flex;
   align-items: start;
@@ -814,8 +830,82 @@ tbody tr:last-child td {
   margin-top: 1rem;
 }
 
+.food-entry-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  padding-bottom: 0.65rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.food-entry-tabs button {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.85rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.food-entry-tabs button:hover,
+.food-entry-tabs button[aria-selected="true"] {
+  color: var(--leaf-dark);
+  background: var(--surface-soft);
+  border-color: var(--line);
+}
+
 .search-form {
   margin-top: 1.5rem;
+}
+
+.source-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.source-filter legend {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.source-filter label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.source-filter input {
+  position: absolute;
+  opacity: 0;
+}
+
+.source-filter span {
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 99rem;
+}
+
+.source-filter input:checked + span {
+  color: white;
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.source-filter input:focus-visible + span {
+  outline: 3px solid #b65b16;
+  outline-offset: 3px;
 }
 
 .inline-field {
@@ -873,6 +963,68 @@ tbody tr:last-child td {
   color: var(--muted);
 }
 
+.food-result a,
+.selected-food-heading a {
+  color: var(--leaf-dark);
+  text-decoration: underline;
+  text-underline-offset: 0.15rem;
+}
+
+.compact-form,
+.custom-food-form {
+  margin-top: 1rem;
+}
+
+.compact-form .button,
+.custom-food-form .button {
+  margin-top: 0.75rem;
+}
+
+.form-note {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.private-note {
+  display: grid;
+  padding: 0.75rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+}
+
+.private-note span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.macro-fields,
+.optional-portion {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+}
+
+.macro-fields legend,
+.optional-portion legend {
+  padding: 0 0.25rem;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.macro-fields label,
+.optional-portion label {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+}
+
 .empty-compact {
   padding: 1.5rem;
 }
@@ -905,6 +1057,28 @@ tbody tr:last-child td {
 .entry-form h3 {
   margin: 0 0 0.75rem;
   font-size: 1rem;
+}
+
+.selected-food-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.selected-food-heading .section-kicker {
+  margin-bottom: 0.15rem;
+}
+
+.selected-food-heading h3 {
+  margin: 0;
+}
+
+.selected-food-heading > small {
+  max-width: 22rem;
+  color: var(--muted);
+  text-align: right;
 }
 
 .field-grid {
@@ -1026,8 +1200,19 @@ tbody tr:last-child td {
   }
 
   .field-grid,
-  .inline-field {
+  .inline-field,
+  .macro-fields,
+  .optional-portion {
     grid-template-columns: 1fr;
+  }
+
+  .selected-food-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .selected-food-heading > small {
+    text-align: left;
   }
 
   .inline-field .button {

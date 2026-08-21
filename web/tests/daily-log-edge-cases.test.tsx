@@ -217,11 +217,11 @@ describe("daily log recovery and edge cases", () => {
     render(<Home />);
     const dialog = await openFoodDialog();
     const close = screen.getByRole("button", { name: /close add food dialog/i });
-    const search = screen.getByRole("button", { name: /^search$/i });
+    const lastControl = screen.getByRole("radio", { name: /community/i });
 
     close.focus();
     fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-    expect(search).toHaveFocus();
+    expect(lastControl).toHaveFocus();
     fireEvent.keyDown(dialog, { key: "Tab" });
     expect(close).toHaveFocus();
   });

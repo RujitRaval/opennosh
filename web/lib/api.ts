@@ -1,6 +1,11 @@
 import type {
   AuthenticatedUser,
   DailyTotals,
+  BarcodeFood,
+  CustomFood,
+  FoodCapabilities,
+  FoodDetail,
+  FoodSource,
   FoodSearchResponse,
   LogEntry,
   LogEntryListResponse,
@@ -93,16 +98,52 @@ export const api = {
     request<Target>(
       `/api/v1/targets/resolve?${new URLSearchParams({ day, day_type: dayType })}`,
     ),
-  searchFoods: (query: string, locale: string) =>
+  foodCapabilities: () => request<FoodCapabilities>("/api/v1/foods/capabilities"),
+  searchFoods: (query: string, locale: string, source?: "usda" | "community") =>
     request<FoodSearchResponse>(
-      `/api/v1/foods/search?${new URLSearchParams({ q: query, locale, limit: "12" })}`,
+      `/api/v1/foods/search?${new URLSearchParams({
+        q: query,
+        locale,
+        limit: "12",
+        ...(source ? { source } : {}),
+      })}`,
     ),
+  foodDetail: (source: "usda" | "community", sourceId: string) =>
+    request<FoodDetail>(`/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`),
+  lookupBarcode: (barcode: string) =>
+    request<BarcodeFood>(`/api/v1/foods/barcode/${encodeURIComponent(barcode)}`),
+  createCustomFood: (input: {
+    name: string;
+    energyKcal: string;
+    proteinG: string;
+    carbohydrateG: string;
+    fatG: string;
+    portion?: { name: string; grams: string };
+  }) =>
+    request<CustomFood>("/api/v1/foods/custom", {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        nutrients: {
+          basis: "per_100g",
+          nutrients: {
+            energy_kcal: input.energyKcal,
+            protein_g: input.proteinG,
+            carbohydrate_g: input.carbohydrateG,
+            fat_g: input.fatG,
+          },
+        },
+        portions: input.portion ? [input.portion] : [],
+      }),
+    }),
   addLog: (input: {
     loggedAt: string;
     mealSlot: string;
-    source: string;
+    source: FoodSource;
     sourceId: string;
-    grams: string;
+    amount: string;
+    unit: "g" | "portion";
+    portionName: string | null;
   }) =>
     request<LogEntry>("/api/v1/logs", {
       method: "POST",
@@ -110,7 +151,11 @@ export const api = {
         logged_at: input.loggedAt,
         meal_slot: input.mealSlot,
         food: { source: input.source, source_id: input.sourceId },
-        quantity: { amount: input.grams, unit: "g", portion_name: null },
+        quantity: {
+          amount: input.amount,
+          unit: input.unit,
+          portion_name: input.portionName,
+        },
       }),
     }),
   deleteLog: (entryId: string) =>
