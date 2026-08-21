@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 from opennosh_api.main import create_app
 from opennosh_api.targets.schemas import TargetScheduleWrite, TargetWrite
+from opennosh_api.targets.service import below_floor_confirmation_copy
 
 
 def _target(**overrides: object) -> dict[str, object]:
@@ -98,6 +99,13 @@ def test_below_floor_confirmation_requires_a_json_boolean(
         TargetWrite.model_validate(
             _target(kcal="1100", confirm_below_floor=confirmation)
         )
+
+
+def test_below_floor_confirmation_copy_is_neutral_and_actionable() -> None:
+    assert below_floor_confirmation_copy(Decimal("1200")) == (
+        "This value is below the configured safety floor of 1200.00 kcal. "
+        "Confirm this specific target in settings to save the value you entered."
+    )
 
 
 def test_target_schedule_rejects_more_than_one_thousand_items() -> None:

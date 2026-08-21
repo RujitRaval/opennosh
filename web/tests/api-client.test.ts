@@ -19,6 +19,44 @@ describe("browser API client", () => {
     });
   });
 
+  it("replaces prohibited API detail with reviewed neutral copy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ detail: "You " + "should eat less" }), {
+            status: 422,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+
+    await expect(api.session()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 422,
+      message: "That request could not be completed. Please try again.",
+    });
+  });
+
+  it("preserves neutral API detail that passes the health-safety review", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ detail: "Email or password is incorrect" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+
+    await expect(api.session()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 401,
+      message: "Email or password is incorrect",
+    });
+  });
+
   it("turns browser network failures into a retryable API error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => {
       throw new TypeError("Failed to fetch");

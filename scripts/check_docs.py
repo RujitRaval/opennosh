@@ -28,6 +28,7 @@ IDENTITY_SCAN_EXCLUSIONS = {
 }
 IGNORED_DIRECTORIES = {
     ".git",
+    ".gstack",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",

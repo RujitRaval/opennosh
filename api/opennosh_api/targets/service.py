@@ -23,6 +23,15 @@ class TargetConfirmationRequired(ValueError):
     """A below-floor target was submitted without a deliberate confirmation."""
 
 
+def below_floor_confirmation_copy(target_kcal_floor: Decimal) -> str:
+    """Return the neutral, settings-level confirmation instruction."""
+    floor = target_kcal_floor.quantize(TARGET_QUANTUM)
+    return (
+        f"This value is below the configured safety floor of {floor} kcal. "
+        "Confirm this specific target in settings to save the value you entered."
+    )
+
+
 async def _lock_owner(database: AsyncSession, user_id: UUID) -> None:
     await database.scalar(select(User.id).where(User.id == user_id).with_for_update())
 
@@ -90,11 +99,7 @@ async def replace_targets(
 ) -> TargetScheduleResponse:
     for item in payload.items:
         if item.kcal < target_kcal_floor and not item.confirm_below_floor:
-            raise TargetConfirmationRequired(
-                "A calorie target below "
-                f"{target_kcal_floor.quantize(TARGET_QUANTUM)} kcal requires "
-                "explicit confirmation"
-            )
+            raise TargetConfirmationRequired(below_floor_confirmation_copy(target_kcal_floor))
 
     await _lock_owner(database, current.user_id)
     await database.execute(delete(Target).where(Target.user_id == current.user_id))

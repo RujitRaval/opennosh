@@ -17,6 +17,7 @@ import type {
   WorkoutListResponse,
   WorkoutTrendResponse,
 } from "./types";
+import { reviewedApiErrorMessage } from "./health-safety";
 
 export class ApiError extends Error {
   constructor(
@@ -42,7 +43,7 @@ function csrfTokenFromCookie(): string | null {
 async function errorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === "string") return body.detail;
+    if (typeof body.detail === "string") return reviewedApiErrorMessage(body.detail);
   } catch {
     // Use the stable fallback below for non-JSON upstream failures.
   }
