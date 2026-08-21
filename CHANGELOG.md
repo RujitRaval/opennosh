@@ -2,6 +2,17 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.22.0.2] - 2026-08-21
+
+### Changed
+
+- Verify a clean clone on an independent Ubuntu 24.04 machine using only the public repository,
+  `.env.example`, and documented Docker Compose command.
+- Record healthy PostgreSQL, API, web, and ingress services; the current Alembic head; successful LAN
+  browser journeys; and persisted account and nutrition data after a full Compose restart.
+- Mark the independent-machine launch check complete and retain the expected missing-target console
+  response as a low-priority, non-blocking web-quality follow-up.
+
 ## [0.22.0.1] - 2026-08-21
 
 ### Changed
