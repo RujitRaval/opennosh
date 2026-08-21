@@ -2,9 +2,9 @@
 
 Self-hosted nutrition and strength tracking built around food data the community can improve.
 
-> **Build status:** The v1 implementation is at its public-launch gate. Follow the [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) for final release status.
+> **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
 
-The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private until the launch-readiness checks are complete.
+The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit. The repository is public, and security researchers can use GitHub's private vulnerability-reporting flow.
 
 See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES.md`](LICENSES.md)
 for the repository-wide licensing map. The running web app exposes the same source-separated summary

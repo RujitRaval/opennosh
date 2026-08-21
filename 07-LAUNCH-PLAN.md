@@ -6,7 +6,7 @@ Strategy document. Does not go in the repo.
 
 ## Naming
 
-The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is available and selected. Check npm, PyPI, and preferred domains before publishing packages or launching a public site.
+The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is selected. On 2026-08-21, the exact `opennosh` name had no published npm or PyPI project, and `opennosh.org`, `.com`, `.app`, `.dev`, and `.io` had no RDAP registration record. These checks do not reserve a package name or domain.
 
 Naming criteria that matter here: pronounceable by non-English speakers (your contributor base is global), doesn't contain "fitness" or "calorie" (those searches are dominated and commercially poisoned), and doesn't imply weight loss.
 
@@ -24,6 +24,8 @@ The tracker is the third paragraph, not the headline.
 
 Before posting anywhere:
 
+- [x] Repository is public, the final reachable-history and metadata secret scan is clean, and GitHub Private Vulnerability Reporting is enabled
+- [x] npm, PyPI, and preferred-domain availability has been checked and recorded; names remain unreserved until registration or publication
 - [ ] `docker compose up` works from a clean clone on a machine that isn't yours. Test this on a fresh VPS.
 - [ ] README has a GIF in the first screen showing search → log → daily total
 - [ ] The four starter packs are merged and demonstrate real quality
