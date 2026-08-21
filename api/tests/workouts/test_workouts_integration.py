@@ -533,6 +533,58 @@ def test_volume_endpoint_refuses_cross_unit_aggregation(
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_trends_aggregate_daily_volume_by_exercise_and_unit_with_a_bounded_range(
+    workout_clients: WorkoutClients,
+) -> None:
+    first = _create(
+        workout_clients,
+        performed_at="2026-08-20T08:00:00Z",
+        sets=[
+            _set(workout_clients.exercise_id, reps=5, load_value="100", load_unit="kg"),
+            _set(workout_clients.exercise_id, reps=2, load_value="225", load_unit="lb"),
+        ],
+    )
+    second = _create(
+        workout_clients,
+        performed_at="2026-08-20T20:00:00Z",
+        sets=[_set(workout_clients.exercise_id, reps=3, load_value="100", load_unit="kg")],
+    )
+    assert first.status_code == second.status_code == 201
+
+    response = workout_clients.owner.get(
+        "/api/v1/workouts/trends",
+        params={"from": "2026-08-20", "to": "2026-08-20"},
+    )
+    assert response.status_code == 200
+    assert response.json()["items"] == [
+        {
+            "day": "2026-08-20",
+            "exercise_id": workout_clients.exercise_id,
+            "exercise_name": "Barbell squat",
+            "load_unit": "kg",
+            "volume": "800.000",
+        },
+        {
+            "day": "2026-08-20",
+            "exercise_id": workout_clients.exercise_id,
+            "exercise_name": "Barbell squat",
+            "load_unit": "lb",
+            "volume": "450.000",
+        },
+    ]
+    assert workout_clients.attacker.get(
+        "/api/v1/workouts/trends",
+        params={"from": "2026-08-20", "to": "2026-08-20"},
+    ).json()["items"] == []
+    too_wide = workout_clients.owner.get(
+        "/api/v1/workouts/trends",
+        params={"from": "2026-05-22", "to": "2026-08-20"},
+    )
+    assert too_wide.status_code == 422
+    assert too_wide.json()["detail"] == "date range must contain at most 90 days"
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_workout_operations_are_authenticated_csrf_protected_and_tenant_isolated(
     workout_clients: WorkoutClients,
 ) -> None:

@@ -151,3 +151,10 @@ class DailyTotalsResponse(BaseModel):
             code: format(amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), "f")
             for code, amount in value.items()
         }
+
+
+class DailyTotalsRangeResponse(BaseModel):
+    from_date: date
+    to_date: date
+    timezone: str
+    items: list[DailyTotalsResponse]

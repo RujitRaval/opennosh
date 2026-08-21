@@ -153,7 +153,9 @@ def test_utc_date_bounds_are_inclusive_and_validate_order() -> None:
 
 
 def test_openapi_exposes_metric_type_and_unit_enums() -> None:
-    schemas = create_app().openapi()["components"]["schemas"]
+    openapi = create_app().openapi()
+    schemas = openapi["components"]["schemas"]
 
     assert schemas["BodyMetricType"]["enum"] == [member.value for member in BodyMetricType]
     assert schemas["BodyMetricUnit"]["enum"] == [member.value for member in BodyMetricUnit]
+    assert openapi["paths"]["/api/v1/body-metrics/trends"]["get"]

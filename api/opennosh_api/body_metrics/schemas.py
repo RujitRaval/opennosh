@@ -101,3 +101,9 @@ class BodyMetricListResponse(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+class BodyMetricTrendResponse(BaseModel):
+    from_date: date
+    to_date: date
+    items: list[BodyMetricResponse]

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opennosh_api.auth.dependencies import CurrentSession, get_current_session, require_csrf
 from opennosh_api.database import get_database_session
 from opennosh_api.logs.schemas import (
+    DailyTotalsRangeResponse,
     DailyTotalsResponse,
     LogEntryCreate,
     LogEntryListResponse,
@@ -22,6 +23,7 @@ from opennosh_api.logs.service import (
     FoodLogInputError,
     create_log_entry,
     daily_totals,
+    daily_totals_range,
     delete_log_entry,
     get_log_entry,
     list_log_entries,
@@ -106,6 +108,26 @@ async def totals(
     except FoodLogInputError as error:
         raise _unprocessable(error) from error
     return result
+
+
+@router.get("/daily-totals/range", response_model=DailyTotalsRangeResponse)
+async def totals_range(
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    from_date: Annotated[date, Query(alias="from")],
+    to_date: Annotated[date, Query(alias="to")],
+    timezone: Annotated[str | None, Query(max_length=TIMEZONE_MAX_LENGTH)] = None,
+) -> DailyTotalsRangeResponse:
+    try:
+        return await daily_totals_range(
+            database,
+            from_date=from_date,
+            to_date=to_date,
+            timezone=_timezone(timezone, current),
+            current=current,
+        )
+    except FoodLogInputError as error:
+        raise _unprocessable(error) from error
 
 
 @router.get("/{entry_id}", response_model=LogEntryResponse)

@@ -18,6 +18,7 @@ from opennosh_api.workouts.schemas import (
     WorkoutListResponse,
     WorkoutResponse,
     WorkoutSetWrite,
+    WorkoutTrendResponse,
     WorkoutUpdate,
     WorkoutVolumeResponse,
 )
@@ -33,6 +34,7 @@ from opennosh_api.workouts.service import (
     list_workouts,
     update_workout,
     update_workout_set,
+    workout_trends,
     workout_volume,
 )
 
@@ -97,6 +99,24 @@ async def volume(
             to_date=to_date,
             exercise_id=exercise_id,
             requested_unit=load_unit,
+            current=current,
+        )
+    except WorkoutInputError as error:
+        raise _input_error(error) from error
+
+
+@router.get("/trends", response_model=WorkoutTrendResponse)
+async def trends(
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    from_date: Annotated[date, Query(alias="from")],
+    to_date: Annotated[date, Query(alias="to")],
+) -> WorkoutTrendResponse:
+    try:
+        return await workout_trends(
+            database,
+            from_date=from_date,
+            to_date=to_date,
             current=current,
         )
     except WorkoutInputError as error:
