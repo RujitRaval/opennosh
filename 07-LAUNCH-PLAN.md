@@ -27,7 +27,8 @@ Before posting anywhere:
 - [x] Repository is public, the final reachable-history and metadata secret scan is clean, and GitHub Private Vulnerability Reporting is enabled
 - [x] `opennosh.org`, the npm `opennosh` package, and the PyPI `opennosh` project are registered, published, and publicly verified
 - [x] `docker compose up` works from a clean clone on an independent machine. Verified on 2026-08-21 against merged commit `b7686700eefcea4de625c633c879d51ed676f3a7` on an Ubuntu 24.04 laptop, including healthy services, current migrations, LAN browser journeys, and restart persistence; see `docs/clean-install-verification.md`.
-- [ ] README has a GIF in the first screen showing search → log → daily total
+- [x] README has a first-screen, single-play GIF showing search → log → daily total, with descriptive
+  alternative text and a linked final-state still image in `docs/assets/`
 - [ ] The four starter packs are merged and demonstrate real quality
 - [x] `docs/foodpack-spec.md` is complete, with a copy-paste template
 - [ ] CI validator runs green on a deliberately broken example PR you file against yourself
