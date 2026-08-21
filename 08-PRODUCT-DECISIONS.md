@@ -25,8 +25,10 @@ These decisions were made by the project owner on 2026-08-19. They are settled i
 The project owner approved the combined data notices on 2026-08-21; the source-by-source disposition
 and reviewed commit are recorded in `docs/license-notice-review.md`. On the same date, npm, PyPI,
 and preferred-domain availability were checked, the final secret scan was clean, the repository was
-made public, GitHub Private Vulnerability Reporting was enabled, and Epic #3 was closed. Package and
-domain availability was not reserved by the check. The remaining outreach checklist in
+made public, GitHub Private Vulnerability Reporting was enabled, and Epic #3 was closed. Later that
+day, `opennosh.org` was registered through Cloudflare and connected to the repository with DNSSEC,
+WHOIS redaction, HTTPS redirects, and free inbound support-mail forwarding. npm and PyPI availability
+was not reserved by the check. The remaining outreach checklist in
 `07-LAUNCH-PLAN.md` does not reopen the decisions above.
 
 ## Explicitly omitted from v1

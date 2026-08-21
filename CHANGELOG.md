@@ -2,6 +2,18 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.21.0.2] - 2026-08-21
+
+### Added
+
+- Reach the public project through `opennosh.org` or `www.opennosh.org`, with permanent HTTPS redirects to the GitHub repository until a dedicated site is deployed.
+- Contact the project through `support@opennosh.org` using free inbound forwarding without a paid mailbox subscription.
+- Preserve a non-secret operations record for domain security, routing, email, and public verification.
+
+### Changed
+
+- Record the registered domain, DNSSEC, WHOIS privacy, registrar safeguards, and remaining unreserved npm and PyPI package names across launch and decision documents.
+
 ## [0.21.0.1] - 2026-08-21
 
 ### Changed
