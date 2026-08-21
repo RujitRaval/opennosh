@@ -101,11 +101,15 @@ async function selectChicken() {
 }
 
 beforeEach(() => {
+  // Keep "Today" and date navigation deterministic in every runner time zone.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 7, 20, 12));
   vi.stubGlobal("fetch", dailyFetch());
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   document.cookie = "opennosh_csrf=; Max-Age=0; Path=/";
 });
@@ -217,11 +221,11 @@ describe("daily log recovery and edge cases", () => {
     render(<Home />);
     const dialog = await openFoodDialog();
     const close = screen.getByRole("button", { name: /close add food dialog/i });
-    const search = screen.getByRole("button", { name: /^search$/i });
+    const lastControl = screen.getByRole("radio", { name: /community/i });
 
     close.focus();
     fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-    expect(search).toHaveFocus();
+    expect(lastControl).toHaveFocus();
     fireEvent.keyDown(dialog, { key: "Tab" });
     expect(close).toHaveFocus();
   });
@@ -313,6 +317,31 @@ describe("daily log recovery and edge cases", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete entry$/i }));
     expect(await screen.findByText(/your session ended/i)).toBeVisible();
     expect(screen.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
+  });
+
+  it("moves focus to Meals after deleting the final entry without depending on animation-frame timing", async () => {
+    let deleted = false;
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal(
+      "fetch",
+      dailyFetch((url, init) => {
+        if (url === `/api/v1/logs/${chicken.id}` && init?.method === "DELETE") {
+          deleted = true;
+          return new Response(null, { status: 204 });
+        }
+        if (url.startsWith("/api/v1/logs?") && init?.method !== "DELETE") {
+          return json({ ...emptyLog, items: deleted ? [] : [chicken] });
+        }
+        return undefined;
+      }),
+    );
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /delete chicken breast from lunch/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^delete entry$/i }));
+
+    expect(await screen.findByRole("heading", { name: /nothing logged for this day/i })).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Meals" })).toHaveFocus());
   });
 
   it("prevents duplicate deletes and does not reload an old day after navigation", async () => {

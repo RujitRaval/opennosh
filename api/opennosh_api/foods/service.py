@@ -8,14 +8,17 @@ from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.auth.dependencies import CurrentSession
 from opennosh_api.foods.schemas import (
+    CustomFoodCreate,
+    CustomFoodResponse,
     FoodAttribution,
     FoodDetail,
     FoodSearchItem,
     FoodSearchResponse,
     FoodSource,
 )
-from opennosh_api.models import FoodCommunity, FoodReference
+from opennosh_api.models import FoodCommunity, FoodCustom, FoodReference
 
 SEARCH_QUERY_MIN_LENGTH = 2
 SEARCH_QUERY_MAX_LENGTH = 100
@@ -305,3 +308,26 @@ async def get_food_detail(
         return _reference_detail(row) if row is not None else None
     row = await database.scalar(select(FoodCommunity).where(FoodCommunity.slug == source_id))
     return _community_detail(row) if row is not None else None
+
+
+async def create_custom_food(
+    database: AsyncSession,
+    payload: CustomFoodCreate,
+    current: CurrentSession,
+) -> CustomFoodResponse:
+    row = FoodCustom(
+        user_id=current.user_id,
+        name=payload.name,
+        nutrients_json=payload.nutrients.model_dump(mode="json"),
+        portions_json=[portion.model_dump(mode="json") for portion in payload.portions],
+    )
+    database.add(row)
+    await database.commit()
+    await database.refresh(row)
+    return CustomFoodResponse(
+        id=row.id,
+        source_id=str(row.id),
+        name=row.name,
+        nutrients=row.nutrients_json,
+        portions=row.portions_json,
+    )

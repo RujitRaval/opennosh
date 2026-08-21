@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+
+from opennosh_api.nutrition import HouseholdPortion, NutrientProfile
 
 
 class FoodSource(StrEnum):
@@ -42,6 +45,57 @@ class FoodSearchResponse(BaseModel):
 class FoodDetail(FoodSearchItem):
     nutrients: dict[str, Any]
     portions: list[dict[str, Any]]
+
+
+class FoodCapabilities(BaseModel):
+    barcode_lookup_enabled: bool
+
+
+def _clean_custom_food_name(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("name must not be empty")
+    if any(ord(character) < 32 or ord(character) == 127 for character in normalized):
+        raise ValueError("name must not contain control characters")
+    return normalized
+
+
+CustomFoodName = Annotated[
+    str,
+    Field(max_length=255),
+    AfterValidator(_clean_custom_food_name),
+]
+
+
+class CustomFoodCreate(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: CustomFoodName
+    nutrients: NutrientProfile
+    portions: list[HouseholdPortion] = Field(default_factory=list, max_length=20)
+
+    @field_validator("portions")
+    @classmethod
+    def validate_portions(cls, portions: list[HouseholdPortion]) -> list[HouseholdPortion]:
+        normalized_names: set[str] = set()
+        for portion in portions:
+            if any(ord(character) < 32 or ord(character) == 127 for character in portion.name):
+                raise ValueError("portion names must not contain control characters")
+            normalized_name = portion.name.casefold()
+            if normalized_name in normalized_names:
+                raise ValueError("portion names must be unique")
+            normalized_names.add(normalized_name)
+        return portions
+
+
+class CustomFoodResponse(BaseModel):
+    id: UUID
+    source: Literal["custom"] = "custom"
+    source_id: str
+    name: str
+    nutrients: dict[str, Any]
+    portions: list[dict[str, Any]]
+    private: Literal[True] = True
 
 
 class OpenFoodFactsAttribution(BaseModel):

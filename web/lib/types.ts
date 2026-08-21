@@ -7,19 +7,29 @@ export type SessionResponse = {
   csrf_token: string;
 };
 
-export type FoodSource = "usda" | "community";
+export type FoodSource = "usda" | "community" | "openfoodfacts" | "custom";
+export type CatalogueFoodSource = "usda" | "community";
+
+export type FoodAttribution = {
+  source?: FoodSource;
+  license?: string;
+  source_uri?: string | null;
+  source_url?: string;
+  source_license?: string | null;
+  database_license?: string;
+  contents_license?: string;
+  attribution_text?: string;
+  contributed_by?: string | null;
+};
 
 export type FoodSearchItem = {
   id: string;
-  source: FoodSource;
+  source: CatalogueFoodSource;
   source_id: string;
   name: string;
   name_local: string | null;
   category: string | null;
-  attribution: {
-    license: string;
-    contributed_by: string | null;
-  };
+  attribution: FoodAttribution;
 };
 
 export type FoodSearchResponse = {
@@ -27,6 +37,35 @@ export type FoodSearchResponse = {
   limit: number;
   offset: number;
   has_more: boolean;
+};
+
+export type HouseholdPortion = {
+  name: string;
+  grams: string;
+};
+
+export type FoodDetail = FoodSearchItem & {
+  nutrients: Record<string, unknown>;
+  portions: HouseholdPortion[];
+};
+
+export type BarcodeFood = Omit<FoodDetail, "source" | "name_local" | "category"> & {
+  source: "openfoodfacts";
+  barcode: string;
+  brand: string | null;
+  cached: boolean;
+};
+
+export type CustomFood = Omit<
+  FoodDetail,
+  "source" | "name_local" | "category" | "attribution"
+> & {
+  source: "custom";
+  private: true;
+};
+
+export type FoodCapabilities = {
+  barcode_lookup_enabled: boolean;
 };
 
 export type LogEntry = {

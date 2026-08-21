@@ -111,6 +111,7 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
   const [addOpen, setAddOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [focusMealsRequest, setFocusMealsRequest] = useState(0);
   const loadSequence = useRef(0);
   const selectedDay = useRef(day);
   const selectedDayType = useRef(dayType);
@@ -158,6 +159,10 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
     return () => window.clearTimeout(timeout);
   }, [day, dayType, loadDay]);
 
+  useEffect(() => {
+    if (focusMealsRequest > 0) mealsTitleRef.current?.focus();
+  }, [focusMealsRequest]);
+
   const groups = useMemo(() => {
     const grouped = new Map<string, LogEntry[]>();
     for (const entry of entries) {
@@ -178,7 +183,7 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
       setNotice(`${entry.food.name} was removed from ${entry.meal_slot}.`);
       if (selectedDay.current === deletedDay) {
         await loadDay(selectedDay.current, selectedDayType.current);
-        window.requestAnimationFrame(() => mealsTitleRef.current?.focus());
+        setFocusMealsRequest((request) => request + 1);
       }
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) return onExpired();
@@ -361,7 +366,7 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
             setAddOpen(false);
             setNotice(`${foodName} was added to the log.`);
             await loadDay(day, dayType);
-            window.requestAnimationFrame(() => mealsTitleRef.current?.focus());
+            setFocusMealsRequest((request) => request + 1);
           }}
           onExpired={onExpired}
         />

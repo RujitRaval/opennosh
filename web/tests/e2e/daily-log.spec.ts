@@ -153,3 +153,159 @@ test("login, add food, view totals, and delete the entry", async ({ page }, test
   await expect(page.getByRole("heading", { name: "Meals" })).toBeFocused();
   await expectNoWcagViolations(page);
 });
+
+test("ranked search, barcode recovery, and private custom food entry", async ({ page }) => {
+  let barcodeLookups = 0;
+  let customCreated = false;
+  let customLogged = false;
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    if (path === "/api/v1/auth/session") {
+      return route.fulfill({
+        json: { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" },
+      });
+    }
+    if (path === "/api/v1/foods/capabilities") {
+      return route.fulfill({ json: { barcode_lookup_enabled: true } });
+    }
+    if (path === "/api/v1/foods/search") {
+      expect(url.searchParams.get("source")).toBe("usda");
+      return route.fulfill({
+        json: {
+          items: [food, { ...food, id: "usda:2", source_id: "2", name: "Chicken spread" }],
+          limit: 12,
+          offset: 0,
+          has_more: false,
+        },
+      });
+    }
+    if (path === "/api/v1/foods/barcode/3017620422003") {
+      barcodeLookups += 1;
+      if (barcodeLookups === 1) {
+        return route.fulfill({ status: 404, json: { detail: "Barcode not found in Open Food Facts." } });
+      }
+      return route.fulfill({
+        json: {
+          id: "openfoodfacts:3017620422003",
+          source: "openfoodfacts",
+          source_id: "3017620422003",
+          barcode: "3017620422003",
+          name: "Hazelnut spread",
+          brand: "Example",
+          nutrients: {},
+          portions: [{ name: "tablespoon", grams: "15" }],
+          attribution: {
+            source: "openfoodfacts",
+            source_url: "https://world.openfoodfacts.org/product/3017620422003",
+            database_license: "ODbL-1.0",
+            contents_license: "DbCL-1.0",
+            attribution_text: "Open Food Facts contributors",
+          },
+          cached: false,
+        },
+      });
+    }
+    if (path === "/api/v1/foods/custom" && request.method() === "POST") {
+      customCreated = true;
+      expect(request.headers()["x-csrf-token"]).toBe("journey-csrf");
+      return route.fulfill({
+        status: 201,
+        json: {
+          id: "e650490a-068a-444b-83ff-c4d1cc18158e",
+          source: "custom",
+          source_id: "e650490a-068a-444b-83ff-c4d1cc18158e",
+          name: "My lentil stew",
+          nutrients: {},
+          portions: [{ name: "bowl", grams: "325" }],
+          private: true,
+        },
+      });
+    }
+    if (path === "/api/v1/logs" && request.method() === "POST") {
+      const body = request.postDataJSON();
+      expect(body.food.source).toBe("custom");
+      expect(body.quantity).toEqual({ amount: "1", unit: "portion", portion_name: "bowl" });
+      customLogged = true;
+      return route.fulfill({
+        status: 201,
+        json: {
+          ...entry,
+          food: { source: "custom", source_id: body.food.source_id, name: "My lentil stew" },
+          quantity: body.quantity,
+          snapshot: { ...entry.snapshot, grams: "325.00" },
+        },
+      });
+    }
+    if (path === "/api/v1/logs/daily-totals") {
+      return route.fulfill({
+        json: {
+          day: url.searchParams.get("day"),
+          timezone: url.searchParams.get("timezone"),
+          entry_count: customLogged ? 1 : 0,
+          grams: customLogged ? "325.00" : "0.00",
+          nutrients: customLogged ? entry.snapshot.nutrients : {},
+        },
+      });
+    }
+    if (path === "/api/v1/logs") {
+      return route.fulfill({
+        json: {
+          day: url.searchParams.get("day"),
+          timezone: url.searchParams.get("timezone"),
+          items: customLogged
+            ? [{
+                ...entry,
+                food: { source: "custom", source_id: "e650490a-068a-444b-83ff-c4d1cc18158e", name: "My lentil stew" },
+                quantity: { amount: "1", unit: "portion", portion_name: "bowl" },
+                snapshot: { ...entry.snapshot, grams: "325.00" },
+              }]
+            : [],
+          limit: 100,
+          offset: 0,
+          has_more: false,
+        },
+      });
+    }
+    if (path === "/api/v1/targets/resolve") {
+      return route.fulfill({ status: 404, json: { detail: "Target not found" } });
+    }
+    return route.fulfill({ status: 404, json: { detail: `Unhandled ${path}` } });
+  });
+
+  await page.goto("/");
+  await page.context().addCookies([
+    { name: "opennosh_csrf", value: "journey-csrf", url: page.url() },
+  ]);
+  await page.getByRole("button", { name: "Add food" }).click();
+  await page.getByRole("radio", { name: "USDA" }).check();
+  await page.getByLabel("Search the food catalogue").fill("chicken");
+  const rankedResults = page.getByRole("radio", { name: /chicken/i });
+  await expect(rankedResults).toHaveCount(2);
+  await expect(rankedResults.nth(0)).toHaveValue("usda:171077");
+
+  await page.getByRole("tab", { name: "Barcode" }).click();
+  await page.getByLabel("Scan or enter a barcode").fill("3017620422003");
+  await page.getByRole("button", { name: "Look up barcode" }).click();
+  await expect(page.getByText("Barcode not found in Open Food Facts.")).toBeVisible();
+  await page.getByRole("button", { name: "Look up barcode" }).click();
+  await expect(page.getByRole("heading", { name: "Log Hazelnut spread" })).toBeVisible();
+  await expect(page.getByText(/ODbL 1.0 \/ DbCL 1.0/)).toBeVisible();
+
+  await page.getByRole("tab", { name: "Custom food" }).click();
+  await page.getByLabel("Food name").fill("My lentil stew");
+  await page.getByLabel("Calories").fill("165");
+  await page.getByLabel(/Protein/).fill("10");
+  await page.getByLabel(/Carbohydrate/).fill("20");
+  await page.getByLabel(/Fat/).fill("5");
+  await page.getByLabel("Portion name").fill("bowl");
+  await page.getByLabel("Weight (g)").fill("325");
+  await page.getByRole("button", { name: "Save private food" }).click();
+  await expect(page.getByText("Private to your account")).toBeVisible();
+  await expect(page.getByLabel("Measure")).toHaveValue("bowl");
+  await expectNoWcagViolations(page);
+  await page.getByRole("button", { name: "Add My lentil stew" }).click();
+  await expect(page.getByText(/my lentil stew was added to the log/i)).toBeVisible();
+  expect(customCreated).toBe(true);
+});

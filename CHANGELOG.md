@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.18.0.0] - 2026-08-20
+
+### Added
+
+- Search the local food catalogue from one accessible dialog while preserving source-aware API ranking, filtering between USDA and community foods, and showing safe source attribution.
+- Look up packaged foods by barcode only when Open Food Facts is enabled, recover from missing or unavailable products, and retain the required ODbL and contributor notices.
+- Create private custom foods with calories, macros, and optional household portions, then log them by grams or named portion without exposing them through public search or community exports.
+- Cover ranked search, stale responses, barcode success and recovery, custom-food validation and isolation, keyboard navigation, session expiry, duplicate submissions, and desktop/mobile journeys with API, component, Playwright, and accessibility tests.
+
+### Changed
+
+- Make the food-entry dialog fully keyboard operable with focus trapping, ARIA tab relationships, arrow-key navigation, live status messages, and responsive scrolling for smaller screens.
+
+### Fixed
+
+- Ignore stale search and barcode responses after users change modes, and prevent rapid repeat actions from creating duplicate custom foods or lookups.
+- Restore focus to the Meals heading after an add or delete refresh using a post-render focus request instead of timing-sensitive animation frames.
+
 ## [0.17.0.0] - 2026-08-20
 
 ### Added
