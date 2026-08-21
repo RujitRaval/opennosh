@@ -55,11 +55,22 @@ def validate_repository(root: Path) -> list[str]:
 
     lock_path = root / "packages" / "npm" / "package-lock.json"
     lock_metadata = json.loads(lock_path.read_text(encoding="utf-8"))
-    if lock_metadata.get("name") != "opennosh" or lock_metadata.get("version") != expected_npm_version:
+    if (
+        lock_metadata.get("name") != "opennosh"
+        or lock_metadata.get("version") != expected_npm_version
+    ):
         issues.append("packages/npm/package-lock.json: root identity is stale")
     root_lock = lock_metadata.get("packages", {}).get("", {})
-    if root_lock.get("name") != "opennosh" or root_lock.get("version") != expected_npm_version:
+    if (
+        root_lock.get("name") != "opennosh"
+        or root_lock.get("version") != expected_npm_version
+    ):
         issues.append("packages/npm/package-lock.json: package identity is stale")
+
+    dockerfile = (root / "api" / "Dockerfile").read_text(encoding="utf-8")
+    package_documents = "COPY README.md AUTHORS.md ./"
+    if package_documents not in dockerfile:
+        issues.append("api/Dockerfile: package metadata documents must be copied before install")
 
     return issues
 
