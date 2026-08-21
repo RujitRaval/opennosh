@@ -315,6 +315,31 @@ describe("daily log recovery and edge cases", () => {
     expect(screen.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
   });
 
+  it("moves focus to Meals after deleting the final entry without depending on animation-frame timing", async () => {
+    let deleted = false;
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal(
+      "fetch",
+      dailyFetch((url, init) => {
+        if (url === `/api/v1/logs/${chicken.id}` && init?.method === "DELETE") {
+          deleted = true;
+          return new Response(null, { status: 204 });
+        }
+        if (url.startsWith("/api/v1/logs?") && init?.method !== "DELETE") {
+          return json({ ...emptyLog, items: deleted ? [] : [chicken] });
+        }
+        return undefined;
+      }),
+    );
+    render(<Home />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /delete chicken breast from lunch/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^delete entry$/i }));
+
+    expect(await screen.findByRole("heading", { name: /nothing logged for this day/i })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Meals" })).toHaveFocus();
+  });
+
   it("prevents duplicate deletes and does not reload an old day after navigation", async () => {
     const pendingDelete = deferred<Response>();
     let deletes = 0;
