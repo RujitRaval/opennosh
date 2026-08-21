@@ -36,4 +36,18 @@ describe("license and data notices", () => {
       "/notices",
     );
   });
+
+  it("links back home and to the operative software and distribution notices", () => {
+    render(<NoticesPage />);
+
+    expect(screen.getByRole("link", { name: "opennosh home" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "MIT License" })).toHaveAttribute(
+      "href",
+      "https://github.com/RujitRaval/opennosh/blob/main/LICENSE",
+    );
+    expect(screen.getByRole("link", { name: "complete distribution notice" })).toHaveAttribute(
+      "href",
+      "https://github.com/RujitRaval/opennosh/blob/main/NOTICE.md",
+    );
+  });
 });

@@ -115,6 +115,19 @@ class CheckDocsTests(TestCase):
         self.assertEqual(len(LICENSE_NOTICE_REQUIREMENTS), len(issues))
         self.assertTrue(all("missing license-notice surface" in issue for issue in issues))
 
+    def test_license_notice_surfaces_report_invalid_utf8(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative, fragments in LICENSE_NOTICE_REQUIREMENTS.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(fragments), encoding="utf-8")
+            (root / "NOTICE.md").write_bytes(b"\xff")
+
+            issues = validate_license_notices(root)
+
+        self.assertEqual(["NOTICE.md: license-notice surface is not valid UTF-8"], issues)
+
     def test_rejects_retired_project_identity_references(self) -> None:
         issues = self.validate(
             {
