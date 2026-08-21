@@ -7,30 +7,30 @@ legal advice and not a substitute for review by qualified counsel or an authoriz
 
 | Field | Value |
 |---|---|
-| Status | Pending human approval |
-| Reviewer | Pending |
-| Reviewer capacity | Qualified counsel or authorized legal reviewer; pending |
-| Approval date | Pending |
-| Reviewed commit | Pending |
+| Status | Approved |
+| Reviewer | `@RujitRaval` |
+| Reviewer capacity | Project owner |
+| Approval date | 2026-08-21 |
+| Reviewed commit | `b33f61ea2f1400ccbe3395ca9abc527de818e0c4` |
 | Scope | Combined code, dataset, UI, export, contributor, and distribution notices |
 
-Public launch remains blocked while this status is pending, while blocker #45 is open, or while any
-required remediation identified by the reviewer is incomplete.
+All six dispositions were approved with no additional required changes. Public launch remains
+blocked until blocker #45 and this approval PR land on `main`.
 
 ## Reviewer disposition matrix
 
 | Material and source | Operative terms | Storage and use boundary | Required notices | Reviewer disposition |
 |---|---|---|---|---|
-| Original opennosh code and documentation | MIT | Root application and documentation, except specifically identified data | Root `LICENSE` in every source distribution; copyright and permission notice retained in substantial copies | Pending human approval |
-| Eligible original community food packs | CC0 1.0 Universal | `packs/` source and `foods_community`; never accepts share-alike or proprietary database input | `packs/CC0-1.0.txt`, pack dedication, contributor authority sign-off; visible credit is voluntary and not an added restriction | Pending human approval |
-| USDA FoodData Central Foundation and SR Legacy records | CC0 1.0 Universal | `foods_reference`; production bulk data imported by operators and not bundled; small test fixtures identified separately | FoodData Central source retained per record and shown in the UI; suggested USDA source credit in `NOTICE.md` | Pending human approval |
-| Open Food Facts database and contents | ODbL 1.0 and DbCL 1.0 | Optional `foods_odbl` cache; disabled by default; no writes to community or private stores; no images; small test fixtures identified separately | Identifying User-Agent; result attribution; ODbL/DbCL URLs and notice in separate export; combined distribution and UI notice | Pending human approval |
-| Accepted wger exercise entries | CC BY-SA 3.0 per accepted entry | Separate exercise catalogue; exact allowlist; no wger AGPL code or production bulk catalogue; small test fixtures identified separately | Source, object and derivative URLs, author, license, and translation attribution per entry; ShareAlike notice in separate export; combined distribution and UI notice | Pending human approval |
-| Authenticated user foods, logs, recipes, body metrics, targets, and workouts | Private user data; no public dataset license | Owner-scoped stores and authenticated personal export only | Private-export notice; exclusion from every public dataset export | Pending human approval |
+| Original opennosh code and documentation | MIT | Root application and documentation, except specifically identified data | Root `LICENSE` in every source distribution; copyright and permission notice retained in substantial copies | Approved |
+| Eligible original community food packs | CC0 1.0 Universal | `packs/` source and `foods_community`; never accepts share-alike or proprietary database input | `packs/CC0-1.0.txt`, pack dedication, contributor authority sign-off; visible credit is voluntary and not an added restriction | Approved |
+| USDA FoodData Central Foundation and SR Legacy records | CC0 1.0 Universal | `foods_reference`; production bulk data imported by operators and not bundled; small test fixtures identified separately | FoodData Central source retained per record and shown in the UI; suggested USDA source credit in `NOTICE.md` | Approved |
+| Open Food Facts database and contents | ODbL 1.0 and DbCL 1.0 | Optional `foods_odbl` cache; disabled by default; no writes to community or private stores; no images; small test fixtures identified separately | Identifying User-Agent; result attribution; ODbL/DbCL URLs and notice in separate export; combined distribution and UI notice | Approved |
+| Accepted wger exercise entries | CC BY-SA 3.0 per accepted entry | Separate exercise catalogue; exact allowlist; no wger AGPL code or production bulk catalogue; small test fixtures identified separately | Source, object and derivative URLs, author, license, and translation attribution per entry; ShareAlike notice in separate export; combined distribution and UI notice | Approved |
+| Authenticated user foods, logs, recipes, body metrics, targets, and workouts | Private user data; no public dataset license | Owner-scoped stores and authenticated personal export only | Private-export notice; exclusion from every public dataset export | Approved |
 
-The reviewer must replace every pending disposition with `Approved`, `Approved with required
-changes`, or `Rejected`. Required changes must link to blocking GitHub issues and must land before
-the approval status can become final.
+Each disposition records `Approved`, `Approved with required changes`, or `Rejected`. Any required
+changes must link to blocking GitHub issues and land before the approval status can become final;
+this review identified none.
 
 ## Notice inventory
 
@@ -99,9 +99,8 @@ the approval status can become final.
 - [wger license summary](https://wger.readthedocs.io/en/stable/#licence)
 - [CC BY-SA 3.0 legal code, Creative Commons](https://creativecommons.org/licenses/by-sa/3.0/legalcode)
 
-## Approval instructions
+## Approval statement
 
-Review the exact branch commit containing this package and all linked notice surfaces. Record the
-reviewer's name or stable identifier, their capacity to approve, the date, the exact commit, and one
-disposition for every matrix row. If any disposition requires a change, file or link a blocking issue
-before changing this document to approved.
+The project owner approved all six dispositions at the reviewed commit shown above and identified
+no additional required changes. This approval record was added after that exact review candidate;
+it does not alter the reviewed notice package or its linked implementation surfaces.
