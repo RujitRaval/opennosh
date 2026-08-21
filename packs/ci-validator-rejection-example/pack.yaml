@@ -1,0 +1,9 @@
+id: ci-validator-rejection-example
+name: CI validator rejection example
+description: Deliberately invalid pack used only to prove the pull-request validator fails closed.
+version: 1.0.0
+locale: en-US
+license: MIT
+maintainers:
+- github: RujitRaval
+entry_count: 1

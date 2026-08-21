@@ -1,0 +1,19 @@
+- slug: ci-validator-rejection-example-food
+  name: CI validator rejection example food
+  category: example
+  tags:
+  - test-only
+  contributed_by: RujitRaval
+  provenance: own_measurement
+  source_uri: null
+  source_license: contributor-original
+  source_note: Deliberately synthetic test data; never intended for import or merge.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 90
+    protein_g: 10
+    fat_g: 2
+    carbohydrate_g: 8
+  portions:
+  - name: 100 g test portion
+    grams: 100
