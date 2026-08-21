@@ -2,9 +2,9 @@
 
 Self-hosted nutrition and strength tracking built around food data the community can improve.
 
-> **Build status:** The v1 implementation is at its public-launch gate. Follow the [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) for final release status.
+> **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
 
-The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private until the launch-readiness checks are complete.
+The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit. The repository is public, and security researchers can use GitHub's private vulnerability-reporting flow.
 
 See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES.md`](LICENSES.md)
 for the repository-wide licensing map. The running web app exposes the same source-separated summary
@@ -495,7 +495,7 @@ were omitted.
 | `SECURITY.md` | Private vulnerability-reporting process | Security reporters + maintainers |
 | `AUTHORS.md` | Maintainer and contributor credit | Contributors + users |
 | `CHANGELOG.md` | Versioned record of shipped changes | Users + maintainers |
-| `TODOS.md` | Deferred launch-readiness work | Maintainers |
+| `TODOS.md` | Completed launch-readiness decisions and operational records | Maintainers |
 
 ---
 
@@ -509,7 +509,7 @@ The intended path:
 2. Treat `02-PRD.md` and `03-TRD.md` as the settled product and technical inputs.
 3. Run the issue-generation pipeline against `02-PRD.md` and `03-TRD.md` to produce a dependency-ordered issue queue.
 4. Keep `docs/foodpack-spec.md` in the implementation repository; contributors and the validator both depend on it.
-5. `01`, `06`, and `07` are retained only while this repository is private planning space. Remove them from the public implementation tree before launch; they are strategy, not build input.
+5. Treat `01`, `06`, and `07` as historical strategy and launch context, not implementation inputs.
 
 ---
 

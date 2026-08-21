@@ -20,12 +20,14 @@ These decisions were made by the project owner on 2026-08-19. They are settled i
 8. **The product name is `opennosh`.** Use this exact lowercase form for the product, repository, package slug, commands, and documentation.
 9. **The initial build window is capped at two months.** After that window, switch to maintenance and evaluate the contributor thesis rather than allowing the build to expand indefinitely.
 
-## Remaining validation, not product questions
+## Public-launch validation
 
 The project owner approved the combined data notices on 2026-08-21; the source-by-source disposition
-and reviewed commit are recorded in `docs/license-notice-review.md`. Before public launch, verify
-package-registry and domain availability and finish the remaining checklist in `07-LAUNCH-PLAN.md`.
-These checks do not reopen the decisions above.
+and reviewed commit are recorded in `docs/license-notice-review.md`. On the same date, npm, PyPI,
+and preferred-domain availability were checked, the final secret scan was clean, the repository was
+made public, GitHub Private Vulnerability Reporting was enabled, and Epic #3 was closed. Package and
+domain availability was not reserved by the check. The remaining outreach checklist in
+`07-LAUNCH-PLAN.md` does not reopen the decisions above.
 
 ## Explicitly omitted from v1
 

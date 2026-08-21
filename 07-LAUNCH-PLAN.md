@@ -1,12 +1,12 @@
 # 07 — Launch plan
 
-Strategy document. Does not go in the repo.
+Historical strategy and outreach plan retained for context. It is not an implementation input.
 
 ---
 
 ## Naming
 
-The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is available and selected. Check npm, PyPI, and preferred domains before publishing packages or launching a public site.
+The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is selected. On 2026-08-21, the exact `opennosh` name had no published npm or PyPI project, and `opennosh.org`, `.com`, `.app`, `.dev`, and `.io` had no RDAP registration record. These checks do not reserve a package name or domain.
 
 Naming criteria that matter here: pronounceable by non-English speakers (your contributor base is global), doesn't contain "fitness" or "calorie" (those searches are dominated and commercially poisoned), and doesn't imply weight loss.
 
@@ -24,15 +24,17 @@ The tracker is the third paragraph, not the headline.
 
 Before posting anywhere:
 
+- [x] Repository is public, the final reachable-history and metadata secret scan is clean, and GitHub Private Vulnerability Reporting is enabled
+- [x] npm, PyPI, and preferred-domain availability has been checked and recorded; names remain unreserved until registration or publication
 - [ ] `docker compose up` works from a clean clone on a machine that isn't yours. Test this on a fresh VPS.
 - [ ] README has a GIF in the first screen showing search → log → daily total
 - [ ] The four starter packs are merged and demonstrate real quality
-- [ ] `docs/foodpack-spec.md` is complete, with a copy-paste template
+- [x] `docs/foodpack-spec.md` is complete, with a copy-paste template
 - [ ] CI validator runs green on a deliberately broken example PR you file against yourself
 - [x] LICENSE (MIT), the CC0 declaration for `packs/`, and source-specific notices are present and unambiguous
 - [x] The combined code and dataset notices have an approved source-by-source review recorded in `docs/license-notice-review.md`
-- [ ] Data export works. Someone will test this first to check the promise is real.
-- [ ] Health-safety copy reviewed end to end against PRD §7
+- [x] Data export works through private and source-separated endpoints, with automated tenant and license-boundary coverage
+- [x] Health-safety copy was reviewed end to end against PRD §7 and approved with documented future-screen follow-ups
 
 ## Launch sequence
 

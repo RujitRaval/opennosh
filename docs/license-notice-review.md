@@ -14,8 +14,8 @@ legal advice and not a substitute for review by qualified counsel or an authoriz
 | Reviewed commit | `b33f61ea2f1400ccbe3395ca9abc527de818e0c4` |
 | Scope | Combined code, dataset, UI, export, contributor, and distribution notices |
 
-All six dispositions were approved with no additional required changes. Public launch remains
-blocked until blocker #45 and this approval PR land on `main`.
+All six dispositions were approved with no additional required changes. Blocker #45 and the
+approval pull request have landed on `main`, so this review no longer blocks public launch.
 
 ## Reviewer disposition matrix
 

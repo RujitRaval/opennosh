@@ -1,20 +1,20 @@
 # TODOS
 
-## Launch readiness
+## Completed
 
 ### Verify public release identity and security controls
 
-**What:** Before public launch, verify npm, PyPI, and preferred domain availability for `opennosh`, and enable GitHub Private Vulnerability Reporting.
+**What:** Verified npm, PyPI, and preferred-domain availability for `opennosh`, completed a clean final secret scan, made the repository public, and enabled GitHub Private Vulnerability Reporting.
 
-**Why:** The name and licensing architecture are selected, but external availability and the public security-reporting path must be confirmed before distribution.
+**Why:** Public distribution now has a verified project identity and a private security-reporting path.
 
-**Context:** Issue #24 records the approved MIT and dataset-notice review. The remaining release checks are external availability and Private Vulnerability Reporting, not open product decisions.
+**Context:** The 2026-08-21 checks covered all reachable Git refs and GitHub metadata. Package names and domains were available when checked but remain unreserved until publication or registration.
 
 **Effort:** S
 **Priority:** P1
 **Depends on:** Public launch preparation
 
-## Completed
+**Completed:** v0.21.0.1 (2026-08-21)
 
 ### Resolve the blocking product decisions
 
