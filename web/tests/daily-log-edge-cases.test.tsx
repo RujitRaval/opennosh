@@ -101,11 +101,15 @@ async function selectChicken() {
 }
 
 beforeEach(() => {
+  // Keep "Today" and date navigation deterministic in every runner time zone.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 7, 20, 12));
   vi.stubGlobal("fetch", dailyFetch());
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   document.cookie = "opennosh_csrf=; Max-Age=0; Path=/";
 });
@@ -337,7 +341,7 @@ describe("daily log recovery and edge cases", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete entry$/i }));
 
     expect(await screen.findByRole("heading", { name: /nothing logged for this day/i })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Meals" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Meals" })).toHaveFocus());
   });
 
   it("prevents duplicate deletes and does not reload an old day after navigation", async () => {
