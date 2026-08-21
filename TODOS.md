@@ -2,13 +2,13 @@
 
 ## Launch readiness
 
-### Verify public release identity and legal notices
+### Verify public release identity and security controls
 
-**What:** Before public launch, verify npm, PyPI, and preferred domain availability for `opennosh`; obtain a legal review of the MIT, CC0, ODbL, and per-entry exercise-data notices; and enable GitHub Private Vulnerability Reporting.
+**What:** Before public launch, verify npm, PyPI, and preferred domain availability for `opennosh`, and enable GitHub Private Vulnerability Reporting.
 
-**Why:** The name and licensing architecture are selected, but external availability and legal review must be confirmed before public distribution.
+**Why:** The name and licensing architecture are selected, but external availability and the public security-reporting path must be confirmed before distribution.
 
-**Context:** These are release checks, not open product decisions, and they do not block private implementation or issue decomposition.
+**Context:** Issue #24 records the approved MIT and dataset-notice review. The remaining release checks are external availability and Private Vulnerability Reporting, not open product decisions.
 
 **Effort:** S
 **Priority:** P1

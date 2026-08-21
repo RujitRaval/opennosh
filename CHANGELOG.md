@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.21.0.0] - 2026-08-21
+
+### Added
+
+- Read one combined notice for opennosh software, community foods, USDA reference data, Open Food Facts records, wger exercises, test fixtures, and private account data without treating them as one license.
+- Reach an accessible Licenses and data notices page from the global web footer before or after signing in.
+- Preserve the project owner's approval of all six source and license dispositions, including the reviewed commit, approval date, reviewer capacity, and absence of additional required changes.
+
+### Changed
+
+- Include the MIT license, repository license map, and combined notice in API and web runtime images and in Python distribution archives.
+- Require repository checks to keep source identifiers, attribution, export terms, contributor sign-off, and release notice surfaces aligned.
+
+### Fixed
+
+- Cover incomplete, missing, and invalid-UTF-8 notice surfaces plus operative web links with regression tests.
+- Keep the global notice footer at an accessible body-text size.
+
 ## [0.20.0.0] - 2026-08-21
 
 ### Added
