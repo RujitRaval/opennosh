@@ -4,6 +4,11 @@ Self-hosted nutrition and strength tracking built around food data the community
 
 Website: [opennosh.org](https://opennosh.org) (currently redirects to this repository).
 
+![Animated opennosh demo: search for chicken breast, select 150 grams for lunch, add it, then view updated daily calorie and macro totals.](docs/assets/opennosh-search-log-demo.gif)
+
+_Search the food catalogue, log a serving, and see the daily totals update. The animation plays once;
+[view the final daily-total screen](docs/assets/opennosh-daily-total.png)._
+
 > **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
 
 The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit. The repository is public, security researchers can use GitHub's private vulnerability-reporting flow, and general messages can be sent to `support@opennosh.org` through free inbound forwarding.
