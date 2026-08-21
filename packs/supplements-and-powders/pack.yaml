@@ -1,0 +1,10 @@
+id: supplements-and-powders
+name: Supplements and powders
+description: Unbranded protein powders, milks, brans, seeds, and other powdered foods with public-domain
+  nutrient data.
+version: 1.0.0
+locale: en
+license: CC0-1.0
+maintainers:
+- github: RujitRaval
+entry_count: 25

@@ -1,0 +1,797 @@
+- slug: vegetarian-protein-cheese-cottage-lowfat-1-milkfat-lactose-reduced
+  name: Cheese, cottage, lowfat, 1% milkfat, lactose reduced
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/167703/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 167703. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 2.6
+    fat_g: 1
+    carbohydrate_g: 3.2
+    energy_kcal: 74
+    protein_g: 12.4
+    saturated_fat_g: 0.64
+    fiber_g: 0.6
+    sodium_mg: 220
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-vital-wheat-gluten
+  name: Vital wheat gluten
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/168147/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 168147. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 75.2
+    fiber_g: 0.6
+    sodium_mg: 29
+    saturated_fat_g: 0.27
+    fat_g: 1.85
+    carbohydrate_g: 13.8
+    energy_kcal: 370
+    sugars_g: 0
+  portions:
+  - name: 1/4 cup
+    grams: 30
+- slug: vegetarian-protein-edamame-frozen-unprepared
+  name: Edamame, frozen, unprepared
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/168410/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 168410. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 4.8
+    fat_g: 4.73
+    sodium_mg: 6
+    protein_g: 11.2
+    carbohydrate_g: 7.61
+    energy_kcal: 109
+    sugars_g: 2.48
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-cheese-cottage-lowfat-1-milkfat-no-sodium-added
+  name: Cheese, cottage, lowfat, 1% milkfat, no sodium added
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/168114/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 168114. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 2.7
+    fat_g: 1
+    carbohydrate_g: 2.7
+    energy_kcal: 72
+    protein_g: 12.4
+    saturated_fat_g: 0.63
+    fiber_g: 0
+    sodium_mg: 13
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-lima-beans-thin-seeded-baby-mature-seeds-cooked-boiled-without-salt
+  name: Lima beans, thin seeded (baby), mature seeds, cooked, boiled, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172422/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172422. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 0.38
+    carbohydrate_g: 23.3
+    energy_kcal: 126
+    protein_g: 8.04
+    saturated_fat_g: 0.09
+    fiber_g: 7.7
+    sodium_mg: 3
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-lima-beans-immature-seeds-frozen-fordhook-cooked-boiled-drained-with-salt
+  name: Lima beans, immature seeds, frozen, fordhook, cooked, boiled, drained, with salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/168498/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 168498. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 1.34
+    carbohydrate_g: 19.3
+    energy_kcal: 103
+    fat_g: 0.34
+    saturated_fat_g: 0.08
+    protein_g: 6.07
+    sodium_mg: 289
+    fiber_g: 5.3
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-mothbeans-mature-seeds-cooked-boiled-without-salt
+  name: Mothbeans, mature seeds, cooked, boiled, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172426/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172426. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 0.55
+    carbohydrate_g: 21
+    energy_kcal: 117
+    saturated_fat_g: 0.12
+    protein_g: 7.81
+    sodium_mg: 10
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-soybeans-green-cooked-boiled-drained-without-salt
+  name: Soybeans, green, cooked, boiled, drained, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/169283/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 169283. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 6.4
+    carbohydrate_g: 11
+    energy_kcal: 141
+    saturated_fat_g: 0.74
+    protein_g: 12.4
+    fiber_g: 4.2
+    sodium_mg: 14
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-broadbeans-immature-seeds-cooked-boiled-drained-with-salt
+  name: Broadbeans, immature seeds, cooked, boiled, drained, with salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/169328/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 169328. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 62
+    sodium_mg: 277
+    saturated_fat_g: 0.14
+    protein_g: 4.8
+    fat_g: 0.5
+    carbohydrate_g: 10.1
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-seeds-sunflower-seed-flour-partially-defatted
+  name: Seeds, sunflower seed flour, partially defatted
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170156/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170156. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 5.2
+    protein_g: 48.1
+    sodium_mg: 3
+    saturated_fat_g: 0.14
+    fat_g: 1.61
+    carbohydrate_g: 35.8
+    energy_kcal: 326
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-nuts-cashew-nuts-raw
+  name: Nuts, cashew nuts, raw
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170162/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170162. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 18.2
+    sodium_mg: 12
+    fat_g: 43.8
+    carbohydrate_g: 30.2
+    energy_kcal: 553
+    saturated_fat_g: 7.78
+    fiber_g: 3.3
+    sugars_g: 5.91
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-nuts-pistachio-nuts-raw
+  name: Nuts, pistachio nuts, raw
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170184/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170184. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sodium_mg: 1
+    sugars_g: 7.66
+    fat_g: 45.3
+    carbohydrate_g: 27.2
+    energy_kcal: 560
+    saturated_fat_g: 5.91
+    fiber_g: 10.6
+    protein_g: 20.2
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-seeds-pumpkin-and-squash-seed-kernels-dried
+  name: Seeds, pumpkin and squash seed kernels, dried
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170556/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170556. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    carbohydrate_g: 10.7
+    energy_kcal: 559
+    protein_g: 30.2
+    fiber_g: 6
+    sodium_mg: 7
+    saturated_fat_g: 8.66
+    sugars_g: 1.4
+    fat_g: 49
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-seeds-sunflower-seed-kernels-dried
+  name: Seeds, sunflower seed kernels, dried
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170562/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170562. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    saturated_fat_g: 4.46
+    protein_g: 20.8
+    fiber_g: 8.6
+    sodium_mg: 9
+    fat_g: 51.5
+    sugars_g: 2.62
+    carbohydrate_g: 20
+    energy_kcal: 584
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-nuts-almonds
+  name: Nuts, almonds
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170567/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170567. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 21.2
+    fiber_g: 12.5
+    saturated_fat_g: 3.8
+    fat_g: 49.9
+    carbohydrate_g: 21.6
+    energy_kcal: 579
+    sodium_mg: 1
+    sugars_g: 4.35
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-yogurt-greek-plain-nonfat-includes-foods-for-usda-s-food-distribution-program
+  name: Yogurt, Greek, plain, nonfat (Includes foods for USDA's Food Distribution Program)
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170894/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170894. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 0
+    protein_g: 10.2
+    saturated_fat_g: 0.12
+    sodium_mg: 36
+    fat_g: 0.39
+    carbohydrate_g: 3.6
+    energy_kcal: 59
+    sugars_g: 3.24
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-cheese-cottage-creamed-large-or-small-curd
+  name: Cheese, cottage, creamed, large or small curd
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172179/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172179. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    saturated_fat_g: 1.72
+    carbohydrate_g: 3.38
+    energy_kcal: 98
+    protein_g: 11.1
+    fat_g: 4.3
+    sugars_g: 2.67
+    sodium_mg: 315
+    fiber_g: 0
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-cheese-cottage-nonfat-uncreamed-dry-large-or-small-curd
+  name: Cheese, cottage, nonfat, uncreamed, dry, large or small curd
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172181/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172181. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 1.85
+    fat_g: 0.29
+    carbohydrate_g: 6.66
+    energy_kcal: 72
+    saturated_fat_g: 0.17
+    protein_g: 10.3
+    sodium_mg: 372
+    fiber_g: 0
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-egg-whole-cooked-poached
+  name: Egg, whole, cooked, poached
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172186/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172186. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 0
+    energy_kcal: 143
+    fat_g: 9.47
+    carbohydrate_g: 0.71
+    sugars_g: 0.37
+    protein_g: 12.5
+    sodium_mg: 297
+    saturated_fat_g: 3.11
+  portions:
+  - name: 1 large egg
+    grams: 50
+- slug: vegetarian-protein-yogurt-greek-plain-whole-milk
+  name: Yogurt, Greek, plain, whole milk
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/171304/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 171304. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 9
+    fiber_g: 0
+    sodium_mg: 35
+    sugars_g: 4
+    fat_g: 5
+    carbohydrate_g: 3.98
+    energy_kcal: 97
+    saturated_fat_g: 2.4
+  portions:
+  - name: 1/2 cup
+    grams: 113
+- slug: vegetarian-protein-egg-whole-cooked-hard-boiled
+  name: Egg, whole, cooked, hard-boiled
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/173424/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 173424. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 1.12
+    fiber_g: 0
+    energy_kcal: 155
+    protein_g: 12.6
+    sodium_mg: 124
+    saturated_fat_g: 3.27
+    fat_g: 10.6
+    carbohydrate_g: 1.12
+  portions:
+  - name: 1 large egg
+    grams: 50
+- slug: vegetarian-protein-tofu-firm-prepared-with-calcium-sulfate-and-magnesium-chloride-nigari
+  name: Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari)
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172448/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172448. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 0.9
+    saturated_fat_g: 0.79
+    protein_g: 9.04
+    carbohydrate_g: 2.85
+    energy_kcal: 78
+    sugars_g: 0.6
+    fat_g: 4.17
+    sodium_mg: 12
+  portions:
+  - name: 3 oz portion
+    grams: 85
+- slug: vegetarian-protein-tofu-soft-prepared-with-calcium-sulfate-and-magnesium-chloride-nigari
+  name: Tofu, soft, prepared with calcium sulfate and magnesium chloride (nigari)
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172449/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172449. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 61
+    carbohydrate_g: 1.18
+    protein_g: 7.17
+    sugars_g: 0.7
+    fat_g: 3.69
+    fiber_g: 0.2
+    sodium_mg: 8
+    saturated_fat_g: 0.53
+  portions:
+  - name: 3 oz portion
+    grams: 85
+- slug: vegetarian-protein-tempeh-cooked
+  name: Tempeh, cooked
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172467/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172467. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    saturated_fat_g: 3.4
+    protein_g: 19.9
+    carbohydrate_g: 7.62
+    energy_kcal: 195
+    fat_g: 11.4
+    sodium_mg: 14
+  portions:
+  - name: 3 oz portion
+    grams: 85
+- slug: vegetarian-protein-beans-adzuki-mature-seeds-cooked-boiled-without-salt
+  name: Beans, adzuki, mature seeds, cooked, boiled, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/173728/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 173728. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 7.3
+    fat_g: 0.1
+    carbohydrate_g: 24.8
+    energy_kcal: 128
+    protein_g: 7.52
+    sodium_mg: 8
+    saturated_fat_g: 0.04
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-peanuts-all-types-raw
+  name: Peanuts, all types, raw
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172430/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172430. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 8.5
+    sugars_g: 4.72
+    sodium_mg: 18
+    saturated_fat_g: 6.28
+    protein_g: 25.8
+    fat_g: 49.2
+    carbohydrate_g: 16.1
+    energy_kcal: 567
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-seeds-sunflower-seed-butter-without-salt
+  name: Seeds, sunflower seed butter, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170155/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170155. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 17.3
+    fiber_g: 5.7
+    sodium_mg: 3
+    saturated_fat_g: 4.68
+    fat_g: 55.2
+    carbohydrate_g: 23.3
+    energy_kcal: 617
+    sugars_g: 10.5
+  portions:
+  - name: 1 oz portion
+    grams: 28
+- slug: vegetarian-protein-soybeans-mature-cooked-boiled-without-salt
+  name: Soybeans, mature cooked, boiled, without salt
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174271/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174271. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 3
+    carbohydrate_g: 8.36
+    energy_kcal: 172
+    protein_g: 18.2
+    fat_g: 8.97
+    saturated_fat_g: 1.3
+    fiber_g: 6
+    sodium_mg: 1
+  portions:
+  - name: 1/2 cup
+    grams: 90
+- slug: vegetarian-protein-cheese-paneer
+  name: Cheese, paneer
+  category: protein
+  tags:
+  - vegetarian
+  - vegetarian-protein
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705740/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705740. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 15.9
+    fat_g: 15.5
+    carbohydrate_g: 22.5
+    energy_kcal: 299
+    sugars_g: 23.3
+    fiber_g: 0
+    sodium_mg: 185
+    saturated_fat_g: 9.02
+  portions:
+  - name: 1 cup
+    grams: 246
+- slug: vegetarian-protein-plain-seitan
+  name: Plain seitan, cooked-yield calculation
+  category: protein
+  tags:
+  - vegetarian
+  - vegan
+  - protein
+  - wheat
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: vital wheat gluten (FDC 168147) 100 g. Water and seasonings without
+    material energy are omitted. Cooked yield: 280 g. Values are per 100 g and rounded to two decimals;
+    actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 132.1
+    protein_g: 26.86
+    fat_g: 0.66
+    carbohydrate_g: 4.93
+  portions:
+  - name: 100 g weighed portion
+    grams: 100

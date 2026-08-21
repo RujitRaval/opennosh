@@ -1,0 +1,1617 @@
+- slug: north-indian-rice-white-cooked-ns-as-to-fat
+  name: Rice, white, cooked, NS as to fat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708403/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708403. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.67
+    fat_g: 0.28
+    carbohydrate_g: 28
+    energy_kcal: 129
+    sugars_g: 0.05
+    fiber_g: 0.4
+    sodium_mg: 244
+    saturated_fat_g: 0.08
+  portions:
+  - name: 1 cup, cooked
+    grams: 163
+- slug: north-indian-rice-white-cooked-made-with-oil
+  name: Rice, white, cooked, made with oil
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708404/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708404. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.6
+    fat_g: 3.12
+    carbohydrate_g: 27.2
+    energy_kcal: 151
+    sugars_g: 0.05
+    fiber_g: 0.4
+    sodium_mg: 238
+    saturated_fat_g: 0.46
+  portions:
+  - name: 1 cup, cooked
+    grams: 163
+- slug: north-indian-rice-white-cooked-made-with-butter
+  name: Rice, white, cooked, made with butter
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708405/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708405. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.62
+    fat_g: 2.61
+    carbohydrate_g: 27.2
+    energy_kcal: 147
+    sugars_g: 0.06
+    fiber_g: 0.4
+    sodium_mg: 253
+    saturated_fat_g: 1.38
+  portions:
+  - name: 1 cup, cooked
+    grams: 163
+- slug: north-indian-rice-brown-cooked-ns-as-to-fat
+  name: Rice, brown, cooked, NS as to fat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708409/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708409. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.44
+    fat_g: 1.11
+    carbohydrate_g: 25.8
+    energy_kcal: 123
+    sugars_g: 0.22
+    fiber_g: 1
+    sodium_mg: 201
+    saturated_fat_g: 0.2
+  portions:
+  - name: 1 cup, cooked
+    grams: 196
+- slug: north-indian-rice-brown-cooked-fat-added-made-with-oil
+  name: Rice, brown, cooked, fat added, made with oil
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708410/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708410. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.38
+    fat_g: 3.41
+    carbohydrate_g: 25.2
+    energy_kcal: 141
+    sugars_g: 0.22
+    fiber_g: 1
+    sodium_mg: 196
+    saturated_fat_g: 0.5
+  portions:
+  - name: 1 cup, cooked
+    grams: 196
+- slug: north-indian-rice-brown-cooked-made-with-butter
+  name: Rice, brown, cooked, made with butter
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708411/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708411. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.4
+    fat_g: 3
+    carbohydrate_g: 25.2
+    energy_kcal: 137
+    sugars_g: 0.23
+    fiber_g: 1
+    sodium_mg: 209
+    saturated_fat_g: 1.26
+  portions:
+  - name: 1 cup, cooked
+    grams: 196
+- slug: north-indian-cream-of-rice
+  name: Cream of rice
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708415/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708415. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.17
+    fat_g: 0.09
+    carbohydrate_g: 15.3
+    energy_kcal: 69
+    sugars_g: 0.06
+    fiber_g: 0.1
+    sodium_mg: 69
+    saturated_fat_g: 0.02
+  portions:
+  - name: 1 cup, cooked
+    grams: 240
+- slug: north-indian-rice-cooked-with-milk
+  name: Rice, cooked, with milk
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708416/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708416. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.13
+    fat_g: 2.31
+    carbohydrate_g: 25
+    energy_kcal: 144
+    sugars_g: 4.91
+    fiber_g: 0.3
+    sodium_mg: 357
+    saturated_fat_g: 1.29
+  portions:
+  - name: 1 cup, cooked
+    grams: 200
+- slug: north-indian-rice-sweet-cooked-with-honey
+  name: Rice, sweet, cooked with honey
+  category: sweet
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708417/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708417. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.52
+    fat_g: 0.26
+    carbohydrate_g: 31.1
+    energy_kcal: 139
+    sugars_g: 4.89
+    fiber_g: 0.4
+    sodium_mg: 344
+    saturated_fat_g: 0.07
+  portions:
+  - name: 1 cup, cooked
+    grams: 175
+- slug: north-indian-yellow-rice-cooked-ns-as-to-fat
+  name: Yellow rice, cooked, NS as to fat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708419/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708419. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.8
+    fat_g: 0.45
+    carbohydrate_g: 19.1
+    energy_kcal: 88
+    sugars_g: 0.45
+    fiber_g: 0.5
+    sodium_mg: 340
+    saturated_fat_g: 0
+  portions:
+  - name: 1 cup, cooked
+    grams: 158
+- slug: north-indian-yellow-rice-cooked-fat-added
+  name: Yellow rice, cooked, fat added
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708421/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708421. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.76
+    fat_g: 2.43
+    carbohydrate_g: 18.7
+    energy_kcal: 103
+    sugars_g: 0.44
+    fiber_g: 0.4
+    sodium_mg: 351
+    saturated_fat_g: 0.38
+  portions:
+  - name: 1 cup, cooked
+    grams: 163
+- slug: north-indian-cream-of-wheat-regular-or-quick-made-with-water-no-added-fat
+  name: Cream of wheat, regular or quick, made with water, no added fat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708434/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708434. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.45
+    fat_g: 0.21
+    carbohydrate_g: 10.6
+    energy_kcal: 51
+    sugars_g: 0.03
+    fiber_g: 0.5
+    sodium_mg: 72
+    saturated_fat_g: 0.03
+  portions:
+  - name: 1 cup, cooked
+    grams: 240
+- slug: north-indian-bread-naan
+  name: Bread, naan
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707613/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707613. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 11.1
+    fat_g: 7.28
+    carbohydrate_g: 50.2
+    energy_kcal: 311
+    sugars_g: 3.7
+    fiber_g: 5.2
+    sodium_mg: 508
+    saturated_fat_g: 3.16
+  portions:
+  - name: 1 piece (1/4 of 10" dia)
+    grams: 44
+- slug: north-indian-bread-puri
+  name: Bread, puri
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707714/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707714. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 6.84
+    fat_g: 24.9
+    carbohydrate_g: 39.2
+    energy_kcal: 409
+    sugars_g: 0.18
+    fiber_g: 3.5
+    sodium_mg: 170
+    saturated_fat_g: 3.34
+  portions:
+  - name: 1 puri (approx 4-4/5" dia)
+    grams: 36
+- slug: north-indian-bread-paratha
+  name: Bread, paratha
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707715/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707715. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 6.36
+    fat_g: 13.2
+    carbohydrate_g: 45.4
+    energy_kcal: 326
+    sugars_g: 4.15
+    fiber_g: 9.6
+    sodium_mg: 452
+    saturated_fat_g: 5.83
+  portions:
+  - name: 1 paratha
+    grams: 70
+- slug: north-indian-bread-whole-wheat
+  name: Bread, whole wheat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707709/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707709. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 12.3
+    fat_g: 3.55
+    carbohydrate_g: 43.1
+    energy_kcal: 254
+    sugars_g: 4.41
+    fiber_g: 6
+    sodium_mg: 430
+    saturated_fat_g: 0.73
+  portions:
+  - name: 1 slice, snack-size
+    grams: 10
+- slug: north-indian-bread-whole-wheat-made-from-home-recipe-or-purchased-at-bakery
+  name: Bread, whole wheat, made from home recipe or purchased at bakery
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707711/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707711. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 10.4
+    fat_g: 4.26
+    carbohydrate_g: 47
+    energy_kcal: 267
+    sugars_g: 3.38
+    fiber_g: 6.8
+    sodium_mg: 607
+    saturated_fat_g: 1.34
+  portions:
+  - name: 1 slice, crust not eaten
+    grams: 20
+- slug: north-indian-bread-sprouted-wheat
+  name: Bread, sprouted wheat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707718/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707718. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 13.2
+    fat_g: 0
+    carbohydrate_g: 33.9
+    energy_kcal: 188
+    sugars_g: 2.63
+    fiber_g: 5.3
+    sodium_mg: 474
+    saturated_fat_g: 0
+  portions:
+  - name: 1 slice
+    grams: 26
+- slug: north-indian-bread-pita-whole-wheat
+  name: Bread, pita, whole wheat
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707730/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707730. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 9.8
+    fat_g: 1.71
+    carbohydrate_g: 55.9
+    energy_kcal: 262
+    sugars_g: 2.87
+    fiber_g: 6.1
+    sodium_mg: 421
+    saturated_fat_g: 0.21
+  portions:
+  - name: 1 small pita
+    grams: 28
+- slug: north-indian-bread-soy
+  name: Bread, soy
+  category: grain
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707790/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707790. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 16.4
+    fat_g: 3.84
+    carbohydrate_g: 42
+    energy_kcal: 267
+    sugars_g: 6.01
+    fiber_g: 4.4
+    sodium_mg: 589
+    saturated_fat_g: 1.18
+  portions:
+  - name: 1 slice, snack-size
+    grams: 10
+- slug: north-indian-black-beans-from-dried-fat-added
+  name: Black beans, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707360/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707360. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.23
+    fat_g: 7.01
+    carbohydrate_g: 22
+    energy_kcal: 181
+    sugars_g: 0.3
+    fiber_g: 8.1
+    sodium_mg: 217
+    saturated_fat_g: 1
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-black-beans-from-dried-no-added-fat
+  name: Black beans, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707361/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707361. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.81
+    fat_g: 0.54
+    carbohydrate_g: 23.6
+    energy_kcal: 131
+    sugars_g: 0.32
+    fiber_g: 8.6
+    sodium_mg: 232
+    saturated_fat_g: 0.14
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-pinto-beans-from-dried-fat-added
+  name: Pinto beans, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707372/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707372. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.37
+    fat_g: 7.11
+    carbohydrate_g: 24.4
+    energy_kcal: 191
+    sugars_g: 0.32
+    fiber_g: 8.4
+    sodium_mg: 217
+    saturated_fat_g: 1
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-pinto-beans-from-dried-no-added-fat
+  name: Pinto beans, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707373/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707373. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.96
+    fat_g: 0.65
+    carbohydrate_g: 26.1
+    energy_kcal: 142
+    sugars_g: 0.34
+    fiber_g: 8.9
+    sodium_mg: 232
+    saturated_fat_g: 0.14
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-kidney-beans-from-dried-fat-added
+  name: Kidney beans, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707380/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707380. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.06
+    fat_g: 6.97
+    carbohydrate_g: 21.2
+    energy_kcal: 177
+    sugars_g: 0.3
+    fiber_g: 6.9
+    sodium_mg: 218
+    saturated_fat_g: 0.94
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-kidney-beans-from-dried-no-added-fat
+  name: Kidney beans, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707381/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707381. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.62
+    fat_g: 0.5
+    carbohydrate_g: 22.7
+    energy_kcal: 126
+    sugars_g: 0.32
+    fiber_g: 7.4
+    sodium_mg: 233
+    saturated_fat_g: 0.07
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-kidney-beans-from-canned-no-added-fat
+  name: Kidney beans, from canned, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707383/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707383. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.7
+    fat_g: 0.6
+    carbohydrate_g: 24.7
+    energy_kcal: 135
+    sugars_g: 3.08
+    fiber_g: 8
+    sodium_mg: 311
+    saturated_fat_g: 0.21
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-blackeyed-peas-from-dried
+  name: Blackeyed peas, from dried
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707413/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707413. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 7.18
+    fat_g: 7
+    carbohydrate_g: 19.3
+    energy_kcal: 166
+    sugars_g: 3.07
+    fiber_g: 6
+    sodium_mg: 220
+    saturated_fat_g: 1
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-chickpeas-from-dried-fat-added
+  name: Chickpeas, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707415/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707415. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.23
+    fat_g: 8.91
+    carbohydrate_g: 25.5
+    energy_kcal: 211
+    sugars_g: 4.46
+    fiber_g: 7.1
+    sodium_mg: 222
+    saturated_fat_g: 1.12
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-chickpeas-from-dried-no-added-fat
+  name: Chickpeas, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707416/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707416. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.81
+    fat_g: 2.58
+    carbohydrate_g: 27.3
+    energy_kcal: 163
+    sugars_g: 4.77
+    fiber_g: 7.6
+    sodium_mg: 238
+    saturated_fat_g: 0.27
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-chickpeas-from-canned-no-added-fat
+  name: Chickpeas, from canned, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707418/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707418. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.19
+    fat_g: 3.24
+    carbohydrate_g: 22.4
+    energy_kcal: 146
+    sugars_g: 4.31
+    fiber_g: 7.3
+    sodium_mg: 327
+    saturated_fat_g: 0.34
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-split-peas-from-dried-no-added-fat
+  name: Split peas, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707420/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707420. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.29
+    fat_g: 0.39
+    carbohydrate_g: 21
+    energy_kcal: 117
+    sugars_g: 2.88
+    fiber_g: 8.2
+    sodium_mg: 233
+    saturated_fat_g: 0.05
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-split-peas-from-dried-fat-added
+  name: Split peas, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707421/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707421. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 7.75
+    fat_g: 6.87
+    carbohydrate_g: 19.6
+    energy_kcal: 168
+    sugars_g: 2.7
+    fiber_g: 7.7
+    sodium_mg: 218
+    saturated_fat_g: 0.92
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-lentils-from-dried-fat-added
+  name: Lentils, from dried, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707424/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707424. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.38
+    fat_g: 6.86
+    carbohydrate_g: 18.7
+    energy_kcal: 166
+    sugars_g: 1.67
+    fiber_g: 7.3
+    sodium_mg: 218
+    saturated_fat_g: 0.92
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-lentils-from-dried-no-added-fat
+  name: Lentils, from dried, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707425/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707425. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.97
+    fat_g: 0.38
+    carbohydrate_g: 20
+    energy_kcal: 115
+    sugars_g: 1.79
+    fiber_g: 7.9
+    sodium_mg: 233
+    saturated_fat_g: 0.05
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-spinach-canned-cooked-fat-added-ns-as-to-fat-type
+  name: Spinach, canned, cooked, fat added, NS as to fat type
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709623/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709623. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.74
+    fat_g: 3.04
+    carbohydrate_g: 3.31
+    energy_kcal: 45
+    sugars_g: 0.39
+    fiber_g: 2.3
+    sodium_mg: 321
+    saturated_fat_g: 0.75
+  portions:
+  - name: 1 cup
+    grams: 220
+- slug: north-indian-spinach-fresh-cooked-with-butter-or-margarine
+  name: Spinach, fresh, cooked with butter or margarine
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709619/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709619. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.33
+    fat_g: 3.26
+    carbohydrate_g: 3.02
+    energy_kcal: 55
+    sugars_g: 0.49
+    fiber_g: 1.8
+    sodium_mg: 274
+    saturated_fat_g: 1.18
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: north-indian-carrots-raw
+  name: Carrots, raw
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709660/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709660. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.87
+    fat_g: 0.24
+    carbohydrate_g: 9.68
+    energy_kcal: 44
+    sugars_g: 4.75
+    fiber_g: 2.9
+    sodium_mg: 75
+    saturated_fat_g: 0.03
+  portions:
+  - name: 1 cup
+    grams: 120
+- slug: north-indian-carrots-fresh-cooked-with-oil
+  name: Carrots, fresh, cooked with oil
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709667/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709667. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.95
+    fat_g: 3.38
+    carbohydrate_g: 10.4
+    energy_kcal: 76
+    sugars_g: 4.78
+    fiber_g: 3.1
+    sodium_mg: 205
+    saturated_fat_g: 0.44
+  portions:
+  - name: 1 cup
+    grams: 160
+- slug: north-indian-pumpkin-canned-cooked
+  name: Pumpkin, canned, cooked
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709691/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709691. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.08
+    fat_g: 2.82
+    carbohydrate_g: 7.86
+    energy_kcal: 56
+    sugars_g: 3.21
+    fiber_g: 2.8
+    sodium_mg: 13
+    saturated_fat_g: 0.81
+  portions:
+  - name: 1 cup
+    grams: 245
+- slug: north-indian-sweet-potato-baked-no-added-fat
+  name: Sweet potato, baked, no added fat
+  category: sweet
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709699/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709699. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.64
+    fat_g: 0.39
+    carbohydrate_g: 18
+    energy_kcal: 82
+    sugars_g: 6.29
+    fiber_g: 3.1
+    sodium_mg: 154
+    saturated_fat_g: 0.02
+  portions:
+  - name: 1 cup, mashed
+    grams: 250
+- slug: north-indian-sweet-potato-baked-fat-added
+  name: Sweet potato, baked, fat added
+  category: sweet
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709700/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709700. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.58
+    fat_g: 4.53
+    carbohydrate_g: 17.1
+    energy_kcal: 115
+    sugars_g: 6
+    fiber_g: 3
+    sodium_mg: 161
+    saturated_fat_g: 1.11
+  portions:
+  - name: 1 cup, mashed
+    grams: 250
+- slug: north-indian-tomatoes-raw
+  name: Tomatoes, raw
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709719/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709719. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.82
+    fat_g: 0.31
+    carbohydrate_g: 4.04
+    energy_kcal: 20
+    sugars_g: 2.63
+    fiber_g: 1.2
+    sodium_mg: 4
+    saturated_fat_g: 0.03
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: north-indian-tomatoes-canned-reduced-sodium-cooked
+  name: Tomatoes, canned, reduced sodium, cooked
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709724/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709724. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.78
+    fat_g: 2.8
+    carbohydrate_g: 3.37
+    energy_kcal: 39
+    sugars_g: 2.48
+    fiber_g: 1.8
+    sodium_mg: 18
+    saturated_fat_g: 0.7
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: north-indian-cabbage-green-raw
+  name: Cabbage, green, raw
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709773/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709773. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.96
+    fat_g: 0.23
+    carbohydrate_g: 6.38
+    energy_kcal: 31
+    sugars_g: 3.2
+    fiber_g: 2.5
+    sodium_mg: 16
+    saturated_fat_g: 0.03
+  portions:
+  - name: 1 cup
+    grams: 90
+- slug: north-indian-cauliflower-fresh-cooked-with-butter-or-margarine
+  name: Cauliflower, fresh, cooked with butter or margarine
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709903/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709903. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.95
+    fat_g: 2.56
+    carbohydrate_g: 5.02
+    energy_kcal: 46
+    sugars_g: 1.94
+    fiber_g: 2
+    sodium_mg: 165
+    saturated_fat_g: 1.11
+  portions:
+  - name: 1 cup
+    grams: 160
+- slug: north-indian-eggplant-dip
+  name: Eggplant dip
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710049/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710049. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 4.8
+    fat_g: 15
+    carbohydrate_g: 8.15
+    energy_kcal: 183
+    sugars_g: 2.81
+    fiber_g: 3.9
+    sodium_mg: 209
+    saturated_fat_g: 2.19
+  portions:
+  - name: 1 tablespoon
+    grams: 15
+- slug: north-indian-okra-frozen-cooked-fat-added
+  name: Okra, frozen, cooked, fat added
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709948/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709948. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.59
+    fat_g: 2.78
+    carbohydrate_g: 6.21
+    energy_kcal: 51
+    sugars_g: 2.78
+    fiber_g: 2
+    sodium_mg: 124
+    saturated_fat_g: 0.73
+  portions:
+  - name: 1 cup
+    grams: 190
+- slug: north-indian-onions-cooked-fat-added
+  name: Onions, cooked, fat added
+  category: vegetable
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709951/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709951. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.26
+    fat_g: 3.11
+    carbohydrate_g: 10.6
+    energy_kcal: 73
+    sugars_g: 4.84
+    fiber_g: 1.9
+    sodium_mg: 147
+    saturated_fat_g: 0.83
+  portions:
+  - name: 1 cup
+    grams: 215
+- slug: north-indian-peas-and-corn-cooked-fat-added
+  name: Peas and corn, cooked, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710027/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710027. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.74
+    fat_g: 3
+    carbohydrate_g: 16.2
+    energy_kcal: 100
+    sugars_g: 3.62
+    fiber_g: 3.3
+    sodium_mg: 156
+    saturated_fat_g: 0.74
+  portions:
+  - name: 1 cup
+    grams: 165
+- slug: north-indian-milk-whole
+  name: Milk, whole
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705385/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705385. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.27
+    fat_g: 3.2
+    carbohydrate_g: 4.63
+    energy_kcal: 61
+    sugars_g: 4.81
+    fiber_g: 0
+    sodium_mg: 38
+    saturated_fat_g: 1.86
+  portions:
+  - name: 1 cup
+    grams: 244
+- slug: north-indian-yogurt-ns-as-to-type-of-milk-plain
+  name: Yogurt, NS as to type of milk, plain
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705417/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705417. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.25
+    fat_g: 1.55
+    carbohydrate_g: 7.04
+    energy_kcal: 63
+    sugars_g: 7.04
+    fiber_g: 0
+    sodium_mg: 70
+    saturated_fat_g: 1
+  portions:
+  - name: 1 cup
+    grams: 245
+- slug: north-indian-yogurt-nonfat-milk-plain
+  name: Yogurt, nonfat milk, plain
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705420/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705420. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 4.23
+    fat_g: 0.09
+    carbohydrate_g: 8.08
+    energy_kcal: 50
+    sugars_g: 7.68
+    fiber_g: 0
+    sodium_mg: 51
+    saturated_fat_g: 0.12
+  portions:
+  - name: 1 cup
+    grams: 245
+- slug: north-indian-cottage-cheese-farmer-s
+  name: Cottage cheese, farmer's
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705749/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705749. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 11
+    fat_g: 9.73
+    carbohydrate_g: 4.33
+    energy_kcal: 148
+    sugars_g: 2.52
+    fiber_g: 0
+    sodium_mg: 330
+    saturated_fat_g: 6.03
+  portions:
+  - name: 1 cup
+    grams: 210
+- slug: north-indian-pudding-rice
+  name: Pudding, rice
+  category: sweet
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705685/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705685. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.23
+    fat_g: 2.15
+    carbohydrate_g: 18.4
+    energy_kcal: 108
+    sugars_g: 11.6
+    fiber_g: 0.3
+    sodium_mg: 97
+    saturated_fat_g: 1.21
+  portions:
+  - name: 1 cup
+    grams: 260
+- slug: north-indian-palak-paneer
+  name: Palak Paneer
+  category: dairy
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709631/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709631. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.42
+    fat_g: 7.02
+    carbohydrate_g: 4.28
+    energy_kcal: 101
+    sugars_g: 1.89
+    fiber_g: 0.9
+    sodium_mg: 242
+    saturated_fat_g: 1.81
+  portions:
+  - name: 1 cup
+    grams: 200
+- slug: north-indian-samosa
+  name: Samosa
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708730/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708730. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.14
+    fat_g: 17.5
+    carbohydrate_g: 33.2
+    energy_kcal: 310
+    sugars_g: 1.28
+    fiber_g: 1.8
+    sodium_mg: 388
+    saturated_fat_g: 4.41
+  portions:
+  - name: 1 small/individual
+    grams: 25
+- slug: north-indian-chicken-curry
+  name: Chicken curry
+  category: prepared_dish
+  tags:
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2706437/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2706437. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 6.48
+    fat_g: 6.48
+    carbohydrate_g: 6.54
+    energy_kcal: 107
+    sugars_g: 2.56
+    fiber_g: 1.4
+    sodium_mg: 376
+    saturated_fat_g: 1.56
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: north-indian-fish-curry
+  name: Fish curry
+  category: prepared_dish
+  tags:
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2706460/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2706460. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 4.94
+    fat_g: 5.42
+    carbohydrate_g: 6.65
+    energy_kcal: 93
+    sugars_g: 2.56
+    fiber_g: 1.4
+    sodium_mg: 351
+    saturated_fat_g: 1.29
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: north-indian-beef-curry
+  name: Beef curry
+  category: prepared_dish
+  tags:
+  - north-indian
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2706388/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2706388. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 7.57
+    fat_g: 6.57
+    carbohydrate_g: 6.53
+    energy_kcal: 113
+    sugars_g: 2.56
+    fiber_g: 1.4
+    sodium_mg: 359
+    saturated_fat_g: 1.79
+  portions:
+  - name: 1 cup
+    grams: 240

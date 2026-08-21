@@ -1,0 +1,673 @@
+- slug: supplement-wheat-flour-whole-grain-includes-foods-for-usda-s-food-distribution-program
+  name: Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/168893/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 168893. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 2.5
+    carbohydrate_g: 72
+    energy_kcal: 340
+    sugars_g: 0.41
+    protein_g: 13.2
+    fiber_g: 10.7
+    sodium_mg: 2
+    saturated_fat_g: 0.43
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-seeds-flaxseed
+  name: Seeds, flaxseed
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/169414/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 169414. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 42.2
+    fiber_g: 27.3
+    sodium_mg: 30
+    protein_g: 18.3
+    sugars_g: 1.55
+    carbohydrate_g: 28.9
+    energy_kcal: 534
+    saturated_fat_g: 3.66
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-rice-flour-white-unenriched
+  name: Rice flour, white, unenriched
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/169714/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 169714. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 0.12
+    fat_g: 1.42
+    carbohydrate_g: 80.1
+    energy_kcal: 366
+    protein_g: 5.95
+    fiber_g: 2.4
+    sodium_mg: 0
+    saturated_fat_g: 0.39
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-potatoes-mashed-dehydrated-granules-with-milk-dry-form
+  name: Potatoes, mashed, dehydrated, granules with milk, dry form
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170041/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170041. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 357
+    sugars_g: 3.37
+    fiber_g: 6.6
+    saturated_fat_g: 0.46
+    sodium_mg: 82
+    protein_g: 10.9
+    fat_g: 1.1
+    carbohydrate_g: 77.7
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-gelatins-dry-powder-unsweetened
+  name: Gelatins, dry powder, unsweetened
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/169599/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 169599. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 85.6
+    fiber_g: 0
+    sodium_mg: 196
+    saturated_fat_g: 0.07
+    fat_g: 0.1
+    carbohydrate_g: 0
+    energy_kcal: 335
+    sugars_g: 0
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-spices-turmeric-ground
+  name: Spices, turmeric, ground
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172231/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172231. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 3.21
+    fat_g: 3.25
+    carbohydrate_g: 67.1
+    energy_kcal: 312
+    protein_g: 9.68
+    fiber_g: 22.7
+    sodium_mg: 27
+    saturated_fat_g: 1.84
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-soy-flour-full-fat-raw
+  name: Soy flour, full-fat, raw
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174273/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174273. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 7.5
+    carbohydrate_g: 31.9
+    energy_kcal: 434
+    protein_g: 37.8
+    fat_g: 20.6
+    fiber_g: 9.6
+    sodium_mg: 13
+    saturated_fat_g: 2.99
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-seeds-hemp-seed-hulled
+  name: Seeds, hemp seed, hulled
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170148/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170148. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 31.6
+    fiber_g: 4
+    sodium_mg: 5
+    saturated_fat_g: 4.6
+    fat_g: 48.8
+    carbohydrate_g: 8.67
+    energy_kcal: 553
+    sugars_g: 1.5
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-soy-flour-full-fat-roasted
+  name: Soy flour, full-fat, roasted
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174274/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174274. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 7.61
+    fiber_g: 9.7
+    protein_g: 38.1
+    carbohydrate_g: 30.4
+    energy_kcal: 439
+    saturated_fat_g: 3.16
+    sodium_mg: 12
+    fat_g: 21.9
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-seeds-chia-seeds-dried
+  name: Seeds, chia seeds, dried
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170554/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170554. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 16.5
+    fiber_g: 34.4
+    sodium_mg: 16
+    saturated_fat_g: 3.33
+    fat_g: 30.7
+    carbohydrate_g: 42.1
+    energy_kcal: 486
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-cocoa-dry-powder-hi-fat-or-breakfast-processed-with-alkali
+  name: Cocoa, dry powder, hi-fat or breakfast, processed with alkali
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170657/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170657. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 1.53
+    carbohydrate_g: 49.7
+    energy_kcal: 479
+    fat_g: 23.7
+    protein_g: 16.8
+    fiber_g: 33.9
+    sodium_mg: 20
+    saturated_fat_g: 12.6
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-milk-dry-whole-with-added-vitamin-d
+  name: Milk, dry, whole, with added vitamin D
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170876/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170876. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 496
+    protein_g: 26.3
+    fiber_g: 0
+    sodium_mg: 371
+    saturated_fat_g: 16.7
+    fat_g: 26.7
+    carbohydrate_g: 38.4
+    sugars_g: 38.4
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-milk-dry-nonfat-regular-without-added-vitamin-a-and-vitamin-d
+  name: Milk, dry, nonfat, regular, without added vitamin A and vitamin D
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170877/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170877. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 0.77
+    carbohydrate_g: 52
+    energy_kcal: 362
+    protein_g: 36.2
+    fiber_g: 0
+    sodium_mg: 535
+    saturated_fat_g: 0.5
+    sugars_g: 52
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-egg-white-dried-stabilized-glucose-reduced
+  name: Egg, white, dried, stabilized, glucose reduced
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/170895/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 170895. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 84.1
+    sodium_mg: 1300
+    saturated_fat_g: 0.12
+    fat_g: 0.32
+    carbohydrate_g: 4.51
+    energy_kcal: 357
+    fiber_g: 0
+    sugars_g: 0
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-whey-acid-dried
+  name: Whey, acid, dried
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/171281/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 171281. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 73.4
+    fat_g: 0.54
+    carbohydrate_g: 73.4
+    energy_kcal: 339
+    protein_g: 11.7
+    fiber_g: 0
+    sodium_mg: 968
+    saturated_fat_g: 0.34
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-whey-sweet-dried
+  name: Whey, sweet, dried
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/171283/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 171283. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 1.07
+    carbohydrate_g: 74.5
+    energy_kcal: 353
+    protein_g: 12.9
+    fiber_g: 0
+    sodium_mg: 1080
+    saturated_fat_g: 0.68
+    sugars_g: 74.5
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-egg-white-dried
+  name: Egg, white, dried
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172204/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172204. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 5.4
+    protein_g: 81.1
+    fiber_g: 0
+    sodium_mg: 1280
+    saturated_fat_g: 0
+    fat_g: 0
+    carbohydrate_g: 7.8
+    energy_kcal: 382
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-peanut-flour-low-fat
+  name: Peanut flour, low fat
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172435/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172435. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    carbohydrate_g: 31.3
+    energy_kcal: 428
+    fiber_g: 15.8
+    fat_g: 21.9
+    protein_g: 33.8
+    saturated_fat_g: 3.04
+    sodium_mg: 1
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-soy-flour-low-fat
+  name: Soy flour, low-fat
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/172444/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 172444. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 8.9
+    fiber_g: 16
+    sodium_mg: 9
+    saturated_fat_g: 1.29
+    protein_g: 49.8
+    carbohydrate_g: 30.6
+    energy_kcal: 372
+    sugars_g: 9.33
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-beverages-whey-protein-powder-isolate
+  name: Beverages, Whey protein powder isolate
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/173177/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 173177. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 1.16
+    carbohydrate_g: 29.1
+    energy_kcal: 359
+    sugars_g: 1.16
+    saturated_fat_g: 0.58
+    protein_g: 58.1
+    fiber_g: 0
+    sodium_mg: 372
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-beverages-protein-powder-whey-based
+  name: Beverages, Protein powder whey based
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/173180/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 173180. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    protein_g: 78.1
+    fiber_g: 3.1
+    sodium_mg: 156
+    saturated_fat_g: 0.78
+    fat_g: 1.56
+    carbohydrate_g: 6.25
+    energy_kcal: 352
+    sugars_g: 0
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-beverages-protein-powder-soy-based
+  name: Beverages, Protein powder soy based
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/173181/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 173181. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fat_g: 5.56
+    carbohydrate_g: 28.9
+    energy_kcal: 388
+    sugars_g: 22.2
+    protein_g: 55.6
+    fiber_g: 6.7
+    sodium_mg: 733
+    saturated_fat_g: 1.11
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-chickpea-flour-besan
+  name: Chickpea flour (besan)
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174288/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174288. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    sugars_g: 10.8
+    carbohydrate_g: 57.8
+    energy_kcal: 387
+    protein_g: 22.4
+    saturated_fat_g: 0.69
+    fiber_g: 10.8
+    sodium_mg: 64
+    fat_g: 6.69
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-peanut-flour-defatted
+  name: Peanut flour, defatted
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174267/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174267. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    fiber_g: 15.8
+    sugars_g: 8.22
+    carbohydrate_g: 34.7
+    energy_kcal: 327
+    protein_g: 52.2
+    sodium_mg: 180
+    saturated_fat_g: 0.06
+    fat_g: 0.55
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30
+- slug: supplement-soy-flour-defatted
+  name: Soy flour, defatted
+  category: supplement
+  tags:
+  - vegetarian
+  - supplement
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/174275/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central SR Legacy bulk release 2018-04, FDC ID 174275. Nutrient values are
+    reproduced from the public-domain record. The named portion is a transparent opennosh logging estimate,
+    not a USDA measure.
+  basis: per_100g
+  nutrients:
+    saturated_fat_g: 0.14
+    fiber_g: 17.5
+    sodium_mg: 20
+    fat_g: 1.22
+    carbohydrate_g: 33.9
+    energy_kcal: 327
+    sugars_g: 16.4
+    protein_g: 51.5
+  portions:
+  - name: 30 g weighed scoop
+    grams: 30

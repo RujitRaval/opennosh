@@ -1,0 +1,10 @@
+id: common-vegetarian-proteins
+name: Common vegetarian proteins
+description: Generic vegetarian protein foods including paneer, tofu, tempeh, legumes, nuts, seeds, eggs,
+  dairy, and seitan.
+version: 1.0.0
+locale: en
+license: CC0-1.0
+maintainers:
+- github: RujitRaval
+entry_count: 30
