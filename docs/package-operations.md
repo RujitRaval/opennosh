@@ -50,17 +50,39 @@ release creates the project, configure its GitHub Actions trusted publisher for 
 `npm publish` action. Future releases then use short-lived OIDC credentials and automatic
 provenance.
 
+## Verified initial release
+
+The project owner approved the initial npm publication with two-factor authentication on
+2026-08-21. The [publish packages workflow](https://github.com/RujitRaval/opennosh/actions/runs/32509681049)
+then verified merged `main` commit `c7abc5eac93f6ac63b50a4f56d24ba5806f6f31d`, safely skipped the
+existing npm version, and published the PyPI artifacts through OIDC. Both registries now have
+active trusted publishers for repository
+`RujitRaval/opennosh`, workflow `publish-packages.yml`, and their corresponding `npm` or `pypi`
+GitHub environment.
+
+| Registry | Public release | Integrity evidence | Verified command |
+|---|---|---|---|
+| PyPI | [`opennosh 0.22.0.0`](https://pypi.org/project/opennosh/0.22.0.0/) | Wheel SHA-256 `0ea7951dbc4e3d73623ee30bcf12ec3fe5af65044aea31e73aada207ea676493`; source archive SHA-256 `10472da52c111809491b1c286ad6e63ce54c4faea368644dceecb5ded613c814` | `uvx --from opennosh==0.22.0.0 opennosh --help` |
+| npm | [`opennosh 0.22.0`](https://www.npmjs.com/package/opennosh) | SHA-512 `zh/gfwAILdomRGVShzoWbHBK9xvla96MQ0q9E5FHUI7mlHkc5scnCYXnn1+XmbMq7cjgNQY2NM4SjeRzMeQLJg==` | `npx --yes opennosh@0.22.0 --version` |
+
+The public metadata identifies the canonical repository and `https://opennosh.org`, declares the
+MIT software license, and includes the required license and notice files. The PyPI wheel and source
+archive hashes match the public simple index; the npm tarball contains only `LICENSE`, `README.md`,
+`bin/opennosh.mjs`, and `package.json`. Clean-cache executions of both verified commands succeeded.
+
 ## Initial publication checklist
 
-- [ ] Merge the package release pull request after all required checks pass.
-- [ ] Refresh local `main` and rebuild both artifacts from the merge commit.
-- [ ] Stage and approve the first npm release with the project owner's two-factor authentication.
-- [ ] Configure npm trusted publishing for the new `opennosh` project.
-- [ ] Configure the PyPI pending trusted publisher.
-- [ ] Run `publish packages` manually from `main`.
-- [ ] Verify both public registry pages, owners, versions, hashes, license files, source links, and
+- [x] Merge the package release pull request after all required checks pass.
+- [x] Refresh local `main` and rebuild both artifacts from the merge commit.
+- [x] Stage and approve the first npm release with the project owner's two-factor authentication.
+- [x] Configure npm trusted publishing for the new `opennosh` project.
+- [x] Configure the PyPI pending trusted publisher; the successful first release converted it to
+      an active publisher.
+- [x] Run `publish packages` manually from `main`.
+- [x] Verify both public registry pages, owners, versions, hashes, license files, source links, and
       install commands.
-- [ ] Update this record, the launch plan, product decisions, TODO ledger, and README with the exact
+- [x] Update this record, the launch plan, product decisions, TODO ledger, and README with the exact
       public evidence through a follow-up branch and pull request.
 
-Do not claim either name is reserved before its public registry page resolves successfully.
+Both canonical names became reserved through successful public releases on 2026-08-21. Future
+releases must use the trusted-publisher workflow and preserve the verification evidence above.

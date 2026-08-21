@@ -27,8 +27,10 @@ and reviewed commit are recorded in `docs/license-notice-review.md`. On the same
 and preferred-domain availability were checked, the final secret scan was clean, the repository was
 made public, GitHub Private Vulnerability Reporting was enabled, and Epic #3 was closed. Later that
 day, `opennosh.org` was registered through Cloudflare and connected to the repository with DNSSEC,
-WHOIS redaction, HTTPS redirects, and free inbound support-mail forwarding. npm and PyPI availability
-was not reserved by the check. The remaining outreach checklist in
+WHOIS redaction, HTTPS redirects, and free inbound support-mail forwarding. The canonical npm
+`opennosh 0.22.0` and PyPI `opennosh 0.22.0.0` packages were then published and verified, reserving
+both registry names. Active GitHub Actions trusted publishers now control future releases through
+short-lived OIDC credentials rather than stored registry tokens. The remaining outreach checklist in
 `07-LAUNCH-PLAN.md` does not reopen the decisions above.
 
 ## Explicitly omitted from v1
