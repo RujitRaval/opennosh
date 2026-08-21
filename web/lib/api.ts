@@ -1,6 +1,9 @@
 import type {
   AuthenticatedUser,
+  BodyMetricListResponse,
+  BodyMetricTrendResponse,
   DailyTotals,
+  DailyTotalsRange,
   BarcodeFood,
   CustomFood,
   FoodCapabilities,
@@ -11,6 +14,8 @@ import type {
   LogEntryListResponse,
   SessionResponse,
   Target,
+  WorkoutListResponse,
+  WorkoutTrendResponse,
 } from "./types";
 
 export class ApiError extends Error {
@@ -93,6 +98,36 @@ export const api = {
   totals: (day: string, timezone: string) =>
     request<DailyTotals>(
       `/api/v1/logs/daily-totals?${new URLSearchParams({ day, timezone })}`,
+    ),
+  totalsRange: (from: string, to: string, timezone: string) =>
+    request<DailyTotalsRange>(
+      `/api/v1/logs/daily-totals/range?${new URLSearchParams({ from, to, timezone })}`,
+    ),
+  bodyMetrics: (from: string, to: string, offset = 0) =>
+    request<BodyMetricListResponse>(
+      `/api/v1/body-metrics?${new URLSearchParams({
+        from,
+        to,
+        limit: "100",
+        offset: String(offset),
+      })}`,
+    ),
+  bodyMetricTrends: (from: string, to: string) =>
+    request<BodyMetricTrendResponse>(
+      `/api/v1/body-metrics/trends?${new URLSearchParams({ from, to })}`,
+    ),
+  workouts: (from: string, to: string, offset = 0) =>
+    request<WorkoutListResponse>(
+      `/api/v1/workouts?${new URLSearchParams({
+        from,
+        to,
+        limit: "100",
+        offset: String(offset),
+      })}`,
+    ),
+  workoutTrends: (from: string, to: string) =>
+    request<WorkoutTrendResponse>(
+      `/api/v1/workouts/trends?${new URLSearchParams({ from, to })}`,
     ),
   target: (day: string, dayType: "training" | "rest") =>
     request<Target>(

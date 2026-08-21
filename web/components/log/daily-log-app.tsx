@@ -211,6 +211,10 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
         <Link className="wordmark" href="/" aria-label="opennosh daily log">
           open<span>nosh</span>
         </Link>
+        <nav className="primary-nav" aria-label="Primary navigation">
+          <Link aria-current="page" href="/">Daily log</Link>
+          <Link href="/trends">Trends</Link>
+        </nav>
         <div className="account-menu">
           <span className="account-email">{user.email}</span>
           <button className="text-button" type="button" onClick={() => void logout()}>Sign out</button>

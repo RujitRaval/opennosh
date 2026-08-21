@@ -129,6 +129,25 @@ provide a way forward. Keyboard focus is visible, the dialog traps focus, suppor
 navigation, closes with Escape, and is checked against WCAG 2.2 AA rules in Playwright on desktop
 and mobile.
 
+## Nutrition, body-metric, and strength trends
+
+Authenticated users can open `/trends` to review 7-, 30-, or 90-day history for nutrition,
+body measurements, and strength volume. Nutrition days follow the browser's IANA timezone;
+body-metric and workout ranges retain the APIs' documented UTC date boundaries. Every visual chart
+has a visible data table and keyboard-accessible native range and measure controls. Empty and
+single-record states stay descriptive and neutral, without diagnoses, coaching, streaks, or
+inferred health advice.
+
+Body measurements remain separated by metric type and unit. Strength volume remains separated by
+exercise and load unit, so kilograms, pounds, and machine units are never combined. Bodyweight,
+band, and RPE-only sets do not produce volume.
+
+The trends page uses bounded, owner-scoped aggregate endpoints rather than downloading paginated
+workout histories. `GET /api/v1/body-metrics/trends?from=2026-08-01&to=2026-08-30` returns the
+latest measurement for each UTC day, metric type, and unit. `GET
+/api/v1/workouts/trends?from=2026-08-01&to=2026-08-30` returns daily volume grouped by exercise and
+numeric load unit. Both accept inclusive UTC ranges of at most 90 days.
+
 The browser calls only same-origin `/api/v1` paths. The Next.js server forwards those requests to
 `API_URL`, which Compose sets to the internal `api` service. For local web development outside
 Compose, leave the default API address at `http://localhost:8000` or set `API_URL` explicitly. In
@@ -202,6 +221,12 @@ mass and nutrient totals. The timezone parameter accepts IANA names and override
 UTC after applying the selected timezone, including 23- and 25-hour daylight-saving days. Every
 read and mutation derives `user_id` from the session, returns `404` for another user's entry or
 custom food, and sends `Cache-Control: no-store`.
+
+For chart-sized history, use
+`GET /api/v1/logs/daily-totals/range?from=2026-08-01&to=2026-08-30&timezone=America/New_York`.
+The inclusive range is limited to 90 days, returns one item per local calendar day (including empty
+days), and uses the same saved-timezone fallback and daylight-saving semantics as the single-day
+endpoint.
 
 ## Private recipes
 

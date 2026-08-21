@@ -106,6 +106,84 @@ export type DailyTotals = {
   nutrients: Record<string, string>;
 };
 
+export type DailyTotalsRange = {
+  from_date: string;
+  to_date: string;
+  timezone: string;
+  items: DailyTotals[];
+};
+
+export type BodyMetric = {
+  id: string;
+  recorded_at: string;
+  metric_type: string;
+  value: string;
+  unit: string;
+};
+
+export type BodyMetricListResponse = {
+  from_date: string;
+  to_date: string;
+  items: BodyMetric[];
+  limit: number;
+  offset: number;
+  has_more: boolean;
+};
+
+export type BodyMetricTrendResponse = {
+  from_date: string;
+  to_date: string;
+  items: BodyMetric[];
+};
+
+export type LoadUnit = "kg" | "lb" | "machine_units" | "bodyweight" | "band" | "rpe_only";
+
+export type WorkoutExercise = {
+  id: string;
+  name: string;
+};
+
+export type Workout = {
+  id: string;
+  performed_at: string;
+  sets: Array<{
+    id: string;
+    exercise: WorkoutExercise;
+    reps: number;
+    load_value: string | null;
+    load_unit: LoadUnit;
+    volume: string | null;
+  }>;
+  volume_groups: Array<{
+    exercise_id: string;
+    load_unit: LoadUnit;
+    volume: string;
+  }>;
+};
+
+export type WorkoutListResponse = {
+  from_date: string;
+  to_date: string;
+  items: Workout[];
+  limit: number;
+  offset: number;
+  has_more: boolean;
+};
+
+export type WorkoutTrendPoint = {
+  day: string;
+  exercise_id: string;
+  exercise_name: string;
+  load_unit: LoadUnit;
+  volume: string;
+};
+
+export type WorkoutTrendResponse = {
+  from_date: string;
+  to_date: string;
+  items: WorkoutTrendPoint[];
+};
+
 export type Target = {
   id: string;
   day_type: "training" | "rest";
