@@ -2,12 +2,13 @@
 
 Self-hosted nutrition and strength tracking built around food data the community can improve.
 
-> **Build status:** The application foundation is underway. Follow the [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) for the dependency-ordered two-month build plan.
+> **Build status:** The v1 implementation is at its public-launch gate. Follow the [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) for final release status.
 
-The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private during the build window.
+The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private until the launch-readiness checks are complete.
 
 See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES.md`](LICENSES.md)
-for the repository-wide licensing map.
+for the repository-wide licensing map. The running web app exposes the same source-separated summary
+at `/notices`, linked from the global footer.
 
 ## Quick start
 
@@ -482,6 +483,8 @@ were omitted.
 | `04-DATA-LICENSING.md` | **Read this first.** The ODbL constraint that shapes the architecture | You, before any code |
 | `docs/foodpack-spec.md` | The contribution unit. The most important file here | Contributors + implementing agent |
 | `docs/health-safety-copy-review.md` | Screen/state inventory and human approval record for health-sensitive copy | Human reviewer + implementing agent |
+| `docs/license-notice-review.md` | Approved source-by-source notice matrix and release-artifact inventory | Project owner + release reviewer |
+| `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
 | `08-PRODUCT-DECISIONS.md` | Settled product, licensing, scope, and operating decisions | You + implementing agent |

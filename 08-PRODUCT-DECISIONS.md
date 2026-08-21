@@ -22,7 +22,10 @@ These decisions were made by the project owner on 2026-08-19. They are settled i
 
 ## Remaining validation, not product questions
 
-Before public launch, verify package-registry and domain availability, obtain a legal review of the combined data notices, and run the launch checklist in `07-LAUNCH-PLAN.md`. These checks do not reopen the decisions above.
+The project owner approved the combined data notices on 2026-08-21; the source-by-source disposition
+and reviewed commit are recorded in `docs/license-notice-review.md`. Before public launch, verify
+package-registry and domain availability and finish the remaining checklist in `07-LAUNCH-PLAN.md`.
+These checks do not reopen the decisions above.
 
 ## Explicitly omitted from v1
 
