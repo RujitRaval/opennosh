@@ -8,6 +8,8 @@ from unittest.mock import patch
 from scripts import check_docs
 from scripts.check_docs import (
     CORE_DOCUMENTS,
+    LICENSE_NOTICE_REQUIREMENTS,
+    validate_license_notices,
     validate_markdown_tree,
     validate_project_identity,
 )
@@ -89,7 +91,29 @@ class CheckDocsTests(TestCase):
     def test_core_documents_use_settled_decision_record(self) -> None:
         self.assertIn("08-PRODUCT-DECISIONS.md", CORE_DOCUMENTS)
         self.assertIn("LICENSES.md", CORE_DOCUMENTS)
+        self.assertIn("NOTICE.md", CORE_DOCUMENTS)
+        self.assertIn("docs/license-notice-review.md", CORE_DOCUMENTS)
         self.assertNotIn("08-OPEN-QUESTIONS.md", CORE_DOCUMENTS)
+
+    def test_license_notice_surfaces_require_every_source_family(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for relative, fragments in LICENSE_NOTICE_REQUIREMENTS.items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("\n".join(fragments), encoding="utf-8")
+            self.assertEqual([], validate_license_notices(root))
+
+            (root / "NOTICE.md").write_text("MIT License\n", encoding="utf-8")
+            issues = validate_license_notices(root)
+
+        self.assertTrue(any("NOTICE.md" in issue and "CC0 1.0 Universal" in issue for issue in issues))
+
+    def test_license_notice_surfaces_report_missing_files(self) -> None:
+        with TemporaryDirectory() as directory:
+            issues = validate_license_notices(Path(directory))
+        self.assertEqual(len(LICENSE_NOTICE_REQUIREMENTS), len(issues))
+        self.assertTrue(all("missing license-notice surface" in issue for issue in issues))
 
     def test_rejects_retired_project_identity_references(self) -> None:
         issues = self.validate(

@@ -6,7 +6,8 @@ Self-hosted nutrition and strength tracking built around food data the community
 
 The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit, and the repository remains private during the build window.
 
-See [`LICENSES.md`](LICENSES.md) for the repository-wide licensing map.
+See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES.md`](LICENSES.md)
+for the repository-wide licensing map.
 
 ## Quick start
 
