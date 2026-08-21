@@ -14,6 +14,7 @@ from opennosh_api.nutrition.models import deterministic_add, deterministic_multi
 from opennosh_api.workouts.constants import (
     MAX_WORKOUT_PERFORMED_AT,
     MAX_WORKOUT_SETS,
+    WORKOUT_TREND_RANGE_DAYS_MAX,
 )
 from opennosh_api.workouts.schemas import (
     WorkoutCreate,
@@ -22,6 +23,8 @@ from opennosh_api.workouts.schemas import (
     WorkoutResponse,
     WorkoutSetResponse,
     WorkoutSetWrite,
+    WorkoutTrendPoint,
+    WorkoutTrendResponse,
     WorkoutUpdate,
     WorkoutVolumeGroup,
     WorkoutVolumeResponse,
@@ -277,6 +280,71 @@ async def list_workouts(
         limit=limit,
         offset=offset,
         has_more=len(page_workouts) > limit,
+    )
+
+
+async def workout_trends(
+    database: AsyncSession,
+    *,
+    from_date: date,
+    to_date: date,
+    current: CurrentSession,
+) -> WorkoutTrendResponse:
+    start, end = utc_date_bounds(from_date, to_date)
+    if (to_date - from_date).days + 1 > WORKOUT_TREND_RANGE_DAYS_MAX:
+        raise WorkoutInputError(
+            f"date range must contain at most {WORKOUT_TREND_RANGE_DAYS_MAX} days"
+        )
+    time_conditions = [
+        Workout.performed_at >= start,
+        (
+            Workout.performed_at <= MAX_WORKOUT_PERFORMED_AT
+            if end is None
+            else Workout.performed_at < end
+        ),
+    ]
+    utc_day = func.date(func.timezone("UTC", Workout.performed_at)).label("day")
+    volume = func.sum(WorkoutSet.reps * WorkoutSet.load_value).label("volume")
+    rows = (
+        await database.execute(
+            select(
+                utc_day,
+                Exercise.id,
+                Exercise.name,
+                WorkoutSet.load_unit,
+                volume,
+            )
+            .join(
+                WorkoutSet,
+                and_(
+                    WorkoutSet.workout_id == Workout.id,
+                    WorkoutSet.user_id == Workout.user_id,
+                ),
+            )
+            .join(Exercise, Exercise.id == WorkoutSet.exercise_id)
+            .where(
+                Workout.user_id == current.user_id,
+                *time_conditions,
+                WorkoutSet.load_unit.in_(unit.value for unit in _VOLUME_UNITS),
+                WorkoutSet.load_value.is_not(None),
+            )
+            .group_by(utc_day, Exercise.id, Exercise.name, WorkoutSet.load_unit)
+            .order_by(utc_day, Exercise.name, Exercise.id, WorkoutSet.load_unit)
+        )
+    ).all()
+    return WorkoutTrendResponse(
+        from_date=from_date,
+        to_date=to_date,
+        items=[
+            WorkoutTrendPoint(
+                day=day,
+                exercise_id=exercise_id,
+                exercise_name=exercise_name,
+                load_unit=LoadUnit(load_unit),
+                volume=group_volume,
+            )
+            for day, exercise_id, exercise_name, load_unit, group_volume in rows
+        ],
     )
 
 

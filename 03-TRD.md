@@ -157,14 +157,17 @@ GET    /recipes/{id}       PUT /recipes/{id}        DELETE /recipes/{id}
 GET    /logs?day=&timezone=           POST /logs
 GET    /logs/{id}                     DELETE /logs/{id}
 GET    /logs/daily-totals?day=&timezone=
+GET    /logs/daily-totals/range?from=&to=&timezone=
 GET    /targets                         PUT /targets
 GET    /targets/resolve?day=&day_type=
 POST   /body-metrics       GET  /body-metrics?from=&to=       DELETE /body-metrics/{id}
+GET    /body-metrics/trends?from=&to=
 GET    /workouts?from=&to=&limit=&offset=       POST /workouts
 GET    /workouts/{id}       PUT /workouts/{id} DELETE /workouts/{id}
 POST   /workouts/{id}/sets
 PUT    /workouts/{id}/sets/{set_id}            DELETE /workouts/{id}/sets/{set_id}
 GET    /workouts/volume?from=&to=&exercise_id=&load_unit=
+GET    /workouts/trends?from=&to=
 GET    /export/me                       -- full user data, JSON
 GET    /export/foods/community          -- CC0 dump preserving source_uri/source_license/contributed_by
 GET    /export/foods/odbl               -- separate, attributed, only if integration enabled

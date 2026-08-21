@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.19.0.0] - 2026-08-20
+
+### Added
+
+- Review 7-, 30-, or 90-day nutrition, body-measurement, and strength history from a responsive authenticated Trends page.
+- Switch between calories, macros, body metric and unit pairs, or exercise and load-unit pairs without ever combining incompatible units.
+- Read every chart through a visible data table, operate all filters by keyboard, and get neutral empty and sparse-data states without diagnoses or coaching.
+- Query bounded, owner-scoped nutrition totals, latest daily body measurements, and daily exercise volume through dedicated trend APIs.
+
+### Changed
+
+- Keep nutrition aligned to the browser's IANA calendar while body and strength records retain their documented UTC date boundaries.
+- Aggregate body and workout trends on the server so opening Trends does not download full paginated workout and set histories.
+
+### Fixed
+
+- Ignore stale trend responses after a range change and preserve distinct timestamps for multiple body measurements.
+- Cover timezone boundaries, tenant isolation, range limits, unit separation, empty states, accessible controls, desktop and mobile journeys, and PostgreSQL aggregation with API, component, and Playwright tests.
+
 ## [0.18.0.0] - 2026-08-20
 
 ### Added

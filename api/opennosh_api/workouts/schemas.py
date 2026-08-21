@@ -205,3 +205,21 @@ class WorkoutVolumeResponse(BaseModel):
     @field_serializer("volume", when_used="json")
     def serialize_volume(self, value: Decimal | None) -> str | None:
         return None if value is None else format(value.quantize(LOAD_QUANTUM), "f")
+
+
+class WorkoutTrendPoint(BaseModel):
+    day: date
+    exercise_id: UUID
+    exercise_name: str
+    load_unit: LoadUnit
+    volume: Decimal
+
+    @field_serializer("volume", when_used="json")
+    def serialize_volume(self, value: Decimal) -> str:
+        return format(value.quantize(LOAD_QUANTUM), "f")
+
+
+class WorkoutTrendResponse(BaseModel):
+    from_date: date
+    to_date: date
+    items: list[WorkoutTrendPoint]

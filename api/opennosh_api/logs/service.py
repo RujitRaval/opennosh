@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opennosh_api.auth.dependencies import CurrentSession
 from opennosh_api.auth.tenant import delete_owned_resource, get_owned_resource
 from opennosh_api.logs.schemas import (
+    DailyTotalsRangeResponse,
     DailyTotalsResponse,
     FoodLogReference,
     FoodLogSource,
@@ -45,6 +46,7 @@ LOG_LIST_LIMIT_DEFAULT = 100
 LOG_LIST_LIMIT_MAX = 100
 LOG_LIST_OFFSET_MAX = 10_000
 TIMEZONE_MAX_LENGTH = 64
+DAILY_TOTALS_RANGE_DAYS_MAX = 90
 
 _SOURCE_TO_TABLE = {
     FoodLogSource.USDA: FoodSourceTable.REFERENCE,
@@ -460,4 +462,100 @@ async def daily_totals(
         entry_count=int(totals["entry_count"]),
         grams=Decimal(totals["grams"]),
         nutrients={code: Decimal(amount) for code, amount in totals["nutrients"].items()},
+    )
+
+
+async def daily_totals_range(
+    database: AsyncSession,
+    *,
+    from_date: date,
+    to_date: date,
+    timezone: ZoneInfo,
+    current: CurrentSession,
+) -> DailyTotalsRangeResponse:
+    if from_date > to_date:
+        raise FoodLogInputError("from must be on or before to")
+    day_count = (to_date - from_date).days + 1
+    if day_count > DAILY_TOTALS_RANGE_DAYS_MAX:
+        raise FoodLogInputError(
+            f"date range must not exceed {DAILY_TOTALS_RANGE_DAYS_MAX} days"
+        )
+
+    start, _ = utc_day_bounds(from_date, timezone)
+    _, end = utc_day_bounds(to_date, timezone)
+    rows = (
+        await database.execute(
+            text(
+                """
+                WITH scoped_entries AS MATERIALIZED (
+                    SELECT (logged_at AT TIME ZONE :timezone)::date AS local_day,
+                           grams,
+                           computed_nutrients_json
+                    FROM log_entries
+                    WHERE user_id = :user_id
+                      AND logged_at >= :start
+                      AND logged_at < :end
+                ),
+                summaries AS (
+                    SELECT local_day,
+                           count(*) AS entry_count,
+                           coalesce(sum(grams), 0) AS grams
+                    FROM scoped_entries
+                    GROUP BY local_day
+                ),
+                nutrient_totals AS (
+                    SELECT entry.local_day,
+                           nutrient.key AS code,
+                           sum((nutrient.value #>> '{}')::numeric) AS amount
+                    FROM scoped_entries AS entry
+                    CROSS JOIN LATERAL jsonb_each(
+                        entry.computed_nutrients_json -> 'nutrients'
+                    ) AS nutrient(key, value)
+                    GROUP BY entry.local_day, nutrient.key
+                )
+                SELECT summary.local_day,
+                       summary.entry_count,
+                       summary.grams,
+                       coalesce(
+                           (
+                               SELECT jsonb_object_agg(code, amount::text ORDER BY code)
+                               FROM nutrient_totals
+                               WHERE nutrient_totals.local_day = summary.local_day
+                           ),
+                           '{}'::jsonb
+                       ) AS nutrients
+                FROM summaries AS summary
+                ORDER BY summary.local_day
+                """
+            ),
+            {
+                "user_id": current.user_id,
+                "timezone": timezone.key,
+                "start": start,
+                "end": end,
+            },
+        )
+    ).mappings()
+    totals_by_day = {row["local_day"]: row for row in rows}
+    items: list[DailyTotalsResponse] = []
+    for offset in range(day_count):
+        day = from_date + timedelta(days=offset)
+        row = totals_by_day.get(day)
+        items.append(
+            DailyTotalsResponse(
+                day=day,
+                timezone=timezone.key,
+                entry_count=0 if row is None else int(row["entry_count"]),
+                grams=Decimal(0) if row is None else Decimal(row["grams"]),
+                nutrients={
+                    code: Decimal(amount)
+                    for code, amount in ({} if row is None else row["nutrients"]).items()
+                },
+            )
+        )
+    return DailyTotalsRangeResponse(
+        from_date=from_date,
+        to_date=to_date,
+        timezone=timezone.key,
+        items=items,
     )

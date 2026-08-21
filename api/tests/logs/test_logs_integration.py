@@ -306,6 +306,17 @@ def test_create_list_detail_totals_and_immutable_snapshot(log_clients: LogClient
     assert totals.json()["grams"] == "250.00"
     assert totals.json()["nutrients"]["energy_kcal"] == "430.00"
 
+    trend = log_clients.owner.get(
+        "/api/v1/logs/daily-totals/range",
+        params={"from": "2026-08-19", "to": "2026-08-21", "timezone": "UTC"},
+    )
+    assert trend.status_code == 200
+    assert trend.json()["from_date"] == "2026-08-19"
+    assert trend.json()["to_date"] == "2026-08-21"
+    assert trend.json()["timezone"] == "UTC"
+    assert [item["entry_count"] for item in trend.json()["items"]] == [0, 2, 0]
+    assert trend.json()["items"][1]["nutrients"]["energy_kcal"] == "430.00"
+
     assert INTEGRATION_DATABASE_URL is not None
     asyncio.run(_change_usda_food(INTEGRATION_DATABASE_URL))
     unchanged = log_clients.owner.get(f"/api/v1/logs/{first.json()['id']}")
@@ -383,6 +394,13 @@ def test_daily_queries_use_local_day_boundaries_across_dst(log_clients: LogClien
     assert new_york_totals.json()["timezone"] == "America/New_York"
     assert new_york_totals.json()["entry_count"] == 2
     assert new_york_totals.json()["grams"] == "100.00"
+    new_york_trend = log_clients.owner.get(
+        "/api/v1/logs/daily-totals/range",
+        params={"from": "2026-03-08", "to": "2026-03-08"},
+    )
+    assert new_york_trend.status_code == 200
+    assert new_york_trend.json()["timezone"] == "America/New_York"
+    assert new_york_trend.json()["items"][0]["entry_count"] == 2
     utc = log_clients.owner.get(
         "/api/v1/logs",
         params={"day": "2026-03-08", "timezone": "UTC"},
@@ -438,6 +456,12 @@ def test_every_log_endpoint_is_tenant_isolated(log_clients: LogClients) -> None:
     assert attacker_totals.json()["entry_count"] == 0
     assert attacker_totals.json()["grams"] == "0.00"
     assert attacker_totals.json()["nutrients"] == {}
+    attacker_trend = log_clients.attacker.get(
+        "/api/v1/logs/daily-totals/range",
+        params={"from": "2026-08-19", "to": "2026-08-21", "timezone": "UTC"},
+    )
+    assert attacker_trend.status_code == 200
+    assert [item["entry_count"] for item in attacker_trend.json()["items"]] == [0, 0, 0]
     assert (
         log_clients.attacker.delete(
             f"/api/v1/logs/{entry_id}",
@@ -531,3 +555,17 @@ def test_log_validation_and_authentication_errors_are_stable(log_clients: LogCli
         response = log_clients.owner.get(path, params=params)
         assert response.status_code == 422
         assert response.json()["detail"] == "day is outside the supported timezone range"
+
+    for params, detail in (
+        (
+            {"from": "2026-08-21", "to": "2026-08-20", "timezone": "UTC"},
+            "from must be on or before to",
+        ),
+        (
+            {"from": "2026-01-01", "to": "2026-04-01", "timezone": "UTC"},
+            "date range must not exceed 90 days",
+        ),
+    ):
+        response = log_clients.owner.get("/api/v1/logs/daily-totals/range", params=params)
+        assert response.status_code == 422
+        assert response.json()["detail"] == detail

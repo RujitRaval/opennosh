@@ -88,4 +88,5 @@ def test_openapi_registers_all_food_log_operations() -> None:
 
     assert {"get", "post"}.issubset(paths["/api/v1/logs"])
     assert paths["/api/v1/logs/daily-totals"]["get"]
+    assert paths["/api/v1/logs/daily-totals/range"]["get"]
     assert {"get", "delete"}.issubset(paths["/api/v1/logs/{entry_id}"])

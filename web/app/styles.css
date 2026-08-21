@@ -341,6 +341,27 @@ select {
   gap: 0.75rem;
 }
 
+.primary-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.primary-nav a {
+  min-height: 2.75rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--muted);
+  border-radius: 0.5rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primary-nav a:hover,
+.primary-nav a[aria-current="page"] {
+  color: var(--leaf-dark);
+  background: var(--surface-soft);
+}
+
 .account-email {
   max-width: 16rem;
   overflow: hidden;
@@ -370,6 +391,157 @@ select {
   font-weight: 500;
   letter-spacing: -0.055em;
   line-height: 1;
+}
+
+.trends-lede {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.range-control {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+}
+
+.range-control legend {
+  margin-bottom: 0.4rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.range-control label {
+  position: relative;
+}
+
+.range-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.range-control span {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.range-control input:checked + span {
+  color: white;
+  background: var(--leaf);
+  border-color: var(--leaf);
+}
+
+.range-control input:focus-visible + span {
+  outline: 3px solid #b65b16;
+  outline-offset: 3px;
+}
+
+.range-note {
+  margin: 1.5rem 0 0;
+  padding: 0.75rem 1rem;
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-radius: 0.5rem;
+  font-size: 0.88rem;
+}
+
+.trends-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.trend-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgb(31 54 42 / 6%);
+}
+
+.trend-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.trend-heading h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.trend-heading p:not(.section-kicker) {
+  max-width: 42rem;
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+}
+
+.trend-filter {
+  display: grid;
+  min-width: min(100%, 18rem);
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.trend-filter select {
+  min-height: 2.75rem;
+  padding: 0.55rem 2rem 0.55rem 0.7rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+}
+
+.trend-card > .notice {
+  margin-top: 1rem;
+}
+
+.trend-chart {
+  display: flex;
+  height: 12rem;
+  align-items: end;
+  gap: clamp(1px, 0.4vw, 0.35rem);
+  margin-top: 1.5rem;
+  padding: 1rem 1rem 0;
+  background: linear-gradient(to top, var(--line) 1px, transparent 1px) 0 0 / 100% 25%;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.trend-bar {
+  min-width: 2px;
+  flex: 1;
+  background: var(--leaf);
+  border-radius: 0.2rem 0.2rem 0 0;
+}
+
+.trend-bar-empty {
+  background: var(--line);
+}
+
+.trend-table {
+  margin-top: 1rem;
+}
+
+.trend-table tbody th {
+  text-transform: none;
 }
 
 .day-controls {
@@ -1146,6 +1318,17 @@ tbody tr:last-child td {
     display: none;
   }
 
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .primary-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    border-top: 1px solid var(--line);
+  }
+
   .day-header {
     align-items: start;
   }
@@ -1153,6 +1336,16 @@ tbody tr:last-child td {
   .day-controls {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .trend-heading,
+  .trends-shell .day-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .range-control {
+    align-self: start;
   }
 
   .date-nav {

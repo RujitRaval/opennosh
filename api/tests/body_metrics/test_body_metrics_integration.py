@@ -160,6 +160,52 @@ def test_create_list_paginate_and_delete_private_body_metrics(
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_trends_are_bounded_tenant_isolated_and_keep_latest_daily_value(
+    body_metric_clients: BodyMetricClients,
+) -> None:
+    earlier = _post(
+        body_metric_clients.owner,
+        body_metric_clients.owner_csrf,
+        recorded_at="2026-08-20T08:00:00Z",
+        value="81",
+    )
+    latest = _post(
+        body_metric_clients.owner,
+        body_metric_clients.owner_csrf,
+        recorded_at="2026-08-20T20:00:00Z",
+        value="80",
+    )
+    pounds = _post(
+        body_metric_clients.owner,
+        body_metric_clients.owner_csrf,
+        recorded_at="2026-08-20T12:00:00Z",
+        value="176",
+        unit="lb",
+    )
+    assert earlier.status_code == latest.status_code == pounds.status_code == 201
+
+    response = body_metric_clients.owner.get(
+        "/api/v1/body-metrics/trends",
+        params={"from": "2026-08-20", "to": "2026-08-20"},
+    )
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        pounds.json()["id"],
+        latest.json()["id"],
+    ]
+    assert body_metric_clients.attacker.get(
+        "/api/v1/body-metrics/trends",
+        params={"from": "2026-08-20", "to": "2026-08-20"},
+    ).json()["items"] == []
+    too_wide = body_metric_clients.owner.get(
+        "/api/v1/body-metrics/trends",
+        params={"from": "2026-05-22", "to": "2026-08-20"},
+    )
+    assert too_wide.status_code == 422
+    assert too_wide.json()["detail"] == "date range must contain at most 90 days"
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_all_operations_are_authenticated_csrf_protected_and_tenant_isolated(
     body_metric_clients: BodyMetricClients,
 ) -> None:

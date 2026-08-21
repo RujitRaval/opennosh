@@ -14,10 +14,12 @@ from opennosh_api.body_metrics.constants import (
 from opennosh_api.body_metrics.schemas import (
     BodyMetricListResponse,
     BodyMetricResponse,
+    BodyMetricTrendResponse,
     BodyMetricWrite,
 )
 from opennosh_api.body_metrics.service import (
     BodyMetricInputError,
+    body_metric_trends,
     create_body_metric,
     delete_body_metric,
     list_body_metrics,
@@ -55,6 +57,26 @@ async def list_all(
             current=current,
             limit=limit,
             offset=offset,
+        )
+    except BodyMetricInputError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        ) from error
+
+
+@router.get("/trends", response_model=BodyMetricTrendResponse)
+async def trends(
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    from_date: Annotated[date, Query(alias="from")],
+    to_date: Annotated[date, Query(alias="to")],
+) -> BodyMetricTrendResponse:
+    try:
+        return await body_metric_trends(
+            database,
+            from_date=from_date,
+            to_date=to_date,
+            current=current,
         )
     except BodyMetricInputError as error:
         raise HTTPException(
