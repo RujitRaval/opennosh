@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.20.0.0] - 2026-08-21
+
+### Added
+
+- Protect health-sensitive nutrition, target, body-metric, and strength interactions with an approved screen-and-state review covering every currently available surface.
+- Detect streaks, praise or blame, scores, guilt, food moralising, target judgement, compensatory exercise, automatic coaching, medical interpretation, social comparison, and fasting optimisation in user-facing web copy.
+- Preserve the human reviewer, reviewed commit, approved inventory, and future settings, body-entry, and workout-entry follow-ups in a durable review record.
+
+### Changed
+
+- Explain below-floor calorie targets with neutral copy that names the configured floor and the deliberate confirmation needed to save the entered value.
+- Filter API error details through the same health-safety rules before displaying them, with neutral retry copy when a prohibited pattern appears.
+- Ignore local `.gstack` artifacts during documentation validation so generated review files cannot interfere with repository checks.
+
+### Fixed
+
+- Inspect concatenated strings and template-interpolated text so routine TypeScript composition cannot bypass prohibited-copy checks.
+- Cover canonical “you went over/under” wording, safe API-detail preservation, neutral near-misses, and equal below/above-target DOM treatment with regression tests.
+
 ## [0.19.0.0] - 2026-08-20
 
 ### Added
