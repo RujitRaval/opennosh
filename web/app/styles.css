@@ -105,7 +105,7 @@ button:disabled {
   margin: 0 auto;
   padding: 1rem 0 2rem;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 1rem;
   text-align: center;
 }
 
