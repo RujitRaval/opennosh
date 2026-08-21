@@ -6,8 +6,9 @@ All notable changes to opennosh will be documented in this file.
 
 ### Changed
 
-- Verify a clean clone on an independent Ubuntu 24.04 machine using only the public repository,
-  `.env.example`, and documented Docker Compose command.
+- Confirm the documented Docker Compose quick start works from a clean clone on an independent
+  Ubuntu 24.04 machine; the reproducible procedure and evidence are in
+  [`docs/clean-install-verification.md`](docs/clean-install-verification.md).
 - Record healthy PostgreSQL, API, web, and ingress services; the current Alembic head; successful LAN
   browser journeys; and persisted account and nutrition data after a full Compose restart.
 - Mark the independent-machine launch check complete and retain the expected missing-target console

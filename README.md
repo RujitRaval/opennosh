@@ -495,6 +495,7 @@ were omitted.
 | `docs/license-notice-review.md` | Approved source-by-source notice matrix and release-artifact inventory | Project owner + release reviewer |
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |
 | `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
+| `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
@@ -506,7 +507,7 @@ were omitted.
 | `SECURITY.md` | Private vulnerability-reporting process | Security reporters + maintainers |
 | `AUTHORS.md` | Maintainer and contributor credit | Contributors + users |
 | `CHANGELOG.md` | Versioned record of shipped changes | Users + maintainers |
-| `TODOS.md` | Open distribution work plus completed launch-readiness and operational records | Maintainers |
+| `TODOS.md` | Open follow-up work plus completed launch-readiness and operational records | Maintainers |
 
 ---
 
