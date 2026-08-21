@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -17,6 +17,15 @@ test: foodpack-validate
 	python3 -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
 	npm --prefix web test
+
+package-check:
+	python3 scripts/check_packages.py
+	uv build --out-dir dist
+	python3 scripts/check_python_distribution.py dist
+	uv run python scripts/check_installed_python_distribution.py dist/opennosh-$$(cat VERSION)-py3-none-any.whl
+	npm --prefix packages/npm ci --ignore-scripts
+	npm --prefix packages/npm test
+	cd packages/npm && npm pack --dry-run
 
 web-e2e:
 	npm --prefix web run test:e2e

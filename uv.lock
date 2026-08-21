@@ -918,8 +918,7 @@ wheels = [
 ]
 
 [[package]]
-name = "opennosh-api"
-version = "0.1.0.0"
+name = "opennosh"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

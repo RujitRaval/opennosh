@@ -1,0 +1,166 @@
+name: publish packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-packages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: validate release packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+          enable-cache: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Verify release tag
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$(cat VERSION)"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Restrict manual publishing to main
+        if: github.event_name == 'workflow_dispatch'
+        run: test "$GITHUB_REF" = "refs/heads/main"
+
+      - name: Validate package identities
+        run: python3 scripts/check_packages.py
+
+      - name: Build and inspect Python artifacts
+        run: |
+          uv build --out-dir dist
+          python3 scripts/check_python_distribution.py dist
+          uv run python scripts/check_installed_python_distribution.py \
+            "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
+
+      - name: Test and inspect npm artifact
+        working-directory: packages/npm
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm pack --dry-run
+
+  pypi:
+    name: publish opennosh to PyPI
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/opennosh/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+          enable-cache: false
+
+      - name: Build Python artifacts
+        run: |
+          uv build --out-dir dist
+          python3 scripts/check_python_distribution.py dist
+          uv run python scripts/check_installed_python_distribution.py \
+            "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
+
+      - name: Check whether this version already exists
+        id: pypi
+        run: |
+          PACKAGE_VERSION="$(cat VERSION)"
+          if curl --fail --silent --show-error \
+            "https://pypi.org/pypi/opennosh/$PACKAGE_VERSION/json" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to PyPI with trusted publishing
+        if: steps.pypi.outputs.exists != 'true'
+        run: uv publish --trusted-publishing always dist/*
+
+  npm:
+    name: publish opennosh to npm
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/opennosh
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Test npm package
+        working-directory: packages/npm
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm pack --dry-run
+
+      - name: Check whether this version already exists
+        id: npm
+        working-directory: packages/npm
+        run: |
+          PACKAGE_VERSION="$(node --print "require('./package.json').version")"
+          if npm view "opennosh@$PACKAGE_VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm with trusted publishing
+        if: steps.npm.outputs.exists != 'true'
+        working-directory: packages/npm
+        run: npm publish --access public

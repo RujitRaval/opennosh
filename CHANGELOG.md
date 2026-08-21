@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.22.0.0] - 2026-08-21
+
+### Added
+
+- Install the Python API and data-management command from the canonical `opennosh` distribution.
+- Bootstrap a non-destructive local checkout with `npx opennosh init`, including clear setup handoff instead of automatic service or configuration changes.
+- Publish tested PyPI and npm artifacts from `main` or an ancestry-verified release tag using restricted GitHub environments, short-lived OIDC credentials, and automatic provenance.
+
+### Changed
+
+- Derive Python package metadata from the repository `VERSION`, translate its first three components for npm, and verify both public identities in CI.
+- Record the first-release authentication flow, registry ownership boundaries, retry behavior, and post-publication evidence checklist without storing credentials.
+
+### Fixed
+
+- Include the food-pack schema and all approved license and notice files in built Python artifacts.
+- Read the installed distribution version when the repository-level `VERSION` file is unavailable.
+
 ## [0.21.0.2] - 2026-08-21
 
 ### Added

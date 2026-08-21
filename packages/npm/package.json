@@ -1,0 +1,36 @@
+{
+  "name": "opennosh",
+  "version": "0.22.0",
+  "description": "Bootstrap a local OpenNosh nutrition and strength tracker checkout.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "opennosh": "bin/opennosh.mjs"
+  },
+  "files": [
+    "bin",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RujitRaval/opennosh.git",
+    "directory": "packages/npm"
+  },
+  "homepage": "https://opennosh.org",
+  "bugs": "https://github.com/RujitRaval/opennosh/issues",
+  "keywords": [
+    "nutrition",
+    "self-hosted",
+    "strength"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

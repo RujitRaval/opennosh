@@ -46,6 +46,9 @@ jobs:
       - name: Run repository tests
         run: python3 -m unittest discover -s tests -v
 
+      - name: Validate public package identities
+        run: python3 scripts/check_packages.py
+
       - name: Validate Markdown documents
         run: python3 scripts/check_docs.py
 
@@ -103,6 +106,13 @@ jobs:
       - name: Test API
         run: uv run pytest api/tests
 
+      - name: Build and inspect Python distribution
+        run: |
+          uv build --out-dir dist
+          python3 scripts/check_python_distribution.py dist
+          uv run python scripts/check_installed_python_distribution.py \
+            "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
+
   web:
     name: web checks
     runs-on: ubuntu-latest
@@ -130,6 +140,13 @@ jobs:
 
       - name: Test web app
         run: npm --prefix web test
+
+      - name: Test npm bootstrap package
+        working-directory: packages/npm
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          npm pack --dry-run
 
       - name: Build web app
         run: npm --prefix web run build
