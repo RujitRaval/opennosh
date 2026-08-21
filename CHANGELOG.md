@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.23.0.0] - 2026-08-21
+
+### Added
+
+- Install four starter food packs with 165 entries for Gujarati home cooking, North Indian staples,
+  common vegetarian proteins, and supplements and powders.
+- Trace 144 entries to pinned USDA FoodData Central releases and disclose the source ingredients,
+  cooked yields, and calculations behind 21 recipe-derived entries.
+- Rebuild every committed entry deterministically from local copies of the official source releases.
+
+### Changed
+
+- Show visible contributor credit and document pack counts, source checksums, validation results,
+  representative nutrient checks, limitations, and the public-domain data boundary.
+
 ## [0.22.0.3] - 2026-08-21
 
 ### Added

@@ -1,0 +1,10 @@
+id: indian-staples-north
+name: North Indian staples
+description: Common North Indian grains, breads, legumes, vegetables, dairy, and dishes selected from
+  USDA FoodData Central.
+version: 1.0.0
+locale: en-IN
+license: CC0-1.0
+maintainers:
+- github: RujitRaval
+entry_count: 60

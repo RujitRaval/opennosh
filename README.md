@@ -61,6 +61,20 @@ uv run opennosh foods load ./packs --json
 The loader commits valid entries, reports and skips invalid entries, treats an unchanged pack as a
 no-op, and refuses to overwrite a newer pack version.
 
+### Starter food packs
+
+opennosh ships four CC0 starter packs with 165 entries:
+
+- 50 Gujarati home-cooking foods;
+- 60 North Indian staples;
+- 30 common vegetarian proteins; and
+- 25 generic supplements and powders.
+
+All 144 government-database entries link to an exact USDA FoodData Central record. The 21
+calculated entries disclose component weights, FDC IDs, and cooked yield. Every entry has visible
+credit and a named portion. See [the source, spot-check, checksum, and zero-warning validation
+evidence](docs/starter-pack-quality.md).
+
 ### Food search API
 
 Search USDA reference foods and CC0 community foods without combining their source records:

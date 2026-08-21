@@ -1,0 +1,1305 @@
+- slug: gujarati-buttermilk
+  name: Buttermilk
+  category: dairy
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705393/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705393. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.46
+    fat_g: 1.08
+    carbohydrate_g: 4.81
+    energy_kcal: 43
+    sugars_g: 5.36
+    fiber_g: 0
+    sodium_mg: 92
+    saturated_fat_g: 0.55
+  portions:
+  - name: 1 cup
+    grams: 244
+- slug: gujarati-yogurt-whole-milk-plain
+  name: Yogurt, whole milk, plain
+  category: dairy
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705418/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705418. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.82
+    fat_g: 4.48
+    carbohydrate_g: 5.57
+    energy_kcal: 78
+    sugars_g: 4.09
+    fiber_g: 0
+    sodium_mg: 42
+    saturated_fat_g: 2.32
+  portions:
+  - name: 1 cup
+    grams: 245
+- slug: gujarati-firni-indian-pudding
+  name: Firni, Indian pudding
+  category: sweet
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705686/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705686. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.58
+    fat_g: 3.11
+    carbohydrate_g: 25.1
+    energy_kcal: 144
+    sugars_g: 15.7
+    fiber_g: 0.3
+    sodium_mg: 30
+    saturated_fat_g: 1.49
+  portions:
+  - name: 1 cup
+    grams: 260
+- slug: gujarati-barfi-or-burfi-indian-dessert
+  name: Barfi or Burfi, Indian dessert
+  category: sweet
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2705700/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2705700. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.42
+    fat_g: 11.4
+    carbohydrate_g: 40.4
+    energy_kcal: 284
+    sugars_g: 37
+    fiber_g: 0.4
+    sodium_mg: 71
+    saturated_fat_g: 6.11
+  portions:
+  - name: 1 piece
+    grams: 45
+- slug: gujarati-dal
+  name: Dal
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707427/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707427. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 8.6
+    fat_g: 4.31
+    carbohydrate_g: 19.2
+    energy_kcal: 145
+    sugars_g: 1.71
+    fiber_g: 7.5
+    sodium_mg: 309
+    saturated_fat_g: 2.51
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: gujarati-lentil-curry
+  name: Lentil curry
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707431/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707431. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.68
+    fat_g: 5.65
+    carbohydrate_g: 12.3
+    energy_kcal: 111
+    sugars_g: 3.21
+    fiber_g: 3.4
+    sodium_mg: 383
+    saturated_fat_g: 1.29
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: gujarati-lentil-curry-with-rice
+  name: Lentil curry with rice
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707432/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707432. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.28
+    fat_g: 3.5
+    carbohydrate_g: 18.6
+    energy_kcal: 118
+    sugars_g: 1.95
+    fiber_g: 2.2
+    sodium_mg: 328
+    saturated_fat_g: 0.8
+  portions:
+  - name: 1 cup
+    grams: 200
+- slug: gujarati-bread-chappatti-or-roti
+  name: Bread, chappatti or roti
+  category: grain
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2707713/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2707713. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 7.85
+    fat_g: 9.2
+    carbohydrate_g: 46.1
+    energy_kcal: 299
+    sugars_g: 2.93
+    fiber_g: 9.7
+    sodium_mg: 298
+    saturated_fat_g: 3.31
+  portions:
+  - name: 1 small chappatti or roti (6")
+    grams: 27
+- slug: gujarati-idli
+  name: Idli
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708346/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708346. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 6.36
+    fat_g: 0.35
+    carbohydrate_g: 25
+    energy_kcal: 128
+    sugars_g: 1.85
+    fiber_g: 5.8
+    sodium_mg: 252
+    saturated_fat_g: 0.06
+  portions:
+  - name: 1 item
+    grams: 38
+- slug: gujarati-dosa-plain
+  name: Dosa, plain
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708347/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708347. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.7
+    fat_g: 4.05
+    carbohydrate_g: 37
+    energy_kcal: 210
+    sugars_g: 0.3
+    fiber_g: 1.8
+    sodium_mg: 309
+    saturated_fat_g: 0.58
+  portions:
+  - name: 1 small
+    grams: 35
+- slug: gujarati-biryani-with-vegetables
+  name: Biryani with vegetables
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2708985/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2708985. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.93
+    fat_g: 3.2
+    carbohydrate_g: 17.9
+    energy_kcal: 109
+    sugars_g: 1.18
+    fiber_g: 1.2
+    sodium_mg: 177
+    saturated_fat_g: 1.7
+  portions:
+  - name: 1 cup
+    grams: 172
+- slug: gujarati-rice-white-with-lentils-fat-added
+  name: Rice, white, with lentils, fat added
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709030/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709030. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.5
+    fat_g: 4.83
+    carbohydrate_g: 21.4
+    energy_kcal: 150
+    sugars_g: 1.29
+    fiber_g: 4.1
+    sodium_mg: 189
+    saturated_fat_g: 0.66
+  portions:
+  - name: 1 cup
+    grams: 207
+- slug: gujarati-rice-white-with-lentils-no-added-fat
+  name: Rice, white, with lentils, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709031/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709031. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.76
+    fat_g: 0.33
+    carbohydrate_g: 22.4
+    energy_kcal: 115
+    sugars_g: 1.35
+    fiber_g: 4.3
+    sodium_mg: 198
+    saturated_fat_g: 0.06
+  portions:
+  - name: 1 cup
+    grams: 198
+- slug: gujarati-upma
+  name: Upma
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709128/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709128. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.98
+    fat_g: 2.64
+    carbohydrate_g: 13.8
+    energy_kcal: 87
+    sugars_g: 1.61
+    fiber_g: 1.3
+    sodium_mg: 98
+    saturated_fat_g: 0.36
+  portions:
+  - name: 1 cup, cooked
+    grams: 170
+- slug: gujarati-dosa-with-filling
+  name: Dosa, with filling
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709129/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709129. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 5.46
+    fat_g: 4.27
+    carbohydrate_g: 30.8
+    energy_kcal: 184
+    sugars_g: 1.1
+    fiber_g: 2.2
+    sodium_mg: 330
+    saturated_fat_g: 0.58
+  portions:
+  - name: 1 small
+    grams: 113
+- slug: gujarati-chutney
+  name: Chutney
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709309/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709309. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.33
+    fat_g: 0.06
+    carbohydrate_g: 60.6
+    energy_kcal: 246
+    sugars_g: 42.7
+    fiber_g: 1
+    sodium_mg: 802
+    saturated_fat_g: 0.01
+  portions:
+  - name: 1 tablespoon
+    grams: 16
+- slug: gujarati-pakora
+  name: Pakora
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710066/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710066. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 4.92
+    fat_g: 4.77
+    carbohydrate_g: 16.2
+    energy_kcal: 125
+    sugars_g: 2.97
+    fiber_g: 3.2
+    sodium_mg: 380
+    saturated_fat_g: 0.6
+  portions:
+  - name: 1 pakora
+    grams: 12
+- slug: gujarati-vegetable-curry
+  name: Vegetable curry
+  category: prepared_dish
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710067/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710067. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.6
+    fat_g: 5.27
+    carbohydrate_g: 8.81
+    energy_kcal: 86
+    sugars_g: 3.18
+    fiber_g: 1.8
+    sodium_mg: 388
+    saturated_fat_g: 1.26
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: gujarati-vegetable-curry-with-rice
+  name: Vegetable curry with rice
+  category: grain
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710068/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710068. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.03
+    fat_g: 3.27
+    carbohydrate_g: 16.5
+    energy_kcal: 103
+    sugars_g: 1.93
+    fiber_g: 1.3
+    sodium_mg: 331
+    saturated_fat_g: 0.78
+  portions:
+  - name: 1 cup
+    grams: 200
+- slug: gujarati-spinach-fresh-cooked-no-added-fat
+  name: Spinach, fresh, cooked, no added fat
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709615/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709615. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.41
+    fat_g: 0.7
+    carbohydrate_g: 3.1
+    energy_kcal: 33
+    sugars_g: 0.49
+    fiber_g: 1.9
+    sodium_mg: 262
+    saturated_fat_g: 0.07
+  portions:
+  - name: 1 cup
+    grams: 180
+- slug: gujarati-spinach-fresh-cooked-with-oil
+  name: Spinach, fresh, cooked with oil
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709618/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709618. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.31
+    fat_g: 4.1
+    carbohydrate_g: 3.01
+    energy_kcal: 63
+    sugars_g: 0.48
+    fiber_g: 1.8
+    sodium_mg: 254
+    saturated_fat_g: 0.53
+  portions:
+  - name: 1 cup
+    grams: 185
+- slug: gujarati-carrots-fresh-cooked-no-added-fat
+  name: Carrots, fresh, cooked, no added fat
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709664/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709664. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 0.98
+    fat_g: 0.36
+    carbohydrate_g: 10.7
+    energy_kcal: 50
+    sugars_g: 4.92
+    fiber_g: 3.2
+    sodium_mg: 211
+    saturated_fat_g: 0.03
+  portions:
+  - name: 1 cup
+    grams: 155
+- slug: gujarati-pumpkin-cooked
+  name: Pumpkin, cooked
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709692/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709692. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.05
+    fat_g: 2.84
+    carbohydrate_g: 6.77
+    energy_kcal: 52
+    sugars_g: 2.88
+    fiber_g: 0.5
+    sodium_mg: 131
+    saturated_fat_g: 0.77
+  portions:
+  - name: 1 cup
+    grams: 230
+- slug: gujarati-tomatoes-fresh-cooked
+  name: Tomatoes, fresh, cooked
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709721/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709721. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.08
+    fat_g: 3.42
+    carbohydrate_g: 4.71
+    energy_kcal: 50
+    sugars_g: 3.19
+    fiber_g: 1.5
+    sodium_mg: 157
+    saturated_fat_g: 0.87
+  portions:
+  - name: 1 cup
+    grams: 240
+- slug: gujarati-cabbage-green-cooked-no-added-fat
+  name: Cabbage, green, cooked, no added fat
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709889/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709889. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1
+    fat_g: 0.24
+    carbohydrate_g: 6.63
+    energy_kcal: 32
+    sugars_g: 3.32
+    fiber_g: 2.6
+    sodium_mg: 137
+    saturated_fat_g: 0.04
+  portions:
+  - name: 1 cup
+    grams: 150
+- slug: gujarati-cauliflower-fresh-cooked-with-oil
+  name: Cauliflower, fresh, cooked with oil
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709902/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709902. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.94
+    fat_g: 3.31
+    carbohydrate_g: 5.01
+    energy_kcal: 52
+    sugars_g: 1.93
+    fiber_g: 2
+    sodium_mg: 147
+    saturated_fat_g: 0.54
+  portions:
+  - name: 1 cup
+    grams: 160
+- slug: gujarati-eggplant-cooked-fat-added
+  name: Eggplant, cooked, fat added
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709930/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709930. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.03
+    fat_g: 2.92
+    carbohydrate_g: 6.13
+    energy_kcal: 51
+    sugars_g: 3.68
+    fiber_g: 3.1
+    sodium_mg: 132
+    saturated_fat_g: 0.75
+  portions:
+  - name: 1 cup
+    grams: 100
+- slug: gujarati-okra-ns-as-to-form-cooked
+  name: Okra, NS as to form, cooked
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709946/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709946. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 2.02
+    fat_g: 2.94
+    carbohydrate_g: 7.76
+    energy_kcal: 59
+    sugars_g: 1.55
+    fiber_g: 3.3
+    sodium_mg: 137
+    saturated_fat_g: 0.74
+  portions:
+  - name: 1 cup
+    grams: 165
+- slug: gujarati-onions-cooked-no-added-fat
+  name: Onions, cooked, no added fat
+  category: vegetable
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2709950/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2709950. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 1.29
+    fat_g: 0.12
+    carbohydrate_g: 11
+    energy_kcal: 47
+    sugars_g: 4.97
+    fiber_g: 2
+    sodium_mg: 141
+    saturated_fat_g: 0.05
+  portions:
+  - name: 1 cup
+    grams: 210
+- slug: gujarati-peas-and-corn-cooked-no-added-fat
+  name: Peas and corn, cooked, no added fat
+  category: legume
+  tags:
+  - vegetarian
+  - gujarati
+  - usda
+  contributed_by: RujitRaval
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/2710026/nutrients
+  source_license: CC0-1.0
+  source_note: USDA FoodData Central FNDDS 2021–2023 bulk release 2024-10-31, FDC ID 2710026. Nutrient
+    values are reproduced from the public-domain record. The household portion weight is also from that
+    record.
+  basis: per_100g
+  nutrients:
+    protein_g: 3.84
+    fat_g: 0.47
+    carbohydrate_g: 16.7
+    energy_kcal: 79
+    sugars_g: 3.72
+    fiber_g: 3.4
+    sodium_mg: 152
+    saturated_fat_g: 0.08
+  portions:
+  - name: 1 cup
+    grams: 160
+- slug: gujarati-plain-thepla
+  name: Plain thepla
+  category: bread
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: whole-wheat flour (FDC 168893) 100 g; plain whole-milk yogurt
+    (FDC 171284) 30 g; canola oil (FDC 172336) 12 g; fenugreek seed (FDC 171324) 3 g; turmeric (FDC 172231)
+    1 g. Water and seasonings without material energy are omitted. Cooked yield: 175 g. Values are per
+    100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 272.7
+    protein_g: 8.59
+    fat_g: 8.97
+    carbohydrate_g: 43.33
+  portions:
+  - name: 1 thepla
+    grams: 44
+- slug: gujarati-besan-chilla
+  name: Besan chilla
+  category: bread
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: chickpea flour (FDC 174288) 100 g; onion (FDC 170000) 20 g; tomato
+    (FDC 170457) 20 g; canola oil (FDC 172336) 8 g. Water and seasonings without material energy are omitted.
+    Cooked yield: 230 g. Values are per 100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 204.1
+    protein_g: 9.91
+    fat_g: 6.41
+    carbohydrate_g: 26.28
+  portions:
+  - name: 1 chilla
+    grams: 58
+- slug: gujarati-dhokla
+  name: Dhokla
+  category: snack
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: chickpea flour (FDC 174288) 100 g; plain whole-milk yogurt (FDC
+    171284) 40 g; canola oil (FDC 172336) 8 g; sesame seed (FDC 170150) 3 g. Water and seasonings without
+    material energy are omitted. Cooked yield: 245 g. Values are per 100 g and rounded to two decimals;
+    actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 203.8
+    protein_g: 9.93
+    fat_g: 7.14
+    carbohydrate_g: 24.64
+  portions:
+  - name: 1 piece
+    grams: 31
+- slug: gujarati-khaman
+  name: Khaman
+  category: snack
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: chickpea flour (FDC 174288) 100 g; canola oil (FDC 172336) 10
+    g; sesame seed (FDC 170150) 3 g. Water and seasonings without material energy are omitted. Cooked
+    yield: 225 g. Values are per 100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 218.9
+    protein_g: 10.19
+    fat_g: 8.08
+    carbohydrate_g: 26
+  portions:
+  - name: 1 piece
+    grams: 28
+- slug: gujarati-handvo
+  name: Handvo
+  category: savory_cake
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: white rice (FDC 169756) 60 g; mung beans (FDC 174256) 40 g; plain
+    whole-milk yogurt (FDC 171284) 40 g; summer squash (FDC 170487) 50 g; canola oil (FDC 172336) 10 g.
+    Water and seasonings without material energy are omitted. Cooked yield: 305 g. Values are per 100
+    g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 156.9
+    protein_g: 5.19
+    fat_g: 4.02
+    carbohydrate_g: 25.11
+  portions:
+  - name: 1 wedge
+    grams: 76
+- slug: gujarati-khandvi
+  name: Khandvi
+  category: snack
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: chickpea flour (FDC 174288) 80 g; plain whole-milk yogurt (FDC
+    171284) 200 g; canola oil (FDC 172336) 8 g; sesame seed (FDC 170150) 3 g. Water and seasonings without
+    material energy are omitted. Cooked yield: 265 g. Values are per 100 g and rounded to two decimals;
+    actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 196
+    protein_g: 9.58
+    fat_g: 8.05
+    carbohydrate_g: 21.23
+  portions:
+  - name: 6 rolls
+    grams: 66
+- slug: gujarati-dudhi-muthiya
+  name: Dudhi muthiya (summer-squash model)
+  category: snack
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: whole-wheat flour (FDC 168893) 40 g; chickpea flour (FDC 174288)
+    60 g; summer squash (FDC 170487) 70 g; canola oil (FDC 172336) 8 g. Water and seasonings without material
+    energy are omitted. Cooked yield: 225 g. Values are per 100 g and rounded to two decimals; actual
+    home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 200.1
+    protein_g: 8.7
+    fat_g: 5.84
+    carbohydrate_g: 29.26
+  portions:
+  - name: 4 muthiya pieces
+    grams: 56
+- slug: gujarati-moong-khichdi
+  name: Moong dal khichdi
+  category: rice_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: white rice (FDC 169756) 80 g; mung beans (FDC 174256) 60 g; canola
+    oil (FDC 172336) 5 g; turmeric (FDC 172231) 1 g. Water and seasonings without material energy are
+    omitted. Cooked yield: 425 g. Values are per 100 g and rounded to two decimals; actual home recipes
+    vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 128.8
+    protein_g: 4.74
+    fat_g: 1.47
+    carbohydrate_g: 24.05
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-vaghareli-khichdi
+  name: Vaghareli khichdi
+  category: rice_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: white rice (FDC 169756) 80 g; mung beans (FDC 174256) 60 g; carrot
+    (FDC 170393) 40 g; onion (FDC 170000) 30 g; canola oil (FDC 172336) 12 g. Water and seasonings without
+    material energy are omitted. Cooked yield: 475 g. Values are per 100 g and rounded to two decimals;
+    actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 133.6
+    protein_g: 4.37
+    fat_g: 2.81
+    carbohydrate_g: 22.78
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-tuvar-dal
+  name: Gujarati tuvar dal
+  category: dal
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: pigeon peas (FDC 172436) 100 g; tomato (FDC 170457) 50 g; onion
+    (FDC 170000) 30 g; canola oil (FDC 172336) 8 g; turmeric (FDC 172231) 1 g. Water and seasonings without
+    material energy are omitted. Cooked yield: 405 g. Values are per 100 g and rounded to two decimals;
+    actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 108.1
+    protein_g: 5.57
+    fat_g: 2.38
+    carbohydrate_g: 16.84
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-kadhi
+  name: Gujarati kadhi
+  category: dal
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: plain whole-milk yogurt (FDC 171284) 300 g; chickpea flour (FDC
+    174288) 30 g; canola oil (FDC 172336) 8 g; ginger (FDC 169231) 4 g. Water and seasonings without material
+    energy are omitted. Cooked yield: 365 g. Values are per 100 g and rounded to two decimals; actual
+    home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 102.2
+    protein_g: 4.71
+    fat_g: 5.42
+    carbohydrate_g: 8.78
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-dal-dhokli
+  name: Dal dhokli
+  category: one_pot_meal
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: pigeon peas (FDC 172436) 80 g; whole-wheat flour (FDC 168893)
+    80 g; tomato (FDC 170457) 40 g; canola oil (FDC 172336) 10 g. Water and seasonings without material
+    energy are omitted. Cooked yield: 525 g. Values are per 100 g and rounded to two decimals; actual
+    home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 122.3
+    protein_g: 5.39
+    fat_g: 2.53
+    carbohydrate_g: 20.84
+  portions:
+  - name: 1 bowl
+    grams: 260
+- slug: gujarati-undhiyu
+  name: Undhiyu (mixed-vegetable model)
+  category: vegetable_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: eggplant (FDC 169228) 100 g; potato (FDC 170026) 100 g; summer
+    squash (FDC 170487) 100 g; peanuts (FDC 172430) 20 g; coconut (FDC 170169) 20 g; canola oil (FDC 172336)
+    20 g. Water and seasonings without material energy are omitted. Cooked yield: 335 g. Values are per
+    100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 143
+    protein_g: 3
+    fat_g: 11.04
+    carbohydrate_g: 9.85
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-sev-tameta
+  name: Sev tameta (besan-sev model)
+  category: vegetable_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: chickpea flour (FDC 174288) 50 g; tomato (FDC 170457) 250 g; onion
+    (FDC 170000) 40 g; canola oil (FDC 172336) 15 g. Water and seasonings without material energy are
+    omitted. Cooked yield: 305 g. Values are per 100 g and rounded to two decimals; actual home recipes
+    vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 126.9
+    protein_g: 4.54
+    fat_g: 6.19
+    carbohydrate_g: 13.89
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-ringna-bateta
+  name: Ringna bateta nu shaak
+  category: vegetable_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: eggplant (FDC 169228) 150 g; potato (FDC 170026) 150 g; tomato
+    (FDC 170457) 80 g; canola oil (FDC 172336) 15 g. Water and seasonings without material energy are
+    omitted. Cooked yield: 355 g. Values are per 100 g and rounded to two decimals; actual home recipes
+    vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 84.5
+    protein_g: 1.48
+    fat_g: 4.38
+    carbohydrate_g: 10.76
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-bhinda-nu-shaak
+  name: Bhinda nu shaak
+  category: vegetable_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: okra (FDC 169260) 300 g; canola oil (FDC 172336) 15 g; turmeric
+    (FDC 172231) 1 g. Water and seasonings without material energy are omitted. Cooked yield: 265 g. Values
+    are per 100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 88.6
+    protein_g: 2.22
+    fat_g: 5.89
+    carbohydrate_g: 8.69
+  portions:
+  - name: 1 katori
+    grams: 160
+- slug: gujarati-cabbage-sambharo
+  name: Cabbage sambharo
+  category: vegetable_dish
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: cabbage (FDC 169975) 250 g; carrot (FDC 170393) 100 g; canola
+    oil (FDC 172336) 10 g; sesame seed (FDC 170150) 3 g. Water and seasonings without material energy
+    are omitted. Cooked yield: 335 g. Values are per 100 g and rounded to two decimals; actual home recipes
+    vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 62.4
+    protein_g: 1.39
+    fat_g: 3.58
+    carbohydrate_g: 7.4
+  portions:
+  - name: 1 katori
+    grams: 150
+- slug: gujarati-squash-dal
+  name: Gujarati-style squash dal
+  category: dal
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: summer squash (FDC 170487) 250 g; pigeon peas (FDC 172436) 80
+    g; tomato (FDC 170457) 50 g; canola oil (FDC 172336) 10 g. Water and seasonings without material energy
+    are omitted. Cooked yield: 405 g. Values are per 100 g and rounded to two decimals; actual home recipes
+    vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 101.7
+    protein_g: 5.14
+    fat_g: 2.9
+    carbohydrate_g: 14.95
+  portions:
+  - name: 1 katori
+    grams: 180
+- slug: gujarati-moong-dal-chilla
+  name: Moong dal chilla
+  category: bread
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: mung beans (FDC 174256) 100 g; onion (FDC 170000) 25 g; tomato
+    (FDC 170457) 25 g; canola oil (FDC 172336) 8 g. Water and seasonings without material energy are omitted.
+    Cooked yield: 235 g. Values are per 100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 183.9
+    protein_g: 10.38
+    fat_g: 3.93
+    carbohydrate_g: 28.05
+  portions:
+  - name: 1 chilla
+    grams: 59
+- slug: gujarati-sukhdi
+  name: Sukhdi (granulated-sugar model)
+  category: sweet
+  tags:
+  - vegetarian
+  - indian
+  - gujarati
+  contributed_by: RujitRaval
+  provenance: published_recipe_calculation
+  source_uri: null
+  source_license: contributor-original
+  source_note: 'Contributor-authored standard recipe model calculated from USDA FoodData Central SR Legacy
+    ingredient profiles. Batch formula: whole-wheat flour (FDC 168893) 100 g; granulated sugar (FDC 169655)
+    60 g; ghee (FDC 171314) 50 g. Water and seasonings without material energy are omitted. Cooked yield:
+    210 g. Values are per 100 g and rounded to two decimals; actual home recipes vary.'
+  basis: per_100g
+  nutrients:
+    energy_kcal: 486.8
+    protein_g: 6.29
+    fat_g: 25
+    carbohydrate_g: 62.86
+  portions:
+  - name: 1 square
+    grams: 35

@@ -1,0 +1,10 @@
+id: gujarati-home-cooking
+name: Gujarati home cooking
+description: Gujarati dishes and everyday household staples backed by USDA records and auditable contributor-authored
+  recipe calculations.
+version: 1.0.0
+locale: en-IN
+license: CC0-1.0
+maintainers:
+- github: RujitRaval
+entry_count: 50
