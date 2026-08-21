@@ -4,6 +4,25 @@
 
 No open distribution items.
 
+## Web quality
+
+### Avoid a console error when no nutrition target is configured
+
+**What:** Preserve the neutral “No target set” state without making the browser record the expected
+`GET /api/v1/targets/resolve` `404` as a failed resource.
+
+**Why:** The current experience works, but clean browser sessions show a console error for a normal
+empty state, which makes real client failures harder for operators to spot.
+
+**Context:** GStack QA reproduced this on the independent clean-install verification at
+`b7686700eefcea4de625c633c879d51ed676f3a7`. Create an account without a target, open the daily log,
+and inspect the browser console. The page correctly displays “No target set,” while the resolve request
+returns `404`. Severity: Low. Category: Console.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** Calorie and macro targets; accessible daily nutrition log
+
 ## Completed
 
 ### Publish the canonical public packages
