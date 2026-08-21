@@ -2,25 +2,29 @@
 
 ## Distribution
 
+No open distribution items.
+
+## Completed
+
 ### Publish the canonical public packages
 
-**What:** Merge the tested package-release infrastructure, stage and approve the initial npm
-release, configure both trusted publishers, publish the PyPI release from `main`, and verify the
-public registry evidence.
+**What:** Merged the tested package-release infrastructure, approved the initial npm release with
+two-factor authentication, configured both trusted publishers, published PyPI from `main`, and
+verified the public registry evidence.
 
-**Why:** Availability checks do not control a registry name. A real release gives users a verified
-installation path while preventing empty name squatting.
+**Why:** The project now controls both canonical registry names and gives users verified
+installation paths without depending on stored publishing credentials.
 
-**Context:** `docs/package-operations.md` records the exact no-secret flow. The implementation pull
-request prepares the artifacts and tokenless workflow; this item remains open until both registry
-pages resolve and their ownership, versions, hashes, licenses, source links, and install commands
-are verified.
+**Context:** npm `opennosh 0.22.0` and PyPI `opennosh 0.22.0.0` are public. Workflow run
+`32509681049` verified the merged source and published through OIDC; `docs/package-operations.md`
+records the exact artifact hashes, install commands, license files, source links, and release
+controls.
 
 **Effort:** S
 **Priority:** P1
 **Depends on:** Verify public release identity and security controls
 
-## Completed
+**Completed:** v0.22.0.1 (2026-08-21)
 
 ### Reserve and secure the public domain
 

@@ -2,6 +2,16 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.22.0.1] - 2026-08-21
+
+### Changed
+
+- Record the verified public PyPI `opennosh 0.22.0.0` and npm `opennosh 0.22.0` releases, including
+  install commands, artifact hashes, license contents, source links, and public registry pages.
+- Mark both initial-publication checklists complete and align the README, launch plan, product
+  decisions, and TODO ledger with the live package state.
+- Confirm both registries use active GitHub Actions trusted publishers for future tokenless releases.
+
 ## [0.22.0.0] - 2026-08-21
 
 ### Added

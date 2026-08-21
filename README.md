@@ -12,10 +12,12 @@ See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES
 for the repository-wide licensing map. The running web app exposes the same source-separated summary
 at `/notices`, linked from the global footer.
 
-Public package publication is prepared through tokenless registry workflows. Until the first
-post-merge releases are independently verified, use the repository quick start below rather than
-assuming the `opennosh` npm or PyPI names are active. The release controls and initial-publication
-checklist are recorded in [`docs/package-operations.md`](docs/package-operations.md).
+The canonical public packages are live: install the Python application and CLI with
+`pip install opennosh==0.22.0.0`, or start a safe local checkout with
+`npx opennosh@0.22.0 init my-opennosh`. The [PyPI](https://pypi.org/project/opennosh/0.22.0.0/)
+and [npm](https://www.npmjs.com/package/opennosh) releases are controlled by active GitHub Actions
+trusted publishers using short-lived OIDC credentials. Exact release hashes, controls, and
+verification evidence are recorded in [`docs/package-operations.md`](docs/package-operations.md).
 
 ## Quick start
 
@@ -492,7 +494,7 @@ were omitted.
 | `docs/health-safety-copy-review.md` | Screen/state inventory and human approval record for health-sensitive copy | Human reviewer + implementing agent |
 | `docs/license-notice-review.md` | Approved source-by-source notice matrix and release-artifact inventory | Project owner + release reviewer |
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |
-| `docs/package-operations.md` | PyPI and npm release controls, trusted-publisher setup, and first-publication checklist | Maintainers + release reviewers |
+| `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
