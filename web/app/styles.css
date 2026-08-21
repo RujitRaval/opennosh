@@ -100,6 +100,87 @@ button:disabled {
   color: var(--leaf);
 }
 
+.site-footer {
+  width: min(100% - 2rem, 70rem);
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
+  color: var(--muted);
+  font-size: 1rem;
+  text-align: center;
+}
+
+.site-footer a,
+.legal-page a {
+  color: var(--leaf-dark);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+.legal-page {
+  width: min(100% - 2rem, 52rem);
+  min-height: calc(100vh - 5rem);
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 5rem) 0;
+}
+
+.legal-page > .wordmark {
+  display: inline-block;
+  margin-bottom: clamp(3rem, 9vw, 6rem);
+}
+
+.legal-page h1,
+.legal-page h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.legal-page h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.8rem, 7vw, 5rem);
+  line-height: 0.98;
+}
+
+.legal-page section {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.legal-page h2 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.legal-page dl,
+.legal-page dd,
+.legal-page p {
+  margin-bottom: 0;
+}
+
+.legal-page dl {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.legal-page dt {
+  font-weight: 800;
+}
+
+.legal-page dd {
+  margin-left: 0;
+  color: var(--muted);
+}
+
+.legal-detail-link {
+  margin-top: 3rem;
+  padding: 1rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+}
+
 .eyebrow,
 .section-kicker {
   margin: 0 0 0.5rem;

@@ -29,7 +29,8 @@ Before posting anywhere:
 - [ ] The four starter packs are merged and demonstrate real quality
 - [ ] `docs/foodpack-spec.md` is complete, with a copy-paste template
 - [ ] CI validator runs green on a deliberately broken example PR you file against yourself
-- [x] LICENSE (MIT) and the CC0 declaration for `packs/` are both present and unambiguous
+- [x] LICENSE (MIT), the CC0 declaration for `packs/`, and source-specific notices are present and unambiguous
+- [x] The combined code and dataset notices have an approved source-by-source review recorded in `docs/license-notice-review.md`
 - [ ] Data export works. Someone will test this first to check the promise is real.
 - [ ] Health-safety copy reviewed end to end against PRD §7
 

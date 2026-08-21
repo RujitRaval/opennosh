@@ -4,6 +4,7 @@ version = "0.1.0.0"
 description = "Self-hosted nutrition and strength tracking."
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE", "LICENSES.md", "NOTICE.md", "AUTHORS.md"]
 dependencies = [
   "alembic>=1.16,<2",
   "asyncpg>=0.30,<1",

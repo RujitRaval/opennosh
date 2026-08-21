@@ -2,6 +2,9 @@
 
 This file explains which license applies to each part of opennosh. It is an engineering map, not legal advice.
 
+The combined distribution notice is [`NOTICE.md`](NOTICE.md). It summarizes the required code,
+dataset, UI, and export notices without changing any operative terms.
+
 | Material | License | Operative notice |
 |---|---|---|
 | Original application code, scripts, tests, configuration, and project documentation | MIT | [`LICENSE`](LICENSE) |
