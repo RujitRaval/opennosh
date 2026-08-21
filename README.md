@@ -480,6 +480,7 @@ were omitted.
 | `03-TRD.md` | Stack, data model, services, API surface | You + `prd-to-github-issues` |
 | `04-DATA-LICENSING.md` | **Read this first.** The ODbL constraint that shapes the architecture | You, before any code |
 | `docs/foodpack-spec.md` | The contribution unit. The most important file here | Contributors + implementing agent |
+| `docs/health-safety-copy-review.md` | Screen/state inventory and human approval record for health-sensitive copy | Human reviewer + implementing agent |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
 | `08-PRODUCT-DECISIONS.md` | Settled product, licensing, scope, and operating decisions | You + implementing agent |

@@ -70,7 +70,11 @@ class CheckDocsTests(TestCase):
 
     def test_ignores_generated_environment_directories(self) -> None:
         issues = self.validate(
-            {"README.md": "# Title\n", ".venv/lib/pkg/README.md": "no heading\n"}
+            {
+                "README.md": "# Title\n",
+                ".gstack/pr-body.md": "OpenPlate generated scratch content\n",
+                ".venv/lib/pkg/README.md": "no heading\n",
+            }
         )
         self.assertEqual([], issues)
 

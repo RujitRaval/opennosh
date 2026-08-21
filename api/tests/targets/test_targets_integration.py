@@ -180,7 +180,8 @@ def test_below_floor_target_requires_and_records_explicit_confirmation(
     rejected = _put(target_clients.owner, target_clients.owner_csrf, payload)
     assert rejected.status_code == 422
     assert rejected.json()["detail"] == (
-        "A calorie target below 1200.00 kcal requires explicit confirmation"
+        "This value is below the configured safety floor of 1200.00 kcal. "
+        "Confirm this specific target in settings to save the value you entered."
     )
     assert target_clients.owner.get("/api/v1/targets").json()["items"] == []
 
