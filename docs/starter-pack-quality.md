@@ -74,11 +74,12 @@ Run:
 
 ```bash
 make foodpack-validate
-uv run pytest api/tests/foodpacks/test_starter_packs.py -q
+uv run pytest api/tests/foodpacks/test_starter_pack_generator.py \
+  api/tests/foodpacks/test_starter_packs.py -q
 ```
 
-The committed release produces zero validator errors and zero warnings. Dedicated tests additionally
-prove:
+The committed release produces zero validator errors and zero warnings. The 43 focused generator
+and committed-pack tests additionally prove:
 
 - exactly four packs and 165 entries;
 - 144 government records and 21 disclosed recipe calculations;
@@ -87,6 +88,9 @@ prove:
 - explicit labeling when a logging portion is an opennosh estimate rather than a USDA measure;
 - exact source links, release labels, license boundaries, and visible credit; and
 - no known brand markers in entry names.
+
+The generator tests cover 90% of the audited refresh paths, including missing source IDs, nutrient
+extraction, portion ranking, recipe arithmetic, integrity failures, rendering, and stale output.
 
 To regenerate from locally downloaded official archives:
 
