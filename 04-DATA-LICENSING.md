@@ -29,7 +29,7 @@ A single `foods` table containing USDA rows, OFF rows, and community rows is a l
 
 ## The architecture this forces
 
-**Three separate stores, never merged at rest.**
+**Four separate stores, never merged at rest.**
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -45,6 +45,10 @@ A single `foods` table containing USDA rows, OFF rows, and community rows is a l
 │  Open Food Facts. Barcode lookups.                      │
 │  Separate table. Separate export path. Opt-in at deploy.│
 │  Integration code ships in v1; no OFF rows are bundled.│
+├─────────────────────────────────────────────────────────┤
+│  foods_custom     (PRIVATE, owner-scoped)               │
+│  User-created foods. Never returned by public search or │
+│  included in a community, ODbL, or exercise export.     │
 └─────────────────────────────────────────────────────────┘
 ```
 

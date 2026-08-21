@@ -50,10 +50,15 @@ no-op, and refuses to overwrite a newer pack version.
 Search USDA reference foods and CC0 community foods without combining their source records:
 
 ```text
+GET /api/v1/foods/capabilities
 GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&offset=0
 GET /api/v1/foods/community/apple
 GET /api/v1/foods/usda/171688
 ```
+
+`/foods/capabilities` reports whether barcode lookup is enabled so clients can hide that workflow
+without probing the third-party integration. It is public and does not make an Open Food Facts
+request.
 
 Every result uses a source-qualified ID such as `community:apple` or `usda:171688` and returns
 the source and license metadata needed for attribution. Results rank exact community slugs first,
@@ -114,12 +119,15 @@ Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only s
 
 ## Daily nutrition log
 
-The web app at `http://localhost:3000` provides the responsive primary journey: create an
-account or sign in, choose a date and training/rest target, search the local food catalogue, log
-an amount in grams under any meal name, compare neutral daily totals with targets, and delete an
-entry after confirmation. Loading, empty, API-error, and expired-session screens all provide a
-way forward. Keyboard focus is visible, the add-food dialog traps focus and closes with Escape,
-and the core desktop/mobile journey is checked against WCAG 2.2 AA rules in Playwright.
+The web app at `http://localhost:3000` provides the responsive primary journey: create an account
+or sign in, choose a date and training/rest target, search the ranked local catalogue, filter USDA
+or community results, and log a food by grams or a named household portion under any meal name.
+When Open Food Facts is enabled, the same dialog adds barcode lookup; it always offers owner-private
+custom-food entry with calories, macros, and optional household portions. Source and contributor
+credit stays visible during selection. Loading, empty, API-error, and expired-session screens all
+provide a way forward. Keyboard focus is visible, the dialog traps focus, supports arrow-key tab
+navigation, closes with Escape, and is checked against WCAG 2.2 AA rules in Playwright on desktop
+and mobile.
 
 The browser calls only same-origin `/api/v1` paths. The Next.js server forwards those requests to
 `API_URL`, which Compose sets to the internal `api` service. For local web development outside
@@ -148,6 +156,29 @@ Authenticated users can create, list, read, and delete tenant-isolated food-log 
 `/api/v1/logs`. Create requests use the `source` and `source_id` returned by food search, plus an
 offset-aware timestamp, a configurable meal-slot label, and a quantity in grams, millilitres, or
 a named household portion:
+
+Create an owner-private food before logging it with `POST /api/v1/foods/custom`. The mutation
+requires the authenticated session's CSRF token and accepts a canonical per-100-gram profile plus
+up to 20 optional, uniquely named portions:
+
+```json
+{
+  "name": "Homemade paneer",
+  "nutrients": {
+    "basis": "per_100g",
+    "nutrients": {
+      "energy_kcal": "265",
+      "protein_g": "18.3",
+      "fat_g": "20.8",
+      "carbohydrate_g": "1.2"
+    }
+  },
+  "portions": [{"name": "1 cube", "grams": "30"}]
+}
+```
+
+The response identifies the food with `source: "custom"` and `private: true`. Custom foods remain
+owner-scoped, never appear in public search, and are excluded from public dataset exports.
 
 ```json
 {

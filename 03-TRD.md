@@ -144,11 +144,12 @@ REST, JSON, `/api/v1`. The UI consumes only this API — no server-side data acc
 ```
 POST   /auth/register | /auth/login | /auth/logout
 GET    /auth/session
+GET    /foods/capabilities
 GET    /foods/search?q=&locale=&source=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
 GET    /export/foods/openfoodfacts      -- compatibility alias for /export/foods/odbl
-POST   /foods/custom
+POST   /foods/custom                    -- authenticated, owner-private, CSRF-protected
 GET    /exercises/search?q=&muscle=&equipment=
 GET    /exercises/{id}                 -- complete source/license/author attribution
 GET    /recipes?limit=&offset=            POST /recipes
