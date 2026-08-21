@@ -21,8 +21,10 @@ promise; that credit does not add a legal restriction to reuse.
 ## USDA FoodData Central
 
 USDA FoodData Central data is published under CC0 1.0 Universal. opennosh retains FoodData Central
-as the source on imported records and displays the source in food results. No production USDA bulk
-dataset is bundled in this repository; small importer fixtures are described below.
+as the source on imported records and displays the source in food results. The four starter food
+packs bundle 144 selected, source-linked records derived from pinned USDA releases. No complete
+production USDA bulk dataset is bundled in this repository; small importer fixtures are described
+below.
 
 Suggested source credit: U.S. Department of Agriculture, Agricultural Research Service, FoodData
 Central, <https://fdc.nal.usda.gov/>.
