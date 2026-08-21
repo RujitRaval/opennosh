@@ -1,6 +1,6 @@
 # Contributing to opennosh
 
-opennosh is currently in specification and foundation work. Discuss feature changes in an issue before writing code. Small documentation corrections and reproducible bug fixes can proceed directly.
+opennosh has a scoped v1 implementation and is open for contributions. Discuss feature changes in an issue before writing code. Small documentation corrections and reproducible bug fixes can proceed directly.
 
 ## Contributor workflow
 

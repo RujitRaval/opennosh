@@ -495,7 +495,7 @@ were omitted.
 | `SECURITY.md` | Private vulnerability-reporting process | Security reporters + maintainers |
 | `AUTHORS.md` | Maintainer and contributor credit | Contributors + users |
 | `CHANGELOG.md` | Versioned record of shipped changes | Users + maintainers |
-| `TODOS.md` | Deferred launch-readiness work | Maintainers |
+| `TODOS.md` | Completed launch-readiness decisions and operational records | Maintainers |
 
 ---
 
@@ -509,7 +509,7 @@ The intended path:
 2. Treat `02-PRD.md` and `03-TRD.md` as the settled product and technical inputs.
 3. Run the issue-generation pipeline against `02-PRD.md` and `03-TRD.md` to produce a dependency-ordered issue queue.
 4. Keep `docs/foodpack-spec.md` in the implementation repository; contributors and the validator both depend on it.
-5. `01`, `06`, and `07` are retained only while this repository is private planning space. Remove them from the public implementation tree before launch; they are strategy, not build input.
+5. Treat `01`, `06`, and `07` as historical strategy and launch context, not implementation inputs.
 
 ---
 

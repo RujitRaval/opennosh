@@ -8,7 +8,7 @@ All notable changes to opennosh will be documented in this file.
 
 - Publish the repository with a private vulnerability-reporting path and record the completed v1 implementation epic.
 - Record the clean final secret scan plus the checked, unreserved npm, PyPI, and preferred-domain names.
-- Replace private-launch blockers in the README, launch plan, product decisions, and TODO ledger with the verified public state.
+- Replace private-launch blockers in the README, security and contributor guidance, launch plan, product decisions, license-review record, and TODO ledger with the verified public state.
 
 ## [0.21.0.0] - 2026-08-21
 

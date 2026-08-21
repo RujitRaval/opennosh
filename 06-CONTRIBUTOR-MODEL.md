@@ -1,6 +1,6 @@
 # 06 — Contributor model
 
-Strategy document. Does not go in the repo.
+Historical strategy document retained for context. It is not an implementation input.
 
 ---
 
