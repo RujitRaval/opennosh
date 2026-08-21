@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.22.0.3] - 2026-08-21
+
+### Added
+
+- See the core opennosh journey immediately in the README: search the food catalogue, log a serving,
+  and watch the daily calorie and macro totals update.
+- Open an accessible final-state image when the single-play animation has finished or motion is not
+  useful.
+
+### Changed
+
+- Mark the README product-walkthrough launch check complete with an optimized animation, descriptive
+  alternative text, and a linked still image.
+
 ## [0.22.0.2] - 2026-08-21
 
 ### Changed
