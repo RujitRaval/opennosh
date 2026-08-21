@@ -12,6 +12,11 @@ See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES
 for the repository-wide licensing map. The running web app exposes the same source-separated summary
 at `/notices`, linked from the global footer.
 
+Public package publication is prepared through tokenless registry workflows. Until the first
+post-merge releases are independently verified, use the repository quick start below rather than
+assuming the `opennosh` npm or PyPI names are active. The release controls and initial-publication
+checklist are recorded in [`docs/package-operations.md`](docs/package-operations.md).
+
 ## Quick start
 
 Docker Compose starts PostgreSQL, the FastAPI service, the Next.js app, and its nginx ingress:

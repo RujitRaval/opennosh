@@ -29,8 +29,13 @@ MAX_RUNTIME_NODES = 20_000
 MAX_RUNTIME_STRING_CHARS = 10_000
 MAX_RUNTIME_DEPTH = 40
 MAX_NUMERIC_BITS = 4_096
-_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SCHEMA_PATH = _REPOSITORY_ROOT / "schemas" / "food-pack.schema.json"
+_REPOSITORY_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[3] / "schemas" / "food-pack.schema.json"
+)
+_PACKAGED_SCHEMA_PATH = Path(__file__).with_name("food-pack.schema.json")
+DEFAULT_SCHEMA_PATH = (
+    _REPOSITORY_SCHEMA_PATH if _REPOSITORY_SCHEMA_PATH.is_file() else _PACKAGED_SCHEMA_PATH
+)
 _CORE_NUTRIENTS = ("energy_kcal", "protein_g", "fat_g", "carbohydrate_g")
 _ENERGY_TOLERANCE = Decimal("0.15")
 _NEAR_DUPLICATE_TOLERANCE = Decimal("0.01")

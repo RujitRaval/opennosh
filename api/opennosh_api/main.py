@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -25,7 +26,10 @@ from opennosh_api.workouts.router import router as workouts_router
 
 
 def read_app_version() -> str:
-    return (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    try:
+        return version("opennosh")
+    except PackageNotFoundError:
+        return (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

@@ -1,8 +1,11 @@
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+from opennosh_api import main as main_module
 from opennosh_api.database import DatabaseHealthProbe, get_database_probe
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
@@ -65,7 +68,19 @@ def test_openapi_documents_the_degraded_response() -> None:
     )
 
 
-def test_app_version_comes_from_the_repository_version() -> None:
+def test_app_version_comes_from_distribution_metadata() -> None:
     app = create_app(Settings(database_url="postgresql+asyncpg://unused:unused@localhost/unused"))
 
-    assert app.version == (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    assert app.version == version("opennosh")
+
+
+def test_app_version_falls_back_to_repository_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_distribution(_distribution: str) -> str:
+        raise PackageNotFoundError
+
+    monkeypatch.setattr(main_module, "version", missing_distribution)
+
+    expected = (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
+    assert main_module.read_app_version() == expected
