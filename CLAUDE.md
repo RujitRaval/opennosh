@@ -28,6 +28,7 @@ npm --prefix web run build
 docker compose config --quiet
 python3 -m unittest discover -s tests -v
 python3 scripts/check_docs.py
+make package-check
 ```
 
 ## Skill routing

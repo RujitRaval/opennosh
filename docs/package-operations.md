@@ -16,6 +16,13 @@ packages that exist only to reserve a name. It refuses to overwrite an existing 
 arguments directly to Git without a shell, and does not install Docker, run services, change global
 configuration, or collect telemetry.
 
+Reproduce the artifact, identity, installed-wheel, and npm bootstrap checks locally before any
+publication attempt:
+
+```shell
+make package-check
+```
+
 ## Publication controls
 
 `.github/workflows/publish-packages.yml` is the only long-term publishing path. It:
