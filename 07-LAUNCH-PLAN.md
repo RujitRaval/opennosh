@@ -6,7 +6,7 @@ Historical strategy and outreach plan retained for context. It is not an impleme
 
 ## Naming
 
-The selected name is `opennosh`, used in exact lowercase form. The GitHub repository name is selected. On 2026-08-21, the exact `opennosh` name had no published npm or PyPI project, and `opennosh.org`, `.com`, `.app`, `.dev`, and `.io` had no RDAP registration record. These checks do not reserve a package name or domain.
+The selected name is `opennosh`, used in exact lowercase form. The GitHub repository and `opennosh.org` are reserved. The domain is registered through Cloudflare, redirects both the apex and `www` hostnames to the public GitHub repository over HTTPS, and accepts free inbound mail at `support@opennosh.org`. On 2026-08-21, the exact `opennosh` name still had no published npm or PyPI project; availability checks do not reserve either package name.
 
 Naming criteria that matter here: pronounceable by non-English speakers (your contributor base is global), doesn't contain "fitness" or "calorie" (those searches are dominated and commercially poisoned), and doesn't imply weight loss.
 
@@ -25,7 +25,7 @@ The tracker is the third paragraph, not the headline.
 Before posting anywhere:
 
 - [x] Repository is public, the final reachable-history and metadata secret scan is clean, and GitHub Private Vulnerability Reporting is enabled
-- [x] npm, PyPI, and preferred-domain availability has been checked and recorded; names remain unreserved until registration or publication
+- [x] `opennosh.org` is registered, secured, publicly verified, and connected to the repository; npm and PyPI names remain unreserved until publication
 - [ ] `docker compose up` works from a clean clone on a machine that isn't yours. Test this on a fresh VPS.
 - [ ] README has a GIF in the first screen showing search → log → daily total
 - [ ] The four starter packs are merged and demonstrate real quality
