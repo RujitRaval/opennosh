@@ -4,7 +4,7 @@ All notable changes to opennosh will be documented in this file.
 
 ## [0.23.0.2] - 2026-08-22
 
-### Fixed
+### For contributors
 
 - Keep the trends browser test synchronized with the selected date range even when duplicate initial requests arrive.
 
