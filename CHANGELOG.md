@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.23.0.1] - 2026-08-22
+
+### Changed
+
+- Record the controlled CI rejection proof for an invalid food pack and mark every pre-announcement
+  launch check complete.
+
 ## [0.23.0.0] - 2026-08-21
 
 ### Added
