@@ -32,7 +32,11 @@ Before posting anywhere:
 - [x] The four starter packs contain 165 traceable, unbranded entries and pass validation with zero
   errors or warnings; see `docs/starter-pack-quality.md`
 - [x] `docs/foodpack-spec.md` is complete, with a copy-paste template
-- [ ] CI validator runs green on a deliberately broken example PR you file against yourself
+- [x] CI rejects a deliberately invalid food pack while unrelated checks remain green. Verified
+  with closed, unmerged [PR #56](https://github.com/RujitRaval/opennosh/pull/56) and its
+  [GitHub Actions run](https://github.com/RujitRaval/opennosh/actions/runs/32534708409): the
+  food-pack validator failed on the expected `schema.const` license error, while repository,
+  web, and Compose checks passed.
 - [x] LICENSE (MIT), the CC0 declaration for `packs/`, and source-specific notices are present and unambiguous
 - [x] The combined code and dataset notices have an approved source-by-source review recorded in `docs/license-notice-review.md`
 - [x] Data export works through private and source-separated endpoints, with automated tenant and license-boundary coverage
