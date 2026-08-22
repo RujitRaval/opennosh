@@ -45,9 +45,10 @@ test("changes trend ranges and keeps strength load units separate", async ({ pag
   await expect(page.getByRole("table", { name: "Strength volume data table" }).getByText("1,100 lb")).toBeVisible();
   await expect(page.getByRole("table", { name: "Strength volume data table" }).getByText("500 kg")).toHaveCount(0);
 
+  const initialRange = requestedRanges.at(-1);
+  expect(initialRange).toBeTruthy();
   await page.getByRole("radio", { name: "7 days" }).check();
-  await expect.poll(() => requestedRanges.length).toBeGreaterThan(1);
-  expect(requestedRanges.at(-1)).not.toBe(requestedRanges[0]);
+  await expect.poll(() => requestedRanges.some((range) => range !== initialRange)).toBe(true);
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
