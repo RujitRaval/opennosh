@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import TrendsPage, { metadata } from "@/app/trends/page";
+import TrendsPage, { metadata } from "@/app/(tracker)/tracker/trends/page";
 
 const user = { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" };
 

@@ -149,19 +149,21 @@ Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only s
 
 ## Daily nutrition log
 
-The web app at `http://localhost:3000` provides the responsive primary journey: create an account
-or sign in, choose a date and training/rest target, search the ranked local catalogue, filter USDA
-or community results, and log a food by grams or a named household portion under any meal name.
+The tracker at `http://localhost:3000/tracker` provides the responsive primary journey: create an
+account or sign in, choose a date and training/rest target, search the ranked local catalogue,
+filter USDA or community results, and log a food by grams or a named household portion under any
+meal name.
 When Open Food Facts is enabled, the same dialog adds barcode lookup; it always offers owner-private
 custom-food entry with calories, macros, and optional household portions. Source and contributor
 credit stays visible during selection. Loading, empty, API-error, and expired-session screens all
 provide a way forward. Keyboard focus is visible, the dialog traps focus, supports arrow-key tab
 navigation, closes with Escape, and is checked against WCAG 2.2 AA rules in Playwright on desktop
-and mobile.
+and mobile. The public root redirects to the localized commons at `/en`; the private tracker keeps
+its independent layout and permanent `/tracker` address.
 
 ## Nutrition, body-metric, and strength trends
 
-Authenticated users can open `/trends` to review 7-, 30-, or 90-day history for nutrition,
+Authenticated users can open `/tracker/trends` to review 7-, 30-, or 90-day history for nutrition,
 body measurements, and strength volume. Nutrition days follow the browser's IANA timezone;
 body-metric and workout ranges retain the APIs' documented UTC date boundaries. Every visual chart
 has a visible data table and keyboard-accessible native range and measure controls. Empty and

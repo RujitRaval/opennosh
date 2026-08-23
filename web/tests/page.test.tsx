@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { metadata } from "@/app/layout";
-import Home from "@/app/page";
+import { metadata } from "@/app/(tracker)/tracker/layout";
+import Home from "@/app/(tracker)/tracker/page";
 
 const user = { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" };
 const emptyLog = {
