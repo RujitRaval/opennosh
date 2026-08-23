@@ -1,18 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { routes } from "@/lib/routes";
+import {
+  interfaceLanguageCookie,
+  resolveInterfaceLanguage,
+  routes,
+} from "@/lib/routes";
 
-const legacyRedirects: Readonly<Record<string, string>> = {
-  "/": routes.publicHome(),
-  "/trends": routes.tracker.trends,
-  "/notices": routes.publicNotices(),
-};
+function requestLanguage(request: NextRequest) {
+  return resolveInterfaceLanguage({
+    savedLanguage: request.cookies.get(interfaceLanguageCookie)?.value,
+    acceptLanguage: request.headers.get("accept-language") ?? undefined,
+  });
+}
 
 export function proxy(request: NextRequest) {
-  const destination = legacyRedirects[request.nextUrl.pathname];
+  const pathname = request.nextUrl.pathname;
+  let destination: string | undefined;
+
+  if (pathname === "/") destination = routes.publicHome(requestLanguage(request));
+  if (pathname === "/notices") destination = routes.publicNotices(requestLanguage(request));
+  if (pathname === "/trends") destination = routes.tracker.trends;
   if (!destination) return NextResponse.next();
 
-  return NextResponse.redirect(new URL(destination, request.url), 307);
+  const destinationUrl = request.nextUrl.clone();
+  destinationUrl.pathname = destination;
+  return NextResponse.redirect(destinationUrl, 307);
 }
 
 export const config = {

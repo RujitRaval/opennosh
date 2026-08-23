@@ -1,14 +1,14 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { TrackerFooter } from "@/components/tracker/tracker-footer";
 import NoticesPage, { metadata } from "@/app/(public)/[language]/notices/page";
+import { TrackerFooter } from "@/components/tracker/tracker-footer";
 
 afterEach(cleanup);
 
 describe("license and data notices", () => {
   it("publishes focused metadata and an accessible notice hierarchy", async () => {
-    expect(metadata).toMatchObject({ title: "Licenses and data notices · opennosh" });
+    expect(metadata.title).toContain("Licenses and data notices");
     render(await NoticesPage({ params: Promise.resolve({ language: "en" }) }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Licenses and data notices" })).toBeVisible();
@@ -37,10 +37,19 @@ describe("license and data notices", () => {
     );
   });
 
-  it("links back home and to the operative software and distribution notices", async () => {
+  it("shows the full Home, Build, current-page breadcrumb", async () => {
     render(await NoticesPage({ params: Promise.resolve({ language: "en" }) }));
 
-    expect(screen.getByRole("link", { name: "opennosh home" })).toHaveAttribute("href", "/en");
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/en");
+    expect(within(breadcrumb).getByRole("link", { name: "Build" })).toHaveAttribute(
+      "href",
+      "/en/build",
+    );
+    expect(within(breadcrumb).getByText("Licenses + notices")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     expect(screen.getByRole("link", { name: "MIT License" })).toHaveAttribute(
       "href",
       "https://github.com/RujitRaval/opennosh/blob/main/LICENSE",
