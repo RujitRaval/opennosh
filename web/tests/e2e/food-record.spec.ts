@@ -1,56 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-
-import detail from "../fixtures/contracts/foods/v1-detail-community.json";
-import variant from "../fixtures/contracts/foods/v1-detail-community-variant.json";
-
-async function mockFoodRecord(page: Page, { withVariant = true } = {}) {
-  await page.route("**/api/v1/foods/community/rajma-masala", (route) =>
-    route.fulfill({ status: 200, json: detail }),
-  );
-  await page.route("**/api/v1/foods/community/rajma-masala-restaurant", (route) =>
-    route.fulfill({ status: 200, json: variant }),
-  );
-  await page.route("**/api/v1/foods/search?**", (route) =>
-    route.fulfill({
-      status: 200,
-      json: {
-        schema_version: "2.0",
-        items: withVariant
-          ? [
-              {
-                id: detail.id,
-                source: detail.source,
-                source_id: detail.source_id,
-                name: detail.name,
-                name_local: detail.name_local,
-                category: detail.category,
-                attribution: detail.attribution,
-              },
-              {
-                id: variant.id,
-                source: variant.source,
-                source_id: variant.source_id,
-                name: variant.name,
-                name_local: variant.name_local,
-                category: variant.category,
-                attribution: variant.attribution,
-              },
-            ]
-          : [],
-        limit: 12,
-        has_more: false,
-        next_cursor: null,
-        snapshot_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497",
-        snapshot_expires_at: "2026-08-23T14:30:00Z",
-      },
-    }),
-  );
-}
-
-test.beforeEach(async ({ page }) => {
-  await mockFoodRecord(page);
-});
+import { expect, test } from "@playwright/test";
 
 test("record answers nutrition with its trust context visible and correctly ordered", async ({ page }) => {
   await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN");
@@ -99,14 +48,15 @@ test("portion controls preserve canonical grams while offering US display units"
   await expect(page.getByText("11.2 g").first()).toBeVisible();
 });
 
-test("conflicting fixtures remain side by side on desktop and sequential on mobile", async ({ page }) => {
-  await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN#variants");
-  const variants = page.locator("#variants");
-  await expect(variants.getByText("Conflicting published values")).toBeVisible();
-  await expect(variants.getByText("127 kcal")).toBeVisible();
-  await expect(variants.getByText("168 kcal")).toBeVisible();
-  await expect(variants.getByText("CC0-1.0")).toBeVisible();
-  await expect(variants.getByText("CC BY 4.0")).toBeVisible();
+test("the complete record tail keeps evidence, history, and reuse in order", async ({ page }) => {
+  await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN#provenance");
+
+  const tail = await page.locator("[data-record-tail]").evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-record-tail")),
+  );
+  expect(tail).toEqual(["1-full-nutrients", "2-evidence", "3-history", "4-reuse"]);
+  await expect(page.getByRole("heading", { name: "What this release can prove" })).toBeVisible();
+  await expect(page.getByText("No related published variants were returned for this food locale.")).toBeVisible();
 });
 
 test("the record reflows at the 320 CSS-pixel equivalent of 200 percent desktop zoom", async ({ page }) => {
@@ -119,12 +69,22 @@ test("the record reflows at the 320 CSS-pixel equivalent of 200 percent desktop 
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("not-found and unavailable states never masquerade as nutrition", async ({ page }) => {
-  await page.unroute("**/api/v1/foods/community/rajma-masala");
-  await page.route("**/api/v1/foods/community/rajma-masala", (route) =>
-    route.fulfill({ status: 404, json: { detail: "Food not found" } }),
-  );
-  await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN");
+test("not-found records never masquerade as nutrition", async ({ page }) => {
+  await page.goto("/en/explore/foods/community/missing-food?food_locale=hi-IN");
   await expect(page.getByRole("heading", { name: "This published food record is not available." })).toBeVisible();
   await expect(page.getByText("Energy")).toHaveCount(0);
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("identity, trust, nutrients, source, license, and provenance remain complete", async ({ page }) => {
+    const response = await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: "Rajma masala" })).toBeVisible();
+    await expect(page.getByText("Published with provenance")).toBeVisible();
+    await expect(page.getByText("Energy").first()).toBeVisible();
+    await expect(page.getByText("CC0-1.0").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Where this record comes from" })).toBeVisible();
+  });
 });

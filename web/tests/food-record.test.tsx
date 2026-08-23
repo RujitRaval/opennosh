@@ -37,6 +37,9 @@ describe("FoodRecord", () => {
       "href",
       expect.stringContaining("github.com/RujitRaval/opennosh/issues/new"),
     );
+    expect(screen.getByRole("link", { name: /Open in tracker/ })).toHaveAttribute(
+      "href", "/tracker",
+    );
 
     const tail = [...container.querySelectorAll("[data-record-tail]")].map((node) =>
       node.getAttribute("data-record-tail"),

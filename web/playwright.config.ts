@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = process.env.E2E_PORT || "3000";
 const baseURL = `http://127.0.0.1:${port}`;
+const apiPort = process.env.E2E_API_PORT || "8001";
+const apiURL = `http://127.0.0.1:${apiPort}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -17,10 +19,18 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
-  webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `node tests/fixtures/public-food-api.mjs ${apiPort}`,
+      url: `${apiURL}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `API_URL=${apiURL} npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      url: baseURL,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

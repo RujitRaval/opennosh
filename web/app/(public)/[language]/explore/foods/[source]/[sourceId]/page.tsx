@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PublicFoodRecord } from "@/components/foods/public-food-record";
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
+import { loadPublicFoodRecord } from "@/lib/server/public-food-record";
 import { isSupportedLanguage, routes } from "@/lib/routes";
 import type { CatalogueFoodSource } from "@/lib/types";
 
@@ -38,6 +40,14 @@ export default async function FoodRecordPage({
   const foodLocale = requestedLocale && foodLocalePattern.test(requestedLocale)
     ? requestedLocale
     : "global";
+  const recordSource = source as CatalogueFoodSource;
+  const requestHeaders = await headers();
+  const initialState = await loadPublicFoodRecord({
+    source: recordSource,
+    sourceId,
+    foodLocale,
+    clientAddress: requestHeaders.get("x-forwarded-for"),
+  });
 
   return (
     <main id="main-content" className="food-record-page">
@@ -52,8 +62,10 @@ export default async function FoodRecordPage({
         ]}
       />
       <PublicFoodRecord
+        key={`${recordSource}:${sourceId}:${foodLocale}`}
+        initialState={initialState}
         language={language}
-        source={source as CatalogueFoodSource}
+        source={recordSource}
         sourceId={sourceId}
         foodLocale={foodLocale}
       />

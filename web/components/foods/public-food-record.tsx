@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 import { FoodRecord } from "@/components/foods/food-record";
 import { api, ApiProblem } from "@/lib/api";
@@ -9,68 +9,42 @@ import { toFoodRecordView, type FoodRecordView } from "@/lib/food-record";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 import type { CatalogueFoodSource } from "@/lib/types";
 
-type RecordState =
-  | { kind: "loading" }
-  | { kind: "ready"; record: FoodRecordView; variants: FoodRecordView[] }
+export type PublicFoodRecordState =
+  | { kind: "ready"; record: FoodRecordView }
   | { kind: "not-found" }
   | { kind: "unavailable"; reference: string };
 
 export function PublicFoodRecord({
+  initialState,
   language,
   source,
   sourceId,
   foodLocale,
 }: {
+  initialState: PublicFoodRecordState;
   language: InterfaceLanguage;
   source: CatalogueFoodSource;
   sourceId: string;
   foodLocale: string;
 }) {
-  const [state, setState] = useState<RecordState>({ kind: "loading" });
+  const [state, setState] = useState<PublicFoodRecordState | { kind: "loading" }>(initialState);
 
-  const load = useCallback(async (): Promise<RecordState> => {
+  async function retry(): Promise<void> {
+    setState({ kind: "loading" });
     try {
       const detail = await api.foodDetail(source, sourceId);
-      const record = toFoodRecordView(detail, foodLocale);
-      let variants: FoodRecordView[] = [];
-      try {
-        const matches = await api.searchFoods(
-          detail.name,
-          foodLocale === "global" ? undefined : foodLocale,
-        );
-        const candidates = matches.items
-          .filter((item) => item.id !== detail.id)
-          .slice(0, 3);
-        const settled = await Promise.allSettled(
-          candidates.map((item) => api.foodDetail(item.source, item.source_id)),
-        );
-        variants = settled.flatMap((result) =>
-          result.status === "fulfilled" ? [toFoodRecordView(result.value, foodLocale)] : [],
-        );
-      } catch {
-        // Related records enrich the page but never hide a valid primary record.
-      }
-      return { kind: "ready", record, variants };
+      setState({ kind: "ready", record: toFoodRecordView(detail, foodLocale) });
     } catch (error) {
       if (error instanceof ApiProblem && error.kind === "not-found") {
-        return { kind: "not-found" };
+        setState({ kind: "not-found" });
+        return;
       }
-      return {
+      setState({
         kind: "unavailable",
         reference: error instanceof ApiProblem ? error.reference : "unavailable",
-      };
+      });
     }
-  }, [foodLocale, source, sourceId]);
-
-  useEffect(() => {
-    let active = true;
-    void load().then((nextState) => {
-      if (active) setState(nextState);
-    });
-    return () => {
-      active = false;
-    };
-  }, [load]);
+  }
 
   if (state.kind === "loading") {
     return (
@@ -99,19 +73,11 @@ export function PublicFoodRecord({
         <p className="mono">Verified read unavailable</p>
         <h1>We cannot verify this record right now.</h1>
         <p>The page will not show cached or invented nutrition without its trust context.</p>
-        <button
-          type="button"
-          onClick={() => {
-            setState({ kind: "loading" });
-            void load().then(setState);
-          }}
-        >
-          Try again
-        </button>
+        <button type="button" onClick={() => void retry()}>Try again</button>
         <small className="mono">Reference / {state.reference}</small>
       </section>
     );
   }
 
-  return <FoodRecord key={state.record.id} record={state.record} variants={state.variants} />;
+  return <FoodRecord record={state.record} />;
 }

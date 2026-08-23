@@ -180,7 +180,7 @@ export function FoodRecord({
           <a href="#provenance">See provenance <span aria-hidden="true">↓</span></a>
           <a href="#variants">Compare variants <span aria-hidden="true">↓</span></a>
           <a href={correctionHref}>Correct this record <span aria-hidden="true">↗</span></a>
-          <Link className="secondary-record-action" href={`${routes.tracker.home}?${new URLSearchParams({ food_source: record.source, food_id: record.sourceId })}`}>
+          <Link className="secondary-record-action" href={routes.tracker.home}>
             Open in tracker <span aria-hidden="true">↗</span>
           </Link>
         </nav>
