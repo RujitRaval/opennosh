@@ -8,7 +8,7 @@
 
 <!-- List the exact checks you ran and their results. -->
 
-- [ ] `make lint typecheck test package-check build compose-config`
+- [ ] `make lint typecheck test package-check contracts-check build compose-config`
 - [ ] `docker compose up --build` smoke test completed when service behavior changes
 - [ ] Maintainer PR: GStack `/review` completed with no unresolved blocking findings
 

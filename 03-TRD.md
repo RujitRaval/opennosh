@@ -141,6 +141,11 @@ open while the external request is in flight.
 
 REST, JSON, `/api/v1`. The UI consumes only this API — no server-side data access shortcuts, because third-party clients and future mobile apps depend on parity.
 
+Successful responses use named JSON schemas. Expected failures use RFC 9457-compatible
+`application/problem+json`; the typed `/healthz` 503 response is the exception. The canonical
+OpenAPI artifact, compatibility policy, generated TypeScript boundary, and regeneration commands
+are documented in `docs/api-contracts.md`.
+
 ```
 POST   /auth/register | /auth/login | /auth/logout
 GET    /auth/session
