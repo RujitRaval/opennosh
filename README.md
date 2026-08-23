@@ -512,6 +512,7 @@ were omitted.
 | `03-TRD.md` | Stack, data model, services, API surface | You + `prd-to-github-issues` |
 | `04-DATA-LICENSING.md` | **Read this first.** The ODbL constraint that shapes the architecture | You, before any code |
 | `docs/foodpack-spec.md` | The contribution unit. The most important file here | Contributors + implementing agent |
+| `docs/api-contracts.md` | Canonical OpenAPI, problem-details, generated TypeScript, compatibility, and regeneration contract | API + frontend contributors |
 | `docs/health-safety-copy-review.md` | Screen/state inventory and human approval record for health-sensitive copy | Human reviewer + implementing agent |
 | `docs/license-notice-review.md` | Approved source-by-source notice matrix and release-artifact inventory | Project owner + release reviewer |
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |

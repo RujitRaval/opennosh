@@ -14,6 +14,7 @@ from opennosh_api.settings import Settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -374,8 +375,15 @@ def test_private_export_has_an_independent_per_account_rate_limit() -> None:
     assert limited.status_code == 429
     assert limited.headers["cache-control"] == "no-store"
     assert int(limited.headers["retry-after"]) > 0
-    assert limited.json() == {
-        "detail": "Too many private data exports. Try again later."
+    assert problem_without_request_id(limited) == {
+        "type": "https://opennosh.org/problems/rate-limited",
+        "title": "Too many requests",
+        "status": 429,
+        "detail": "Too many private data exports. Try again later.",
+        "code": "rate_limited",
+        "schema_version": "1.0",
+        "retry_after": 60,
+        "recovery_actions": [{"id": "retry", "label": "Try again"}],
     }
 
 

@@ -19,6 +19,7 @@ from opennosh_api.settings import Settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -234,7 +235,15 @@ def test_search_timeout_returns_a_controlled_service_error(
         response = client.get("/api/v1/foods/search", params={"q": "apple"})
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "Food search timed out. Try a more specific query."}
+    assert problem_without_request_id(response) == {
+        "type": "https://opennosh.org/problems/service-unavailable",
+        "title": "Service unavailable",
+        "status": 503,
+        "detail": "Food search timed out. Try a more specific query.",
+        "code": "service_unavailable",
+        "schema_version": "1.0",
+        "recovery_actions": [{"id": "retry", "label": "Try again"}],
+    }
 
 
 def _plan_nodes(plan: dict[str, Any]) -> list[dict[str, Any]]:

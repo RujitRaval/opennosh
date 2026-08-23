@@ -20,6 +20,9 @@ export type FoodAttribution = {
   contents_license?: string;
   attribution_text?: string;
   contributed_by?: string | null;
+  pack_id?: string | null;
+  pack_version?: string | null;
+  provenance?: string | null;
 };
 
 export type FoodSearchItem = {

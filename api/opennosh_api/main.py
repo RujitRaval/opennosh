@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.auth.router import router as auth_router
 from opennosh_api.body_metrics.router import router as body_metrics_router
+from opennosh_api.contracts import common_problem_responses, install_openapi_contract
 from opennosh_api.database import SqlAlchemyHealthProbe, build_engine
 from opennosh_api.exercises.router import export_router as exercise_export_router
 from opennosh_api.exercises.router import router as exercises_router
@@ -19,6 +20,7 @@ from opennosh_api.health import router as health_router
 from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
+from opennosh_api.problems import RequestIdMiddleware, install_problem_handlers
 from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.settings import Settings, get_settings
 from opennosh_api.targets.router import router as targets_router
@@ -32,8 +34,13 @@ def read_app_version() -> str:
         return (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    app_version: str | None = None,
+) -> FastAPI:
     resolved_settings = settings or get_settings()
+    resolved_app_version = app_version or read_app_version()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -41,7 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         open_food_facts_client = (
             OpenFoodFactsClient(
                 base_url=resolved_settings.open_food_facts_base_url,
-                app_version=read_app_version(),
+                app_version=resolved_app_version,
                 contact=resolved_settings.open_food_facts_user_agent_contact,
                 timeout_seconds=resolved_settings.open_food_facts_timeout_seconds,
             )
@@ -63,7 +70,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             finally:
                 await engine.dispose()
 
-    application = FastAPI(title="opennosh API", version=read_app_version(), lifespan=lifespan)
+    application = FastAPI(
+        title="opennosh API",
+        version=resolved_app_version,
+        lifespan=lifespan,
+        responses=common_problem_responses(),
+    )
     application.state.settings = resolved_settings
     application.state.public_export_semaphore = asyncio.Semaphore(
         resolved_settings.public_export_concurrency_limit
@@ -71,7 +83,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.private_export_semaphore = asyncio.Semaphore(
         resolved_settings.private_export_concurrency_limit
     )
+    application.add_middleware(RequestIdMiddleware)
     application.add_middleware(FoodLogNoStoreMiddleware)
+    install_problem_handlers(application)
     application.include_router(health_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
@@ -84,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(targets_router)
     application.include_router(body_metrics_router)
     application.include_router(workouts_router)
+    install_openapi_contract(application)
     return application
 
 

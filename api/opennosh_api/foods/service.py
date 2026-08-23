@@ -19,6 +19,7 @@ from opennosh_api.foods.schemas import (
     FoodSource,
 )
 from opennosh_api.models import FoodCommunity, FoodCustom, FoodReference
+from opennosh_api.nutrition import HouseholdPortion
 
 SEARCH_QUERY_MIN_LENGTH = 2
 SEARCH_QUERY_MAX_LENGTH = 100
@@ -272,7 +273,7 @@ def _reference_detail(row: FoodReference) -> FoodDetail:
             provenance="government_database",
         ),
         nutrients=row.nutrients_json,
-        portions=row.portions_json,
+        portions=[HouseholdPortion.model_validate(value) for value in row.portions_json],
     )
 
 
@@ -296,7 +297,7 @@ def _community_detail(row: FoodCommunity) -> FoodDetail:
             provenance=row.provenance,
         ),
         nutrients=row.nutrients_json,
-        portions=row.portions_json,
+        portions=[HouseholdPortion.model_validate(value) for value in row.portions_json],
     )
 
 
@@ -329,5 +330,5 @@ async def create_custom_food(
         source_id=str(row.id),
         name=row.name,
         nutrients=row.nutrients_json,
-        portions=row.portions_json,
+        portions=[HouseholdPortion.model_validate(value) for value in row.portions_json],
     )

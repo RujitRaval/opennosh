@@ -7,7 +7,7 @@ opennosh has a scoped v1 implementation and is open for contributions. Discuss f
 1. Update local `main` with `git pull --ff-only origin main`.
 2. Create a short, descriptive branch from `main`.
 3. Make one coherent development change and add or update its tests.
-4. Install locked dependencies with `make install`, install Chromium once with `npx --prefix web playwright install chromium`, then run `make lint typecheck test package-check web-e2e build compose-config`.
+4. Install locked dependencies with `make install`, install Chromium once with `npx --prefix web playwright install chromium`, then run `make lint typecheck test package-check contracts-check web-e2e build compose-config`.
 5. Open a pull request and complete the template. Merge only after all required checks pass.
 
 Food-pack changes must also run `make foodpack-validate`. Blocking errors make that command fail;

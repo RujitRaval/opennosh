@@ -1,0 +1,20 @@
+.main {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+  padding: clamp(2rem, 8vw, 7rem);
+}
+
+.panel {
+  max-width: 42rem;
+}
+
+.eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.reference {
+  overflow-wrap: anywhere;
+}

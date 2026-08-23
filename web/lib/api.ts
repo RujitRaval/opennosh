@@ -1,153 +1,113 @@
 import type {
-  AuthenticatedUser,
-  BodyMetricListResponse,
-  BodyMetricTrendResponse,
-  DailyTotals,
-  DailyTotalsRange,
-  BarcodeFood,
-  CustomFood,
-  FoodCapabilities,
-  FoodDetail,
-  FoodSource,
-  FoodSearchResponse,
-  LogEntry,
-  LogEntryListResponse,
-  SessionResponse,
-  Target,
-  WorkoutListResponse,
-  WorkoutTrendResponse,
-} from "./types";
-import { reviewedApiErrorMessage } from "./health-safety";
+  AuthenticatedUser as TransportUser,
+  BodyMetricListResponse as TransportMetricList,
+  BodyMetricTrendResponse as TransportMetricTrend,
+  CustomFoodResponse as TransportCustomFood,
+  DailyTotalsRangeResponse as TransportTotalsRange,
+  DailyTotalsResponse as TransportTotals,
+  FoodCapabilities as TransportCapabilities,
+  FoodDetail as TransportFoodDetail,
+  FoodSearchResponse as TransportFoodSearch,
+  LogEntryListResponse as TransportLogList,
+  LogEntryResponse as TransportLogEntry,
+  OpenFoodFactsFood as TransportBarcodeFood,
+  SessionResponse as TransportSession,
+  TargetResponse as TransportTarget,
+  WorkoutListResponse as TransportWorkoutList,
+  WorkoutTrendResponse as TransportWorkoutTrend,
+} from "./generated/client/types.gen";
+import { authenticatedUser, sessionResponse } from "./api/adapters/auth";
+import {
+  barcodeFood,
+  customFood,
+  foodCapabilities,
+  foodDetail,
+  foodSearch,
+} from "./api/adapters/foods";
+import { dailyTotals, dailyTotalsRange, logEntries, logEntry } from "./api/adapters/logs";
+import { bodyMetricList, bodyMetricTrend } from "./api/adapters/metrics";
+import { target } from "./api/adapters/targets";
+import { workoutList, workoutTrend } from "./api/adapters/workouts";
+import { ApiProblem } from "./api/domain/problem";
+import { request } from "./api/transport";
+import type { FoodSource } from "./types";
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-function csrfTokenFromCookie(): string | null {
-  if (typeof document === "undefined") return null;
-
-  for (const name of ["__Host-opennosh-csrf", "opennosh_csrf"]) {
-    const prefix = `${name}=`;
-    const match = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
-    if (match) return match.slice(prefix.length);
-  }
-  return null;
-}
-
-async function errorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === "string") return reviewedApiErrorMessage(body.detail);
-  } catch {
-    // Use the stable fallback below for non-JSON upstream failures.
-  }
-  return response.status >= 500
-    ? "opennosh could not reach the server. Please try again."
-    : "That request could not be completed. Please try again.";
-}
-
-async function request<T>(path: `/api/v1/${string}`, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  if (init.body) headers.set("Content-Type", "application/json");
-
-  if (init.method && !["GET", "HEAD"].includes(init.method.toUpperCase())) {
-    const csrfToken = csrfTokenFromCookie();
-    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      ...init,
-      headers,
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-  } catch {
-    throw new ApiError(0, "opennosh could not reach the server. Check your connection and retry.");
-  }
-
-  if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
-}
+export { ApiProblem, ApiProblem as ApiError };
 
 export const api = {
-  session: () => request<AuthenticatedUser>("/api/v1/auth/session"),
+  session: () => request<TransportUser>("/api/v1/auth/session").then(authenticatedUser),
   login: (email: string, password: string) =>
-    request<SessionResponse>("/api/v1/auth/login", {
+    request<TransportSession>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    }),
+    }).then(sessionResponse),
   register: (email: string, password: string) =>
-    request<SessionResponse>("/api/v1/auth/register", {
+    request<TransportSession>("/api/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    }),
+    }).then(sessionResponse),
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
   logs: (day: string, timezone: string) =>
-    request<LogEntryListResponse>(
+    request<TransportLogList>(
       `/api/v1/logs?${new URLSearchParams({ day, timezone, limit: "100" })}`,
-    ),
+    ).then(logEntries),
   totals: (day: string, timezone: string) =>
-    request<DailyTotals>(
+    request<TransportTotals>(
       `/api/v1/logs/daily-totals?${new URLSearchParams({ day, timezone })}`,
-    ),
+    ).then(dailyTotals),
   totalsRange: (from: string, to: string, timezone: string) =>
-    request<DailyTotalsRange>(
+    request<TransportTotalsRange>(
       `/api/v1/logs/daily-totals/range?${new URLSearchParams({ from, to, timezone })}`,
-    ),
+    ).then(dailyTotalsRange),
   bodyMetrics: (from: string, to: string, offset = 0) =>
-    request<BodyMetricListResponse>(
+    request<TransportMetricList>(
       `/api/v1/body-metrics?${new URLSearchParams({
         from,
         to,
         limit: "100",
         offset: String(offset),
       })}`,
-    ),
+    ).then(bodyMetricList),
   bodyMetricTrends: (from: string, to: string) =>
-    request<BodyMetricTrendResponse>(
+    request<TransportMetricTrend>(
       `/api/v1/body-metrics/trends?${new URLSearchParams({ from, to })}`,
-    ),
+    ).then(bodyMetricTrend),
   workouts: (from: string, to: string, offset = 0) =>
-    request<WorkoutListResponse>(
+    request<TransportWorkoutList>(
       `/api/v1/workouts?${new URLSearchParams({
         from,
         to,
         limit: "100",
         offset: String(offset),
       })}`,
-    ),
+    ).then(workoutList),
   workoutTrends: (from: string, to: string) =>
-    request<WorkoutTrendResponse>(
+    request<TransportWorkoutTrend>(
       `/api/v1/workouts/trends?${new URLSearchParams({ from, to })}`,
-    ),
+    ).then(workoutTrend),
   target: (day: string, dayType: "training" | "rest") =>
-    request<Target>(
+    request<TransportTarget>(
       `/api/v1/targets/resolve?${new URLSearchParams({ day, day_type: dayType })}`,
-    ),
-  foodCapabilities: () => request<FoodCapabilities>("/api/v1/foods/capabilities"),
+    ).then(target),
+  foodCapabilities: () =>
+    request<TransportCapabilities>("/api/v1/foods/capabilities").then(foodCapabilities),
   searchFoods: (query: string, locale: string, source?: "usda" | "community") =>
-    request<FoodSearchResponse>(
+    request<TransportFoodSearch>(
       `/api/v1/foods/search?${new URLSearchParams({
         q: query,
         locale,
         limit: "12",
         ...(source ? { source } : {}),
       })}`,
-    ),
+    ).then(foodSearch),
   foodDetail: (source: "usda" | "community", sourceId: string) =>
-    request<FoodDetail>(`/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`),
+    request<TransportFoodDetail>(
+      `/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
+    ).then(foodDetail),
   lookupBarcode: (barcode: string) =>
-    request<BarcodeFood>(`/api/v1/foods/barcode/${encodeURIComponent(barcode)}`),
+    request<TransportBarcodeFood>(
+      `/api/v1/foods/barcode/${encodeURIComponent(barcode)}`,
+    ).then(barcodeFood),
   createCustomFood: (input: {
     name: string;
     energyKcal: string;
@@ -156,7 +116,7 @@ export const api = {
     fatG: string;
     portion?: { name: string; grams: string };
   }) =>
-    request<CustomFood>("/api/v1/foods/custom", {
+    request<TransportCustomFood>("/api/v1/foods/custom", {
       method: "POST",
       body: JSON.stringify({
         name: input.name,
@@ -171,7 +131,7 @@ export const api = {
         },
         portions: input.portion ? [input.portion] : [],
       }),
-    }),
+    }).then(customFood),
   addLog: (input: {
     loggedAt: string;
     mealSlot: string;
@@ -181,7 +141,7 @@ export const api = {
     unit: "g" | "portion";
     portionName: string | null;
   }) =>
-    request<LogEntry>("/api/v1/logs", {
+    request<TransportLogEntry>("/api/v1/logs", {
       method: "POST",
       body: JSON.stringify({
         logged_at: input.loggedAt,
@@ -193,7 +153,7 @@ export const api = {
           portion_name: input.portionName,
         },
       }),
-    }),
+    }).then(logEntry),
   deleteLog: (entryId: string) =>
     request<void>(`/api/v1/logs/${entryId}`, { method: "DELETE" }),
 };

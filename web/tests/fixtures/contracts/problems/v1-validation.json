@@ -1,0 +1,22 @@
+{
+  "type": "https://opennosh.org/problems/validation-failed",
+  "title": "Validation failed",
+  "status": 422,
+  "detail": "Check the highlighted fields and try again.",
+  "code": "validation_failed",
+  "schema_version": "1.0",
+  "request_id": "11111111-1111-4111-8111-111111111111",
+  "field_errors": [
+    {
+      "pointer": "/body/email",
+      "code": "string_pattern_mismatch",
+      "message": "This value has an invalid format."
+    }
+  ],
+  "recovery_actions": [
+    {
+      "id": "review_fields",
+      "label": "Review highlighted fields"
+    }
+  ]
+}

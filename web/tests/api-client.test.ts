@@ -15,6 +15,7 @@ describe("browser API client", () => {
     await expect(api.session()).rejects.toMatchObject({
       name: "ApiError",
       status: 503,
+      kind: "unexpected",
       message: "opennosh could not reach the server. Please try again.",
     });
   });
@@ -34,6 +35,7 @@ describe("browser API client", () => {
     await expect(api.session()).rejects.toMatchObject({
       name: "ApiError",
       status: 422,
+      kind: "invalid-field",
       message: "That request could not be completed. Please try again.",
     });
   });
@@ -53,6 +55,7 @@ describe("browser API client", () => {
     await expect(api.session()).rejects.toMatchObject({
       name: "ApiError",
       status: 401,
+      kind: "authentication-required",
       message: "Email or password is incorrect",
     });
   });
@@ -64,7 +67,8 @@ describe("browser API client", () => {
 
     await expect(api.session()).rejects.toMatchObject({
       name: "ApiError",
-      status: 0,
+      status: undefined,
+      kind: "network",
       message: "opennosh could not reach the server. Check your connection and retry.",
     });
   });
@@ -80,5 +84,6 @@ describe("browser API client", () => {
 
     const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);
     expect(headers.get("X-CSRF-Token")).toBe("production-token");
+    expect(headers.get("Accept")).toBe("application/json, application/problem+json");
   });
 });

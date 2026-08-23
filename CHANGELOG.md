@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.25.0.0] - 2026-08-23
+
+### Added
+
+- Publish a canonical, versioned OpenAPI contract with typed food success envelopes and RFC 9457
+  problem details, field guidance, recovery actions, retry timing, and request references.
+- Generate pinned TypeScript transport types behind stable per-domain web adapters, including
+  current and previous contract fixtures for rolling deployments.
+- Add safe public and tracker route error boundaries that preserve useful recovery messages without
+  exposing unexpected exception details.
+
+### Changed
+
+- Return expected API and same-origin proxy failures as cache-safe `application/problem+json`
+  responses with server-generated correlation IDs.
+- Enforce deterministic regeneration, generated-import isolation, and unversioned breaking-change
+  detection in CI.
+
 ## [0.24.0.0] - 2026-08-23
 
 ### Added

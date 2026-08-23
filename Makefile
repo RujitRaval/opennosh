@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -26,6 +26,16 @@ package-check:
 	npm --prefix packages/npm ci --ignore-scripts
 	npm --prefix packages/npm test
 	cd packages/npm && npm pack --dry-run
+
+contracts-generate:
+	PYTHONPATH=api uv run python scripts/export_openapi.py
+	npm --prefix web run generate:api-contracts
+
+contracts-check:
+	$(MAKE) contracts-generate
+	git diff --exit-code -- web/lib/generated
+	python3 scripts/check_generated_imports.py
+	python3 scripts/check_openapi_compatibility.py
 
 web-e2e:
 	npm --prefix web run test:e2e

@@ -195,4 +195,7 @@ def test_food_capabilities_follow_open_food_facts_configuration() -> None:
         with TestClient(create_app(settings)) as client:
             response = client.get("/api/v1/foods/capabilities")
         assert response.status_code == 200
-        assert response.json() == {"barcode_lookup_enabled": enabled}
+        assert response.json() == {
+            "schema_version": "1.0",
+            "barcode_lookup_enabled": enabled,
+        }

@@ -14,6 +14,7 @@ from opennosh_api.settings import Settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -245,7 +246,16 @@ def test_all_operations_are_authenticated_csrf_protected_and_tenant_isolated(
         headers={"X-CSRF-Token": body_metric_clients.attacker_csrf},
     )
     assert attacker_delete.status_code == missing_delete.status_code == 404
-    assert attacker_delete.json() == missing_delete.json() == {"detail": "Body metric not found"}
+    expected_problem = {
+        "type": "https://opennosh.org/problems/resource-not-found",
+        "title": "Not found",
+        "status": 404,
+        "detail": "Body metric not found",
+        "code": "resource_not_found",
+        "schema_version": "1.0",
+    }
+    assert problem_without_request_id(attacker_delete) == expected_problem
+    assert problem_without_request_id(missing_delete) == expected_problem
 
     missing_csrf = body_metric_clients.owner.delete(f"/api/v1/body-metrics/{metric_id}")
     assert missing_csrf.status_code == 403
