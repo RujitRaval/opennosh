@@ -313,7 +313,10 @@ img { display: block; max-width: 100%; height: auto; }
   .mobile-utilities { grid-template-columns: 1fr; }
   .hub-page { padding-top: 7.5rem; }
   .hub-intro { min-height: 38rem; grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto; }
-  .hub-intro h1 { font-size: clamp(5rem, 24vw, 8rem); }
+  .hub-intro h1 { font-size: clamp(4rem, 19vw, 6.5rem); }
+  .hub-page-explore .hub-intro h1 { font-size: clamp(4rem, 20vw, 6.5rem); }
+  .hub-page-contribute .hub-intro h1 { font-size: clamp(3.2rem, 14.5vw, 5.25rem); }
+  .hub-page-build .hub-intro h1 { font-size: clamp(4rem, 23vw, 7rem); }
   .hub-description { font-size: 1.4rem; }
   .hub-principles, .hub-contents-heading { grid-template-columns: 1fr; }
   .hub-principles ol { grid-template-columns: 1fr; }
