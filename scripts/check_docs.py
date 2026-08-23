@@ -44,7 +44,7 @@ LICENSE_NOTICE_REQUIREMENTS = {
         "DbCL 1.0",
         "CC BY-SA 3.0",
     ),
-    Path("web/app/notices/page.tsx"): (
+    Path("web/app/(public)/[language]/notices/page.tsx"): (
         "MIT License",
         "CC0 1.0 Universal",
         "USDA FoodData Central",
@@ -53,7 +53,7 @@ LICENSE_NOTICE_REQUIREMENTS = {
         "CC BY-SA 3.0",
         "Private account data",
     ),
-    Path("web/app/layout.tsx"): ('href="/notices"', "Licenses &amp; data notices"),
+    Path("web/components/tracker/tracker-footer.tsx"): ('href="/en/notices"', "Licenses &amp; data notices"),
     Path("api/opennosh_api/exports/schemas.py"): (
         'license: Literal["CC0-1.0"]',
         "Contributor credit remains visible as a community norm.",

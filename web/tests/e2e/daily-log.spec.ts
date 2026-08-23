@@ -117,9 +117,26 @@ async function expectNoWcagViolations(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
-test("login, add food, view totals, and delete the entry", async ({ page }, testInfo) => {
+test("the public root redirects to the localized commons and links to the tracker", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
+
+  await expect(page).toHaveURL(/\/en$/);
+  await expect(page.getByRole("heading", { name: "Food data belongs to everyone." })).toBeVisible();
+  const trackerLink = page.locator(".build-ledger").getByRole("link", { name: /Private tracker/ });
+  await expect(trackerLink).toHaveAttribute("href", "/tracker");
+  await expectNoWcagViolations(page);
+
+  await trackerLink.click();
+  await expect(page).toHaveURL(/\/tracker$/);
+  await expect(page.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
+  await expect(page.getByText("Your tracker has a permanent address.")).toHaveCount(0);
+  await expectNoWcagViolations(page);
+});
+
+test("login, add food, view totals, and delete the entry", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto("/tracker");
 
   await expect(page.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
   await expectNoWcagViolations(page);
@@ -274,7 +291,7 @@ test("ranked search, barcode recovery, and private custom food entry", async ({ 
     return route.fulfill({ status: 404, json: { detail: `Unhandled ${path}` } });
   });
 
-  await page.goto("/");
+  await page.goto("/tracker");
   await page.context().addCookies([
     { name: "opennosh_csrf", value: "journey-csrf", url: page.url() },
   ]);

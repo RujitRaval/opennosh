@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { routes } from "@/lib/routes";
+
 export const metadata: Metadata = {
   title: "Licenses and data notices · opennosh",
   description: "The software and dataset terms that apply to opennosh.",
 };
 
-export default function NoticesPage() {
+export default async function NoticesPage({
+  params,
+}: {
+  params: Promise<{ language: "en" }>;
+}) {
+  const { language } = await params;
+
   return (
     <main className="legal-page" id="main-content">
-      <Link className="wordmark" href="/" aria-label="opennosh home">
+      <Link className="wordmark" href={routes.publicHome(language)} aria-label="opennosh home">
         open<span>nosh</span>
       </Link>
       <p className="eyebrow">Source transparency</p>

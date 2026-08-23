@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 
+import { routes } from "@/lib/routes";
+
 type LoginPanelProps = {
   message?: string;
   onAuthenticate: (mode: "login" | "register", email: string, password: string) => Promise<void>;
@@ -35,7 +37,7 @@ export function LoginPanel({ message, onAuthenticate }: LoginPanelProps) {
   return (
     <main id="main-content" className="auth-shell">
       <section className="auth-intro" aria-labelledby="auth-title">
-        <Link className="wordmark" href="/" aria-label="opennosh home">
+        <Link className="wordmark" href={routes.tracker.home} aria-label="opennosh tracker">
           open<span>nosh</span>
         </Link>
         <p className="eyebrow">Nutrition, without judgment</p>

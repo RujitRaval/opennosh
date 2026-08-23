@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LoginPanel } from "@/components/log/login-panel";
 import { ApiError, api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 import type { AuthenticatedUser, BodyMetric, WorkoutTrendPoint } from "@/lib/types";
 
 import { TrendPanel } from "./trend-panel";
@@ -106,10 +107,10 @@ function Trends({
     <>
       <a className="skip-link" href="#main-content">Skip to trends</a>
       <header className="app-header">
-        <Link className="wordmark" href="/" aria-label="opennosh daily log">open<span>nosh</span></Link>
+        <Link className="wordmark" href={routes.tracker.home} aria-label="opennosh daily log">open<span>nosh</span></Link>
         <nav className="primary-nav" aria-label="Primary navigation">
-          <Link href="/">Daily log</Link>
-          <Link aria-current="page" href="/trends">Trends</Link>
+          <Link href={routes.tracker.home}>Daily log</Link>
+          <Link aria-current="page" href={routes.tracker.trends}>Trends</Link>
         </nav>
         <div className="account-menu">
           <span className="account-email">{user.email}</span>

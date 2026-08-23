@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Home from "@/app/page";
+import Home from "@/app/(tracker)/tracker/page";
 import type { LogEntry } from "@/lib/types";
 
 const user = { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" };

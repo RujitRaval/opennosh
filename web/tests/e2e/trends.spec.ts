@@ -34,7 +34,7 @@ test("changes trend ranges and keeps strength load units separate", async ({ pag
     return route.fulfill({ status: 404, json: { detail: `Unhandled ${url.pathname}` } });
   });
 
-  await page.goto("/trends");
+  await page.goto("/tracker/trends");
   await expect(page.getByRole("heading", { name: "Trends" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "30 days" })).toBeChecked();
   await expect(page.getByRole("table")).toHaveCount(3);

@@ -149,19 +149,21 @@ Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only s
 
 ## Daily nutrition log
 
-The web app at `http://localhost:3000` provides the responsive primary journey: create an account
-or sign in, choose a date and training/rest target, search the ranked local catalogue, filter USDA
-or community results, and log a food by grams or a named household portion under any meal name.
+The tracker at `http://localhost:3000/tracker` provides the responsive primary journey: create an
+account or sign in, choose a date and training/rest target, search the ranked local catalogue,
+filter USDA or community results, and log a food by grams or a named household portion under any
+meal name.
 When Open Food Facts is enabled, the same dialog adds barcode lookup; it always offers owner-private
 custom-food entry with calories, macros, and optional household portions. Source and contributor
 credit stays visible during selection. Loading, empty, API-error, and expired-session screens all
 provide a way forward. Keyboard focus is visible, the dialog traps focus, supports arrow-key tab
 navigation, closes with Escape, and is checked against WCAG 2.2 AA rules in Playwright on desktop
-and mobile.
+and mobile. The public root redirects to the localized commons at `/en`; the private tracker keeps
+its independent layout and permanent `/tracker` address.
 
 ## Nutrition, body-metric, and strength trends
 
-Authenticated users can open `/trends` to review 7-, 30-, or 90-day history for nutrition,
+Authenticated users can open `/tracker/trends` to review 7-, 30-, or 90-day history for nutrition,
 body measurements, and strength volume. Nutrition days follow the browser's IANA timezone;
 body-metric and workout ranges retain the APIs' documented UTC date boundaries. Every visual chart
 has a visible data table and keyboard-accessible native range and measure controls. Empty and
@@ -515,6 +517,9 @@ were omitted.
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |
 | `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
+| `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
+| `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
+| `web/assets/fonts/README.md` | Self-hosted public font subsets, licenses, loading policy, and integrity hashes | Frontend contributors + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |

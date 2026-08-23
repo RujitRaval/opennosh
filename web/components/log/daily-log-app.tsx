@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 
 import { ApiError, api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 import type { AuthenticatedUser, DailyTotals, LogEntry, Target } from "@/lib/types";
 
 import { AddFoodDialog } from "./add-food-dialog";
@@ -208,12 +209,12 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
     <>
       <a className="skip-link" href="#main-content">Skip to daily log</a>
       <header className="app-header">
-        <Link className="wordmark" href="/" aria-label="opennosh daily log">
+        <Link className="wordmark" href={routes.tracker.home} aria-label="opennosh daily log">
           open<span>nosh</span>
         </Link>
         <nav className="primary-nav" aria-label="Primary navigation">
-          <Link aria-current="page" href="/">Daily log</Link>
-          <Link href="/trends">Trends</Link>
+          <Link aria-current="page" href={routes.tracker.home}>Daily log</Link>
+          <Link href={routes.tracker.trends}>Trends</Link>
         </nav>
         <div className="account-menu">
           <span className="account-email">{user.email}</span>

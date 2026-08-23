@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.24.0.0] - 2026-08-23
+
+### Added
+
+- Launch the localized Living Commons homepage with task-first public navigation, an honest empty
+  activity state, and accessible mobile behavior.
+- Establish the production design system with self-hosted fonts, six contrast-safe logo colorways,
+  route-scoped assets, and documented brand guidance.
+- Record the finalized opennosh movement-platform plan, delivery gates, trust model, and implementation
+  sequence.
+
+### Changed
+
+- Move the private nutrition application to the canonical `/tracker` surface and isolate its layout,
+  styles, fonts, and navigation from the public website.
+- Redirect legacy public, trends, and notices routes to their canonical localized or tracker
+  destinations.
+
 ## [0.23.0.2] - 2026-08-22
 
 ### For contributors
