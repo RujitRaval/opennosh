@@ -26,8 +26,8 @@ verification evidence are recorded in [`docs/package-operations.md`](docs/packag
 
 ## Quick start
 
-Docker Compose validates the global database-capacity contract, runs one migration job, then starts
-PostgreSQL, the FastAPI web role, the Next.js app, and its nginx ingress:
+Docker Compose starts PostgreSQL, validates the global database-capacity contract, runs one migration
+job, then starts the FastAPI web role, the Next.js app, and its nginx ingress:
 
 ```bash
 cp .env.example .env
