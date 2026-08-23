@@ -88,4 +88,16 @@ test.describe("without JavaScript", () => {
     await expect(page.getByText("CC0-1.0").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Where this record comes from" })).toBeVisible();
   });
+
+  test("portion and unit controls submit through the server", async ({ page }) => {
+    await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN");
+    await page.getByLabel("Selected portion").selectOption("0");
+    await page.getByRole("button", { name: "US" }).click();
+
+    expect(new URL(page.url()).searchParams.get("portion")).toBe("0");
+    expect(new URL(page.url()).searchParams.get("units")).toBe("us");
+    await expect(page.getByText("3.53 oz")).toBeVisible();
+    await expect(page.getByText("Canonical 100 g")).toBeVisible();
+    await expect(page.getByText("127 kcal").first()).toBeVisible();
+  });
 });

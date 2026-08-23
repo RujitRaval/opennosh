@@ -83,12 +83,23 @@ function VariantLedger({ records }: { records: readonly FoodRecordView[] }) {
 export function FoodRecord({
   record,
   variants = [],
+  initialPortionIndex,
+  initialMeasurement = "metric",
+  foodLocale,
 }: {
   record: FoodRecordView;
   variants?: readonly FoodRecordView[];
+  initialPortionIndex?: number;
+  initialMeasurement?: "metric" | "us";
+  foodLocale?: string;
 }) {
-  const [portionIndex, setPortionIndex] = useState(record.portions.length > 1 ? 1 : 0);
-  const [measurement, setMeasurement] = useState<"metric" | "us">("metric");
+  const defaultPortionIndex = record.portions.length > 1 ? 1 : 0;
+  const [portionIndex, setPortionIndex] = useState(
+    initialPortionIndex !== undefined && record.portions[initialPortionIndex]
+      ? initialPortionIndex
+      : defaultPortionIndex,
+  );
+  const [measurement, setMeasurement] = useState<"metric" | "us">(initialMeasurement);
   const portion = record.portions[portionIndex] ?? record.portions[0];
   const visibleRecords = useMemo(
     () => [record, ...variants.filter((variant) => variant.id !== record.id)],
@@ -131,11 +142,13 @@ export function FoodRecord({
         </aside>
 
         <div className="nutrition-panel" data-record-order="3-serving-and-nutrients">
-          <div className="nutrition-controls">
+          <form method="get" className="nutrition-controls">
+            {foodLocale ? <input type="hidden" name="food_locale" value={foodLocale} /> : null}
             <div>
               <label className="mono" htmlFor="record-portion">Selected portion</label>
               <select
                 id="record-portion"
+                name="portion"
                 value={portionIndex}
                 onChange={(event) => setPortionIndex(Number(event.target.value))}
               >
@@ -146,10 +159,10 @@ export function FoodRecord({
             </div>
             <fieldset className="measurement-switch">
               <legend className="mono">Portion units</legend>
-              <button type="button" aria-pressed={measurement === "metric"} onClick={() => setMeasurement("metric")}>Metric</button>
-              <button type="button" aria-pressed={measurement === "us"} onClick={() => setMeasurement("us")}>US</button>
+              <button type="submit" name="units" value="metric" aria-pressed={measurement === "metric"} onClick={(event) => { event.preventDefault(); setMeasurement("metric"); }}>Metric</button>
+              <button type="submit" name="units" value="us" aria-pressed={measurement === "us"} onClick={(event) => { event.preventDefault(); setMeasurement("us"); }}>US</button>
             </fieldset>
-          </div>
+          </form>
           <p className="portion-mass">
             <strong>{portion.name}</strong>
             <span>{formatPortionMass(portion.gramsValue, measurement)}</span>

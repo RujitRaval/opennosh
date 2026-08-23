@@ -34,7 +34,7 @@ test("a server-side primary-record failure exposes retry and recovers cleanly", 
 
   await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
   await expect(page.getByRole("heading", { name: "We cannot verify this record right now." })).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
+  await page.getByRole("link", { name: "Try again" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Rajma masala" })).toBeVisible();
 });
 
@@ -42,11 +42,23 @@ test("a stalled browser retry times out and remains safely retryable", async ({ 
   await page.route("**/api/v1/foods/community/unavailable-food", () => new Promise(() => {}));
 
   await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
-  await page.getByRole("button", { name: "Try again" }).click();
+  await page.getByRole("link", { name: "Try again" }).click();
   await expect(page.getByRole("heading", { name: "We cannot verify this record right now." })).toBeVisible({
     timeout: 7_000,
   });
-  await expect(page.getByRole("button", { name: "Try again" })).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Try again" })).toBeEnabled();
+});
+
+test.describe("retry without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the unavailable state offers a real reload link", async ({ page }) => {
+    await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
+    const retry = page.getByRole("link", { name: "Try again" });
+    await expect(retry).toHaveAttribute("href", "");
+    await retry.click();
+    await expect(page.getByRole("heading", { name: "We cannot verify this record right now." })).toBeVisible();
+  });
 });
 
 test("invalid public record identifiers return a real 404", async ({ page }) => {

@@ -20,12 +20,16 @@ export function PublicFoodRecord({
   source,
   sourceId,
   foodLocale,
+  initialPortionIndex,
+  initialMeasurement,
 }: {
   initialState: PublicFoodRecordState;
   language: InterfaceLanguage;
   source: CatalogueFoodSource;
   sourceId: string;
   foodLocale: string;
+  initialPortionIndex?: number;
+  initialMeasurement?: "metric" | "us";
 }) {
   const [state, setState] = useState<PublicFoodRecordState | { kind: "loading" }>(initialState);
 
@@ -73,11 +77,18 @@ export function PublicFoodRecord({
         <p className="mono">Verified read unavailable</p>
         <h1>We cannot verify this record right now.</h1>
         <p>The page will not show cached or invented nutrition without its trust context.</p>
-        <button type="button" onClick={() => void retry()}>Try again</button>
+        <a href="" onClick={(event) => { event.preventDefault(); void retry(); }}>Try again</a>
         <small className="mono">Reference / {state.reference}</small>
       </section>
     );
   }
 
-  return <FoodRecord record={state.record} />;
+  return (
+    <FoodRecord
+      record={state.record}
+      initialPortionIndex={initialPortionIndex}
+      initialMeasurement={initialMeasurement}
+      foodLocale={foodLocale}
+    />
+  );
 }

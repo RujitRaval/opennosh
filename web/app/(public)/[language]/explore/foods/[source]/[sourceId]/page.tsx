@@ -22,7 +22,11 @@ export default async function FoodRecordPage({
   searchParams,
 }: {
   params: Promise<{ language: string; source: string; sourceId: string }>;
-  searchParams: Promise<{ food_locale?: string | string[] }>;
+  searchParams: Promise<{
+    food_locale?: string | string[];
+    portion?: string | string[];
+    units?: string | string[];
+  }>;
 }) {
   const { language, source, sourceId } = await params;
   const query = await searchParams;
@@ -40,6 +44,12 @@ export default async function FoodRecordPage({
   const foodLocale = requestedLocale && foodLocalePattern.test(requestedLocale)
     ? requestedLocale
     : "global";
+  const requestedPortion = Array.isArray(query.portion) ? query.portion[0] : query.portion;
+  const initialPortionIndex = requestedPortion && /^[0-9]+$/.test(requestedPortion)
+    ? Number(requestedPortion)
+    : undefined;
+  const requestedUnits = Array.isArray(query.units) ? query.units[0] : query.units;
+  const initialMeasurement = requestedUnits === "us" ? "us" : "metric";
   const recordSource = source as CatalogueFoodSource;
   const requestHeaders = await headers();
   const initialState = await loadPublicFoodRecord({
@@ -69,6 +79,8 @@ export default async function FoodRecordPage({
         source={recordSource}
         sourceId={sourceId}
         foodLocale={foodLocale}
+        initialPortionIndex={initialPortionIndex}
+        initialMeasurement={initialMeasurement}
       />
     </main>
   );
