@@ -412,6 +412,6 @@ describe("daily log recovery and edge cases", () => {
     render(<Home />);
     fireEvent.click(await screen.findByRole("button", { name: /sign out/i }));
     const message = await screen.findByText(/you’re signed out/i);
-    expect(message).toHaveFocus();
+    await waitFor(() => expect(message).toHaveFocus());
   });
 });
