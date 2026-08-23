@@ -91,6 +91,17 @@ GET /api/v1/foods/community/apple
 GET /api/v1/foods/usda/171688
 ```
 
+Open a source-qualified result without an account at a localized public record URL such as
+`http://localhost:3000/en/explore/foods/community/apple?food_locale=en-IN`. The page server-renders
+its identity, preparation, selected portion, nutrition, source, release version, license,
+uncertainty, provenance, record history, and reuse terms, so the complete trust context remains
+available without JavaScript.
+
+Metric and US controls change the displayed portion mass while canonical grams and nutrient units
+remain explicit. Variant comparison never guesses relationships from fuzzy search: until the API
+publishes an explicit relationship, the record shows an honest empty-variant state. The Tracker
+action opens the generic `/tracker` utility until a food-record handoff contract exists.
+
 `/foods/capabilities` reports whether barcode lookup is enabled so clients can hide that workflow
 without probing the third-party integration. It is public and does not make an Open Food Facts
 request.
