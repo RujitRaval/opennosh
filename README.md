@@ -517,6 +517,9 @@ were omitted.
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |
 | `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
+| `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
+| `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
+| `web/assets/fonts/README.md` | Self-hosted public font subsets, licenses, loading policy, and integrity hashes | Frontend contributors + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
