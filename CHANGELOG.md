@@ -2,6 +2,32 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.30.0.0] - 2026-08-23
+
+### Added
+
+- Add a CSS-first Living Commons movement layer whose full content and actions remain present in
+  server-rendered HTML before JavaScript or animation is available.
+- Add a small preference and device-capability gate, a separately loaded visibility controller,
+  offscreen/background pausing, a two-region activity cap, and automatic decoration shutdown when
+  frame or main-thread budgets are breached.
+- Capture browser Web Vitals locally and expose a same-page custom event for future first-party
+  telemetry without sending visitor measurements to an external service.
+- Add an emitted-chunk budget audit and six-profile production browser benchmark covering desktop,
+  mobile, reduced motion, data saver, low power, and no JavaScript, with CI artifacts for review.
+
+### Changed
+
+- Run ambient orbit, ribbon, and section-settle effects only after the client proves the visitor is
+  eligible and the corresponding region is visible.
+- Gate release quality on a 12 KB gzip motion ceiling, a 45 KB gzip public design-delta ceiling,
+  50 ms long-task and 20 ms p95 frame limits, and the Core Web Vitals good thresholds.
+
+### Fixed
+
+- Prevent reduced-motion, data-saver, and low-power visitors from starting the optional movement
+  runtime, while preserving the same readable, actionable public experience.
+
 ## [0.29.0.0] - 2026-08-23
 
 ### Added
