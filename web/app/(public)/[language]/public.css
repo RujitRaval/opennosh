@@ -428,13 +428,18 @@ img { display: block; max-width: 100%; height: auto; }
   .hub-content-ledger small { display: none; }
   .food-record-page { padding-top: 7.5rem; }
   .food-record-first { grid-template-columns: 1fr; }
-  .food-identity { padding-right: 0; }
-  .food-identity h1 { font-size: clamp(3.7rem, 18vw, 6.5rem); }
-  .identity-ledger { grid-template-columns: 1fr; }
-  .trust-panel { position: sticky; z-index: 2; top: 4.75rem; }
-  .trust-panel > .mono { margin-bottom: 2rem; }
-  .trust-panel h2 { font-size: clamp(2.5rem, 12vw, 4rem); }
-  .trust-panel dl div { grid-template-columns: 1fr; gap: .2rem; }
+  .food-identity { padding: 1.5rem 0 2.5rem; }
+  .food-identity > .mono { margin-bottom: 1.5rem; }
+  .food-identity h1 { font-size: clamp(3.5rem, 17vw, 6.25rem); }
+  .identity-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 2rem; }
+  .identity-ledger div { padding-block: .7rem; }
+  .trust-panel { position: static; margin-inline: calc(-1 * var(--page-pad)); padding: 1.25rem var(--page-pad) 1.5rem; }
+  .trust-panel > .mono { margin-bottom: 1rem; }
+  .trust-panel h2 { max-width: 14ch; font-size: clamp(2.4rem, 11vw, 3.5rem); }
+  .trust-panel > p:not(.mono) { margin: .75rem 0 1.25rem; font-size: 1rem; }
+  .trust-panel dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trust-panel dl div { grid-template-columns: 1fr; gap: .2rem; padding: .65rem 0; }
+  .trust-panel dl div:nth-child(odd) { padding-right: .75rem; }
   .trust-panel dd { text-align: left; }
   .nutrition-controls { align-items: stretch; flex-direction: column; }
   .nutrition-controls select { width: 100%; min-width: 0; }
