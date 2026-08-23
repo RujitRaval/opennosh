@@ -141,7 +141,7 @@ def test_application_openapi_versions_success_and_problem_contracts() -> None:
     )
     schema = application.openapi()
 
-    assert schema["info"]["x-opennosh-contract-version"] == "1.0.0"
+    assert schema["info"]["x-opennosh-contract-version"] == "2.0.0"
     search = schema["paths"]["/api/v1/foods/search"]["get"]
     assert "application/problem+json" in search["responses"]["422"]["content"]
     assert (
@@ -152,7 +152,7 @@ def test_application_openapi_versions_success_and_problem_contracts() -> None:
         schema["components"]["schemas"]["FoodSearchResponse"]["properties"]["schema_version"][
             "const"
         ]
-        == "1.0"
+        == "2.0"
     )
     assert "application/json" in schema["paths"]["/healthz"]["get"]["responses"]["503"]["content"]
 

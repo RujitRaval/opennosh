@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -36,11 +37,13 @@ class FoodSearchItem(BaseModel):
 
 
 class FoodSearchResponse(BaseModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     items: list[FoodSearchItem]
     limit: int = Field(ge=1)
-    offset: int = Field(ge=0)
     has_more: bool
+    next_cursor: str | None = Field(default=None, max_length=2048)
+    snapshot_id: UUID
+    snapshot_expires_at: datetime
 
 
 class FoodDetail(FoodSearchItem):

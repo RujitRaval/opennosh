@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import IntEnum
+from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.engine import RowMapping
@@ -9,6 +13,15 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.dependencies import CurrentSession
+from opennosh_api.foods.cursors import (
+    SEARCH_CURSOR_SCHEMA_VERSION,
+    SEARCH_RANKING_VERSION,
+    SearchCursorError,
+    SearchCursorFailure,
+    SearchCursorKeyRing,
+    SearchCursorPayload,
+    search_fingerprint,
+)
 from opennosh_api.foods.schemas import (
     CustomFoodCreate,
     CustomFoodResponse,
@@ -25,7 +38,6 @@ SEARCH_QUERY_MIN_LENGTH = 2
 SEARCH_QUERY_MAX_LENGTH = 100
 SEARCH_LIMIT_DEFAULT = 20
 SEARCH_LIMIT_MAX = 50
-SEARCH_OFFSET_MAX = 10_000
 SEARCH_PLAN_MAX_EXECUTION_MS = 100.0
 
 _LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
@@ -61,130 +73,138 @@ def normalize_locale(value: str | None) -> str | None:
     return normalized.lower()
 
 
-_COMMUNITY_SEARCH_VECTOR = """
+_SNAPSHOT_SEARCH_VECTOR = """
 to_tsvector(
     'simple'::regconfig,
-    (((((coalesce(food.slug, ''::character varying)::text || ' '::text) ||
-    coalesce(food.name, ''::character varying)::text) || ' '::text) ||
-    coalesce(food.name_local, ''::character varying)::text) || ' '::text) ||
-    coalesce(food.category, ''::character varying)::text
+    (((((coalesce(food.source_id, '') || ' ') || coalesce(food.name, '')) || ' ') ||
+    coalesce(food.name_local, '')) || ' ') || coalesce(food.category, '')
 )
-""".strip()
-
-_REFERENCE_SEARCH_VECTOR = """
-to_tsvector('simple'::regconfig, coalesce(food.description, ''))
 """.strip()
 
 FOOD_SEARCH_SQL = f"""
-WITH community_candidate_ids AS (
-    SELECT food.id
-    FROM foods_community AS food
-    WHERE food.slug = CAST(:slug_query AS text)
-    UNION
-    SELECT food.id
-    FROM foods_community AS food
-    WHERE {_COMMUNITY_SEARCH_VECTOR} @@
-          plainto_tsquery('simple'::regconfig, CAST(:query AS text))
-    UNION
-    SELECT food.id
-    FROM foods_community AS food
-    WHERE food.slug % CAST(:query AS text)
-    UNION
-    SELECT food.id
-    FROM foods_community AS food
-    WHERE food.name % CAST(:query AS text)
-    UNION
-    SELECT food.id
-    FROM foods_community AS food
-    WHERE food.name_local % CAST(:query AS text)
+WITH candidate_ids AS (
+    SELECT food.snapshot_id, food.source, food.source_id
+    FROM food_search_snapshot_items AS food
+    WHERE food.snapshot_id = CAST(:snapshot_id AS uuid)
+      AND (
+          food.source_id = CAST(:slug_query AS text)
+          OR {_SNAPSHOT_SEARCH_VECTOR} @@
+             plainto_tsquery('simple'::regconfig, CAST(:query AS text))
+          OR food.source_id % CAST(:query AS text)
+          OR food.name % CAST(:query AS text)
+          OR food.name_local % CAST(:query AS text)
+      )
 ),
-reference_candidate_ids AS (
-    SELECT food.id
-    FROM foods_reference AS food
-    WHERE {_REFERENCE_SEARCH_VECTOR} @@
-          plainto_tsquery('simple'::regconfig, CAST(:query AS text))
-    UNION
-    SELECT food.id
-    FROM foods_reference AS food
-    WHERE food.description % CAST(:query AS text)
-),
-community_matches AS (
+ranked_matches AS (
     SELECT
-        'community'::text AS source,
-        food.slug::text AS source_id,
-        food.name::text AS name,
-        food.name_local::text AS name_local,
-        food.category::text AS category,
-        food.pack_license::text AS license,
-        food.source_uri::text AS source_uri,
-        food.source_license::text AS source_license,
-        food.contributed_by::text AS contributed_by,
-        food.pack_id::text AS pack_id,
-        food.pack_version::text AS pack_version,
-        food.provenance::text AS provenance,
+        food.source,
+        food.source_id,
+        food.name,
+        food.name_local,
+        food.category,
+        food.license,
+        food.source_uri,
+        food.source_license,
+        food.contributed_by,
+        food.pack_id,
+        food.pack_version,
+        food.provenance,
         CASE
-            WHEN food.slug = CAST(:slug_query AS text)
+            WHEN food.source = 'community'
+                 AND food.source_id = CAST(:slug_query AS text)
                 THEN {int(RankingTier.EXACT_COMMUNITY_SLUG)}
-            WHEN CAST(:locale AS text) IS NOT NULL
+            WHEN food.source = 'community'
+                 AND CAST(:locale AS text) IS NOT NULL
                  AND lower(food.locale) = CAST(:locale AS text)
                 THEN {int(RankingTier.LOCALE_COMMUNITY)}
+            WHEN food.source = 'usda'
+                THEN {int(RankingTier.USDA_GENERIC)}
             ELSE {int(RankingTier.OTHER_COMMUNITY)}
         END AS ranking_tier,
         greatest(
-            similarity(food.slug, CAST(:query AS text)),
+            similarity(food.source_id, CAST(:query AS text)),
             similarity(food.name, CAST(:query AS text)),
             similarity(coalesce(food.name_local, ''), CAST(:query AS text)),
             ts_rank_cd(
-                {_COMMUNITY_SEARCH_VECTOR},
+                {_SNAPSHOT_SEARCH_VECTOR},
                 plainto_tsquery('simple'::regconfig, CAST(:query AS text))
             )
-        ) AS match_score
-    FROM foods_community AS food
-    JOIN community_candidate_ids AS candidate ON candidate.id = food.id
-    WHERE CAST(:source_filter AS text) IS NULL
-       OR CAST(:source_filter AS text) = 'community'
-),
-reference_matches AS (
-    SELECT
-        'usda'::text AS source,
-        food.fdc_id::text AS source_id,
-        food.description::text AS name,
-        NULL::text AS name_local,
-        food.food_category::text AS category,
-        food.license::text AS license,
-        NULL::text AS source_uri,
-        food.license::text AS source_license,
-        NULL::text AS contributed_by,
-        NULL::text AS pack_id,
-        NULL::text AS pack_version,
-        'government_database'::text AS provenance,
-        {int(RankingTier.USDA_GENERIC)} AS ranking_tier,
-        greatest(
-            similarity(food.description, CAST(:query AS text)),
-            ts_rank_cd(
-                {_REFERENCE_SEARCH_VECTOR},
-                plainto_tsquery('simple'::regconfig, CAST(:query AS text))
-            )
-        ) AS match_score
-    FROM foods_reference AS food
-    JOIN reference_candidate_ids AS candidate ON candidate.id = food.id
-    WHERE CAST(:source_filter AS text) IS NULL
-       OR CAST(:source_filter AS text) = 'usda'
-),
-ranked_matches AS (
-    SELECT * FROM community_matches
-    UNION ALL
-    SELECT * FROM reference_matches
+        ) AS match_score,
+        lower(food.name) AS normalized_name
+    FROM food_search_snapshot_items AS food
+    JOIN candidate_ids AS candidate
+      ON candidate.snapshot_id = food.snapshot_id
+     AND candidate.source = food.source
+     AND candidate.source_id = food.source_id
+    WHERE food.snapshot_id = CAST(:snapshot_id AS uuid)
+      AND (
+          CAST(:source_filter AS text) IS NULL
+          OR food.source = CAST(:source_filter AS text)
+      )
 )
 SELECT *
 FROM ranked_matches
-ORDER BY ranking_tier, match_score DESC, lower(name), source, source_id
-LIMIT :fetch_limit OFFSET :offset
+WHERE
+    CAST(:has_cursor AS boolean) IS FALSE
+    OR ranking_tier > CAST(:after_rank AS integer)
+    OR (
+        ranking_tier = CAST(:after_rank AS integer)
+        AND match_score < CAST(:after_score AS double precision)
+    )
+    OR (
+        ranking_tier = CAST(:after_rank AS integer)
+        AND match_score = CAST(:after_score AS double precision)
+        AND normalized_name > CAST(:after_name AS text)
+    )
+    OR (
+        ranking_tier = CAST(:after_rank AS integer)
+        AND match_score = CAST(:after_score AS double precision)
+        AND normalized_name = CAST(:after_name AS text)
+        AND source > CAST(:after_source AS text)
+    )
+    OR (
+        ranking_tier = CAST(:after_rank AS integer)
+        AND match_score = CAST(:after_score AS double precision)
+        AND normalized_name = CAST(:after_name AS text)
+        AND source = CAST(:after_source AS text)
+        AND source_id > CAST(:after_source_id AS text)
+    )
+ORDER BY ranking_tier, match_score DESC, normalized_name, source, source_id
+LIMIT :fetch_limit
+"""
+
+FOOD_SEARCH_SNAPSHOT_INSERT_SQL = """
+INSERT INTO food_search_snapshot_items (
+    snapshot_id, source, source_id, name, name_local, locale, category, license,
+    source_uri, source_license, contributed_by, pack_id, pack_version, provenance
+)
+SELECT
+    CAST(:snapshot_id AS uuid), 'community', food.slug, food.name, food.name_local,
+    lower(food.locale), food.category, food.pack_license, food.source_uri,
+    food.source_license, food.contributed_by, food.pack_id, food.pack_version,
+    food.provenance
+FROM foods_community AS food
+UNION ALL
+SELECT
+    CAST(:snapshot_id AS uuid), 'usda', food.fdc_id, food.description, NULL, NULL,
+    food.food_category, food.license, NULL, food.license, NULL, NULL, NULL,
+    'government_database'
+FROM foods_reference AS food
 """
 
 
 class FoodSearchTimeoutError(RuntimeError):
     """The database stopped a food search after its configured time budget."""
+
+
+class FoodSearchProjectionBusyError(RuntimeError):
+    """Another request is preparing the first retained search projection."""
+
+
+@dataclass(frozen=True)
+class SearchSnapshot:
+    snapshot_id: UUID
+    expires_at: datetime
 
 
 def _attribution(row: RowMapping) -> FoodAttribution:
@@ -215,6 +235,158 @@ def _search_item(row: RowMapping) -> FoodSearchItem:
     )
 
 
+def _cursor_position(row: RowMapping) -> tuple[int, str, str, str, str]:
+    return (
+        int(row["ranking_tier"]),
+        format(float(row["match_score"]), ".17g"),
+        str(row["normalized_name"]),
+        str(row["source"]),
+        str(row["source_id"]),
+    )
+
+
+async def _existing_snapshot(
+    database: AsyncSession,
+    *,
+    snapshot_id: UUID,
+    now: datetime,
+) -> SearchSnapshot:
+    row = (
+        (
+            await database.execute(
+                text(
+                    """
+                SELECT id, expires_at
+                FROM food_search_snapshots
+                WHERE id = CAST(:snapshot_id AS uuid)
+                  AND ranking_version = :ranking_version
+                FOR KEY SHARE
+                """
+                ),
+                {
+                    "snapshot_id": snapshot_id,
+                    "ranking_version": SEARCH_RANKING_VERSION,
+                },
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None or row["expires_at"] <= now:
+        raise SearchCursorError(
+            SearchCursorFailure.RESTART,
+            "The retained search snapshot is no longer available.",
+        )
+    return SearchSnapshot(snapshot_id=row["id"], expires_at=row["expires_at"])
+
+
+async def _latest_snapshot(
+    database: AsyncSession,
+    *,
+    now: datetime,
+    fresh_after: datetime | None,
+) -> SearchSnapshot | None:
+    freshness = "AND created_at >= :fresh_after" if fresh_after is not None else ""
+    row = (
+        (
+            await database.execute(
+                text(
+                    f"""
+                SELECT id, expires_at
+                FROM food_search_snapshots
+                WHERE ranking_version = :ranking_version
+                  AND expires_at > :now
+                  {freshness}
+                ORDER BY created_at DESC
+                LIMIT 1
+                FOR KEY SHARE
+                """
+                ),
+                {
+                    "ranking_version": SEARCH_RANKING_VERSION,
+                    "fresh_after": fresh_after,
+                    "now": now,
+                },
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    return SearchSnapshot(snapshot_id=row["id"], expires_at=row["expires_at"])
+
+
+async def _fresh_snapshot(
+    database: AsyncSession,
+    *,
+    now: datetime,
+    refresh_seconds: int,
+    retention_seconds: int,
+) -> SearchSnapshot:
+    fresh_after = now - timedelta(seconds=refresh_seconds)
+    snapshot = await _latest_snapshot(
+        database,
+        now=now,
+        fresh_after=fresh_after,
+    )
+    if snapshot is not None:
+        return snapshot
+
+    lock_acquired = bool(
+        (
+            await database.execute(
+                text(
+                    "SELECT pg_try_advisory_xact_lock(hashtext('opennosh.food-search-projection'))"
+                )
+            )
+        ).scalar_one()
+    )
+    if not lock_acquired:
+        retained = await _latest_snapshot(database, now=now, fresh_after=None)
+        if retained is not None:
+            return retained
+        raise FoodSearchProjectionBusyError
+
+    snapshot = await _latest_snapshot(
+        database,
+        now=now,
+        fresh_after=fresh_after,
+    )
+    if snapshot is not None:
+        return snapshot
+
+    snapshot_id = uuid4()
+    expires_at = now + timedelta(seconds=retention_seconds)
+    await database.execute(
+        text("DELETE FROM food_search_snapshots WHERE expires_at <= :now"),
+        {"now": now},
+    )
+    await database.execute(
+        text(
+            """
+            INSERT INTO food_search_snapshots (
+                id, ranking_version, created_at, expires_at
+            ) VALUES (
+                CAST(:snapshot_id AS uuid), :ranking_version, :created_at, :expires_at
+            )
+            """
+        ),
+        {
+            "snapshot_id": snapshot_id,
+            "ranking_version": SEARCH_RANKING_VERSION,
+            "created_at": now,
+            "expires_at": expires_at,
+        },
+    )
+    await database.execute(
+        text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
+        {"snapshot_id": snapshot_id},
+    )
+    await database.commit()
+    return SearchSnapshot(snapshot_id=snapshot_id, expires_at=expires_at)
+
+
 async def search_foods(
     database: AsyncSession,
     *,
@@ -222,14 +394,67 @@ async def search_foods(
     locale: str | None,
     source: FoodSource | None,
     limit: int,
-    offset: int,
+    cursor: str | None,
+    key_ring: SearchCursorKeyRing,
+    cursor_lifetime_seconds: int,
+    snapshot_refresh_seconds: int,
+    snapshot_retention_seconds: int,
+    snapshot_build_timeout_ms: int,
     statement_timeout_ms: int,
+    now: datetime | None = None,
 ) -> FoodSearchResponse:
-    await database.execute(
-        text("SELECT set_config('statement_timeout', :timeout, true)"),
-        {"timeout": f"{statement_timeout_ms}ms"},
+    current_time = now or datetime.now(UTC)
+    fingerprint = search_fingerprint(
+        query=query,
+        locale=locale,
+        source=source.value if source is not None else None,
     )
+    payload: SearchCursorPayload | None = None
+    if cursor is not None:
+        payload = key_ring.decode(cursor, now=int(current_time.timestamp()))
+        if payload.fp != fingerprint:
+            raise SearchCursorError(
+                SearchCursorFailure.RESTART,
+                "This search cursor belongs to different search terms or filters.",
+            )
+        if payload.rv != SEARCH_RANKING_VERSION or payload.size != limit:
+            raise SearchCursorError(
+                SearchCursorFailure.RESTART,
+                "This search cursor no longer matches the ranking or page-size policy.",
+            )
+        snapshot = await _existing_snapshot(
+            database,
+            snapshot_id=payload.sid,
+            now=current_time,
+        )
+    else:
+        try:
+            async with asyncio.timeout(snapshot_build_timeout_ms / 1_000):
+                await database.execute(
+                    text("SELECT set_config('statement_timeout', :timeout, true)"),
+                    {"timeout": f"{snapshot_build_timeout_ms}ms"},
+                )
+                snapshot = await _fresh_snapshot(
+                    database,
+                    now=current_time,
+                    refresh_seconds=snapshot_refresh_seconds,
+                    retention_seconds=snapshot_retention_seconds,
+                )
+        except TimeoutError as error:
+            await database.rollback()
+            raise FoodSearchProjectionBusyError from error
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) != "57014":
+                raise
+            await database.rollback()
+            raise FoodSearchProjectionBusyError from error
+
+    after = payload.pos if payload is not None else (0, "0", "", "", "")
     try:
+        await database.execute(
+            text("SELECT set_config('statement_timeout', :timeout, true)"),
+            {"timeout": f"{statement_timeout_ms}ms"},
+        )
         rows = list(
             (
                 await database.execute(
@@ -239,8 +464,14 @@ async def search_foods(
                         "slug_query": query.casefold(),
                         "locale": locale,
                         "source_filter": source.value if source is not None else None,
+                        "snapshot_id": snapshot.snapshot_id,
+                        "has_cursor": payload is not None,
+                        "after_rank": after[0],
+                        "after_score": float(after[1]),
+                        "after_name": after[2],
+                        "after_source": after[3],
+                        "after_source_id": after[4],
                         "fetch_limit": limit + 1,
-                        "offset": offset,
                     },
                 )
             ).mappings()
@@ -250,11 +481,33 @@ async def search_foods(
             raise
         await database.rollback()
         raise FoodSearchTimeoutError from error
+
+    has_more = len(rows) > limit
+    visible_rows = rows[:limit]
+    next_cursor: str | None = None
+    if has_more and visible_rows:
+        cursor_expires_at = min(
+            snapshot.expires_at,
+            current_time + timedelta(seconds=cursor_lifetime_seconds),
+        )
+        next_cursor = key_ring.encode(
+            SearchCursorPayload(
+                v=SEARCH_CURSOR_SCHEMA_VERSION,
+                sid=snapshot.snapshot_id,
+                fp=fingerprint,
+                rv=SEARCH_RANKING_VERSION,
+                pos=_cursor_position(visible_rows[-1]),
+                size=limit,
+                exp=int(cursor_expires_at.timestamp()),
+            )
+        )
     return FoodSearchResponse(
-        items=[_search_item(row) for row in rows[:limit]],
+        items=[_search_item(row) for row in visible_rows],
         limit=limit,
-        offset=offset,
-        has_more=len(rows) > limit,
+        has_more=has_more,
+        next_cursor=next_cursor,
+        snapshot_id=snapshot.snapshot_id,
+        snapshot_expires_at=snapshot.expires_at,
     )
 
 

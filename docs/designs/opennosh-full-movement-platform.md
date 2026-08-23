@@ -2110,7 +2110,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: quality/release workflows, coverage configuration, test classifiers, staging drill automation.
   - Verify: pull-request, release, and scheduled gates report exact missing transitions/roles; diagnostic rerun never changes a trust failure.
 
-- [ ] **T14 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Search - Implement signed snapshot-bound keyset cursors.
+- [x] **T14 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Search - Implement signed snapshot-bound keyset cursors.
   - Surfaced by: Performance D15 - numeric offsets are slow and inconsistent across release changes.
   - Files: search schemas/service/projection, cursor key ring, generated clients, search tests.
   - Verify: deep pages, exact ties, projection swap, expiry/restart, tamper, wrong-query/filter, and N/N-1 key rotation.

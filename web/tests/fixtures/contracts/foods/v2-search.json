@@ -1,0 +1,28 @@
+{
+  "schema_version": "2.0",
+  "items": [
+    {
+      "id": "community:beans",
+      "source": "community",
+      "source_id": "beans",
+      "name": "Black beans",
+      "name_local": null,
+      "category": null,
+      "attribution": {
+        "source": "community",
+        "license": "CC0-1.0",
+        "source_uri": "https://opennosh.org/packs/starter",
+        "source_license": null,
+        "contributed_by": null,
+        "pack_id": "starter-foods",
+        "pack_version": "2.4.0",
+        "provenance": "Community reviewed"
+      }
+    }
+  ],
+  "limit": 12,
+  "has_more": true,
+  "next_cursor": "signed-next-page-cursor",
+  "snapshot_id": "018f5316-4f4e-7d79-b9f6-88c11a68a497",
+  "snapshot_expires_at": "2026-08-23T14:30:00Z"
+}

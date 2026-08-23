@@ -13,6 +13,7 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.food_search_rate_limit_attempts == 120
     assert settings.food_search_rate_limit_window_seconds == 60
     assert settings.food_search_statement_timeout_ms == 500
+    assert settings.food_search_snapshot_build_timeout_ms == 30_000
     assert settings.open_food_facts_enabled is False
     assert settings.open_food_facts_base_url == "https://world.openfoodfacts.org"
     assert settings.open_food_facts_timeout_seconds == 3.0
@@ -45,7 +46,11 @@ def test_settings_have_safe_development_defaults() -> None:
 
 
 def test_production_settings_use_secure_host_only_cookie_names() -> None:
-    settings = Settings(app_environment="production", _env_file=None)
+    settings = Settings(
+        app_environment="production",
+        food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+        _env_file=None,
+    )
 
     assert settings.session_cookie_name == "__Host-opennosh-session"
     assert settings.csrf_cookie_name == "__Host-opennosh-csrf"

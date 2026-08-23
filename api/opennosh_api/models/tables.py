@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
     text,
 )
@@ -174,6 +175,78 @@ class FoodCommunity(UUIDPrimaryKeyMixin, Base):
     portions_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     pack_license: Mapped[str] = mapped_column(String(32), nullable=False, server_default="CC0-1.0")
     contributed_by: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class FoodSearchSnapshot(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "food_search_snapshots"
+    __table_args__ = (
+        CheckConstraint("ranking_version > 0", name="ranking_version_positive"),
+        CheckConstraint("expires_at > created_at", name="expiry_after_creation"),
+        Index("ix_food_search_snapshots_created_at", "created_at"),
+    )
+
+    ranking_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+
+
+class FoodSearchSnapshotItem(Base):
+    __tablename__ = "food_search_snapshot_items"
+    __table_args__ = (
+        CheckConstraint("source IN ('usda', 'community')", name="source_allowed"),
+        Index(
+            "ix_food_search_snapshot_items_search_tsv",
+            text(
+                "to_tsvector('simple'::regconfig, ((((("
+                "coalesce(source_id, ''::character varying)::text || ' '::text) || "
+                "coalesce(name, ''::character varying)::text) || ' '::text) || "
+                "coalesce(name_local, ''::character varying)::text) || ' '::text) || "
+                "coalesce(category, ''::character varying)::text)"
+            ),
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_food_search_snapshot_items_source_id_trgm",
+            "source_id",
+            postgresql_using="gin",
+            postgresql_ops={"source_id": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_food_search_snapshot_items_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_food_search_snapshot_items_name_local_trgm",
+            "name_local",
+            postgresql_using="gin",
+            postgresql_ops={"name_local": "gin_trgm_ops"},
+        ),
+    )
+
+    snapshot_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("food_search_snapshots.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    name_local: Mapped[str | None] = mapped_column(String(255))
+    locale: Mapped[str | None] = mapped_column(String(35))
+    category: Mapped[str | None] = mapped_column(String(255))
+    license: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_uri: Mapped[str | None] = mapped_column(String(2048))
+    source_license: Mapped[str | None] = mapped_column(String(64))
+    contributed_by: Mapped[str | None] = mapped_column(String(100))
+    pack_id: Mapped[str | None] = mapped_column(String(160))
+    pack_version: Mapped[str | None] = mapped_column(String(64))
+    provenance: Mapped[str | None] = mapped_column(String(64))
 
 
 class FoodOdbl(UUIDPrimaryKeyMixin, Base):

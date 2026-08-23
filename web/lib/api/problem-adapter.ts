@@ -11,7 +11,13 @@ const requestIdPattern =
 const problemTypePattern = /^https:\/\/opennosh\.org\/problems\/[a-z0-9-]+$/;
 const pointerPattern = /^\/(?:[^/~]|~[01])+(?:\/(?:[^/~]|~[01])+)*$/;
 const codePattern = /^[a-z0-9_]+$/;
-const recoveryIds = ["retry", "sign_in", "reload", "review_fields"] as const;
+const recoveryIds = [
+  "retry",
+  "sign_in",
+  "reload",
+  "review_fields",
+  "restart_search",
+] as const;
 const problemCodes: readonly ProblemCode[] = [
   "invalid_request",
   "authentication_required",
@@ -23,6 +29,8 @@ const problemCodes: readonly ProblemCode[] = [
   "upstream_unavailable",
   "service_unavailable",
   "internal_error",
+  "search_cursor_invalid",
+  "search_cursor_restart",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -131,6 +139,7 @@ function isProblemDetails(value: unknown): value is ProblemDetails {
 function kindFor(code: ProblemCode, hasLatestState: boolean): ProblemKind {
   switch (code) {
     case "invalid_request":
+    case "search_cursor_invalid":
       return "invalid-request";
     case "authentication_required":
       return "authentication-required";
@@ -140,6 +149,8 @@ function kindFor(code: ProblemCode, hasLatestState: boolean): ProblemKind {
       return "not-found";
     case "conflict":
       return hasLatestState ? "stale" : "conflict";
+    case "search_cursor_restart":
+      return "conflict";
     case "validation_failed":
       return "invalid-field";
     case "rate_limited":

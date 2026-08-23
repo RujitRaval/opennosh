@@ -6,8 +6,9 @@ files.
 
 ## Contract layers
 
-- API success responses use named Pydantic models. Public food response envelopes carry
-  `schema_version: "1.0"`.
+- API success responses use named Pydantic models. The food-search envelope carries
+  `schema_version: "2.0"` for its cursor and snapshot fields; the other public food envelopes
+  remain on `schema_version: "1.0"`.
 - Expected application failures use RFC 9457-compatible `application/problem+json` with a
   stable problem code, schema version, request reference, and typed recovery extensions. The
   `/healthz` probe is the deliberate exception: its `503` response remains the typed operational
@@ -42,6 +43,24 @@ changes without an OpenAPI contract major-version increase.
 
 ## Compatibility fixtures
 
-Golden fixtures under `web/tests/fixtures/contracts` cover the current contract and the
-previous legacy `{"detail": "..."}` problem shape. Keep N and N-1 fixtures when the contract is
-versioned so rolling API and website deployments remain compatible.
+Golden fixtures under `web/tests/fixtures/contracts` cover the current and N-1 food-search
+success contracts plus the previous legacy `{"detail": "..."}` problem shape. The web adapter
+maps a v1 offset response into null cursor metadata while v2 exposes `next_cursor`,
+`snapshot_id`, and `snapshot_expires_at`. Keep N and N-1 fixtures when a contract is versioned
+so rolling API and website deployments remain compatible.
+
+## Food-search cursor contract
+
+The first page omits `cursor`. A response with `has_more: true` includes an opaque signed
+`next_cursor` that must be replayed with the same normalized query, locale, source filter, and
+page size. The token binds cursor and ranking versions, a retained projection snapshot, a SHA-256
+fingerprint of the normalized search inputs, the last deterministic rank/tie position, page size,
+and expiry. It never contains raw search text.
+
+The current signing key signs new tokens while the current and previous keys verify them. Invalid,
+altered, malformed, and oversized tokens return `search_cursor_invalid` with HTTP 400. Expired
+snapshots, mismatched inputs, changed ranking policy, and retired keys return
+`search_cursor_restart` with HTTP 409 and a `restart_search` action pointing to the current first
+page. An unsupported signed cursor schema or ranking version also requires restart; a missing version
+is invalid. The API does not silently cross projection snapshots within a pagination journey. Its
+production entrypoint disables raw access logging so query and cursor parameters are not logged.

@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,12 @@ from opennosh_api.auth.rate_limit import enforce_rate_limit
 from opennosh_api.database import get_database_session
 from opennosh_api.exports.router import _acquire_capacity
 from opennosh_api.exports.streaming import ExportStreamingResponse
+from opennosh_api.foods.cursors import (
+    SEARCH_CURSOR_MAX_LENGTH,
+    SearchCursorError,
+    SearchCursorFailure,
+    SearchCursorKeyRing,
+)
 from opennosh_api.foods.open_food_facts import (
     OpenFoodFactsExportLimitError,
     OpenFoodFactsExportTimeoutError,
@@ -29,9 +36,9 @@ from opennosh_api.foods.schemas import (
 from opennosh_api.foods.service import (
     SEARCH_LIMIT_DEFAULT,
     SEARCH_LIMIT_MAX,
-    SEARCH_OFFSET_MAX,
     SEARCH_QUERY_MAX_LENGTH,
     SEARCH_QUERY_MIN_LENGTH,
+    FoodSearchProjectionBusyError,
     FoodSearchTimeoutError,
     create_custom_food,
     get_food_detail,
@@ -47,6 +54,8 @@ from opennosh_api.integrations.open_food_facts import (
     OpenFoodFactsUpstreamError,
     normalize_barcode,
 )
+from opennosh_api.problems.handlers import ProblemException
+from opennosh_api.problems.schemas import ProblemCode, RecoveryAction
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/foods", tags=["foods"])
@@ -74,8 +83,16 @@ async def search(
     locale: Annotated[str | None, Query(max_length=35)] = None,
     source: Annotated[FoodSource | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=SEARCH_LIMIT_MAX)] = SEARCH_LIMIT_DEFAULT,
-    offset: Annotated[int, Query(ge=0, le=SEARCH_OFFSET_MAX)] = 0,
+    cursor: Annotated[
+        str | None,
+        Query(json_schema_extra={"maxLength": SEARCH_CURSOR_MAX_LENGTH}),
+    ] = None,
 ) -> FoodSearchResponse:
+    if "offset" in request.query_params:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Food search uses cursor pagination; offset is not supported.",
+        )
     try:
         normalized_query = normalize_search_query(q)
         normalized_locale = normalize_locale(locale)
@@ -101,9 +118,44 @@ async def search(
             locale=normalized_locale,
             source=source,
             limit=limit,
-            offset=offset,
+            cursor=cursor,
+            key_ring=SearchCursorKeyRing.from_secret(settings.food_search_cursor_signing_keys),
+            cursor_lifetime_seconds=settings.food_search_cursor_lifetime_seconds,
+            snapshot_refresh_seconds=settings.food_search_snapshot_refresh_seconds,
+            snapshot_retention_seconds=settings.food_search_snapshot_retention_seconds,
+            snapshot_build_timeout_ms=settings.food_search_snapshot_build_timeout_ms,
             statement_timeout_ms=settings.food_search_statement_timeout_ms,
         )
+    except SearchCursorError as error:
+        first_page_params = {
+            "q": normalized_query,
+            "limit": str(limit),
+            **({"locale": normalized_locale} if normalized_locale is not None else {}),
+            **({"source": source.value} if source is not None else {}),
+        }
+        restart = RecoveryAction(
+            id="restart_search",
+            label="Restart search",
+            href=f"/api/v1/foods/search?{urlencode(first_page_params)}",
+        )
+        if error.failure is SearchCursorFailure.INVALID:
+            raise ProblemException(
+                status=status.HTTP_400_BAD_REQUEST,
+                code=ProblemCode.SEARCH_CURSOR_INVALID,
+                detail=error.detail,
+                recovery_actions=(restart,),
+            ) from error
+        raise ProblemException(
+            status=status.HTTP_409_CONFLICT,
+            code=ProblemCode.SEARCH_CURSOR_RESTART,
+            detail=error.detail,
+            recovery_actions=(restart,),
+        ) from error
+    except FoodSearchProjectionBusyError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Food search is being prepared. Try again shortly.",
+        ) from error
     except FoodSearchTimeoutError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.26.0.0] - 2026-08-23
+
+### Added
+
+- Add retained, immutable food-search projection snapshots with deterministic rank and tie-break
+  positions for stable pagination across catalogue updates.
+- Add opaque HMAC-SHA256 search cursors bound to the projection snapshot, normalized query and
+  filters, ranking policy, page size, expiry, and an N/N-1 signing-key ring.
+- Publish typed invalid-cursor and restart-search problem responses, generated cursor transport
+  types, and current/previous web contract adapters.
+
+### Changed
+
+- Replace public food-search offsets with signed keyset cursors and return snapshot identity,
+  expiry, and the next cursor in the v2 search success contract.
+- Reject malformed, altered, mismatched, oversized, expired, or retired-key cursors before query
+  execution and provide a safe first-page recovery link when a search must restart.
+
 ## [0.25.0.0] - 2026-08-23
 
 ### Added

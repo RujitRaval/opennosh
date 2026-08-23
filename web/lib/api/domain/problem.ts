@@ -26,7 +26,7 @@ export type LatestState = {
 };
 
 export type ProblemRecoveryAction = {
-  id: "retry" | "sign_in" | "reload" | "review_fields";
+  id: "retry" | "sign_in" | "reload" | "review_fields" | "restart_search";
   label: string;
   href: string | null;
 };

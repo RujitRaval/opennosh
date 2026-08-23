@@ -18,9 +18,26 @@ import type {
   HouseholdPortion,
 } from "@/lib/types";
 
+type LegacySearchResponse = Omit<
+  TransportSearchResponse,
+  "schema_version" | "next_cursor" | "snapshot_id" | "snapshot_expires_at"
+> & {
+  schema_version?: "1.0";
+  offset?: number;
+  next_cursor?: never;
+  snapshot_id?: never;
+  snapshot_expires_at?: never;
+};
+
 function schemaVersion(value: "1.0" | undefined): void {
   if (value !== undefined && value !== "1.0") {
     throw new Error("Unsupported food contract version");
+  }
+}
+
+function searchSchemaVersion(value: "1.0" | "2.0" | undefined): void {
+  if (value !== undefined && value !== "1.0" && value !== "2.0") {
+    throw new Error("Unsupported food search contract version");
   }
 }
 
@@ -61,13 +78,18 @@ function searchItem(value: TransportSearchItem): FoodSearchItem {
   };
 }
 
-export function foodSearch(value: TransportSearchResponse): FoodSearchResponse {
-  schemaVersion(value.schema_version);
+export function foodSearch(
+  value: TransportSearchResponse | LegacySearchResponse,
+): FoodSearchResponse {
+  searchSchemaVersion(value.schema_version);
+  const current = value.schema_version === "2.0" ? value : null;
   return {
     items: value.items.map(searchItem),
     limit: value.limit,
-    offset: value.offset,
     has_more: value.has_more,
+    next_cursor: current?.next_cursor ?? null,
+    snapshot_id: current?.snapshot_id ?? null,
+    snapshot_expires_at: current?.snapshot_expires_at ?? null,
   };
 }
 

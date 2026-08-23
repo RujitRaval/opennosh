@@ -846,13 +846,21 @@ export type FoodSearchResponse = {
      */
     limit: number;
     /**
-     * Offset
+     * Next Cursor
      */
-    offset: number;
+    next_cursor?: string | null;
     /**
      * Schema Version
      */
-    schema_version?: '1.0';
+    schema_version?: '2.0';
+    /**
+     * Snapshot Expires At
+     */
+    snapshot_expires_at: string;
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: string;
 };
 
 /**
@@ -1372,7 +1380,7 @@ export type PrivateDataExport = {
 /**
  * ProblemCode
  */
-export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'internal_error';
+export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'internal_error' | 'search_cursor_invalid' | 'search_cursor_restart';
 
 /**
  * ProblemDetails
@@ -1635,7 +1643,7 @@ export type RecoveryAction = {
     /**
      * Id
      */
-    id: 'retry' | 'sign_in' | 'reload' | 'review_fields';
+    id: 'retry' | 'sign_in' | 'reload' | 'review_fields' | 'restart_search';
     /**
      * Label
      */
@@ -3401,9 +3409,9 @@ export type SearchApiV1FoodsSearchGetData = {
          */
         limit?: number;
         /**
-         * Offset
+         * Cursor
          */
-        offset?: number;
+        cursor?: string | null;
     };
     url: '/api/v1/foods/search';
 };

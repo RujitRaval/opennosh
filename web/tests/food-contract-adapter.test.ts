@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { foodSearch } from "@/lib/api/adapters/foods";
-import currentSearch from "@/tests/fixtures/contracts/foods/v1-search.json";
-import legacySearch from "@/tests/fixtures/contracts/foods/v0-search.json";
+import legacySearch from "@/tests/fixtures/contracts/foods/v1-search.json";
+import currentSearch from "@/tests/fixtures/contracts/foods/v2-search.json";
 
 describe("food success contract adapter", () => {
   it("maps identity, license, pack version, provenance, and nulls explicitly", () => {
@@ -32,27 +32,34 @@ describe("food success contract adapter", () => {
         },
       ],
       limit: 12,
-      offset: 0,
-      has_more: false,
+      has_more: true,
+      next_cursor: "signed-next-page-cursor",
+      snapshot_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497",
+      snapshot_expires_at: "2026-08-23T14:30:00Z",
     });
   });
 
-  it("keeps the N-1 food payload readable with explicit nullable defaults", () => {
+  it("keeps the N-1 offset payload readable with null cursor metadata", () => {
     const result = foodSearch(
       legacySearch as unknown as Parameters<typeof foodSearch>[0],
     );
 
+    expect(result).toMatchObject({
+      next_cursor: null,
+      snapshot_id: null,
+      snapshot_expires_at: null,
+    });
     expect(result.items[0]).toMatchObject({
-      id: "usda:123",
+      id: "community:beans",
       name_local: null,
       category: null,
       attribution: {
-        source_uri: null,
+        source_uri: "https://opennosh.org/packs/starter",
         source_license: null,
         contributed_by: null,
-        pack_id: null,
-        pack_version: null,
-        provenance: null,
+        pack_id: "starter-foods",
+        pack_version: "2.4.0",
+        provenance: "Community reviewed",
       },
     });
   });

@@ -1389,23 +1389,41 @@
             "title": "Limit",
             "type": "integer"
           },
-          "offset": {
-            "minimum": 0.0,
-            "title": "Offset",
-            "type": "integer"
+          "next_cursor": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           },
           "schema_version": {
-            "const": "1.0",
-            "default": "1.0",
+            "const": "2.0",
+            "default": "2.0",
             "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_expires_at": {
+            "format": "date-time",
+            "title": "Snapshot Expires At",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
             "type": "string"
           }
         },
         "required": [
           "items",
           "limit",
-          "offset",
-          "has_more"
+          "has_more",
+          "snapshot_id",
+          "snapshot_expires_at"
         ],
         "title": "FoodSearchResponse",
         "type": "object"
@@ -2312,7 +2330,9 @@
           "rate_limited",
           "upstream_unavailable",
           "service_unavailable",
-          "internal_error"
+          "internal_error",
+          "search_cursor_invalid",
+          "search_cursor_restart"
         ],
         "title": "ProblemCode",
         "type": "string"
@@ -2775,7 +2795,8 @@
               "retry",
               "sign_in",
               "reload",
-              "review_fields"
+              "review_fields",
+              "restart_search"
             ],
             "title": "Id",
             "type": "string"
@@ -3679,8 +3700,8 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.25.0.0",
-    "x-opennosh-contract-version": "1.0.0"
+    "version": "0.26.0.0",
+    "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -6304,14 +6325,19 @@
           },
           {
             "in": "query",
-            "name": "offset",
+            "name": "cursor",
             "required": false,
             "schema": {
-              "default": 0,
-              "maximum": 10000,
-              "minimum": 0,
-              "title": "Offset",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "maxLength": 2048,
+              "title": "Cursor"
             }
           }
         ],

@@ -38,8 +38,10 @@ export type FoodSearchItem = {
 export type FoodSearchResponse = {
   items: FoodSearchItem[];
   limit: number;
-  offset: number;
   has_more: boolean;
+  next_cursor: string | null;
+  snapshot_id: string | null;
+  snapshot_expires_at: string | null;
 };
 
 export type HouseholdPortion = {

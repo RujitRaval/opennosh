@@ -91,6 +91,11 @@ class PackageCheckTests(unittest.TestCase):
         for fragment in expected_fragments:
             self.assertTrue(any(fragment in issue for issue in issues), fragment)
 
+    def test_api_runtime_does_not_log_raw_search_query_strings(self) -> None:
+        dockerfile = (ROOT / "api/Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn("--no-access-log", dockerfile)
+
     def test_missing_docker_package_documents_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

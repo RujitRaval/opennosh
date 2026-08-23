@@ -73,6 +73,40 @@ describe("browser API client", () => {
     });
   });
 
+  it("forwards opaque food-search cursors with the bound request inputs", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(
+      Response.json({
+        schema_version: "2.0",
+        items: [],
+        limit: 12,
+        has_more: false,
+        next_cursor: null,
+        snapshot_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497",
+        snapshot_expires_at: "2026-08-23T14:30:00Z",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.searchFoods(
+      "green beans",
+      "en-US",
+      "community",
+      "signed.cursor+/=",
+    );
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "https://opennosh.test");
+    expect(url.pathname).toBe("/api/v1/foods/search");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: "green beans",
+      locale: "en-US",
+      limit: "12",
+      source: "community",
+      cursor: "signed.cursor+/=",
+    });
+    expect(url.searchParams.has("offset")).toBe(false);
+  });
+
   it("prefers the production CSRF cookie and accepts empty success responses", async () => {
     document.cookie = "opennosh_csrf=development-token; Path=/";
     document.cookie = "__Host-opennosh-csrf=production-token; Secure; Path=/";

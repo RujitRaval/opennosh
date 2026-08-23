@@ -10,6 +10,8 @@ EXPECTED_TABLES = {
     "foods_community",
     "foods_odbl",
     "foods_custom",
+    "food_search_snapshots",
+    "food_search_snapshot_items",
     "recipes",
     "recipe_ingredients",
     "log_entries",
