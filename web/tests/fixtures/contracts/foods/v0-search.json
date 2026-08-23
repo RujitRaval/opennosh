@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "id": "usda:123",
+      "source": "usda",
+      "source_id": "123",
+      "name": "Apple",
+      "attribution": {
+        "source": "usda",
+        "license": "CC0-1.0"
+      }
+    }
+  ],
+  "limit": 12,
+  "offset": 0,
+  "has_more": false
+}

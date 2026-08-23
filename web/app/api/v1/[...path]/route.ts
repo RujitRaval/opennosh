@@ -4,6 +4,37 @@ export const dynamic = "force-dynamic";
 
 const forwardedRequestHeaders = ["accept", "content-type", "cookie", "x-csrf-token"];
 
+function proxyProblem(
+  status: 400 | 502,
+  code: "invalid_request" | "upstream_unavailable",
+  title: string,
+  detail: string,
+): Response {
+  const requestId = crypto.randomUUID();
+  return Response.json(
+    {
+      type: `https://opennosh.org/problems/${code.replaceAll("_", "-")}`,
+      title,
+      status,
+      detail,
+      code,
+      schema_version: "1.0",
+      request_id: requestId,
+      recovery_actions: code === "upstream_unavailable"
+        ? [{ id: "retry", label: "Try again" }]
+        : undefined,
+    },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/problem+json",
+        "X-Request-ID": requestId,
+      },
+    },
+  );
+}
+
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   if (
@@ -17,7 +48,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         segment.includes("\0"),
     )
   ) {
-    return Response.json({ detail: "Invalid API path" }, { status: 400 });
+    return proxyProblem(400, "invalid_request", "Invalid request", "The API path is invalid.");
   }
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join("/");
@@ -31,7 +62,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const clientAddress = request.headers.get("x-forwarded-for");
   if (proxyToken && clientAddress) {
     headers.set("x-opennosh-client-address", clientAddress);
-    headers.set("x-opennosh-proxy-token", process.env.WEB_PROXY_TOKEN!);
+    headers.set("x-opennosh-proxy-token", proxyToken);
   }
 
   try {
@@ -53,10 +84,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     responseHeaders.set("Cache-Control", "no-store");
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch {
-    const responseHeaders = new Headers({ "Cache-Control": "no-store" });
-    return Response.json(
-      { detail: "opennosh could not reach the API. Please try again." },
-      { status: 502, headers: responseHeaders },
+    return proxyProblem(
+      502,
+      "upstream_unavailable",
+      "Upstream service unavailable",
+      "opennosh could not reach the API. Please try again.",
     );
   }
 }

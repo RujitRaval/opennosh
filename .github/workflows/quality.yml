@@ -52,6 +52,9 @@ jobs:
       - name: Validate Markdown documents
         run: python3 scripts/check_docs.py
 
+      - name: Enforce generated contract import boundary
+        run: python3 scripts/check_generated_imports.py
+
       - name: Check whitespace errors
         run: git diff --check HEAD^
 
@@ -79,6 +82,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -99,6 +104,12 @@ jobs:
 
       - name: Type-check API
         run: uv run mypy
+
+      - name: Verify canonical OpenAPI contract
+        run: |
+          PYTHONPATH=api uv run python scripts/export_openapi.py
+          git diff --exit-code -- web/lib/generated/openapi.json
+          python3 scripts/check_openapi_compatibility.py --previous-ref HEAD^
 
       - name: Validate food packs
         run: PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json
@@ -131,6 +142,9 @@ jobs:
 
       - name: Install web dependencies
         run: npm --prefix web ci
+
+      - name: Verify generated TypeScript contracts
+        run: npm --prefix web run check:api-contracts
 
       - name: Lint web app
         run: npm --prefix web run lint

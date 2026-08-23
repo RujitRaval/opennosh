@@ -36,6 +36,7 @@ class FoodSearchItem(BaseModel):
 
 
 class FoodSearchResponse(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
     items: list[FoodSearchItem]
     limit: int = Field(ge=1)
     offset: int = Field(ge=0)
@@ -43,11 +44,13 @@ class FoodSearchResponse(BaseModel):
 
 
 class FoodDetail(FoodSearchItem):
+    schema_version: Literal["1.0"] = "1.0"
     nutrients: dict[str, Any]
-    portions: list[dict[str, Any]]
+    portions: list[HouseholdPortion]
 
 
 class FoodCapabilities(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
     barcode_lookup_enabled: bool
 
 
@@ -89,12 +92,13 @@ class CustomFoodCreate(BaseModel):
 
 
 class CustomFoodResponse(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
     id: UUID
     source: Literal["custom"] = "custom"
     source_id: str
     name: str
     nutrients: dict[str, Any]
-    portions: list[dict[str, Any]]
+    portions: list[HouseholdPortion]
     private: Literal[True] = True
 
 
@@ -107,6 +111,7 @@ class OpenFoodFactsAttribution(BaseModel):
 
 
 class OpenFoodFactsFood(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
     id: str
     source: Literal["openfoodfacts"] = "openfoodfacts"
     source_id: str
@@ -114,7 +119,7 @@ class OpenFoodFactsFood(BaseModel):
     name: str
     brand: str | None = None
     nutrients: dict[str, Any]
-    portions: list[dict[str, Any]] = Field(default_factory=list)
+    portions: list[HouseholdPortion] = Field(default_factory=list)
     attribution: OpenFoodFactsAttribution
     cached: bool
 

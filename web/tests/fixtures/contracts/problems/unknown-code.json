@@ -1,0 +1,9 @@
+{
+  "type": "https://opennosh.org/problems/new-condition",
+  "title": "New condition",
+  "status": 409,
+  "detail": "A new condition occurred.",
+  "code": "new_condition",
+  "schema_version": "1.0",
+  "request_id": "22222222-2222-4222-8222-222222222222"
+}

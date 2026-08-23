@@ -12,7 +12,9 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "generate:api-contracts": "node ../scripts/generate_web_contracts.mjs",
+    "check:api-contracts": "npm run generate:api-contracts && git diff --exit-code -- lib/generated"
   },
   "dependencies": {
     "next": "16.3.1",
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
+    "@hey-api/openapi-ts": "0.97.0",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.2",

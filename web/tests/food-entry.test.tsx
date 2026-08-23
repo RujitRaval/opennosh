@@ -445,7 +445,18 @@ describe("food search, barcode, and custom entry", () => {
       if (url === "/api/v1/logs") {
         const body = JSON.parse(String(init?.body));
         expect(body.quantity).toEqual({ amount: "1", unit: "portion", portion_name: "bowl" });
-        return json({ id: "log-id" }, 201);
+        return json({
+          id: "log-id",
+          logged_at: body.logged_at,
+          meal_slot: body.meal_slot,
+          food: {
+            source: "custom",
+            source_id: "e650490a-068a-444b-83ff-c4d1cc18158e",
+            name: "My lentil stew",
+          },
+          quantity: { amount: "1", unit: "portion", portion_name: "bowl" },
+          snapshot: { basis: "computed", grams: "325", nutrients: {} },
+        }, 201);
       }
       throw new Error(`Unexpected request: ${url}`);
     });

@@ -107,8 +107,16 @@ describe("same-origin API proxy", () => {
 
     expect(response.status).toBe(502);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    await expect(response.json()).resolves.toEqual({
+    expect(response.headers.get("Content-Type")).toContain("application/problem+json");
+    expect(response.headers.get("X-Request-ID")).toBeTruthy();
+    await expect(response.json()).resolves.toMatchObject({
+      type: "https://opennosh.org/problems/upstream-unavailable",
+      title: "Upstream service unavailable",
+      status: 502,
       detail: "opennosh could not reach the API. Please try again.",
+      code: "upstream_unavailable",
+      schema_version: "1.0",
+      recovery_actions: [{ id: "retry", label: "Try again" }],
     });
   });
 
@@ -120,6 +128,12 @@ describe("same-origin API proxy", () => {
     const response = await GET(request, { params: Promise.resolve({ path: ["..", "healthz"] }) });
 
     expect(response.status).toBe(400);
+    expect(response.headers.get("Content-Type")).toContain("application/problem+json");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "invalid_request",
+      schema_version: "1.0",
+      status: 400,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
