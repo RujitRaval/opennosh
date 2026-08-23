@@ -28,6 +28,7 @@ export type PublicNavigationHub = {
   description: string;
   nextAction: {
     label: string;
+    compactLabel: string;
     href: string;
     external?: boolean;
   };
@@ -49,7 +50,7 @@ const shellCatalogs = {
         label: "Explore",
         description:
           "Find food knowledge with its source, preparation, portion, locale, and uncertainty still attached.",
-        nextAction: { label: "See how records work", href: "#principles" },
+        nextAction: { label: "See how records work", compactLabel: "Records", href: "#principles" },
         principles: ["Public by default", "Context beside numbers", "Provenance in the open"],
       },
       contribute: {
@@ -58,6 +59,7 @@ const shellCatalogs = {
           "Document a missing food without flattening the place, preparation, or people that give it meaning.",
         nextAction: {
           label: "Read the contribution guide",
+          compactLabel: "Guide",
           href: "https://github.com/RujitRaval/opennosh/blob/main/CONTRIBUTING.md",
           external: true,
         },
@@ -67,7 +69,7 @@ const shellCatalogs = {
         label: "Commons",
         description:
           "Inspect the rules, sources, versions, and stewardship that let shared food data earn trust in public.",
-        nextAction: { label: "Read licenses and notices", href: "/notices" },
+        nextAction: { label: "Read licenses and notices", compactLabel: "Notices", href: "/notices" },
         principles: ["Visible stewardship", "Versioned releases", "Licenses stay attached"],
       },
       build: {
@@ -76,6 +78,7 @@ const shellCatalogs = {
           "Use inspectable schemas, packs, APIs, and source code to make food knowledge useful elsewhere.",
         nextAction: {
           label: "View the source repository",
+          compactLabel: "Source",
           href: "https://github.com/RujitRaval/opennosh",
           external: true,
         },

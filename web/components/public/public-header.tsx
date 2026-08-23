@@ -74,10 +74,10 @@ export function PublicHeader({
           EN
         </span>
         <Link className="tracker-link" href={routes.tracker.home}>
-          {copy.tracker} <span aria-hidden="true">&nearr;</span>
+          {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
         </Link>
         <Link className="mobile-context-action" href={contextHub.nextAction.href}>
-          Next: {contextHub.nextAction.label}
+          Next / {contextHub.nextAction.compactLabel}
         </Link>
         <button
           ref={buttonRef}
@@ -123,7 +123,7 @@ export function PublicHeader({
             Interface / EN
           </span>
           <Link className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
-            {copy.mobileTracker} <span aria-hidden="true">&nearr;</span>
+            {copy.mobileTracker} <span aria-hidden="true">{"\u2197"}</span>
           </Link>
         </div>
       </nav>

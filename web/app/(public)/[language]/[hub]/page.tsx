@@ -72,11 +72,11 @@ export default async function PublicHubPage({
         <p className="hub-description">{currentHub.description}</p>
         {action.external ? (
           <a className={actionClassName} href={action.href}>
-            <span>{action.label}</span><span aria-hidden="true">&nearr;</span>
+            <span>{action.label}</span><span aria-hidden="true">{"\u2197"}</span>
           </a>
         ) : (
           <Link className={actionClassName} href={action.href}>
-            <span>{action.label}</span><span aria-hidden="true">&darr;</span>
+            <span>{action.label}</span><span aria-hidden="true">{"\u2193"}</span>
           </Link>
         )}
       </section>
@@ -105,7 +105,7 @@ export default async function PublicHubPage({
                 <span className="mono">{String(index + 1).padStart(2, "0")}</span>
                 <strong>{child.label}</strong>
                 <small>{child.description}</small>
-                <i aria-hidden="true">&rarr;</i>
+                <i aria-hidden="true">{"\u2192"}</i>
               </Link>
             ))}
           </div>
