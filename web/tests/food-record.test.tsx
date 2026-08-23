@@ -37,7 +37,7 @@ describe("FoodRecord", () => {
       "href",
       expect.stringContaining("github.com/RujitRaval/opennosh/issues/new"),
     );
-    expect(screen.getByRole("link", { name: /Open in tracker/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Open tracker/ })).toHaveAttribute(
       "href", "/tracker",
     );
 

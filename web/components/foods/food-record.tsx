@@ -181,7 +181,7 @@ export function FoodRecord({
           <a href="#variants">Compare variants <span aria-hidden="true">↓</span></a>
           <a href={correctionHref}>Correct this record <span aria-hidden="true">↗</span></a>
           <Link className="secondary-record-action" href={routes.tracker.home}>
-            Open in tracker <span aria-hidden="true">↗</span>
+            Open tracker <span aria-hidden="true">↗</span>
           </Link>
         </nav>
       </section>
