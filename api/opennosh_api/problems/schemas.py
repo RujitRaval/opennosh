@@ -19,6 +19,8 @@ class ProblemCode(StrEnum):
     UPSTREAM_UNAVAILABLE = "upstream_unavailable"
     SERVICE_UNAVAILABLE = "service_unavailable"
     INTERNAL_ERROR = "internal_error"
+    SEARCH_CURSOR_INVALID = "search_cursor_invalid"
+    SEARCH_CURSOR_RESTART = "search_cursor_restart"
 
 
 class FieldError(BaseModel):
@@ -32,7 +34,9 @@ class FieldError(BaseModel):
 class RecoveryAction(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    id: Literal["retry", "sign_in", "reload", "review_fields"]
+    id: Literal[
+        "retry", "sign_in", "reload", "review_fields", "restart_search"
+    ]
     label: str = Field(min_length=1, max_length=120)
     href: str | None = Field(default=None, pattern=r"^/(?:$|[^/\x00][^\x00]*)$")
 

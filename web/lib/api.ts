@@ -91,13 +91,19 @@ export const api = {
     ).then(target),
   foodCapabilities: () =>
     request<TransportCapabilities>("/api/v1/foods/capabilities").then(foodCapabilities),
-  searchFoods: (query: string, locale: string, source?: "usda" | "community") =>
+  searchFoods: (
+    query: string,
+    locale: string,
+    source?: "usda" | "community",
+    cursor?: string,
+  ) =>
     request<TransportFoodSearch>(
       `/api/v1/foods/search?${new URLSearchParams({
         q: query,
         locale,
         limit: "12",
         ...(source ? { source } : {}),
+        ...(cursor ? { cursor } : {}),
       })}`,
     ).then(foodSearch),
   foodDetail: (source: "usda" | "community", sourceId: string) =>

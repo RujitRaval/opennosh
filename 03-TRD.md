@@ -150,7 +150,7 @@ are documented in `docs/api-contracts.md`.
 POST   /auth/register | /auth/login | /auth/logout
 GET    /auth/session
 GET    /foods/capabilities
-GET    /foods/search?q=&locale=&source=
+GET    /foods/search?q=&locale=&source=&limit=&cursor=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
 GET    /export/foods/openfoodfacts      -- compatibility alias for /export/foods/odbl

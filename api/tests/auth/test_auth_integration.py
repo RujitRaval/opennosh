@@ -472,6 +472,9 @@ def test_production_session_cookie_uses_host_prefix_and_secure_defaults() -> Non
             database_url=INTEGRATION_DATABASE_URL,
             app_environment="production",
             auth_rate_limit_attempts=20,
+            food_search_cursor_signing_keys=(
+                "prod-v1:33333333333333333333333333333333"
+            ),
             _env_file=None,
         )
     )

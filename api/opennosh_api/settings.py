@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     food_search_rate_limit_attempts: PositiveInt = 120
     food_search_rate_limit_window_seconds: PositiveInt = 60
     food_search_statement_timeout_ms: PositiveInt = 500
+    food_search_cursor_signing_keys: SecretStr = SecretStr(
+        "v1:opennosh-development-search-cursor-key-2026"
+    )
+    food_search_cursor_lifetime_seconds: PositiveInt = 900
+    food_search_snapshot_refresh_seconds: PositiveInt = 300
+    food_search_snapshot_retention_seconds: PositiveInt = 1_200
+    food_search_snapshot_build_timeout_ms: PositiveInt = 30_000
     open_food_facts_enabled: bool = False
     open_food_facts_base_url: str = "https://world.openfoodfacts.org"
     open_food_facts_timeout_seconds: PositiveFloat = 3.0
@@ -54,6 +61,14 @@ class Settings(BaseSettings):
     public_export_response_timeout_seconds: PositiveFloat = 300.0
     private_export_response_timeout_seconds: PositiveFloat = 1_800.0
     target_kcal_floor: Decimal = Field(default=DEFAULT_TARGET_KCAL_FLOOR, gt=0, le=MAX_KCAL)
+
+    @field_validator("food_search_cursor_signing_keys")
+    @classmethod
+    def validate_food_search_cursor_signing_keys(cls, value: SecretStr) -> SecretStr:
+        from opennosh_api.foods.cursors import SearchCursorKeyRing
+
+        SearchCursorKeyRing.from_secret(value)
+        return value
 
     @field_validator("target_kcal_floor")
     @classmethod
@@ -99,6 +114,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if (
+            self.food_search_snapshot_refresh_seconds >= self.food_search_snapshot_retention_seconds
+            or self.food_search_cursor_lifetime_seconds
+            > self.food_search_snapshot_retention_seconds
+        ):
+            raise ValueError("Search snapshot retention must cover refresh and cursor lifetimes")
+        if (
+            self.app_environment == "production"
+            and self.food_search_cursor_signing_keys.get_secret_value()
+            == "v1:opennosh-development-search-cursor-key-2026"
+        ):
+            raise ValueError("Production requires unique food search cursor signing keys")
         if (
             self.app_environment == "production"
             and self.trusted_web_proxy_token is not None

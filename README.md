@@ -81,7 +81,8 @@ Search USDA reference foods and CC0 community foods without combining their sour
 
 ```text
 GET /api/v1/foods/capabilities
-GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&offset=0
+GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20
+GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&cursor=<next_cursor>
 GET /api/v1/foods/community/apple
 GET /api/v1/foods/usda/171688
 ```
@@ -96,15 +97,32 @@ then community foods matching the requested locale, USDA generic foods, and comm
 other locales. The optional `source` filter accepts `community` or `usda`.
 
 Raw queries must contain 2–100 characters; after whitespace normalization they must still contain
-at least two characters and a letter or number. A request returns at most 50 rows and accepts
-offsets up to 10,000. Public search defaults to 120 requests per source IP per 60 seconds and a
-500 ms PostgreSQL statement timeout. Configure those guards with
-`FOOD_SEARCH_RATE_LIMIT_ATTEMPTS`, `FOOD_SEARCH_RATE_LIMIT_WINDOW_SECONDS`, and
-`FOOD_SEARCH_STATEMENT_TIMEOUT_MS`.
+at least two characters and a letter or number. A request returns at most 50 rows. When another
+page exists, the response includes an opaque `next_cursor`; send it back with the same query,
+locale, source filter, and limit. Results remain bound to the retained projection snapshot even if
+the live catalogue changes. Invalid cursors return a typed `400 search_cursor_invalid` problem;
+expired snapshots, changed search inputs, or retired signing keys return a typed
+`409 search_cursor_restart` problem with a safe first-page recovery link.
 
-PostgreSQL full-text and trigram indexes back the search. The integration performance gate loads
-10,000 representative rows, requires both full-text indexes in the analyzed unified-query plan,
-and budgets less than 100 ms of PostgreSQL execution time.
+Public search defaults to 120 requests per source IP per 60 seconds and a 500 ms PostgreSQL
+statement timeout. Projection rebuilds have a separate 30-second ceiling; concurrent requests use
+a retained snapshot or receive retry guidance instead of waiting on the builder. Snapshots refresh
+after 300 seconds, remain available for 1,200 seconds, and issue cursors valid for up to 900
+seconds. Configure these guards with
+`FOOD_SEARCH_RATE_LIMIT_ATTEMPTS`, `FOOD_SEARCH_RATE_LIMIT_WINDOW_SECONDS`,
+`FOOD_SEARCH_STATEMENT_TIMEOUT_MS`, `FOOD_SEARCH_CURSOR_LIFETIME_SECONDS`,
+`FOOD_SEARCH_SNAPSHOT_REFRESH_SECONDS`, `FOOD_SEARCH_SNAPSHOT_RETENTION_SECONDS`, and
+`FOOD_SEARCH_SNAPSHOT_BUILD_TIMEOUT_MS`.
+
+Production must set `FOOD_SEARCH_CURSOR_SIGNING_KEYS` to a unique current key, optionally followed
+by the previous key during rotation, using `current-id:at-least-32-byte-secret,previous-id:secret`.
+The first key signs new cursors; both keys verify existing cursors. Never reuse the documented
+development value. The production container disables Uvicorn access logging so normalized search
+terms and cursor query parameters are not copied into request logs.
+
+PostgreSQL full-text and trigram indexes back the retained projection. The integration performance
+gate loads 10,000 representative rows, verifies snapshot-indexed execution, and budgets less than
+100 ms of PostgreSQL execution time.
 
 ### Open Food Facts barcode lookup
 

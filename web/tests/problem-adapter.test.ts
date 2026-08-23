@@ -58,6 +58,8 @@ describe("problem contract adapter", () => {
     ["upstream_unavailable", 502, "retryable"],
     ["service_unavailable", 503, "retryable"],
     ["internal_error", 500, "unexpected"],
+    ["search_cursor_invalid", 400, "invalid-request"],
+    ["search_cursor_restart", 409, "conflict"],
   ] as const)("maps %s to %s", (code, status, kind) => {
     const problem = problemFromResponse(
       {
@@ -72,6 +74,39 @@ describe("problem contract adapter", () => {
       response(status),
     );
     expect(problem.kind).toBe(kind);
+  });
+
+  it("maps a cursor restart action to a safe first-page URL", () => {
+    const problem = problemFromResponse(
+      {
+        type: "https://opennosh.org/problems/search-cursor-restart",
+        title: "Restart search",
+        status: 409,
+        detail: "This search snapshot expired.",
+        code: "search_cursor_restart",
+        schema_version: "1.0",
+        request_id: requestId,
+        recovery_actions: [
+          {
+            id: "restart_search",
+            label: "Restart search",
+            href: "/api/v1/foods/search?q=apple&limit=12",
+          },
+        ],
+      },
+      response(409),
+    );
+
+    expect(problem).toMatchObject({
+      kind: "conflict",
+      code: "search_cursor_restart",
+      recoveryActions: [
+        {
+          id: "restart_search",
+          href: "/api/v1/foods/search?q=apple&limit=12",
+        },
+      ],
+    });
   });
 
   it("maps retry and stale conflict extensions without leaking transport fields", () => {

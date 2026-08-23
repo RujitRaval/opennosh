@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, cast
 from uuid import uuid4
 
@@ -44,6 +45,8 @@ _TITLES: dict[ProblemCode, str] = {
     ProblemCode.UPSTREAM_UNAVAILABLE: "Upstream service unavailable",
     ProblemCode.SERVICE_UNAVAILABLE: "Service unavailable",
     ProblemCode.INTERNAL_ERROR: "Unexpected server error",
+    ProblemCode.SEARCH_CURSOR_INVALID: "Invalid search cursor",
+    ProblemCode.SEARCH_CURSOR_RESTART: "Restart search",
 }
 
 _DEFAULT_DETAILS: dict[ProblemCode, str] = {
@@ -59,6 +62,10 @@ _DEFAULT_DETAILS: dict[ProblemCode, str] = {
     ),
     ProblemCode.SERVICE_UNAVAILABLE: ("The service is temporarily unavailable. Try again later."),
     ProblemCode.INTERNAL_ERROR: "The server could not complete the request.",
+    ProblemCode.SEARCH_CURSOR_INVALID: "That search cursor could not be verified.",
+    ProblemCode.SEARCH_CURSOR_RESTART: (
+        "This search changed or expired. Restart from the first page."
+    ),
 }
 
 _VALIDATION_MESSAGES: dict[str, str] = {
@@ -76,6 +83,14 @@ _VALIDATION_MESSAGES: dict[str, str] = {
     "extra_forbidden": "This field is not supported.",
     "value_error": "This value is invalid.",
 }
+
+
+@dataclass
+class ProblemException(Exception):
+    status: int
+    code: ProblemCode
+    detail: str
+    recovery_actions: tuple[RecoveryAction, ...] = ()
 
 
 def request_id(request: Request) -> str:
@@ -125,6 +140,7 @@ def build_problem(
     detail: str | None = None,
     retry_after: int | None = None,
     field_errors: list[FieldError] | None = None,
+    recovery_actions: list[RecoveryAction] | None = None,
 ) -> ProblemDetails:
     candidate_detail = (
         detail if isinstance(detail, str) and detail.strip() else _DEFAULT_DETAILS[code]
@@ -139,7 +155,9 @@ def build_problem(
         request_id=request_id(request),
         retry_after=retry_after,
         field_errors=field_errors,
-        recovery_actions=_recovery_actions(code),
+        recovery_actions=(
+            recovery_actions if recovery_actions is not None else _recovery_actions(code)
+        ),
     )
 
 
@@ -162,6 +180,21 @@ def problem_response(
 def _pointer(location: tuple[Any, ...]) -> str:
     parts = [str(part).replace("~", "~0").replace("/", "~1") for part in location]
     return "/" + "/".join(parts or ["request"])
+
+
+async def problem_exception_handler(
+    request: Request,
+    exception: Exception,
+) -> JSONResponse:
+    problem_exception = cast(ProblemException, exception)
+    problem = build_problem(
+        request,
+        status=problem_exception.status,
+        code=problem_exception.code,
+        detail=problem_exception.detail,
+        recovery_actions=list(problem_exception.recovery_actions),
+    )
+    return problem_response(problem)
 
 
 async def http_exception_handler(
@@ -223,6 +256,7 @@ async def unexpected_exception_handler(
 
 
 def install_problem_handlers(application: FastAPI) -> None:
+    application.add_exception_handler(ProblemException, problem_exception_handler)
     application.add_exception_handler(StarletteHTTPException, http_exception_handler)
     application.add_exception_handler(RequestValidationError, validation_exception_handler)
     application.add_exception_handler(Exception, unexpected_exception_handler)
