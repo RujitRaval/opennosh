@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { foodDetail } from "@/lib/api/adapters/foods";
+import { foodDetail, foodDetailResponse } from "@/lib/api/adapters/foods";
 import {
   foodRecordsConflict,
   formatPortionMass,
@@ -11,6 +11,14 @@ import detailFixture from "@/tests/fixtures/contracts/foods/v1-detail-community.
 import variantFixture from "@/tests/fixtures/contracts/foods/v1-detail-community-variant.json";
 
 describe("public food record adapter", () => {
+  it("keeps generated transport details behind the adapter boundary", () => {
+    expect(foodDetailResponse(detailFixture)).toMatchObject({
+      id: "community:rajma-masala",
+      source: "community",
+      source_id: "rajma-masala",
+    });
+  });
+
   it("keeps identity, trust, source, version, license, portions, and locale preference explicit", () => {
     const record = toFoodRecordView(
       foodDetail(detailFixture as unknown as Parameters<typeof foodDetail>[0]),

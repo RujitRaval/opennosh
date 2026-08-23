@@ -1,7 +1,6 @@
 import "server-only";
 
-import type { FoodDetail as TransportFoodDetail } from "@/lib/generated/client/types.gen";
-import { foodDetail } from "@/lib/api/adapters/foods";
+import { foodDetailResponse } from "@/lib/api/adapters/foods";
 import { toFoodRecordView } from "@/lib/food-record";
 import type { CatalogueFoodSource } from "@/lib/types";
 
@@ -46,7 +45,7 @@ export async function loadPublicFoodRecord({
         reference: safeReference(response.headers.get("X-Request-ID")),
       } as const;
     }
-    const detail = foodDetail((await response.json()) as TransportFoodDetail);
+    const detail = foodDetailResponse(await response.json());
     return { kind: "ready", record: toFoodRecordView(detail, foodLocale) } as const;
   } catch {
     return { kind: "unavailable", reference: "unavailable" } as const;

@@ -102,6 +102,10 @@ export function foodDetail(value: TransportDetail): FoodDetail {
   };
 }
 
+export function foodDetailResponse(value: unknown): FoodDetail {
+  return foodDetail(value as TransportDetail);
+}
+
 export function foodCapabilities(value: TransportCapabilities): FoodCapabilities {
   schemaVersion(value.schema_version);
   return { barcode_lookup_enabled: value.barcode_lookup_enabled };
