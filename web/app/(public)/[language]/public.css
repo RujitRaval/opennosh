@@ -371,6 +371,12 @@ img { display: block; max-width: 100%; height: auto; }
 .variant-ledger dl div { padding: .8rem 0; border-bottom: 1px solid var(--line); }
 .record-empty-state { max-width: 52rem; margin: clamp(3rem, 6vw, 6rem) 0 0 auto; padding: 1.5rem 0; border-block: 1px solid currentColor; font-size: clamp(1.3rem, 2vw, 2rem); line-height: 1.15; }
 
+.history-chapter { color: var(--commons-ink); background: var(--field-acid); }
+.history-ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: clamp(3rem, 7vw, 7rem) 0 0; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
+.history-ledger div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 1rem; min-height: 6rem; align-items: center; padding: 1rem; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; }
+.history-ledger dt { font-family: var(--font-plex-mono), monospace; font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; }
+.history-ledger dd { margin: 0; overflow-wrap: anywhere; font-family: var(--font-archivo), sans-serif; font-size: clamp(1.2rem, 2vw, 2rem); font-weight: 650; line-height: 1; text-align: right; }
+
 .record-reuse { margin-inline: calc(-1 * var(--page-pad)); padding: var(--stage-space) var(--page-pad); color: var(--commons-ink); background: var(--signal-tomato); }
 .record-reuse > p:first-child { margin: 0; padding-top: .75rem; border-top: 1px solid currentColor; }
 .record-reuse h2 { max-width: 12ch; margin: clamp(4rem, 9vw, 9rem) 0 2rem; font-family: var(--font-archivo), sans-serif; font-size: clamp(4rem, 10vw, 10rem); line-height: .75; letter-spacing: -.075em; }
@@ -460,6 +466,8 @@ img { display: block; max-width: 100%; height: auto; }
   .nutrient-ledger div { border-right: 0; }
   .provenance-ledger li { grid-template-columns: 1fr; gap: .65rem; padding: 1.25rem 0; }
   .provenance-ledger a, .provenance-ledger small { justify-self: start; text-align: left; }
+  .history-ledger { grid-template-columns: 1fr; }
+  .history-ledger div { grid-template-columns: 1fr; }
   .hero { min-height: 46rem; padding-top: 6.2rem; padding-bottom: 1.25rem; }
   .hero-meta span:last-child { display: none; }
   .hero-title { margin: auto 0; font-size: clamp(3.6rem, 16.5vw, 7rem); line-height: .79; letter-spacing: -.075em; }
@@ -505,7 +513,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 @media (forced-colors: active) {
-  .trust-panel, .source-band, .variant-status-conflict, .record-reuse,
+  .trust-panel, .source-band, .variant-status-conflict, .history-chapter, .record-reuse,
   .measurement-switch button[aria-pressed="true"] { border: 1px solid CanvasText; color: CanvasText; background: Canvas; }
 }
 

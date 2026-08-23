@@ -186,7 +186,7 @@ export function FoodRecord({
         </nav>
       </section>
 
-      <section className="record-chapter full-nutrients" aria-labelledby="full-nutrients-title">
+      <section className="record-chapter full-nutrients" data-record-tail="1-full-nutrients" aria-labelledby="full-nutrients-title">
         <div className="chapter-heading">
           <p className="mono">Full nutrients</p>
           <div>
@@ -204,7 +204,7 @@ export function FoodRecord({
         </dl>
       </section>
 
-      <section id="provenance" className="record-chapter provenance-chapter" aria-labelledby="provenance-title">
+      <section id="provenance" className="record-chapter provenance-chapter" data-record-tail="2-evidence" aria-labelledby="provenance-title">
         <div className="chapter-heading">
           <p className="mono">Evidence ledger</p>
           <div><h2 id="provenance-title">Where this record comes from</h2><p>Missing details stay visible. They are not converted into a confidence score.</p></div>
@@ -219,7 +219,23 @@ export function FoodRecord({
 
       <VariantLedger records={visibleRecords} />
 
-      <section className="record-reuse" aria-labelledby="reuse-title">
+      <section className="record-chapter history-chapter" data-record-tail="3-history" aria-labelledby="history-title">
+        <div className="chapter-heading">
+          <p className="mono">Record history</p>
+          <div>
+            <h2 id="history-title">What this release can prove</h2>
+            <p>Publication facts stay explicit even when a full revision feed is not part of the current contract.</p>
+          </div>
+        </div>
+        <dl className="history-ledger">
+          <div><dt>Current release</dt><dd>{versionLabel(record)}</dd></div>
+          <div><dt>Last verified</dt><dd>{record.trust.lastVerified ?? "Not supplied by this release"}</dd></div>
+          <div><dt>Earlier revisions</dt><dd>Not supplied by this release</dd></div>
+          <div><dt>Stable record ID</dt><dd>{record.id}</dd></div>
+        </dl>
+      </section>
+
+      <section className="record-reuse" data-record-tail="4-reuse" aria-labelledby="reuse-title">
         <p className="mono">Reuse this record</p>
         <h2 id="reuse-title">The data stays attached to its terms.</h2>
         <p>Record license: <strong>{record.license}</strong>. Use the public API response to preserve the source identifier and attribution.</p>

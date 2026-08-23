@@ -37,6 +37,17 @@ describe("FoodRecord", () => {
       "href",
       expect.stringContaining("github.com/RujitRaval/opennosh/issues/new"),
     );
+
+    const tail = [...container.querySelectorAll("[data-record-tail]")].map((node) =>
+      node.getAttribute("data-record-tail"),
+    );
+    expect(tail).toEqual([
+      "1-full-nutrients",
+      "2-evidence",
+      "3-history",
+      "4-reuse",
+    ]);
+    expect(screen.getByRole("heading", { name: "What this release can prove" })).toBeVisible();
   });
 
   it("changes portions and US mass display while keeping canonical grams visible", () => {
