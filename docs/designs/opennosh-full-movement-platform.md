@@ -2130,7 +2130,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `web/app`, localized public layouts/navigation, centralized route and locale definitions, mobile navigation, route and browser tests.
   - Verify: desktop and mobile trunk tests identify opennosh, current hub, page, and next action; deep links, breadcrumbs, menu focus restoration, supported and unsupported interface languages, independent food-locale state, feature-flagged children, and Tracker utility placement pass.
 
-- [ ] **T18 (P1, human: ~2-3 days / Codex: ~1 day)** - Food records - Build the utility-with-visible-trust first viewport.
+- [x] **T18 (P1, human: ~2-3 days / Codex: ~1 day)** - Food records - Build the utility-with-visible-trust first viewport.
   - Surfaced by: Design D3 - food records needed an exact order that answers nutrition quickly without hiding evidence.
   - Files: `web/app/explore`, public food-record routes, `web/components/foods`, API-to-UI adapters, food-record browser tests.
   - Verify: identity, verification, portion, nutrients, source summary, version, license, provenance, variants, correction, and food-locale preference remain visible and correctly ordered on desktop, mobile, zoom, and conflicting-record fixtures.
