@@ -23,6 +23,7 @@ export function PublicHeader({
 }) {
   const pathname = usePathname() ?? routes.publicHome(language);
   const activeHub = resolvePublicHub(pathname, language);
+  const usesDarkHeader = pathname === routes.publicHub("build", language);
   const contextHub = navigation.find((hub) => hub.id === activeHub) ?? navigation[0];
   const copy = getPublicShellCopy(language);
   const [open, setOpen] = useState(false);
@@ -48,9 +49,14 @@ export function PublicHeader({
   }, [closeMenu, open]);
 
   return (
-    <header className="public-header">
+    <header className={`public-header${usesDarkHeader ? " public-header-dark" : ""}`}>
       <Link className="public-brand" href={routes.publicHome(language)} aria-label="opennosh home">
-        <BrandLogo surface="rice-paper" priority className="public-brand-image" decorative />
+        <BrandLogo
+          surface={usesDarkHeader ? "commons-ink" : "rice-paper"}
+          priority
+          className="public-brand-image"
+          decorative
+        />
       </Link>
 
       <nav className="public-nav" aria-label="Primary navigation">

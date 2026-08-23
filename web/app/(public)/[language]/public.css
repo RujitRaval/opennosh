@@ -65,6 +65,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 .public-brand { display: flex; width: clamp(8.75rem, 12vw, 11.5rem); min-height: 2.75rem; align-items: center; }
 .public-brand-image { width: 100%; }
+.public-header-dark { color: var(--rice-paper); border-bottom-color: color-mix(in srgb, var(--rice-paper) 28%, transparent); }
 .public-nav { display: flex; align-items: center; gap: clamp(1.25rem, 2.8vw, 3rem); font-size: .9rem; font-weight: 600; }
 .public-nav a, .tracker-link { position: relative; display: flex; min-width: 2.75rem; min-height: 2.75rem; align-items: center; justify-content: center; padding: .55rem 0; }
 .public-nav a::after, .tracker-link::after {
