@@ -106,9 +106,10 @@ export const api = {
         ...(cursor ? { cursor } : {}),
       })}`,
     ).then(foodSearch),
-  foodDetail: (source: "usda" | "community", sourceId: string) =>
+  foodDetail: (source: "usda" | "community", sourceId: string, signal?: AbortSignal) =>
     request<TransportFoodDetail>(
       `/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
+      { signal },
     ).then(foodDetail),
   lookupBarcode: (barcode: string) =>
     request<TransportBarcodeFood>(

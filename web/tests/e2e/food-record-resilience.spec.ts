@@ -23,7 +23,7 @@ test("the page does not infer same-food variants from fuzzy search", async ({ pa
   await page.goto("/en/explore/foods/community/rajma-masala?food_locale=hi-IN");
 
   await expect(page.getByRole("heading", { level: 1, name: "Rajma masala" })).toBeVisible();
-  await expect(page.getByText("No related published variants were returned for this food locale.")).toBeVisible();
+  await expect(page.getByText("No explicitly linked variants are published for this record. It remains source-qualified on its own.")).toBeVisible();
   expect(searchRequests).toBe(0);
 });
 
@@ -36,6 +36,17 @@ test("a server-side primary-record failure exposes retry and recovers cleanly", 
   await expect(page.getByRole("heading", { name: "We cannot verify this record right now." })).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Rajma masala" })).toBeVisible();
+});
+
+test("a stalled browser retry times out and remains safely retryable", async ({ page }) => {
+  await page.route("**/api/v1/foods/community/unavailable-food", () => new Promise(() => {}));
+
+  await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: "We cannot verify this record right now." })).toBeVisible({
+    timeout: 7_000,
+  });
+  await expect(page.getByRole("button", { name: "Try again" })).toBeEnabled();
 });
 
 test("invalid public record identifiers return a real 404", async ({ page }) => {

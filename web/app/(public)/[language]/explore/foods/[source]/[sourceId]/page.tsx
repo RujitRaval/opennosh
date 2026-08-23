@@ -48,6 +48,7 @@ export default async function FoodRecordPage({
     foodLocale,
     clientAddress: requestHeaders.get("x-forwarded-for"),
   });
+  if (initialState.kind === "not-found") notFound();
 
   return (
     <main id="main-content" className="food-record-page">

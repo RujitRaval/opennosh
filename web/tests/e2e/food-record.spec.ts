@@ -12,7 +12,7 @@ test("record answers nutrition with its trust context visible and correctly orde
   await expect(page.getByText(/Not supplied by this release/).first()).toBeVisible();
   await expect(page.getByText(/Recipe analysis checked against two household preparations/).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /See provenance/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Compare variants/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Check related records/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Correct this record/ })).toBeVisible();
 
   const order = await page.locator("[data-record-order]").evaluateAll((nodes) =>
@@ -56,7 +56,7 @@ test("the complete record tail keeps evidence, history, and reuse in order", asy
   );
   expect(tail).toEqual(["1-full-nutrients", "2-evidence", "3-history", "4-reuse"]);
   await expect(page.getByRole("heading", { name: "What this release can prove" })).toBeVisible();
-  await expect(page.getByText("No related published variants were returned for this food locale.")).toBeVisible();
+  await expect(page.getByText("No explicitly linked variants are published for this record. It remains source-qualified on its own.")).toBeVisible();
 });
 
 test("the record reflows at the 320 CSS-pixel equivalent of 200 percent desktop zoom", async ({ page }) => {
@@ -70,8 +70,9 @@ test("the record reflows at the 320 CSS-pixel equivalent of 200 percent desktop 
 });
 
 test("not-found records never masquerade as nutrition", async ({ page }) => {
-  await page.goto("/en/explore/foods/community/missing-food?food_locale=hi-IN");
-  await expect(page.getByRole("heading", { name: "This published food record is not available." })).toBeVisible();
+  const response = await page.goto("/en/explore/foods/community/missing-food?food_locale=hi-IN");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByText("This page could not be found.")).toBeVisible();
   await expect(page.getByText("Energy")).toHaveCount(0);
 });
 

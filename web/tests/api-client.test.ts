@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "@/lib/api";
+import foodDetailFixture from "@/tests/fixtures/contracts/foods/v1-detail-community.json";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -127,6 +128,17 @@ describe("browser API client", () => {
     const url = new URL(String(fetchMock.mock.calls[0][0]), "https://opennosh.test");
     expect(url.searchParams.get("q")).toBe("green beans");
     expect(url.searchParams.has("locale")).toBe(false);
+  });
+
+  it("forwards a cancellation signal when loading a public food detail", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(Response.json(foodDetailFixture));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await api.foodDetail("community", "rajma-masala", controller.signal);
+
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
 
   it("prefers the production CSRF cookie and accepts empty success responses", async () => {

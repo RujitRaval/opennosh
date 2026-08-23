@@ -29,18 +29,23 @@ function versionLabel(record: FoodRecordView): string {
 
 function VariantLedger({ records }: { records: readonly FoodRecordView[] }) {
   const conflict = foodRecordsConflict(records);
+  const hasLinkedRecords = records.length > 1;
   return (
     <section id="variants" className="record-chapter variant-chapter" aria-labelledby="variants-title">
       <div className="chapter-heading">
-        <p className="mono">Compare variants</p>
+        <p className="mono">Related records</p>
         <div>
-          <h2 id="variants-title">Same food, attached context</h2>
+          <h2 id="variants-title">
+            {hasLinkedRecords ? "Same food, attached context" : "No related records are linked"}
+          </h2>
           <p>
-            Variants remain separate when preparation, evidence, values, or licensing differ.
+            {hasLinkedRecords
+              ? "Variants remain separate when preparation, evidence, values, or licensing differ."
+              : "opennosh waits for an explicit source relationship instead of guessing from similar names."}
           </p>
         </div>
       </div>
-      {records.length > 1 ? (
+      {hasLinkedRecords ? (
         <>
           <p className={`variant-status${conflict ? " variant-status-conflict" : ""}`} role="status">
             <strong>{conflict ? "Conflicting published values" : "Values align across these records"}</strong>
@@ -68,8 +73,7 @@ function VariantLedger({ records }: { records: readonly FoodRecordView[] }) {
         </>
       ) : (
         <p className="record-empty-state">
-          No related published variants were returned for this food locale. This record remains
-          source-qualified on its own.
+          No explicitly linked variants are published for this record. It remains source-qualified on its own.
         </p>
       )}
     </section>
@@ -178,7 +182,9 @@ export function FoodRecord({
 
         <nav className="record-actions" data-record-order="5-actions" aria-label="Food record actions">
           <a href="#provenance">See provenance <span aria-hidden="true">↓</span></a>
-          <a href="#variants">Compare variants <span aria-hidden="true">↓</span></a>
+          <a href="#variants">
+            {visibleRecords.length > 1 ? "Compare variants" : "Check related records"} <span aria-hidden="true">↓</span>
+          </a>
           <a href={correctionHref}>Correct this record <span aria-hidden="true">↗</span></a>
           <Link className="secondary-record-action" href={routes.tracker.home}>
             Open tracker <span aria-hidden="true">↗</span>

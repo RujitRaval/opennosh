@@ -40,6 +40,8 @@ describe("FoodRecord", () => {
     expect(screen.getByRole("link", { name: /Open tracker/ })).toHaveAttribute(
       "href", "/tracker",
     );
+    expect(screen.getByRole("heading", { name: "No related records are linked" })).toBeVisible();
+    expect(screen.getByRole("link", { name: /Check related records/ })).toBeVisible();
 
     const tail = [...container.querySelectorAll("[data-record-tail]")].map((node) =>
       node.getAttribute("data-record-tail"),

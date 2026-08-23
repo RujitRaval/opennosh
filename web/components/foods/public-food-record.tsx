@@ -32,7 +32,7 @@ export function PublicFoodRecord({
   async function retry(): Promise<void> {
     setState({ kind: "loading" });
     try {
-      const detail = await api.foodDetail(source, sourceId);
+      const detail = await api.foodDetail(source, sourceId, AbortSignal.timeout(5_000));
       setState({ kind: "ready", record: toFoodRecordView(detail, foodLocale) });
     } catch (error) {
       if (error instanceof ApiProblem && error.kind === "not-found") {
