@@ -29,6 +29,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -263,7 +264,15 @@ def test_disabled_lookup_never_calls_open_food_facts(monkeypatch: pytest.MonkeyP
         response = client.get(f"/api/v1/foods/barcode/{BARCODE}")
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "Open Food Facts barcode lookup is disabled."}
+    assert problem_without_request_id(response) == {
+        "type": "https://opennosh.org/problems/service-unavailable",
+        "title": "Service unavailable",
+        "status": 503,
+        "detail": "Open Food Facts barcode lookup is disabled.",
+        "code": "service_unavailable",
+        "schema_version": "1.0",
+        "recovery_actions": [{"id": "retry", "label": "Try again"}],
+    }
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -510,8 +519,14 @@ def test_export_timeout_is_mapped_to_a_stable_api_error(
         response = client.get("/api/v1/export/foods/openfoodfacts")
 
     assert response.status_code == 503
-    assert response.json() == {
-        "detail": "Open Food Facts export timed out. Try again later."
+    assert problem_without_request_id(response) == {
+        "type": "https://opennosh.org/problems/service-unavailable",
+        "title": "Service unavailable",
+        "status": 503,
+        "detail": "Open Food Facts export timed out. Try again later.",
+        "code": "service_unavailable",
+        "schema_version": "1.0",
+        "recovery_actions": [{"id": "retry", "label": "Try again"}],
     }
 
 

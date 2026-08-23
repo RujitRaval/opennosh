@@ -18,6 +18,7 @@ from opennosh_api.workouts.service import add_workout_set
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -666,7 +667,7 @@ def test_workout_operations_are_authenticated_csrf_protected_and_tenant_isolated
         ),
     ):
         assert actual.status_code == missing.status_code == 404
-        assert actual.json() == missing.json()
+        assert problem_without_request_id(actual) == problem_without_request_id(missing)
 
     wrong_parent = workout_clients.owner.put(
         f"/api/v1/workouts/{second_workout}/sets/{set_id}",
@@ -679,7 +680,9 @@ def test_workout_operations_are_authenticated_csrf_protected_and_tenant_isolated
         json=_set(workout_clients.exercise_id),
     )
     assert wrong_parent.status_code == missing_under_parent.status_code == 404
-    assert wrong_parent.json() == missing_under_parent.json()
+    assert problem_without_request_id(wrong_parent) == problem_without_request_id(
+        missing_under_parent
+    )
 
     attacker_volume = workout_clients.attacker.get(
         "/api/v1/workouts/volume",
