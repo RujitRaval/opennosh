@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { PublicPerformanceSignals } from "@/components/public/public-performance-signals";
 import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
@@ -36,12 +37,22 @@ export default async function PublicLayout({
     language,
     parsePublicFeatureFlags(process.env.OPENNOSH_PUBLIC_NAV_FEATURES),
   );
+  const decorationsEnabled = process.env.NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS !== "off";
 
   return (
-    <html lang={language} data-surface="public" data-scroll-behavior="smooth">
+    <html
+      lang={language}
+      data-surface="public"
+      data-scroll-behavior="smooth"
+      data-motion="off"
+      data-motion-state="paused"
+      data-motion-reason={decorationsEnabled ? "server-static" : "kill-switch"}
+      data-motion-decorations={decorationsEnabled ? "on" : "off"}
+    >
       <body className={`public-root ${archivo.variable} ${sourceSans.variable} ${plexMono.variable}`}>
         <a className="skip-link" href="#main-content">Skip to content</a>
         <PublicHeader language={language} navigation={navigation} />
+        <PublicPerformanceSignals decorationsEnabled={decorationsEnabled} />
         {children}
         <PublicFooter language={language} />
       </body>

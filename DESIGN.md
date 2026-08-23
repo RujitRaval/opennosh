@@ -237,6 +237,16 @@ Suggested fields: `event_type`, `food_or_pack_id`, `food_locale`, `accepted_at`,
 - Search may expand into results; accepted contributions may create a restrained pulse; headlines may change width or weight between chapters.
 - Do not use splash loaders, scroll hijacking, forced parallax, autoplay audio, or motion that blocks content.
 - Respect `prefers-reduced-motion` by removing loops and making state changes immediate.
+- The public document starts with `data-motion="off"`; headings, navigation, status, and actions are
+  complete and visible before JavaScript runs. Motion never reveals required content.
+- The optional controller loads after browser readiness only when reduced-motion, data-saver, slow
+  network, low-power, and the build-time decoration kill switch allow it.
+- At most two visible motion regions may run. Hidden tabs and offscreen regions pause, and frame or
+  long-task budget breaches disable decoration for the remainder of the page visit.
+- Motion source is limited to 12 KB gzip, the attributed public design delta to 45 KB gzip, motion
+  tasks to 50 ms, and visible-motion p95 frames to less than 20 ms.
+- `make motion-performance-check` is the executable contract. Its desktop/mobile Core Web Vitals
+  gates are LCP <=2.5 s, INP <=200 ms, and CLS <=0.1.
 
 ## Accessibility
 

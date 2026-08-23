@@ -131,6 +131,25 @@ gate loads 10,000 representative rows, verifies snapshot-indexed execution, and 
 launch-reference, 10x, and 100x corpora, mixed workload, cache states, latency/relevance gates, and
 machine-readable evidence needed before considering a dedicated search projection.
 
+### Public motion performance
+
+The localized public site is complete in server-rendered HTML and starts with decoration disabled.
+Eligible browsers load a separate, CSS-first movement controller after interaction readiness. It
+activates no more than two visible regions, pauses in hidden tabs and offscreen sections, and turns
+decoration off if the 50 ms long-task or 20 ms p95 frame budget is breached. Reduced-motion,
+data-saver, low-power, and no-JavaScript paths keep the same content and actions without starting
+the optional runtime.
+
+Run the production bundle and six-profile browser gate with:
+
+```bash
+make motion-performance-check
+```
+
+Set `NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS=off` at build time for the emergency decoration kill
+switch. Web Vitals samples are held only in the page and dispatched as `opennosh:web-vital`
+events; the movement layer does not transmit them to an external service.
+
 ### Open Food Facts barcode lookup
 
 Open Food Facts access is off by default, so local food search, logging, and startup never require

@@ -2170,7 +2170,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: licensed source fonts and manifests, reproducible subset tooling, centralized public font definitions, localized public layout, tracker resource assertions, performance and visual fixtures, CI budgets.
   - Verify: initial Latin font transfer is at most 160 KB and total after deferred mono at most 220 KB; font-attributable CLS is at most 0.02; only required script subsets load; no unused critical preload appears; fallback and slow-font states remain usable; /tracker transfers zero Living Commons font bytes.
 
-- [ ] **T26 (P1, human: ~2-4 days / Codex: ~1 day)** - Motion performance - Implement and gate the CSS-first progressive Living Commons motion layer.
+- [x] **T26 (P1, human: ~2-4 days / Codex: ~1 day)** - Motion performance - Implement and gate the CSS-first progressive Living Commons motion layer.
   - Surfaced by: Performance re-review D41 - qualitative motion guidance lacked JavaScript, main-thread, frame-time, preference, and field-performance ceilings.
   - Files: public CSS motion primitives, optional observer/controller island, route bundle analysis, preference and visibility gates, low-power benchmark profile, Web Vitals collection, CI performance artifacts and decoration kill switch.
   - Verify: server-rendered content is complete without motion or JavaScript; motion JS is at most 12 KB gzip and all design-delta JS at most 45 KB gzip beyond framework; no motion task exceeds 50 ms; visible-motion p95 frame time stays below 20 ms; optional chunks do not load for reduced-motion/data-saver paths; offscreen work pauses; mobile/desktop p75 LCP <=2.5 s, INP <=200 ms, and CLS <=0.1.

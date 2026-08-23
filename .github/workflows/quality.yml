@@ -176,14 +176,28 @@ jobs:
           npm test
           npm pack --dry-run
 
-      - name: Build web app
-        run: npm --prefix web run build
-
       - name: Install Playwright Chromium
         run: npx --prefix web playwright install --with-deps chromium
 
       - name: Test accessible daily-log journey
         run: npm --prefix web run test:e2e
+
+      - name: Build web app
+        run: npm --prefix web run build
+
+      - name: Enforce public motion bundle budgets
+        run: npm --prefix web run check:motion-budgets
+
+      - name: Benchmark public motion profiles
+        run: npm --prefix web run benchmark:motion -- --output test-results/motion-performance.json
+
+      - name: Upload public motion performance artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: public-motion-performance
+          path: web/test-results/motion-*.json
+          if-no-files-found: error
 
   compose:
     name: Compose application boot
