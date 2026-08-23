@@ -31,6 +31,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+          enable-cache: true
+
       - name: Enforce pull-request metadata
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         env:
@@ -44,7 +50,7 @@ jobs:
           python3 scripts/check_pr_title.py "$PR_TITLE"
 
       - name: Run repository tests
-        run: python3 -m unittest discover -s tests -v
+        run: PYTHONPATH=api:. uv run --frozen python -m unittest discover -s tests -v
 
       - name: Validate public package identities
         run: python3 scripts/check_packages.py
@@ -99,11 +105,13 @@ jobs:
       - name: Install API dependencies
         run: uv sync --frozen
 
-      - name: Lint API
-        run: uv run ruff check api
+      - name: Lint API and performance contract
+        run: uv run ruff check api benchmarks scripts/check_benchmark_contract.py tests/test_benchmark*.py api/tests/test_benchmark*.py
 
-      - name: Type-check API
-        run: uv run mypy
+      - name: Type-check API and performance contract
+        run: |
+          uv run mypy
+          uv run mypy --strict benchmarks/performance
 
       - name: Verify canonical OpenAPI contract
         run: |
@@ -113,6 +121,9 @@ jobs:
 
       - name: Validate food packs
         run: PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json
+
+      - name: Validate versioned performance benchmark contract
+        run: PYTHONPATH=api:. uv run python scripts/check_benchmark_contract.py
 
       - name: Test API
         run: uv run pytest api/tests

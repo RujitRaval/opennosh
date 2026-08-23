@@ -122,7 +122,10 @@ terms and cursor query parameters are not copied into request logs.
 
 PostgreSQL full-text and trigram indexes back the retained projection. The integration performance
 gate loads 10,000 representative rows, verifies snapshot-indexed execution, and budgets less than
-100 ms of PostgreSQL execution time.
+100 ms of PostgreSQL execution time. The release-scale decision is governed by the
+[versioned representative benchmark](benchmarks/performance/README.md), which pins the
+launch-reference, 10x, and 100x corpora, mixed workload, cache states, latency/relevance gates, and
+machine-readable evidence needed before considering a dedicated search projection.
 
 ### Open Food Facts barcode lookup
 

@@ -1,0 +1,373 @@
+{
+  "$schema": "./contract.schema.json",
+  "schema_version": "1.0.0",
+  "contract_id": "opennosh-representative-2026-v1",
+  "seed": 20260823,
+  "capacity_model": {
+    "horizon_months": 24,
+    "launch_records": 10000,
+    "scale_multipliers": [
+      1,
+      10,
+      100
+    ]
+  },
+  "profiles": [
+    {
+      "id": "launch-reference",
+      "scale_multiplier": 1,
+      "records": 10000,
+      "packs": 40,
+      "releases": 120,
+      "concurrency": 12,
+      "interactions_per_boundary_cache": 720
+    },
+    {
+      "id": "10x",
+      "scale_multiplier": 10,
+      "records": 100000,
+      "packs": 400,
+      "releases": 1200,
+      "concurrency": 60,
+      "interactions_per_boundary_cache": 10800
+    },
+    {
+      "id": "100x",
+      "scale_multiplier": 100,
+      "records": 1000000,
+      "packs": 4000,
+      "releases": 12000,
+      "concurrency": 240,
+      "interactions_per_boundary_cache": 72000
+    }
+  ],
+  "distributions": {
+    "source": {
+      "community": 7000,
+      "usda": 3000
+    },
+    "locale_script": {
+      "en-US|Latin": 4200,
+      "es-MX|Latin": 1400,
+      "fr-FR|Latin": 900,
+      "ar|Arabic": 900,
+      "hi|Devanagari": 900,
+      "ja|Japanese": 900,
+      "zh-Hans|Han": 800
+    },
+    "name_length": {
+      "short": 3500,
+      "medium": 4500,
+      "long": 1800,
+      "maximum": 200
+    },
+    "variant": {
+      "canonical": 7000,
+      "regional": 1800,
+      "conflicting": 1200
+    },
+    "duplicate_cluster": {
+      "singleton": 7600,
+      "pair": 1800,
+      "dense": 600
+    },
+    "missing_field": {
+      "complete": 6800,
+      "name_local": 1700,
+      "evidence": 900,
+      "nutrient": 600
+    },
+    "license": {
+      "CC0-1.0": 7000,
+      "CC0": 3000
+    },
+    "evidence": {
+      "verified": 6000,
+      "none": 3000,
+      "pending": 1000
+    },
+    "projection_state": {
+      "retained_active": 8000,
+      "retained_previous": 1500,
+      "rebuild_pending": 500
+    },
+    "release_age": {
+      "current": 6500,
+      "previous": 2500,
+      "legacy": 1000
+    }
+  },
+  "query_mix": [
+    {
+      "id": "exact",
+      "kind": "first_page_search",
+      "weight_bps": 1400,
+      "query": "benchmark-exact",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "community:benchmark-exact"
+      }
+    },
+    {
+      "id": "prefix",
+      "kind": "first_page_search",
+      "weight_bps": 1000,
+      "query": "blueber",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "Blueberry"
+      }
+    },
+    {
+      "id": "fuzzy",
+      "kind": "first_page_search",
+      "weight_bps": 900,
+      "query": "quinoaa",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "Quinoa"
+      }
+    },
+    {
+      "id": "misspelled",
+      "kind": "first_page_search",
+      "weight_bps": 900,
+      "query": "strawbery",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "Strawberry"
+      }
+    },
+    {
+      "id": "non_latin",
+      "kind": "first_page_search",
+      "weight_bps": 1000,
+      "query": "豆腐",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "locale": "ja",
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "豆腐"
+      }
+    },
+    {
+      "id": "no_result",
+      "kind": "first_page_search",
+      "weight_bps": 700,
+      "query": "zz-no-such-benchmark-food",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "empty",
+        "expected": true
+      }
+    },
+    {
+      "id": "filtered",
+      "kind": "first_page_search",
+      "weight_bps": 700,
+      "query": "benchmark",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "source": "usda",
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "usda:"
+      }
+    },
+    {
+      "id": "conflicting_variant",
+      "kind": "first_page_search",
+      "weight_bps": 700,
+      "query": "regional pulse",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "locale": "es-MX",
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "contains",
+        "expected": "Regional pulse"
+      }
+    },
+    {
+      "id": "first_page",
+      "kind": "first_page_search",
+      "weight_bps": 900,
+      "query": "benchmark food",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 20
+      },
+      "relevance": {
+        "mode": "status",
+        "expected": 200
+      }
+    },
+    {
+      "id": "deep_cursor",
+      "kind": "deep_cursor_search",
+      "weight_bps": 700,
+      "query": "benchmark food",
+      "path": "/api/v1/foods/search",
+      "params": {
+        "limit": 50,
+        "pages": 20
+      },
+      "relevance": {
+        "mode": "status",
+        "expected": 200
+      }
+    },
+    {
+      "id": "detail",
+      "kind": "detail_read",
+      "weight_bps": 600,
+      "query": "",
+      "path": "/api/v1/foods/community/benchmark-exact",
+      "params": {},
+      "relevance": {
+        "mode": "status",
+        "expected": 200
+      }
+    },
+    {
+      "id": "provenance",
+      "kind": "provenance_read",
+      "weight_bps": 500,
+      "query": "",
+      "path": "/api/v1/foods/community/benchmark-exact",
+      "params": {},
+      "relevance": {
+        "mode": "contains",
+        "expected": "own_measurement"
+      }
+    }
+  ],
+  "traffic_mix": [
+    {
+      "id": "anonymous_read",
+      "weight_bps": 7000
+    },
+    {
+      "id": "tracker",
+      "weight_bps": 1200
+    },
+    {
+      "id": "publication",
+      "weight_bps": 700
+    },
+    {
+      "id": "pack_ingestion",
+      "weight_bps": 600
+    },
+    {
+      "id": "projection_rebuild",
+      "weight_bps": 500
+    }
+  ],
+  "measurement_boundaries": [
+    {
+      "id": "postgresql",
+      "cache_states": [
+        "cold",
+        "warm"
+      ],
+      "preparation": {
+        "cold": "new connection; DISCARD PLANS; first measured EXPLAIN execution",
+        "warm": "same pinned query executed once before measurement"
+      }
+    },
+    {
+      "id": "fastapi",
+      "cache_states": [
+        "cold",
+        "warm"
+      ],
+      "preparation": {
+        "cold": "new HTTP connection pool with Cache-Control: no-cache",
+        "warm": "complete pinned query mix once before measurement"
+      }
+    },
+    {
+      "id": "same_origin_proxy",
+      "cache_states": [
+        "cold",
+        "warm"
+      ],
+      "preparation": {
+        "cold": "new HTTP connection pool with Cache-Control: no-cache",
+        "warm": "complete pinned query mix once through the proxy"
+      }
+    },
+    {
+      "id": "edge_browser",
+      "cache_states": [
+        "cold",
+        "warm"
+      ],
+      "preparation": {
+        "cold": "new browser context with an empty cache",
+        "warm": "same browser context after one complete query-mix pass"
+      }
+    }
+  ],
+  "gates": {
+    "postgresql": {
+      "warm_p95_ms": 100,
+      "cold_p95_ms": 250
+    },
+    "fastapi": {
+      "warm_p95_ms": 500,
+      "warm_p99_ms": 1000,
+      "cold_p95_ms": 1000
+    },
+    "same_origin_proxy": {
+      "warm_p95_ms": 550,
+      "warm_p99_ms": 1100
+    },
+    "edge_browser": {
+      "warm_p95_ms": 650,
+      "warm_p99_ms": 1300
+    },
+    "quality": {
+      "max_error_rate": 0.005,
+      "max_timeout_rate": 0.001,
+      "min_judged_relevance": 0.9
+    },
+    "capacity": {
+      "max_connection_utilization": 0.8,
+      "max_projection_lag_ms": 300000,
+      "max_job_age_ms": 300000
+    }
+  },
+  "extraction_policy": {
+    "postgresql_gate_misses_required": 2,
+    "same_contract_and_profile_required": true,
+    "write_capacity_threat_is_immediate_trigger": true,
+    "decision": "Spike a dedicated search projection only after this evidence; never migrate canonical data."
+  }
+}

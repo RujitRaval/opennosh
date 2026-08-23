@@ -1,0 +1,536 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/performance-benchmark-result.v1.json",
+  "title": "opennosh performance benchmark result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "contract",
+    "profile",
+    "started_at",
+    "finished_at",
+    "environment",
+    "execution",
+    "query_seed",
+    "measurements",
+    "resources",
+    "query_plans",
+    "gate_evaluation",
+    "reproducibility"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "schema_version",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "profile": {
+      "enum": [
+        "launch-reference",
+        "10x",
+        "100x"
+      ]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hardware",
+        "database",
+        "software",
+        "cache_preparation"
+      ],
+      "properties": {
+        "hardware": {
+          "type": "object",
+          "required": [
+            "machine",
+            "cpu_count",
+            "memory_bytes"
+          ]
+        },
+        "database": {
+          "type": "object",
+          "required": [
+            "postgresql_version",
+            "configuration",
+            "connection_ceiling"
+          ]
+        },
+        "software": {
+          "type": "object",
+          "required": [
+            "opennosh_version",
+            "git_sha",
+            "python_version"
+          ]
+        },
+        "cache_preparation": {
+          "type": "array",
+          "minItems": 4
+        }
+      }
+    },
+    "query_seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "measurements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/measurement"
+      }
+    },
+    "resources": {
+      "type": "object",
+      "required": [
+        "memory_high_water_bytes",
+        "connections_peak",
+        "index_size_bytes",
+        "index_build_ms",
+        "job_age_p95_ms",
+        "projection_lag_p95_ms"
+      ],
+      "properties": {
+        "memory_high_water_bytes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "postgresql",
+            "fastapi",
+            "same_origin_proxy",
+            "edge_browser"
+          ],
+          "properties": {
+            "postgresql": {
+              "$ref": "#/$defs/integerMetricEvidence"
+            },
+            "fastapi": {
+              "$ref": "#/$defs/integerMetricEvidence"
+            },
+            "same_origin_proxy": {
+              "$ref": "#/$defs/integerMetricEvidence"
+            },
+            "edge_browser": {
+              "$ref": "#/$defs/integerMetricEvidence"
+            }
+          }
+        },
+        "connections_peak": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "index_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "index_build_ms": {
+          "$ref": "#/$defs/metricEvidence"
+        },
+        "job_age_p95_ms": {
+          "$ref": "#/$defs/metricEvidence"
+        },
+        "projection_lag_p95_ms": {
+          "$ref": "#/$defs/metricEvidence"
+        }
+      },
+      "additionalProperties": false
+    },
+    "query_plans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "query_id",
+          "cache_state",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "query_id": {
+            "type": "string"
+          },
+          "cache_state": {
+            "enum": [
+              "cold",
+              "warm"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "gate_evaluation": {
+      "type": "object",
+      "required": [
+        "passed",
+        "failures"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "reproducibility": {
+      "type": "object",
+      "required": [
+        "corpus_sha256",
+        "command",
+        "artifact_manifest_sha256"
+      ],
+      "properties": {
+        "corpus_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifact_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "seed_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "observed_distributions",
+            "snapshot_counts"
+          ],
+          "properties": {
+            "records": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "observed_distributions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "snapshot_counts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "profile_interactions_per_cell",
+        "configured_interactions_per_cell",
+        "mixed_interactions_per_cell",
+        "diagnostic_override",
+        "cells"
+      ],
+      "properties": {
+        "mode": {
+          "const": "fixed_interactions"
+        },
+        "profile_interactions_per_cell": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "configured_interactions_per_cell": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mixed_interactions_per_cell": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "diagnostic_override": {
+          "type": "boolean"
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/executionCell"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary",
+        "cache_state",
+        "workload",
+        "requests",
+        "latency_ms",
+        "error_rate",
+        "timeout_rate",
+        "judged_relevance",
+        "error_codes"
+      ],
+      "properties": {
+        "boundary": {
+          "enum": [
+            "postgresql",
+            "fastapi",
+            "same_origin_proxy",
+            "edge_browser"
+          ]
+        },
+        "cache_state": {
+          "enum": [
+            "cold",
+            "warm"
+          ]
+        },
+        "workload": {
+          "type": "string"
+        },
+        "requests": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "latency_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "p50",
+            "p95",
+            "p99"
+          ],
+          "properties": {
+            "p50": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p95": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p99": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "error_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "timeout_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "judged_relevance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "error_codes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "metricEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "source",
+        "observed_at"
+      ],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "integerMetricEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "source",
+        "observed_at"
+      ],
+      "properties": {
+        "value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "executionCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary",
+        "cache_state",
+        "target_interactions",
+        "completed_interactions",
+        "mixed_target_interactions",
+        "mixed_completed_interactions",
+        "query_counts",
+        "traffic_counts",
+        "measurement_elapsed_ms",
+        "mixed_elapsed_ms",
+        "cell_elapsed_ms",
+        "achieved_interactions_per_second",
+        "connection_observation_samples"
+      ],
+      "properties": {
+        "boundary": {
+          "enum": [
+            "fastapi",
+            "same_origin_proxy",
+            "edge_browser"
+          ]
+        },
+        "cache_state": {
+          "enum": [
+            "cold",
+            "warm"
+          ]
+        },
+        "target_interactions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "completed_interactions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mixed_target_interactions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mixed_completed_interactions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "query_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "traffic_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "measurement_elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mixed_elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cell_elapsed_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "achieved_interactions_per_second": {
+          "type": "number",
+          "minimum": 0
+        },
+        "connection_observation_samples": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
