@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "id": "community:rajma-masala-restaurant",
+  "source": "community",
+  "source_id": "rajma-masala-restaurant",
+  "name": "Rajma masala",
+  "name_local": "राजमा मसाला",
+  "category": "Restaurant preparation",
+  "attribution": {
+    "source": "community",
+    "license": "CC BY 4.0",
+    "source_uri": "https://example.org/evidence/rajma-restaurant",
+    "source_license": "CC BY 4.0",
+    "contributed_by": "Delhi Menu Archive",
+    "pack_id": "north-india-restaurant-foods",
+    "pack_version": "1.8.1",
+    "provenance": "Menu and laboratory analysis from one restaurant preparation"
+  },
+  "nutrients": {
+    "basis": "per_100g",
+    "nutrients": {
+      "energy_kcal": "168",
+      "protein_g": "6.0",
+      "carbohydrate_g": "20.1",
+      "fat_g": "7.1"
+    }
+  },
+  "portions": [
+    { "name": "1 serving", "grams": "320" }
+  ]
+}

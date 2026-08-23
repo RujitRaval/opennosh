@@ -192,5 +192,9 @@ export function resolvePublicHub(
   language: InterfaceLanguage,
 ): PublicHubId | undefined {
   if (pathname === routes.publicNotices(language)) return "build";
+  const nestedHub = publicHubIds.find((hub) =>
+    pathname.startsWith(`${routes.publicHub(hub, language)}/`),
+  );
+  if (nestedHub) return nestedHub;
   return publicHubIds.find((hub) => pathname === routes.publicHub(hub, language));
 }
