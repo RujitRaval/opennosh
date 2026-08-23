@@ -19,12 +19,21 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
+from opennosh_api.capacity import (  # type: ignore[import-untyped]
+    ProcessRole,
+    load_capacity_manifest,
+    manifest_digest,
+)
+from opennosh_api.database import (  # type: ignore[import-untyped]
+    DatabaseIdentity,
+    build_engine,
+)
 from opennosh_api.foods.service import (  # type: ignore[import-untyped]
     FOOD_SEARCH_SNAPSHOT_INSERT_SQL,
     FOOD_SEARCH_SQL,
 )
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from benchmarks.performance.contract import (
     DEFAULT_CONTRACT_PATH,
@@ -48,6 +57,9 @@ MEMORY_EVIDENCE_ROLES = {"postgresql", "fastapi", "same_origin_proxy", "edge_bro
 EXTERNAL_EVIDENCE_METRICS = {"index_build_ms", "job_age_p95_ms", "projection_lag_p95_ms"}
 EDGE_BROWSER_RUNNER = (
     Path(__file__).resolve().parents[2] / "web/scripts/performance_edge_browser.mjs"
+)
+DEFAULT_CAPACITY_MANIFEST_PATH = (
+    Path(__file__).resolve().parents[2] / "config/database-capacity.v1.json"
 )
 
 
@@ -708,13 +720,29 @@ async def run(arguments: argparse.Namespace) -> dict[str, Any]:
     mixed_requests = max(100, request_count // 5)
     artifact_directory = arguments.artifact_directory.resolve()
     artifact_directory.mkdir(parents=True, exist_ok=False)
-    engine = create_async_engine(arguments.database_url, pool_pre_ping=True)
+    capacity_manifest = load_capacity_manifest(arguments.capacity_manifest)
+    web_budget = capacity_manifest.active_role_budget(ProcessRole.WEB)
+    engine = build_engine(
+        arguments.database_url,
+        identity=DatabaseIdentity(
+            deployment_id=capacity_manifest.deployment_id,
+            role=ProcessRole.WEB.value,
+        ),
+        budget=web_budget,
+    )
     seed_result = None
     try:
         if arguments.seed_database:
             await engine.dispose()
             seed_result = await seed_database(arguments.database_url, contract, arguments.profile)
-            engine = create_async_engine(arguments.database_url, pool_pre_ping=True)
+            engine = build_engine(
+                arguments.database_url,
+                identity=DatabaseIdentity(
+                    deployment_id=capacity_manifest.deployment_id,
+                    role=ProcessRole.WEB.value,
+                ),
+                budget=web_budget,
+            )
         snapshot_id = seed_result.snapshot_id if seed_result else await current_snapshot(engine)
         corpus_sha256 = seed_result.corpus_sha256 if seed_result else arguments.corpus_sha256
         if not corpus_sha256 or len(corpus_sha256) != 64:
@@ -768,6 +796,13 @@ async def run(arguments: argparse.Namespace) -> dict[str, Any]:
         )
 
         database = await database_environment(engine)
+        database["capacity_manifest_sha256"] = manifest_digest(capacity_manifest)
+        database["capacity_manifest_version"] = capacity_manifest.manifest_version
+        database["role"] = ProcessRole.WEB.value
+        database["role_pool_size"] = web_budget.pool_size
+        database["role_max_overflow"] = web_budget.max_overflow
+        database["role_acquisition_timeout_ms"] = web_budget.acquisition_timeout_ms
+        database["role_statement_timeout_ms"] = web_budget.statement_timeout_ms
         snapshot_resources = await resource_snapshot(engine)
         resources: dict[str, object] = {
             **external_resources,
@@ -885,6 +920,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT_PATH)
     value.add_argument("--profile", choices=("launch-reference", "10x", "100x"), required=True)
     value.add_argument("--database-url", required=True)
+    value.add_argument("--capacity-manifest", type=Path, default=DEFAULT_CAPACITY_MANIFEST_PATH)
     value.add_argument(
         "--boundary",
         action="append",

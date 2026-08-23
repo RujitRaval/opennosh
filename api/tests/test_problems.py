@@ -4,8 +4,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.testclient import TestClient
 from opennosh_api.contracts import common_problem_responses, install_openapi_contract
 from opennosh_api.main import create_app
-from opennosh_api.problems import RequestIdMiddleware, install_problem_handlers
-from opennosh_api.problems.schemas import ProblemCode
+from opennosh_api.problems import (
+    ProblemCode,
+    RecoveryAction,
+    RequestIdMiddleware,
+    install_problem_handlers,
+)
+from opennosh_api.problems.handlers import ProblemException
 from opennosh_api.settings import Settings
 
 
@@ -28,6 +33,16 @@ def contract_app() -> FastAPI:
             status_code=503,
             detail="Try again later.",
             headers={"Retry-After": "60"},
+        )
+
+    @application.get("/database-busy")
+    async def database_busy() -> None:
+        raise ProblemException(
+            status=503,
+            code=ProblemCode.DATABASE_CAPACITY_EXHAUSTED,
+            detail="Database capacity is temporarily full. Wait briefly and try again.",
+            recovery_actions=(RecoveryAction(id="retry", label="Try again"),),
+            retry_after=1,
         )
 
     @application.get("/long-detail")
@@ -90,6 +105,16 @@ def test_retry_after_is_typed_and_recoverable() -> None:
     assert body["retry_after"] == 60
     assert body["recovery_actions"] == [{"id": "retry", "label": "Try again"}]
     assert response.headers["retry-after"] == "60"
+
+
+def test_database_capacity_problem_is_typed_and_retryable() -> None:
+    with TestClient(contract_app()) as client:
+        response = client.get("/database-busy")
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "1"
+    assert response.json()["code"] == "database_capacity_exhausted"
+    assert response.json()["retry_after"] == 1
 
 
 def test_oversized_expected_detail_is_capped_to_the_schema() -> None:

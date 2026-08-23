@@ -17,7 +17,8 @@ from sqlalchemy import literal_column, or_
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from opennosh_api.database import build_engine
+from opennosh_api.capacity import JobRole
+from opennosh_api.database import build_administration_engine
 from opennosh_api.models import Exercise
 from opennosh_api.settings import get_settings
 
@@ -198,9 +199,7 @@ def _allowed_license(value: object, *, label: str) -> _License:
     short_name = _plain_text(license_row.get("short_name"), label=f"{label}.short_name", maximum=64)
     if short_name != WGER_LICENSE_SHORT_NAME:
         raise ValueError(f"{label} is not allowlisted as {WGER_LICENSE_SPDX}")
-    full_name = _plain_text(
-        license_row.get("full_name"), label=f"{label}.full_name", maximum=128
-    )
+    full_name = _plain_text(license_row.get("full_name"), label=f"{label}.full_name", maximum=128)
     if full_name != WGER_LICENSE_FULL_NAME:
         raise ValueError(f"{label} metadata is ambiguous or unsupported")
     url = _safe_url(license_row.get("url"), label=f"{label}.url")
@@ -637,7 +636,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 async def _run_cli(arguments: argparse.Namespace) -> int:
-    engine = build_engine(arguments.database_url or get_settings().database_url)
+    settings = get_settings()
+    database_url = arguments.database_url or settings.process_database_url(JobRole.ADMINISTRATION)
+    engine = build_administration_engine(
+        database_url, manifest_path=settings.database_capacity_manifest_path
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session, session.begin():

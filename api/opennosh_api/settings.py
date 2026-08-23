@@ -1,11 +1,13 @@
 from decimal import Decimal
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from opennosh_api.capacity import JobRole, ProcessRole
 from opennosh_api.targets.constants import (
     DEFAULT_TARGET_KCAL_FLOOR,
     MAX_KCAL,
@@ -16,6 +18,15 @@ from opennosh_api.targets.constants import (
 class Settings(BaseSettings):
     app_environment: Literal["development", "test", "production"] = "development"
     database_url: str = "postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh"
+    web_database_url: str | None = None
+    publication_database_url: str | None = None
+    evidence_database_url: str | None = None
+    projection_database_url: str | None = None
+    reconciler_database_url: str | None = None
+    scheduler_database_url: str | None = None
+    migration_database_url: str | None = None
+    administration_database_url: str | None = None
+    database_capacity_manifest_path: Path | None = None
     database_healthcheck_timeout_seconds: PositiveFloat = 2.0
     session_lifetime_seconds: PositiveInt = 43_200
     trusted_web_proxy_token: SecretStr | None = Field(default=None, min_length=32)
@@ -166,6 +177,24 @@ class Settings(BaseSettings):
         if self.app_environment == "production":
             return "__Host-opennosh-csrf"
         return "opennosh_csrf"
+
+    def process_database_url(self, role: ProcessRole | JobRole) -> str:
+        role_urls = {
+            ProcessRole.WEB: self.web_database_url,
+            ProcessRole.PUBLICATION: self.publication_database_url,
+            ProcessRole.EVIDENCE: self.evidence_database_url,
+            ProcessRole.PROJECTION: self.projection_database_url,
+            ProcessRole.RECONCILER: self.reconciler_database_url,
+            ProcessRole.SCHEDULER: self.scheduler_database_url,
+            JobRole.MIGRATION: self.migration_database_url,
+            JobRole.ADMINISTRATION: self.administration_database_url,
+        }
+        role_url = role_urls[role]
+        if isinstance(role_url, str) and role_url:
+            return role_url
+        if self.app_environment == "production":
+            raise ValueError(f"Production requires {role.value.upper()}_DATABASE_URL")
+        return self.database_url
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

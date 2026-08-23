@@ -28,7 +28,7 @@ async def test_lifespan_disposes_the_engine_after_an_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     engine = DisposableEngine()
-    monkeypatch.setattr(main, "build_engine", lambda _: cast(AsyncEngine, engine))
+    monkeypatch.setattr(main, "build_engine", lambda *_args, **_kwargs: cast(AsyncEngine, engine))
     app = create_app(Settings(database_url="postgresql+asyncpg://unused:unused@localhost/unused"))
 
     with pytest.raises(RuntimeError, match="simulated application failure"):
@@ -44,7 +44,7 @@ async def test_lifespan_closes_the_optional_open_food_facts_client(
 ) -> None:
     engine = DisposableEngine()
     client = DisposableOpenFoodFactsClient()
-    monkeypatch.setattr(main, "build_engine", lambda _: cast(AsyncEngine, engine))
+    monkeypatch.setattr(main, "build_engine", lambda *_args, **_kwargs: cast(AsyncEngine, engine))
     monkeypatch.setattr(main, "OpenFoodFactsClient", lambda **_kwargs: client)
     app = create_app(
         Settings(

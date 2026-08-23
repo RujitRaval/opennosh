@@ -9,8 +9,15 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.auth.router import router as auth_router
 from opennosh_api.body_metrics.router import router as body_metrics_router
+from opennosh_api.capacity import ProcessRole, load_capacity_manifest
 from opennosh_api.contracts import common_problem_responses, install_openapi_contract
-from opennosh_api.database import SqlAlchemyHealthProbe, build_engine
+from opennosh_api.database import (
+    DatabaseIdentity,
+    DatabasePoolMetrics,
+    SqlAlchemyHealthProbe,
+    build_engine,
+)
+from opennosh_api.database_metrics import router as database_metrics_router
 from opennosh_api.exercises.router import export_router as exercise_export_router
 from opennosh_api.exercises.router import router as exercises_router
 from opennosh_api.exports.router import router as exports_router
@@ -44,7 +51,21 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        engine = build_engine(resolved_settings.database_url)
+        capacity_manifest = load_capacity_manifest(
+            resolved_settings.database_capacity_manifest_path
+        )
+        role_budget = capacity_manifest.active_role_budget(ProcessRole.WEB)
+        identity = DatabaseIdentity(
+            deployment_id=capacity_manifest.deployment_id,
+            role=ProcessRole.WEB.value,
+        )
+        database_pool_metrics = DatabasePoolMetrics(identity, role_budget.pool_size)
+        engine = build_engine(
+            resolved_settings.process_database_url(ProcessRole.WEB),
+            identity=identity,
+            budget=role_budget,
+            metrics=database_pool_metrics,
+        )
         open_food_facts_client = (
             OpenFoodFactsClient(
                 base_url=resolved_settings.open_food_facts_base_url,
@@ -60,6 +81,8 @@ def create_app(
             timeout_seconds=resolved_settings.database_healthcheck_timeout_seconds,
         )
         app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        app.state.database_pool_metrics = database_pool_metrics
+        app.state.database_capacity_manifest = capacity_manifest
         app.state.open_food_facts_client = open_food_facts_client
         try:
             yield
@@ -87,6 +110,7 @@ def create_app(
     application.add_middleware(FoodLogNoStoreMiddleware)
     install_problem_handlers(application)
     application.include_router(health_router)
+    application.include_router(database_metrics_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

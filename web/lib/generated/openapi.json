@@ -2330,6 +2330,7 @@
           "rate_limited",
           "upstream_unavailable",
           "service_unavailable",
+          "database_capacity_exhausted",
           "internal_error",
           "search_cursor_invalid",
           "search_cursor_restart"

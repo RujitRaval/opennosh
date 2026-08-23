@@ -1380,7 +1380,7 @@ export type PrivateDataExport = {
 /**
  * ProblemCode
  */
-export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'internal_error' | 'search_cursor_invalid' | 'search_cursor_restart';
+export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'database_capacity_exhausted' | 'internal_error' | 'search_cursor_invalid' | 'search_cursor_restart';
 
 /**
  * ProblemDetails

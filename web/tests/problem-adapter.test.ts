@@ -57,6 +57,7 @@ describe("problem contract adapter", () => {
     ["rate_limited", 429, "rate-limited"],
     ["upstream_unavailable", 502, "retryable"],
     ["service_unavailable", 503, "retryable"],
+    ["database_capacity_exhausted", 503, "retryable"],
     ["internal_error", 500, "unexpected"],
     ["search_cursor_invalid", 400, "invalid-request"],
     ["search_cursor_restart", 409, "conflict"],

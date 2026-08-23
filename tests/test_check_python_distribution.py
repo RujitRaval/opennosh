@@ -7,13 +7,21 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from scripts.check_python_distribution import validate_distribution
+from scripts.check_python_distribution import (
+    EXPECTED_CONSOLE_SCRIPTS,
+    validate_distribution,
+)
 
 VERSION = "1.2.3.4"
 DIST_INFO = f"opennosh-{VERSION}.dist-info"
+ENTRY_POINTS = (
+    "[console_scripts]\n"
+    + "".join(f"{command}={target}\n" for command, target in EXPECTED_CONSOLE_SCRIPTS.items())
+).encode()
 WHEEL_MEMBERS = {
     "opennosh_api/foodpacks/food-pack.schema.json": b"{}",
-    f"{DIST_INFO}/entry_points.txt": b"[console_scripts]\nopennosh=opennosh_api.cli:main\n",
+    "opennosh_api/database-capacity.v1.json": b"{}",
+    f"{DIST_INFO}/entry_points.txt": ENTRY_POINTS,
     f"{DIST_INFO}/licenses/AUTHORS.md": b"contributors",
     f"{DIST_INFO}/licenses/LICENSE": b"MIT",
     f"{DIST_INFO}/licenses/LICENSES.md": b"licenses",
@@ -23,6 +31,7 @@ WHEEL_MEMBERS = {
 SDIST_MEMBERS = (
     "VERSION",
     "schemas/food-pack.schema.json",
+    "config/database-capacity.v1.json",
     "NOTICE.md",
     "LICENSES.md",
 )
@@ -86,6 +95,21 @@ class PythonDistributionCheckTests(unittest.TestCase):
         self.assertIn(f"wheel: missing {DIST_INFO}/entry_points.txt", issues)
         self.assertIn("wheel metadata: Name must be opennosh", issues)
         self.assertIn("wheel metadata: Version must match VERSION", issues)
+
+    def test_invalid_production_entry_point_is_reported(self) -> None:
+        members = dict(WHEEL_MEMBERS)
+        members[f"{DIST_INFO}/entry_points.txt"] = ENTRY_POINTS.replace(
+            b"opennosh-web=opennosh_api.entrypoints.web:main",
+            b"opennosh-web=opennosh_api.entrypoints.web:missing",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            issues = validate_distribution(root, write_archives(root, wheel_members=members))
+
+        self.assertIn(
+            "wheel entry point: opennosh-web must resolve to opennosh_api.entrypoints.web:main",
+            issues,
+        )
 
     def test_missing_source_member_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

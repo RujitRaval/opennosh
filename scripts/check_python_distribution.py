@@ -4,10 +4,23 @@
 from __future__ import annotations
 
 import argparse
+import configparser
 import tarfile
 import zipfile
 from email.parser import Parser
 from pathlib import Path
+
+EXPECTED_CONSOLE_SCRIPTS = {
+    "opennosh": "opennosh_api.cli:main",
+    "opennosh-capacity-preflight": "opennosh_api.capacity:main",
+    "opennosh-web": "opennosh_api.entrypoints.web:main",
+    "opennosh-publication-worker": "opennosh_api.entrypoints.publication:main",
+    "opennosh-evidence-worker": "opennosh_api.entrypoints.evidence:main",
+    "opennosh-projection-worker": "opennosh_api.entrypoints.projection:main",
+    "opennosh-reconciler": "opennosh_api.entrypoints.reconciler:main",
+    "opennosh-scheduler": "opennosh_api.entrypoints.scheduler:main",
+    "opennosh-migrate": "opennosh_api.entrypoints.migration:main",
+}
 
 
 def validate_distribution(root: Path, dist: Path) -> list[str]:
@@ -27,6 +40,7 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
         names = set(archive.namelist())
         required = {
             "opennosh_api/foodpacks/food-pack.schema.json",
+            "opennosh_api/database-capacity.v1.json",
             f"{dist_info}/entry_points.txt",
             f"{dist_info}/licenses/AUTHORS.md",
             f"{dist_info}/licenses/LICENSE",
@@ -36,10 +50,18 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
         }
         for missing in sorted(required - names):
             issues.append(f"wheel: missing {missing}")
-        if f"{dist_info}/METADATA" in names:
-            metadata = Parser().parsestr(
-                archive.read(f"{dist_info}/METADATA").decode("utf-8")
+        entry_points_path = f"{dist_info}/entry_points.txt"
+        if entry_points_path in names:
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.read_string(archive.read(entry_points_path).decode("utf-8"))
+            actual_scripts = (
+                dict(parser["console_scripts"]) if parser.has_section("console_scripts") else {}
             )
+            for command, target in EXPECTED_CONSOLE_SCRIPTS.items():
+                if actual_scripts.get(command) != target:
+                    issues.append(f"wheel entry point: {command} must resolve to {target}")
+        if f"{dist_info}/METADATA" in names:
+            metadata = Parser().parsestr(archive.read(f"{dist_info}/METADATA").decode("utf-8"))
             if metadata["Name"] != "opennosh":
                 issues.append("wheel metadata: Name must be opennosh")
             if metadata["Version"] != release_version:
@@ -48,7 +70,13 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
     with tarfile.open(sdists[0]) as archive:
         names = set(archive.getnames())
         prefix = f"opennosh-{release_version}"
-        for relative in ("VERSION", "schemas/food-pack.schema.json", "NOTICE.md", "LICENSES.md"):
+        for relative in (
+            "VERSION",
+            "schemas/food-pack.schema.json",
+            "config/database-capacity.v1.json",
+            "NOTICE.md",
+            "LICENSES.md",
+        ):
             if f"{prefix}/{relative}" not in names:
                 issues.append(f"source archive: missing {relative}")
     return issues

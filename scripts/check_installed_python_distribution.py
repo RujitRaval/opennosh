@@ -10,6 +10,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from check_python_distribution import EXPECTED_CONSOLE_SCRIPTS
+
 
 def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
     issues: list[str] = []
@@ -20,6 +22,7 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
 
         sys.path.insert(0, str(target))
         try:
+            capacity = importlib.import_module("opennosh_api.capacity")
             validation = importlib.import_module("opennosh_api.foodpacks.validation")
             main = importlib.import_module("opennosh_api.main")
             package_root = target.resolve()
@@ -32,8 +35,19 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
             else:
                 validation._schema_validator.cache_clear()
                 validation._schema_validator()
+            manifest = capacity.load_capacity_manifest()
+            if manifest.schema_version != "1.0":
+                issues.append("installed wheel: capacity manifest is unavailable")
             if main.read_app_version() != expected_version:
                 issues.append("installed wheel: application version does not match VERSION")
+            for command, target_name in EXPECTED_CONSOLE_SCRIPTS.items():
+                module_name, attribute_name = target_name.split(":", maxsplit=1)
+                module = importlib.import_module(module_name)
+                target = getattr(module, attribute_name, None)
+                if not callable(target):
+                    issues.append(
+                        f"installed wheel: {command} target {target_name} is not callable"
+                    )
         finally:
             sys.path.pop(0)
     return issues

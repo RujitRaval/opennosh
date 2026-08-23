@@ -1,11 +1,11 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check benchmark-corpus benchmark-run benchmark-extraction web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check benchmark-corpus benchmark-run benchmark-extraction web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
 	npm --prefix web ci
 
 lint:
-	uv run ruff check api benchmarks scripts/check_benchmark_contract.py tests/test_benchmark*.py api/tests/test_benchmark*.py
+	uv run ruff check api benchmarks scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
 	npm --prefix web run lint
 
 typecheck:
@@ -13,7 +13,7 @@ typecheck:
 	uv run mypy --strict benchmarks/performance
 	npm --prefix web run typecheck
 
-test: foodpack-validate benchmark-contract-check
+test: foodpack-validate benchmark-contract-check database-capacity-check
 	PYTHONPATH=api:. uv run pytest
 	PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
@@ -40,6 +40,9 @@ contracts-check:
 
 benchmark-contract-check:
 	PYTHONPATH=api:. uv run python scripts/check_benchmark_contract.py
+
+database-capacity-check:
+	PYTHONPATH=api:. uv run python scripts/check_database_capacity.py
 
 benchmark-corpus:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.corpus --profile $${PROFILE:-launch-reference} --output $${OUTPUT:--}

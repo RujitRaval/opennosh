@@ -23,7 +23,8 @@ from sqlalchemy import literal_column
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from opennosh_api.database import build_engine
+from opennosh_api.capacity import JobRole
+from opennosh_api.database import build_administration_engine
 from opennosh_api.models import FoodReference
 from opennosh_api.nutrition import HouseholdPortion, NutrientProfile
 from opennosh_api.settings import get_settings
@@ -129,9 +130,7 @@ class _LimitedReader(BufferedIOBase):
     def read(self, size: int | None = -1) -> bytes:
         data = self._handle.read(self._bounded_size(size))
         if len(data) > self._remaining:
-            raise USDAFormatError(
-                f"input exceeds the {_MAX_INPUT_BYTES}-byte decompressed limit"
-            )
+            raise USDAFormatError(f"input exceeds the {_MAX_INPUT_BYTES}-byte decompressed limit")
         self._remaining -= len(data)
         return data
 
@@ -139,9 +138,7 @@ class _LimitedReader(BufferedIOBase):
         read1 = getattr(self._handle, "read1", self._handle.read)
         data = read1(self._bounded_size(size))
         if len(data) > self._remaining:
-            raise USDAFormatError(
-                f"input exceeds the {_MAX_INPUT_BYTES}-byte decompressed limit"
-            )
+            raise USDAFormatError(f"input exceeds the {_MAX_INPUT_BYTES}-byte decompressed limit")
         self._remaining -= len(data)
         return data
 
@@ -305,9 +302,7 @@ def _parse_nutrients(value: object) -> dict[str, Any]:
         if nutrient_id in {1008, 2047, 2048}:
             unit = _UNIT_SUFFIXES.get(str(nutrient.get("unitName", "")).strip().casefold())
             if unit == "kcal":
-                amount = _decimal(
-                    entry.get("amount"), label="energy_kcal amount"
-                )
+                amount = _decimal(entry.get("amount"), label="energy_kcal amount")
                 if nutrient_id in energy_candidates and energy_candidates[nutrient_id] != amount:
                     raise ValueError(
                         f"duplicate energy nutrient {nutrient_id} has conflicting values"
@@ -351,7 +346,7 @@ def _portion_label(portion: Mapping[str, Any]) -> str:
     detail = modifier or unit or description or "portion"
     if unit and modifier and modifier.casefold() not in unit.casefold():
         detail = f"{unit} {modifier}"
-    label = f'{format(amount.normalize(), "f")} {detail}'
+    label = f"{format(amount.normalize(), 'f')} {detail}"
     if len(label) > 80:
         raise ValueError("portion name must not exceed 80 characters")
     return label
@@ -387,9 +382,7 @@ def _parse_portions(value: object) -> list[dict[str, Any]]:
 def _parse_item(item: Mapping[str, Any], expected_type: USDADataType) -> USDAReferenceRecord:
     declared_type = item.get("dataType")
     if declared_type is not None and str(declared_type) != expected_type.value:
-        raise ValueError(
-            f"dataType {declared_type!r} does not match {expected_type.value!r}"
-        )
+        raise ValueError(f"dataType {declared_type!r} does not match {expected_type.value!r}")
     fdc_id = _positive_identifier(item.get("fdcId"), label="FDC ID")
     description = str(item.get("description") or "").strip()
     if not description:
@@ -442,16 +435,12 @@ def _validate_zip_infos(path: Path, infos: Sequence[ZipInfo]) -> None:
             )
         total_size += info.file_size
         if total_size > _MAX_ZIP_TOTAL_BYTES:
-            raise USDAFormatError(
-                f"{path} exceeds the {_MAX_ZIP_TOTAL_BYTES}-byte archive limit"
-            )
+            raise USDAFormatError(f"{path} exceeds the {_MAX_ZIP_TOTAL_BYTES}-byte archive limit")
         if info.file_size:
             if info.compress_size == 0:
                 raise USDAFormatError(f"{path}:{info.filename} has an invalid compressed size")
             if info.file_size / info.compress_size > _MAX_ZIP_COMPRESSION_RATIO:
-                raise USDAFormatError(
-                    f"{path}:{info.filename} exceeds the compression-ratio limit"
-                )
+                raise USDAFormatError(f"{path}:{info.filename} exceeds the compression-ratio limit")
 
 
 def _zip_members(path: Path) -> dict[str, str]:
@@ -464,9 +453,7 @@ def _zip_members(path: Path) -> dict[str, str]:
                     continue
                 basename = PurePosixPath(name).name
                 if basename in members:
-                    raise USDAFormatError(
-                        f"{path} contains duplicate archive filename {basename}"
-                    )
+                    raise USDAFormatError(f"{path} contains duplicate archive filename {basename}")
                 members[basename] = name
             return members
     except BadZipFile as error:
@@ -515,9 +502,7 @@ def _iter_json(
         for row_number, raw_item in enumerate(ijson.items(handle, f"{root}.item"), start=1):
             seen += 1
             if seen > _MAX_FOODS:
-                raise USDAFormatError(
-                    f"{path} contains more than {_MAX_FOODS} food records"
-                )
+                raise USDAFormatError(f"{path} contains more than {_MAX_FOODS} food records")
             try:
                 item = _mapping(raw_item, label="food record")
                 record = _parse_item(item, data_type)
@@ -549,9 +534,7 @@ class _CSVFiles:
             total_size = 0
             for candidate in path.rglob("*.csv"):
                 if len(self.members) >= _MAX_ZIP_MEMBERS:
-                    raise USDAFormatError(
-                        f"{path} contains more than {_MAX_ZIP_MEMBERS} CSV files"
-                    )
+                    raise USDAFormatError(f"{path} contains more than {_MAX_ZIP_MEMBERS} CSV files")
                 size = candidate.stat().st_size
                 if size > _MAX_INPUT_BYTES:
                     raise USDAFormatError(
@@ -682,9 +665,7 @@ def _iter_csv(
         if child_rows > _MAX_CHILD_ROWS:
             raise USDAFormatError(f"{path}:food_nutrient.csv exceeds the child-row limit")
         if len(food_nutrients[fdc_id]) >= _MAX_CHILDREN_PER_FOOD:
-            raise USDAFormatError(
-                f"{path}: FDC {fdc_id} has too many food_nutrient rows"
-            )
+            raise USDAFormatError(f"{path}: FDC {fdc_id} has too many food_nutrient rows")
         nutrient = nutrient_rows.get(row.get("nutrient_id", "").strip())
         if nutrient is None:
             food_nutrients[fdc_id].append({"amount": row.get("amount"), "nutrient": {}})
@@ -778,9 +759,7 @@ async def _write_batch(
         },
         where=statement.excluded.updated_at >= FoodReference.updated_at,
     )
-    returning_statement: Any = upsert.returning(
-        literal_column("xmax = 0").label("inserted")
-    )
+    returning_statement: Any = upsert.returning(literal_column("xmax = 0").label("inserted"))
     inserted_flags = list((await session.execute(returning_statement)).scalars())
     inserted = sum(bool(flag) for flag in inserted_flags)
     updated = len(inserted_flags) - inserted
@@ -839,8 +818,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 async def _run_cli(arguments: argparse.Namespace) -> int:
-    database_url = arguments.database_url or get_settings().database_url
-    engine = build_engine(database_url)
+    settings = get_settings()
+    database_url = arguments.database_url or settings.process_database_url(JobRole.ADMINISTRATION)
+    engine = build_administration_engine(
+        database_url, manifest_path=settings.database_capacity_manifest_path
+    )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     def show_progress(report: USDAImportReport) -> None:

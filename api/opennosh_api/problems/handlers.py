@@ -44,6 +44,7 @@ _TITLES: dict[ProblemCode, str] = {
     ProblemCode.RATE_LIMITED: "Too many requests",
     ProblemCode.UPSTREAM_UNAVAILABLE: "Upstream service unavailable",
     ProblemCode.SERVICE_UNAVAILABLE: "Service unavailable",
+    ProblemCode.DATABASE_CAPACITY_EXHAUSTED: "Database capacity is busy",
     ProblemCode.INTERNAL_ERROR: "Unexpected server error",
     ProblemCode.SEARCH_CURSOR_INVALID: "Invalid search cursor",
     ProblemCode.SEARCH_CURSOR_RESTART: "Restart search",
@@ -61,6 +62,9 @@ _DEFAULT_DETAILS: dict[ProblemCode, str] = {
         "A required upstream service is unavailable. Try again later."
     ),
     ProblemCode.SERVICE_UNAVAILABLE: ("The service is temporarily unavailable. Try again later."),
+    ProblemCode.DATABASE_CAPACITY_EXHAUSTED: (
+        "Database capacity is temporarily full. Wait briefly and try again."
+    ),
     ProblemCode.INTERNAL_ERROR: "The server could not complete the request.",
     ProblemCode.SEARCH_CURSOR_INVALID: "That search cursor could not be verified.",
     ProblemCode.SEARCH_CURSOR_RESTART: (
@@ -91,6 +95,7 @@ class ProblemException(Exception):
     code: ProblemCode
     detail: str
     recovery_actions: tuple[RecoveryAction, ...] = ()
+    retry_after: int | None = None
 
 
 def request_id(request: Request) -> str:
@@ -192,9 +197,15 @@ async def problem_exception_handler(
         status=problem_exception.status,
         code=problem_exception.code,
         detail=problem_exception.detail,
+        retry_after=problem_exception.retry_after,
         recovery_actions=list(problem_exception.recovery_actions),
     )
-    return problem_response(problem)
+    headers = (
+        {"Retry-After": str(problem_exception.retry_after)}
+        if problem_exception.retry_after is not None
+        else None
+    )
+    return problem_response(problem, headers=headers)
 
 
 async def http_exception_handler(
