@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 import pytest
+from opennosh_api.capacity import JobRole, ProcessRole
 from opennosh_api.settings import Settings
 from pydantic import ValidationError
 
@@ -169,3 +170,23 @@ def test_open_food_facts_settings_reject_unsafe_values() -> None:
         Settings(open_food_facts_user_agent_contact="contact\nInjected: header", _env_file=None)
     with pytest.raises(ValidationError):
         Settings(open_food_facts_user_agent_contact="Maintainer 🚀", _env_file=None)
+
+
+def test_production_roles_require_specific_least_privilege_database_urls() -> None:
+    production = Settings(
+        app_environment="production",
+        food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+        _env_file=None,
+    )
+
+    with pytest.raises(ValueError, match="WEB_DATABASE_URL"):
+        production.process_database_url(ProcessRole.WEB)
+    with pytest.raises(ValueError, match="MIGRATION_DATABASE_URL"):
+        production.process_database_url(JobRole.MIGRATION)
+
+    configured = production.model_copy(
+        update={"web_database_url": "postgresql+asyncpg://web-role@database/opennosh"}
+    )
+    assert configured.process_database_url(ProcessRole.WEB).startswith(
+        "postgresql+asyncpg://web-role@"
+    )

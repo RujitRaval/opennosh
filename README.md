@@ -26,7 +26,8 @@ verification evidence are recorded in [`docs/package-operations.md`](docs/packag
 
 ## Quick start
 
-Docker Compose starts PostgreSQL, the FastAPI service, the Next.js app, and its nginx ingress:
+Docker Compose starts PostgreSQL, validates the global database-capacity contract, runs one migration
+job, then starts the FastAPI web role, the Next.js app, and its nginx ingress:
 
 ```bash
 cp .env.example .env
@@ -43,7 +44,10 @@ make lint typecheck test build compose-config
 make foodpack-validate
 ```
 
-The API container upgrades the PostgreSQL schema to the latest Alembic revision before it starts. For native development, set `DATABASE_URL` and manage the schema directly:
+Compose runs capacity preflight and Alembic as one-shot jobs; the web container never migrates on
+startup. The [database-capacity runbook](docs/operations/database-capacity.md) documents role pools,
+reserved recovery headroom, scaling checks, overload behavior, and internal metrics. For native
+development, set `DATABASE_URL` and manage the schema directly:
 
 ```bash
 make db-upgrade

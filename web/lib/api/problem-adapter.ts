@@ -28,6 +28,7 @@ const problemCodes: readonly ProblemCode[] = [
   "rate_limited",
   "upstream_unavailable",
   "service_unavailable",
+  "database_capacity_exhausted",
   "internal_error",
   "search_cursor_invalid",
   "search_cursor_restart",
@@ -157,6 +158,7 @@ function kindFor(code: ProblemCode, hasLatestState: boolean): ProblemKind {
       return "rate-limited";
     case "upstream_unavailable":
     case "service_unavailable":
+    case "database_capacity_exhausted":
       return "retryable";
     case "internal_error":
       return "unexpected";

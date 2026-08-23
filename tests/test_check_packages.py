@@ -92,9 +92,11 @@ class PackageCheckTests(unittest.TestCase):
             self.assertTrue(any(fragment in issue for issue in issues), fragment)
 
     def test_api_runtime_does_not_log_raw_search_query_strings(self) -> None:
-        dockerfile = (ROOT / "api/Dockerfile").read_text(encoding="utf-8")
+        entrypoint = (ROOT / "api/opennosh_api/entrypoints/web.py").read_text(
+            encoding="utf-8"
+        )
 
-        self.assertIn("--no-access-log", dockerfile)
+        self.assertIn("access_log=False", entrypoint)
 
     def test_missing_docker_package_documents_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

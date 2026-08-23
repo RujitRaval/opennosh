@@ -32,6 +32,14 @@ dependencies = [
 
 [project.scripts]
 opennosh = "opennosh_api.cli:main"
+opennosh-capacity-preflight = "opennosh_api.capacity:main"
+opennosh-web = "opennosh_api.entrypoints.web:main"
+opennosh-publication-worker = "opennosh_api.entrypoints.publication:main"
+opennosh-evidence-worker = "opennosh_api.entrypoints.evidence:main"
+opennosh-projection-worker = "opennosh_api.entrypoints.projection:main"
+opennosh-reconciler = "opennosh_api.entrypoints.reconciler:main"
+opennosh-scheduler = "opennosh_api.entrypoints.scheduler:main"
+opennosh-migrate = "opennosh_api.entrypoints.migration:main"
 
 [project.urls]
 Homepage = "https://opennosh.org"
@@ -62,11 +70,13 @@ packages = ["api/opennosh_api"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schemas/food-pack.schema.json" = "opennosh_api/foodpacks/food-pack.schema.json"
+"config/database-capacity.v1.json" = "opennosh_api/database-capacity.v1.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
   "api/opennosh_api",
   "schemas/food-pack.schema.json",
+  "config/database-capacity.v1.json",
   "AUTHORS.md",
   "LICENSE",
   "LICENSES.md",

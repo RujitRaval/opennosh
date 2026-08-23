@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.28.0.0] - 2026-08-23
+
+### Added
+
+- Give every web, worker, migration, and administration process an explicit PostgreSQL connection
+  budget, least-privilege credential boundary, bounded wait time, statement deadline, and unique
+  operational identity.
+- Add independent packaged commands for the web API, publication, evidence, projection,
+  reconciliation, scheduling, and one-shot database migrations, with inactive future workers
+  failing closed until their queue drivers are installed.
+- Return a typed, retryable `503 database_capacity_exhausted` response when the web pool is full
+  and expose protected role-attributed pool utilization and acquisition-latency metrics.
+
+### Changed
+
+- Gate deployment startup on a versioned global capacity manifest, the complete deployed role
+  topology, and the live PostgreSQL `max_connections` value before running one migration job and
+  starting the web role.
+- Run representative database benchmarks with the active role budget and preserve reserved
+  migration, administration, monitoring, recovery, and failover headroom in release gates.
+- Validate every production console command and the bundled capacity manifest in built and
+  installed Python distributions.
+
 ## [0.27.0.0] - 2026-08-23
 
 ### Added

@@ -13,7 +13,8 @@ from typing import cast
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from opennosh_api.database import build_engine
+from opennosh_api.capacity import JobRole
+from opennosh_api.database import build_administration_engine
 from opennosh_api.foodpacks.loader import (
     DEFAULT_MAX_ATTEMPTS,
     FoodPackBatchLoadReport,
@@ -45,7 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def _run_load(arguments: argparse.Namespace) -> FoodPackBatchLoadReport:
-    engine = build_engine(get_settings().database_url)
+    settings = get_settings()
+    engine = build_administration_engine(
+        settings.process_database_url(JobRole.ADMINISTRATION),
+        manifest_path=settings.database_capacity_manifest_path,
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         return await load_food_pack_root_with_retries(
@@ -82,7 +87,11 @@ def run_food_command(arguments: argparse.Namespace) -> int:
 
 
 async def _run_wger_import(arguments: argparse.Namespace) -> dict[str, object]:
-    engine = build_engine(get_settings().database_url)
+    settings = get_settings()
+    engine = build_administration_engine(
+        settings.process_database_url(JobRole.ADMINISTRATION),
+        manifest_path=settings.database_capacity_manifest_path,
+    )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with factory() as session, session.begin():

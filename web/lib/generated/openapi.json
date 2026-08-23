@@ -2330,6 +2330,7 @@
           "rate_limited",
           "upstream_unavailable",
           "service_unavailable",
+          "database_capacity_exhausted",
           "internal_error",
           "search_cursor_invalid",
           "search_cursor_restart"
@@ -3700,7 +3701,7 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.27.0.0",
+    "version": "0.28.0.0",
     "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",

@@ -2085,7 +2085,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: API domain model modules, `api/opennosh_api/models/registry.py`, Alembic, model ownership tests.
   - Verify: complete metadata, one owner per table, no schema diff for structural moves, clean Alembic check.
 
-- [ ] **T9 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Runtime - Add narrow role entrypoints and a separate migration job.
+- [x] **T9 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Runtime - Add narrow role entrypoints and a separate migration job.
   - Surfaced by: Code Quality D10 - one global web startup path cannot safely compose independently scaled workers.
   - Files: API entrypoints, settings, container/compose/deployment manifests, startup tests.
   - Verify: role import isolation, lane ownership, least privilege, drain/restart, N/N-1 unknown-job behavior, one migration job.
@@ -2120,7 +2120,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: benchmark corpus generator/manifests, load harness, query plans, result-artifact schema.
   - Verify: reproducible launch/10x/100x runs report latency, errors, relevance, memory, connections, index cost, and projection lag.
 
-- [ ] **T16 (P1, human: ~2-4 days / Codex: ~1 day)** - Database capacity - Enforce the global role connection manifest.
+- [x] **T16 (P1, human: ~2-4 days / Codex: ~1 day)** - Database capacity - Enforce the global role connection manifest.
   - Surfaced by: Performance D17 - default SQLAlchemy pools multiply unpredictably across six process roles.
   - Files: database engine/settings, role entrypoints, deployment manifests, capacity preflight, dashboards.
   - Verify: invalid replica/pool totals fail preflight; overload backpressure, recovery headroom, role metrics, and mixed-load budgets pass.

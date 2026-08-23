@@ -15,7 +15,7 @@ Companion to `02-PRD.md`. Together these two are the input to the `prd-to-github
 | Frontend | **Next.js + Tailwind + shadcn/ui** | Matches your stack; responsive web only for v1 |
 | Validation | Pydantic v2 (API) + JSON Schema (food packs) | Food packs are validated by CI outside the app, so the schema must be standalone |
 | Auth | Session cookie + Argon2id | No third-party auth service. Self-hosted means no external dependency for login |
-| Container | Docker Compose: `ingress`, `web`, `api`, `db` | One-command deployment with nginx as the only public web ingress |
+| Container | Docker Compose: `ingress`, `web`, `api`, `migrate`, `capacity-preflight`, `db` | One-command deployment with validated database capacity, one-shot migrations, and nginx as the only public web ingress |
 | Tests | pytest (backend), Vitest (frontend) | Every issue ships tests — the pipeline requires it |
 
 **Constraint:** no external API call is required for core functionality. The app must work fully air-gapped after the initial food seed. This is a load-bearing product promise, not a nice-to-have.
@@ -215,12 +215,15 @@ from missing records.
 ```yaml
 services:
   db:   postgres:16     # named volume
-  api:  ./api           # runs migrations on boot, then seeds if empty
+  capacity-preflight: ./api  # validates topology and live PostgreSQL capacity, then exits
+  migrate: ./api             # runs Alembic once after preflight, then exits
+  api:  ./api                # starts only the FastAPI web role after migration succeeds
   web:  ./web
   ingress: nginx:1.27   # public web entry point; replaces forwarding headers
 ```
 
-- First boot runs migrations, then seeds USDA + bundled community packs. Seed is the slow part; show progress, don't hang silently.
+- Every boot validates the versioned global connection-capacity manifest and live PostgreSQL ceiling before running one migration job. Web and worker processes never run migrations on startup.
+- USDA and community-pack loading remains an explicit operator action after the schema is current.
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
 - nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.
 - Health endpoint at `/healthz` reporting DB connectivity and seed status.

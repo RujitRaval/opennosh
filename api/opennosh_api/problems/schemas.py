@@ -18,6 +18,7 @@ class ProblemCode(StrEnum):
     RATE_LIMITED = "rate_limited"
     UPSTREAM_UNAVAILABLE = "upstream_unavailable"
     SERVICE_UNAVAILABLE = "service_unavailable"
+    DATABASE_CAPACITY_EXHAUSTED = "database_capacity_exhausted"
     INTERNAL_ERROR = "internal_error"
     SEARCH_CURSOR_INVALID = "search_cursor_invalid"
     SEARCH_CURSOR_RESTART = "search_cursor_restart"
