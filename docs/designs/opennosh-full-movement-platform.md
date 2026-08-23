@@ -2125,7 +2125,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: database engine/settings, role entrypoints, deployment manifests, capacity preflight, dashboards.
   - Verify: invalid replica/pool totals fail preflight; overload backpressure, recovery headroom, role metrics, and mixed-load budgets pass.
 
-- [ ] **T17 (P1, human: ~2-3 days / Codex: ~1 day)** - Public shell - Implement the task-first platform navigation and page hierarchy.
+- [x] **T17 (P1, human: ~2-3 days / Codex: ~1 day)** - Public shell - Implement the task-first platform navigation and page hierarchy.
   - Surfaced by: Design D2 - the full platform lacked one stable route and navigation model across release trains.
   - Files: `web/app`, localized public layouts/navigation, centralized route and locale definitions, mobile navigation, route and browser tests.
   - Verify: desktop and mobile trunk tests identify opennosh, current hub, page, and next action; deep links, breadcrumbs, menu focus restoration, supported and unsupported interface languages, independent food-locale state, feature-flagged children, and Tracker utility placement pass.
