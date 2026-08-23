@@ -58,6 +58,10 @@ describe("public navigation", () => {
       );
     }
     expect(screen.getByRole("link", { name: /Tracker/ })).toHaveAttribute("href", "/tracker");
+    expect(screen.getByRole("link", { name: "Next / Explore" })).toHaveAttribute(
+      "href",
+      "/en/explore",
+    );
     expect(screen.getAllByLabelText("Interface language: English")).toHaveLength(2);
   });
 

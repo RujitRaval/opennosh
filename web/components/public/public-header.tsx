@@ -25,6 +25,12 @@ export function PublicHeader({
   const activeHub = resolvePublicHub(pathname, language);
   const usesDarkHeader = pathname === routes.publicHub("build", language);
   const contextHub = navigation.find((hub) => hub.id === activeHub) ?? navigation[0];
+  const contextAction = activeHub
+    ? contextHub.nextAction
+    : {
+        href: routes.publicHub("explore", language),
+        compactLabel: contextHub.label,
+      };
   const copy = getPublicShellCopy(language);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -82,8 +88,8 @@ export function PublicHeader({
         <Link className="tracker-link" href={routes.tracker.home}>
           {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
         </Link>
-        <Link className="mobile-context-action" href={contextHub.nextAction.href}>
-          Next / {contextHub.nextAction.compactLabel}
+        <Link className="mobile-context-action" href={contextAction.href}>
+          Next / {contextAction.compactLabel}
         </Link>
         <button
           ref={buttonRef}
