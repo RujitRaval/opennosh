@@ -1,25 +1,29 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import { routes } from "@/lib/routes";
+import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
+import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Licenses and data notices · opennosh",
+  title: "Licenses and data notices - opennosh",
   description: "The software and dataset terms that apply to opennosh.",
 };
 
 export default async function NoticesPage({
   params,
 }: {
-  params: Promise<{ language: "en" }>;
+  params: Promise<{ language: InterfaceLanguage }>;
 }) {
   const { language } = await params;
 
   return (
     <main className="legal-page" id="main-content">
-      <Link className="wordmark" href={routes.publicHome(language)} aria-label="opennosh home">
-        open<span>nosh</span>
-      </Link>
+      <PublicBreadcrumbs
+        items={[
+          { label: "Home", href: routes.publicHome(language) },
+          { label: "Build", href: routes.publicHub("build", language) },
+          { label: "Licenses + notices" },
+        ]}
+      />
       <p className="eyebrow">Source transparency</p>
       <h1>Licenses and data notices</h1>
       <p className="lede">

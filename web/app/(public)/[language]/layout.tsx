@@ -4,13 +4,17 @@ import type { ReactNode } from "react";
 
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import {
+  buildPublicNavigation,
+  parsePublicFeatureFlags,
+} from "@/lib/public-navigation";
 import { archivo, plexMono, sourceSans } from "@/lib/public-fonts";
 import { isSupportedLanguage, supportedLanguages } from "@/lib/routes";
 
 import "./public.css";
 
 export const metadata: Metadata = {
-  title: "Food data belongs to everyone · opennosh",
+  title: "Food data belongs to everyone - opennosh",
   description: "Search, verify, improve, and reuse an open, versioned food-data commons.",
 };
 
@@ -28,11 +32,16 @@ export default async function PublicLayout({
   const { language } = await params;
   if (!isSupportedLanguage(language)) notFound();
 
+  const navigation = buildPublicNavigation(
+    language,
+    parsePublicFeatureFlags(process.env.OPENNOSH_PUBLIC_NAV_FEATURES),
+  );
+
   return (
-    <html lang={language} data-surface="public">
+    <html lang={language} data-surface="public" data-scroll-behavior="smooth">
       <body className={`public-root ${archivo.variable} ${sourceSans.variable} ${plexMono.variable}`}>
         <a className="skip-link" href="#main-content">Skip to content</a>
-        <PublicHeader language={language} />
+        <PublicHeader language={language} navigation={navigation} />
         {children}
         <PublicFooter language={language} />
       </body>

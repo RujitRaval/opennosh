@@ -1,75 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  buildPublicNavigation,
+  getPublicShellCopy,
+  resolvePublicHub,
+  type PublicNavigationHub,
+} from "@/lib/public-navigation";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 import { BrandLogo } from "./brand-logo";
 
-const hubs = [
-  { id: "explore", label: "Explore" },
-  { id: "contribute", label: "Contribute" },
-  { id: "commons", label: "Commons" },
-  { id: "build", label: "Build" },
-] as const;
-
-export function PublicHeader({ language }: { language: InterfaceLanguage }) {
+export function PublicHeader({
+  language,
+  navigation = buildPublicNavigation(language),
+}: {
+  language: InterfaceLanguage;
+  navigation?: readonly PublicNavigationHub[];
+}) {
+  const pathname = usePathname() ?? routes.publicHome(language);
+  const activeHub = resolvePublicHub(pathname, language);
+  const usesDarkHeader = pathname === routes.publicHub("build", language);
+  const contextHub = navigation.find((hub) => hub.id === activeHub) ?? navigation[0];
+  const contextAction = activeHub
+    ? contextHub.nextAction
+    : {
+        href: routes.publicHub("explore", language),
+        compactLabel: contextHub.label,
+      };
+  const copy = getPublicShellCopy(language);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
 
-  function closeMenu({ restoreFocus = false } = {}) {
+  const closeMenu = useCallback(({ restoreFocus = false } = {}) => {
     setOpen(false);
     if (restoreFocus) requestAnimationFrame(() => buttonRef.current?.focus());
-  }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    const frame = requestAnimationFrame(() => firstLinkRef.current?.focus());
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") closeMenu({ restoreFocus: true });
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeMenu, open]);
 
   return (
-    <header className="public-header">
+    <header className={`public-header${usesDarkHeader ? " public-header-dark" : ""}`}>
       <Link className="public-brand" href={routes.publicHome(language)} aria-label="opennosh home">
-        <BrandLogo surface="rice-paper" priority className="public-brand-image" decorative />
+        <BrandLogo
+          surface={usesDarkHeader ? "commons-ink" : "rice-paper"}
+          priority
+          className="public-brand-image"
+          decorative
+        />
       </Link>
 
       <nav className="public-nav" aria-label="Primary navigation">
-        {hubs.map((hub) => (
-          <Link key={hub.id} href={routes.publicHub(hub.id, language)}>
+        {navigation.map((hub) => (
+          <Link
+            key={hub.id}
+            href={routes.publicHub(hub.id, language)}
+            aria-current={hub.id === activeHub ? "page" : undefined}
+          >
             {hub.label}
           </Link>
         ))}
       </nav>
 
       <div className="public-utilities">
-        <span className="language-label" aria-label="Interface language: English">EN</span>
-        <Link className="tracker-link" href={routes.tracker.home}>Tracker <span aria-hidden="true">↗</span></Link>
+        <span
+          className="language-label"
+          aria-label={`Interface language: ${copy.interfaceLanguage}`}
+          title="Food locale is selected independently in Explore"
+        >
+          EN
+        </span>
+        <Link className="tracker-link" href={routes.tracker.home}>
+          {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
+        </Link>
+        <Link className="mobile-context-action" href={contextAction.href}>
+          Next / {contextAction.compactLabel}
+        </Link>
         <button
           ref={buttonRef}
           className="menu-button"
           type="button"
           aria-expanded={open}
           aria-controls="mobile-menu"
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => (open ? closeMenu() : setOpen(true))}
         >
-          {open ? "Close" : "Menu"}
+          {open ? copy.close : copy.menu}
         </button>
       </div>
 
       <nav id="mobile-menu" className="mobile-menu" aria-label="Mobile navigation" hidden={!open}>
-        {hubs.map((hub, index) => (
-          <Link key={hub.id} href={routes.publicHub(hub.id, language)} onClick={() => closeMenu()}>
-            <span className="mono">0{index + 1}</span>{hub.label}
+        <div className="mobile-hubs">
+          {navigation.map((hub, index) => (
+            <section key={hub.id} className="mobile-hub" aria-labelledby={`mobile-${hub.id}`}>
+              <Link
+                ref={index === 0 ? firstLinkRef : undefined}
+                id={`mobile-${hub.id}`}
+                className="mobile-hub-link"
+                href={routes.publicHub(hub.id, language)}
+                aria-current={hub.id === activeHub ? "page" : undefined}
+                onClick={() => closeMenu()}
+              >
+                <span className="mono">{hub.index}</span>
+                <span>{hub.label}</span>
+              </Link>
+              {hub.children.length > 0 ? (
+                <div className="mobile-child-links">
+                  {hub.children.map((child) => (
+                    <Link key={child.id} href={child.href} onClick={() => closeMenu()}>
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ))}
+        </div>
+        <div className="mobile-utilities" aria-label="Utilities">
+          <span aria-label={`Interface language: ${copy.interfaceLanguage}`}>
+            Interface / EN
+          </span>
+          <Link className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
+            {copy.mobileTracker} <span aria-hidden="true">{"\u2197"}</span>
           </Link>
-        ))}
-        <Link className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
-          Open private tracker <span aria-hidden="true">↗</span>
-        </Link>
+        </div>
       </nav>
     </header>
   );
