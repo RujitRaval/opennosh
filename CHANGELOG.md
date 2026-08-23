@@ -2,6 +2,31 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.29.0.0] - 2026-08-23
+
+### Added
+
+- Let people move through four stable, localized task hubs: Explore, Contribute, Commons, and
+  Build, each with a clear purpose, breadcrumb trail, and next action.
+- Add one typed public navigation registry for routes, interface-language fallback, feature-gated
+  child tools, and independent food-locale query state.
+- Add desktop and mobile browser coverage for deep links, active-page context, unsupported
+  languages, Tracker isolation, and deterministic menu focus.
+
+### Changed
+
+- Treat Tracker, interface language, and account-oriented controls as utilities instead of public
+  platform hubs, while keeping the full four-hub trunk visible at every release stage.
+- Give unfinished hub capabilities an honest quiet state and reveal child destinations only when
+  their release flags are enabled.
+
+### Fixed
+
+- Keep long hub titles inside small mobile viewports, make public navigation targets touch-safe,
+  and preserve readable wordmark contrast on the dark Build surface.
+- Route the mobile homepage context action to Explore instead of a section that does not exist on
+  the homepage.
+
 ## [0.28.0.0] - 2026-08-23
 
 ### Added
