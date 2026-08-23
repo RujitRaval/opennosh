@@ -34,8 +34,13 @@ def read_app_version() -> str:
         return (Path(__file__).resolve().parents[2] / "VERSION").read_text().strip()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    app_version: str | None = None,
+) -> FastAPI:
     resolved_settings = settings or get_settings()
+    resolved_app_version = app_version or read_app_version()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -43,7 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         open_food_facts_client = (
             OpenFoodFactsClient(
                 base_url=resolved_settings.open_food_facts_base_url,
-                app_version=read_app_version(),
+                app_version=resolved_app_version,
                 contact=resolved_settings.open_food_facts_user_agent_contact,
                 timeout_seconds=resolved_settings.open_food_facts_timeout_seconds,
             )
@@ -67,7 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application = FastAPI(
         title="opennosh API",
-        version=read_app_version(),
+        version=resolved_app_version,
         lifespan=lifespan,
         responses=common_problem_responses(),
     )

@@ -9,7 +9,8 @@ from opennosh_api.main import create_app
 
 
 def export_openapi(destination: Path) -> dict[str, Any]:
-    schema = create_app().openapi()
+    repository_version = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
+    schema = create_app(app_version=repository_version).openapi()
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         json.dumps(schema, indent=2, sort_keys=True) + "\n",
