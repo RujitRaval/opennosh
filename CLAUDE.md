@@ -17,16 +17,17 @@ Run:
 ```bash
 uv sync --frozen
 npm --prefix web ci
-uv run ruff check api
+uv run ruff check api benchmarks scripts/check_benchmark_contract.py tests/test_benchmark*.py api/tests/test_benchmark*.py
 uv run mypy
-uv run pytest
+uv run mypy --strict benchmarks/performance
+PYTHONPATH=api:. uv run pytest
 npm --prefix web run lint
 npm --prefix web run typecheck
 npm --prefix web test
 npm --prefix web run test:e2e
 npm --prefix web run build
 docker compose config --quiet
-python3 -m unittest discover -s tests -v
+PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 python3 scripts/check_docs.py
 make package-check
 make contracts-check

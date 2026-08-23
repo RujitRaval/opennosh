@@ -5,6 +5,12 @@ default search projection. It pins the corpus, exact interaction counts, concurr
 preparation, measurement boundaries, pass/fail gates, and artifact format. Results are comparable
 only when their contract digest, profile, corpus digest, environment, and cache state match.
 
+Validate the pinned contract and both artifact schemas before running a benchmark:
+
+```bash
+make benchmark-contract-check
+```
+
 ## Profiles
 
 | Profile | Records | Packs | Releases | Concurrency | Interactions per boundary/cache cell |
@@ -29,6 +35,10 @@ PYTHONPATH=api:. uv run python -m benchmarks.performance.corpus \
   --output /tmp/opennosh-launch.ndjson \
   --metadata /tmp/opennosh-launch.metadata.json
 ```
+
+For a corpus-only run, use
+`PROFILE=launch-reference OUTPUT=/tmp/opennosh-launch.ndjson make benchmark-corpus`; without a
+`--metadata` path, the generator prints the metadata JSON to standard error.
 
 Use `--count` only for representative generator smoke tests. A shortened corpus cannot pass a
 profile gate.
@@ -80,6 +90,9 @@ PYTHONPATH=api:. uv run python -m benchmarks.performance.harness \
   --artifact-directory benchmark-results/launch-2026-08-23
 ```
 
+Use `make benchmark-run BENCHMARK_ARGS='...'` to invoke the same harness through the repository
+workflow, passing the documented arguments above in `BENCHMARK_ARGS`.
+
 For a pre-seeded database, omit `--seed-database` and pass the generator metadata digest with
 `--corpus-sha256`. `--requests` creates a bounded diagnostic; semantic validation requires its
 diagnostic gate failure, so it can never masquerade as release evidence.
@@ -111,7 +124,8 @@ Each valid run writes:
 - `environment.json`, including hardware, PostgreSQL settings, connection ceiling, and software;
 - `resource-evidence.json`, the canonical external observations used by the result;
 - `query-seed.json`, containing the exact weighted query definitions;
-- cold and warm `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` plans;
+- cold and warm `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` plans, following the
+  [query-plan artifact guidance](plans/README.md);
 - `artifact-manifest.json`, with every required file's byte size and SHA-256 digest.
 
 Semantic validation rejects missing boundary/cache/workload cells, incomplete or duplicated
@@ -128,6 +142,9 @@ bundles in chronological order:
 PYTHONPATH=api:. uv run python -m benchmarks.performance.extraction \
   benchmark-results/run-1 benchmark-results/run-2
 ```
+
+The equivalent Make shortcut is
+`make benchmark-extraction ARTIFACT_DIRS='benchmark-results/run-1 benchmark-results/run-2'`.
 
 The evaluator validates every bundle, requires the same contract, profile, and corpus, derives
 PostgreSQL misses from measured cold/warm latency, and rejects repeated or out-of-order runs. A
