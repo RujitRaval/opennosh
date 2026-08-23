@@ -281,5 +281,6 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 - `web/app/(public)/[language]/public.css` is the runtime source for public color, spacing, grid, motion, and responsive tokens.
 - `web/assets/fonts/` contains the self-hosted production font subsets and their retained licenses; the public root alone imports them through `web/lib/public-fonts.ts`.
 - `web/public/brand/` contains outlined SVG wordmarks for every approved surface. Components select a named surface through `web/lib/brand-assets.ts`; they never recolor one generic asset.
+- `web/lib/public-navigation.ts` and `web/lib/routes.ts` are the typed source of truth for the four public hubs, interface-language fallback, feature-gated child links, and Tracker routes.
 - The public and tracker route groups are independent document roots. Public brand CSS and fonts must not enter the tracker bundle.
 - Proposed changes to identity, type roles, core palette, voice, or measurement behavior require updating this contract and its tests in the same change.

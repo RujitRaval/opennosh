@@ -183,8 +183,11 @@ custom-food entry with calories, macros, and optional household portions. Source
 credit stays visible during selection. Loading, empty, API-error, and expired-session screens all
 provide a way forward. Keyboard focus is visible, the dialog traps focus, supports arrow-key tab
 navigation, closes with Escape, and is checked against WCAG 2.2 AA rules in Playwright on desktop
-and mobile. The public root redirects to the localized commons at `/en`; the private tracker keeps
-its independent layout and permanent `/tracker` address.
+and mobile. The public root resolves saved or browser interface-language preferences and falls back to
+`/en`. The localized shell keeps stable Explore, Contribute, Commons, and Build hubs at
+`/en/explore`, `/en/contribute`, `/en/commons`, and `/en/build`, with breadcrumbs and clear next
+actions. Child tools remain hidden until their release flags enable them. Tracker stays a separate
+utility with an independent layout and permanent `/tracker` address.
 
 ## Nutrition, body-metric, and strength trends
 
