@@ -8,7 +8,7 @@ import type { CatalogueFoodSource } from "@/lib/types";
 
 const sources: readonly CatalogueFoodSource[] = ["usda", "community"];
 const sourceIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const foodLocalePattern = /^[a-z]{2,3}(?:-[A-Z]{2})?$/;
+const foodLocalePattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 export const metadata: Metadata = {
   title: "Food record - opennosh",

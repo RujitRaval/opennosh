@@ -34,7 +34,10 @@ export function PublicFoodRecord({
       const record = toFoodRecordView(detail, foodLocale);
       let variants: FoodRecordView[] = [];
       try {
-        const matches = await api.searchFoods(detail.name, foodLocale);
+        const matches = await api.searchFoods(
+          detail.name,
+          foodLocale === "global" ? undefined : foodLocale,
+        );
         const candidates = matches.items
           .filter((item) => item.id !== detail.id)
           .slice(0, 3);
@@ -110,5 +113,5 @@ export function PublicFoodRecord({
     );
   }
 
-  return <FoodRecord record={state.record} variants={state.variants} />;
+  return <FoodRecord key={state.record.id} record={state.record} variants={state.variants} />;
 }
