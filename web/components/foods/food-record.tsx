@@ -83,7 +83,7 @@ export function FoodRecord({
   record: FoodRecordView;
   variants?: readonly FoodRecordView[];
 }) {
-  const [portionIndex, setPortionIndex] = useState(0);
+  const [portionIndex, setPortionIndex] = useState(record.portions.length > 1 ? 1 : 0);
   const [measurement, setMeasurement] = useState<"metric" | "us">("metric");
   const portion = record.portions[portionIndex] ?? record.portions[0];
   const visibleRecords = useMemo(
