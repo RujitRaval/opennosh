@@ -2115,7 +2115,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: search schemas/service/projection, cursor key ring, generated clients, search tests.
   - Verify: deep pages, exact ties, projection swap, expiry/restart, tamper, wrong-query/filter, and N/N-1 key rotation.
 
-- [ ] **T15 (P1, human: ~4-6 days / Codex: ~2-3 days)** - Performance - Create the versioned representative benchmark contract.
+- [x] **T15 (P1, human: ~4-6 days / Codex: ~2-3 days)** - Performance - Create the versioned representative benchmark contract.
   - Surfaced by: Performance D16 - latency targets lack a pinned corpus, workload, cache state, and measurement boundary.
   - Files: benchmark corpus generator/manifests, load harness, query plans, result-artifact schema.
   - Verify: reproducible launch/10x/100x runs report latency, errors, relevance, memory, connections, index cost, and projection lag.

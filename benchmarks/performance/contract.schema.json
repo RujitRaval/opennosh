@@ -1,0 +1,451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/performance-benchmark-contract.v1.json",
+  "title": "opennosh performance benchmark contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "seed",
+    "capacity_model",
+    "profiles",
+    "distributions",
+    "query_mix",
+    "traffic_mix",
+    "measurement_boundaries",
+    "gates",
+    "extraction_policy"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "contract_id": {
+      "const": "opennosh-representative-2026-v1"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capacity_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "horizon_months",
+        "launch_records",
+        "scale_multipliers"
+      ],
+      "properties": {
+        "horizon_months": {
+          "const": 24
+        },
+        "launch_records": {
+          "type": "integer",
+          "minimum": 10000
+        },
+        "scale_multipliers": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": 1
+            },
+            {
+              "const": 10
+            },
+            {
+              "const": 100
+            }
+          ],
+          "items": false
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/profile"
+      }
+    },
+    "distributions": {
+      "type": "object",
+      "minProperties": 10,
+      "additionalProperties": {
+        "$ref": "#/$defs/basisPointDistribution"
+      }
+    },
+    "query_mix": {
+      "type": "array",
+      "minItems": 12,
+      "items": {
+        "$ref": "#/$defs/query"
+      }
+    },
+    "traffic_mix": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "$ref": "#/$defs/weightedName"
+      }
+    },
+    "measurement_boundaries": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "cache_states",
+          "preparation"
+        ],
+        "properties": {
+          "id": {
+            "enum": [
+              "postgresql",
+              "fastapi",
+              "same_origin_proxy",
+              "edge_browser"
+            ]
+          },
+          "cache_states": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "const": "cold"
+              },
+              {
+                "const": "warm"
+              }
+            ],
+            "items": false
+          },
+          "preparation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cold",
+              "warm"
+            ],
+            "properties": {
+              "cold": {
+                "type": "string",
+                "minLength": 1
+              },
+              "warm": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "postgresql",
+        "fastapi",
+        "same_origin_proxy",
+        "edge_browser",
+        "quality",
+        "capacity"
+      ],
+      "properties": {
+        "postgresql": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "warm_p95_ms",
+            "cold_p95_ms"
+          ],
+          "properties": {
+            "warm_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cold_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "fastapi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "warm_p95_ms",
+            "warm_p99_ms",
+            "cold_p95_ms"
+          ],
+          "properties": {
+            "warm_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "warm_p99_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "cold_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "same_origin_proxy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "warm_p95_ms",
+            "warm_p99_ms"
+          ],
+          "properties": {
+            "warm_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "warm_p99_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "edge_browser": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "warm_p95_ms",
+            "warm_p99_ms"
+          ],
+          "properties": {
+            "warm_p95_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "warm_p99_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_error_rate",
+            "max_timeout_rate",
+            "min_judged_relevance"
+          ],
+          "properties": {
+            "max_error_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "max_timeout_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "min_judged_relevance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_connection_utilization",
+            "max_projection_lag_ms",
+            "max_job_age_ms"
+          ],
+          "properties": {
+            "max_connection_utilization": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "max_projection_lag_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "max_job_age_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "extraction_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "postgresql_gate_misses_required",
+        "same_contract_and_profile_required",
+        "write_capacity_threat_is_immediate_trigger",
+        "decision"
+      ],
+      "properties": {
+        "postgresql_gate_misses_required": {
+          "const": 2
+        },
+        "same_contract_and_profile_required": {
+          "const": true
+        },
+        "write_capacity_threat_is_immediate_trigger": {
+          "const": true
+        },
+        "decision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "scale_multiplier",
+        "records",
+        "packs",
+        "releases",
+        "concurrency",
+        "interactions_per_boundary_cache"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "launch-reference",
+            "10x",
+            "100x"
+          ]
+        },
+        "scale_multiplier": {
+          "enum": [
+            1,
+            10,
+            100
+          ]
+        },
+        "records": {
+          "type": "integer",
+          "minimum": 10000
+        },
+        "packs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "releases": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "interactions_per_boundary_cache": {
+          "type": "integer",
+          "minimum": 100
+        }
+      }
+    },
+    "basisPointDistribution": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000
+      }
+    },
+    "weightedName": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "weight_bps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight_bps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "weight_bps",
+        "query",
+        "path",
+        "params",
+        "relevance"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight_bps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "query": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object"
+        },
+        "relevance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "expected"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "contains",
+                "empty",
+                "status"
+              ]
+            },
+            "expected": {}
+          }
+        }
+      }
+    }
+  }
+}

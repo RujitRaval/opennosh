@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.27.0.0] - 2026-08-23
+
+### Added
+
+- Provide a versioned, reproducible performance benchmark for 10,000, 100,000, and 1,000,000-food
+  catalogues with representative read, write, boundary, cache, and concurrency workloads.
+- Produce machine-verifiable benchmark evidence, query plans, resource measurements, browser-edge
+  timings, and integrity manifests that can be validated independently before a release.
+- Add deterministic corpus generation, guarded PostgreSQL seeding, extraction-ready miss history,
+  and documented commands for running smoke, realistic, and release-scale profiles.
+
+### Changed
+
+- Enforce the benchmark contract, schemas, semantic result validation, and reproducibility tests in
+  repository quality checks so incomplete or self-attested performance evidence cannot pass CI.
+
 ## [0.26.0.0] - 2026-08-23
 
 ### Added
