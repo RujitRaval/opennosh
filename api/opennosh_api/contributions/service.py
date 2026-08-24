@@ -130,8 +130,13 @@ def _normalize_patch(patch: ContributionFieldPatch) -> object:
         normalized = _string(value, field, 2_048)
         if normalized is None:
             return None
-        parsed = urlsplit(normalized)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        source_url = urlsplit(normalized)
+        if (
+            source_url.scheme != "https"
+            or not source_url.hostname
+            or source_url.username
+            or source_url.password
+        ):
             raise ValueError("source_uri must be a public HTTPS URL")
         return normalized
     if field is ContributionFieldName.EVIDENCE_TYPE:
@@ -141,10 +146,10 @@ def _normalize_patch(patch: ContributionFieldPatch) -> object:
     if field is ContributionFieldName.SOURCE_DATE:
         if value is None or value == "":
             return None
-        parsed = date.fromisoformat(str(value))
-        if parsed > date.today():
+        source_date = date.fromisoformat(str(value))
+        if source_date > date.today():
             raise ValueError("source_date cannot be in the future")
-        return parsed.isoformat()
+        return source_date.isoformat()
     raise ValueError("Unsupported contribution field")
 
 
@@ -194,7 +199,7 @@ def _stage_blockers(
     fields: ContributionDraftFields,
     candidates: list[DuplicateCandidate],
 ) -> dict[ContributionStage, list[ContributionBlocker]]:
-    blockers = {stage: [] for stage in STAGES}
+    blockers: dict[ContributionStage, list[ContributionBlocker]] = {stage: [] for stage in STAGES}
     if fields.evidence_type is None:
         blockers[ContributionStage.EVIDENCE].append(
             _missing(
@@ -219,7 +224,7 @@ def _stage_blockers(
                 "Confirm that opennosh may preserve this source reference.",
             )
         )
-    for field, value, message in (
+    for detail_field, detail_value, detail_message in (
         (ContributionFieldName.NAME, fields.name, "Add the food name."),
         (ContributionFieldName.LOCALE, fields.locale, "Add the food locale."),
         (ContributionFieldName.CATEGORY, fields.category, "Add a food category."),
@@ -252,9 +257,9 @@ def _stage_blockers(
             "Add carbohydrate per portion.",
         ),
     ):
-        if value is None:
+        if detail_value is None:
             blockers[ContributionStage.DETAILS].append(
-                _missing(ContributionStage.DETAILS, field, message)
+                _missing(ContributionStage.DETAILS, detail_field, detail_message)
             )
     if candidates and not fields.duplicates_resolved:
         blockers[ContributionStage.DUPLICATES].append(
@@ -264,7 +269,7 @@ def _stage_blockers(
                 "Review the possible existing records before continuing.",
             )
         )
-    for field, value, message in (
+    for provenance_field, provenance_value, provenance_message in (
         (ContributionFieldName.PACK_ID, fields.pack_id, "Choose the target pack."),
         (
             ContributionFieldName.SOURCE_DATE,
@@ -278,9 +283,13 @@ def _stage_blockers(
         ),
         (ContributionFieldName.SOURCE_LICENSE, fields.source_license, "Choose the source license."),
     ):
-        if value is None:
+        if provenance_value is None:
             blockers[ContributionStage.PROVENANCE].append(
-                _missing(ContributionStage.PROVENANCE, field, message)
+                _missing(
+                    ContributionStage.PROVENANCE,
+                    provenance_field,
+                    provenance_message,
+                )
             )
     if not fields.review_acknowledged:
         blockers[ContributionStage.REVIEW].append(
