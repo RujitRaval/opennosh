@@ -11,7 +11,9 @@ import {
 import { pseudoLanguage, supportedLanguages } from "../lib/routes.ts";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const manifestFile = path.join(webRoot, "assets/fonts/v2/font-build.v2.json");
+const manifestFile = process.env.OPENNOSH_FONT_BUILD_MANIFEST
+  ? path.resolve(process.env.OPENNOSH_FONT_BUILD_MANIFEST)
+  : path.join(webRoot, "assets/fonts/v2/font-build.v2.json");
 const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
 const publicLayout = readFileSync(path.join(webRoot, "app/(public)/[language]/layout.tsx"), "utf8");
 const publicFonts = readFileSync(path.join(webRoot, "app/(public)/[language]/fonts.ts"), "utf8");
@@ -84,10 +86,10 @@ if (totalBytes > manifest.budgets.totalBytes) {
   fail(`Total font transfer ${totalBytes} exceeds ${manifest.budgets.totalBytes} bytes.`);
 }
 
-if (!publicFonts.includes('asset.delivery === "critical"')) {
 if (manifest.budgets.trackerBytes !== 0) {
   fail("Tracker Living Commons font budget must remain exactly zero bytes.");
 }
+if (!publicFonts.includes('asset.delivery === "critical"')) {
   fail("The public preload list must be derived from the typed critical-delivery contract.");
 }
 if (!publicLayout.includes('import "./fonts.css";') || !publicLayout.includes("preload(href")) {
