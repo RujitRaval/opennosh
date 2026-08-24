@@ -49,6 +49,12 @@ export type ContributionFields = {
   review_acknowledged: boolean;
 };
 
+export type ContributionFieldName = keyof ContributionFields;
+export type ContributionFieldPatch = {
+  field: ContributionFieldName;
+  value: ContributionFields[ContributionFieldName];
+};
+
 export type DuplicateCandidate = {
   source: "community" | "usda";
   sourceId: string;
@@ -97,4 +103,3 @@ export type LocalContributionDraft = {
   savedAt: string;
   saveState: ContributionSaveState;
 };
-

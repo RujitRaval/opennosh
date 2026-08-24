@@ -7,7 +7,8 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { api, ApiError } from "@/lib/api";
 import { contributionCatalog, contributionMessage } from "@/lib/contributions/catalog";
 import type {
-  ContributionFields, ContributionReceipt, ContributionStage, DuplicateCandidate,
+  ContributionFieldName, ContributionFieldPatch, ContributionFields,
+  ContributionReceipt, ContributionStage, DuplicateCandidate,
   LocalContributionDraft,
 } from "@/lib/contributions/domain";
 import {
@@ -18,7 +19,6 @@ import {
   contributionStageHref, contributionStageList, contributionStageRegistry,
   isContributionStage,
 } from "@/lib/contributions/stage-registry";
-import type { ContributionFieldName, ContributionFieldPatch } from "@/lib/generated/client/types.gen";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
