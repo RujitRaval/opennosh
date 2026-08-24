@@ -120,4 +120,24 @@ describe("browser API client", () => {
     expect(headers.get("X-CSRF-Token")).toBe("production-token");
     expect(headers.get("Accept")).toBe("application/json, application/problem+json");
   });
+
+  it("uses the generated contribution-draft route and carries the requested stage", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(Response.json({
+      schema_version: "1", workflow_version: "1",
+      draft_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497", draft_version: 1,
+      review_state: "draft", completed_stages: [], accessible_stages: ["evidence"],
+      blockers: [], next_safe_stage: "evidence", requested_stage: "evidence",
+      resolved_stage: "evidence", repair_reason: null, saved_at: "2026-08-24T12:00:00Z",
+      fields: { rights_acknowledged: false, duplicates_resolved: false, review_acknowledged: false },
+      duplicate_candidates: [], receipt: null,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.contributionDraft("018f5316-4f4e-7d79-b9f6-88c11a68a497", "evidence");
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "https://opennosh.test");
+    expect(url.pathname).toBe("/api/v1/contribution-drafts/018f5316-4f4e-7d79-b9f6-88c11a68a497");
+    expect(url.searchParams.get("requested_stage")).toBe("evidence");
+  });
 });

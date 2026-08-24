@@ -197,7 +197,11 @@ Every public record exposes nutrients, portions, cuisine or locale, provenance, 
 
 ### Contribution flow
 
-Use three chapters: name and context, ingredients and portions, then sources and review. Explain why evidence is requested. Preserve contributor intent and original units. Git remains the source of truth; do not create a second independently editable food database.
+Use three chapters across five stages: begin the record with evidence and details, verify the claim
+with duplicate checking and provenance, then send the exact proposal to review. Explain why evidence
+is requested. Preserve contributor intent, source terms, public credit, and original units beside
+canonical grams. Device and server drafts are operational proposals, not accepted food data; Git
+and verified releases remain the source of truth for the published commons.
 
 ### Provenance
 

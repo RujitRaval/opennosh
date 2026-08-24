@@ -88,6 +88,17 @@ export const routes = {
     hub: PublicHubId,
     language: InterfaceLanguage = defaultLanguage,
   ) => `/${language}/${hub}`,
+  contributionStart: (language: InterfaceLanguage = defaultLanguage) =>
+    `/${language}/contribute/local/evidence`,
+  contributionDraft: (
+    language: InterfaceLanguage,
+    draftId: string,
+    stage: string,
+  ) => `/${language}/contribute/${encodeURIComponent(draftId)}/${encodeURIComponent(stage)}`,
+  contributionStatus: (
+    language: InterfaceLanguage,
+    draftId: string,
+  ) => `/${language}/contribute/${encodeURIComponent(draftId)}/status`,
   tracker: {
     home: "/tracker",
     trends: "/tracker/trends",

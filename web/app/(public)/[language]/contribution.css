@@ -1,0 +1,200 @@
+.contribution-page {
+  display: grid;
+  min-height: 100svh;
+  grid-template-columns: minmax(18rem, 24vw) minmax(0, 1fr);
+  padding-top: 5.35rem;
+  color: var(--commons-ink);
+  background: var(--signal-tomato);
+}
+
+.contribution-progress {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  padding: clamp(3rem, 6vw, 6rem) clamp(1.25rem, 2.5vw, 2.75rem);
+  border-right: 1px solid currentColor;
+  overflow-y: auto;
+}
+.contribution-progress-compact { display: none; }
+.contribution-progress ol { margin: 0; padding: 0; list-style: none; }
+.contribution-progress li { border-bottom: 1px solid color-mix(in srgb, var(--commons-ink) 25%, transparent); }
+.contribution-progress li > a, .contribution-progress li > span:not(.mono) {
+  display: grid;
+  min-height: 4.75rem;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: center;
+  gap: .75rem;
+  padding: .8rem 0;
+}
+.contribution-progress li > span[aria-disabled] { opacity: .42; }
+.contribution-progress strong { font-family: var(--font-archivo), sans-serif; font-size: 1rem; line-height: 1.05; }
+.contribution-progress i { font-family: var(--font-plex-mono), monospace; font-style: normal; }
+.contribution-progress .is-current > a { color: var(--rice-paper); }
+.contribution-chapter { margin: 2.4rem 0 .35rem; }
+.contribution-progress li:first-child .contribution-chapter { margin-top: 0; }
+
+.contribution-workspace {
+  width: min(100%, 76rem);
+  min-width: 0;
+  padding: clamp(4rem, 8vw, 8rem) clamp(1.25rem, 7vw, 8rem) 7rem;
+  background: var(--rice-paper);
+}
+.contribution-stage-heading { position: relative; padding-bottom: clamp(3rem, 6vw, 6rem); border-bottom: 1px solid currentColor; }
+.contribution-stage-heading > p:first-child { margin: 0 0 clamp(3rem, 6vw, 6rem); }
+.contribution-stage-heading h1, .contribution-receipt h1, .contribution-status-page h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-family: var(--font-archivo), sans-serif;
+  font-size: clamp(3.5rem, 7.5vw, 8rem);
+  font-stretch: 84%;
+  font-weight: 830;
+  line-height: .83;
+  letter-spacing: -.07em;
+  text-transform: uppercase;
+}
+.contribution-stage-heading > p:nth-of-type(2) { max-width: 43rem; margin: 2rem 0 0; font-size: clamp(1.15rem, 1.7vw, 1.55rem); line-height: 1.2; }
+.contribution-save { display: block; margin-top: 2rem; color: var(--success); }
+
+.contribution-errors { margin: 2rem 0; padding: 1.25rem; color: var(--rice-paper); background: var(--error); }
+.contribution-errors strong { font-family: var(--font-archivo), sans-serif; font-size: 1.45rem; }
+.contribution-errors ul { margin: .75rem 0 0; padding-left: 1.35rem; }
+.contribution-form { display: grid; gap: 2.5rem; padding: clamp(3rem, 6vw, 6rem) 0; }
+.contribution-form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.contribution-form legend, .contribution-field > label {
+  display: block;
+  margin-bottom: .7rem;
+  font-family: var(--font-archivo), sans-serif;
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -.025em;
+}
+.contribution-field > p { max-width: 38rem; margin: -.25rem 0 .75rem; font-size: .95rem; }
+.contribution-field input, .contribution-field select, .contribution-field textarea,
+.contribution-auth input {
+  width: 100%;
+  min-height: 3.75rem;
+  padding: .8rem 0;
+  border: 0;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0;
+  color: currentColor;
+  background: transparent;
+  font-family: var(--font-source-sans), sans-serif;
+  font-size: 1.2rem;
+}
+.contribution-field textarea { min-height: 8rem; resize: vertical; }
+.contribution-field input[aria-invalid="true"] { border-color: var(--error); box-shadow: inset 0 -2px var(--error); }
+.contribution-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid currentColor; }
+.contribution-choice-grid label { display: flex; min-height: 5.5rem; align-items: center; gap: .8rem; padding: 1rem; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+.contribution-choice-grid label:nth-child(even) { border-right: 0; }
+.contribution-choice-grid input, .contribution-check input { width: 1.35rem; height: 1.35rem; flex: 0 0 auto; accent-color: var(--dataset-indigo); }
+.contribution-form-pair, .contribution-nutrients { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+.contribution-form-triplet { display: grid; grid-template-columns: 1.5fr .65fr .85fr; gap: 2rem; }
+.unit-input { position: relative; }
+.unit-input input { padding-right: 3.5rem; }
+.unit-input span { position: absolute; right: 0; bottom: 1rem; font-family: var(--font-plex-mono), monospace; font-size: .65rem; text-transform: uppercase; }
+.contribution-check { display: flex; max-width: 48rem; align-items: flex-start; gap: .9rem; padding: 1.25rem 0; border-block: 1px solid currentColor; cursor: pointer; }
+
+.contribution-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid currentColor; }
+.contribution-actions-mobile { display: none; }
+.contribution-primary, .contribution-secondary, .contribution-back {
+  display: inline-flex;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: .8rem 1.2rem;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  font-family: var(--font-archivo), sans-serif;
+  font-weight: 720;
+  cursor: pointer;
+}
+.contribution-primary { color: var(--rice-paper); background: var(--commons-ink); }
+.contribution-secondary, .contribution-back { color: var(--commons-ink); background: transparent; }
+.contribution-primary:hover { color: var(--commons-ink); background: var(--field-acid); }
+.contribution-secondary:hover, .contribution-back:hover { background: var(--signal-tomato); }
+.contribution-primary:disabled, .contribution-secondary:disabled { cursor: wait; opacity: .55; }
+
+.duplicate-check h2, .contribution-auth h2 { margin: 0; font-family: var(--font-archivo), sans-serif; font-size: clamp(2.2rem, 5vw, 5rem); line-height: .9; letter-spacing: -.055em; }
+.duplicate-check > p { max-width: 38rem; font-size: 1.2rem; }
+.duplicate-results { margin-top: 2rem; }
+.duplicate-results ul { margin: 0; padding: 0; border-top: 1px solid currentColor; list-style: none; }
+.duplicate-results li { display: flex; min-height: 4.5rem; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.duplicate-results li strong { font-family: var(--font-archivo), sans-serif; font-size: 1.25rem; }
+.duplicate-results li span { font-family: var(--font-plex-mono), monospace; font-size: .62rem; text-transform: uppercase; }
+.duplicate-clear { margin-top: 2rem; padding: 1.25rem; border: 1px solid var(--success); color: var(--success); }
+
+.contribution-review { display: grid; gap: 2rem; }
+.review-section { position: relative; padding: 1.25rem 5rem 1.25rem 0; border-top: 1px solid currentColor; }
+.review-section > button { position: absolute; top: 1rem; right: 0; min-height: 2.75rem; border: 0; border-bottom: 1px solid currentColor; background: transparent; cursor: pointer; }
+.review-section dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem 2rem; margin: 1.5rem 0 0; }
+.review-section dl div { min-width: 0; }
+.review-section dt { font-family: var(--font-plex-mono), monospace; font-size: .58rem; text-transform: uppercase; }
+.review-section dd { margin: .2rem 0 0; overflow-wrap: anywhere; }
+.review-warning { padding: 1.5rem; color: var(--rice-paper); background: var(--dataset-indigo); }
+.review-warning strong { font-family: var(--font-archivo), sans-serif; font-size: 1.55rem; }
+.review-warning p { max-width: 39rem; margin: .5rem 0 0; }
+.contribution-auth { display: grid; gap: 1.25rem; margin-top: 1rem; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid currentColor; background: var(--field-acid); }
+.contribution-auth > p { max-width: 42rem; margin: 0; }
+.contribution-auth > label { display: grid; gap: .35rem; font-weight: 700; }
+.auth-mode { display: grid; grid-template-columns: repeat(2, 1fr); }
+.auth-mode button { min-height: 3.25rem; border: 1px solid currentColor; background: transparent; cursor: pointer; }
+.auth-mode button[aria-pressed="true"] { color: var(--rice-paper); background: var(--commons-ink); }
+
+.contribution-loading { min-height: 100svh; padding: 10rem var(--page-pad); background: var(--signal-tomato); }
+.contribution-receipt-page { min-height: 100svh; padding: clamp(9rem, 15vw, 14rem) var(--page-pad) 5rem; background: var(--field-acid); }
+.contribution-receipt { position: relative; max-width: 76rem; margin: 0 auto; }
+.contribution-receipt h1 { max-width: 10ch; font-size: clamp(4rem, 11vw, 11rem); }
+.receipt-lead { max-width: 48rem; font-size: clamp(1.3rem, 2.3vw, 2.2rem); line-height: 1.08; }
+.contribution-receipt > p:not(.mono) { max-width: 48rem; }
+.contribution-receipt dl, .contribution-status-page dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 4rem 0; border-top: 1px solid currentColor; }
+.contribution-receipt dl div, .contribution-status-page dl div { min-width: 0; padding: 1rem 1rem 1rem 0; border-right: 1px solid var(--line); }
+.contribution-receipt dt, .contribution-status-page dt { font-family: var(--font-plex-mono), monospace; font-size: .62rem; text-transform: uppercase; }
+.contribution-receipt dd, .contribution-status-page dd { margin: .5rem 0 0; overflow-wrap: anywhere; }
+.receipt-mark { position: absolute; top: 0; right: 0; width: clamp(8rem, 18vw, 16rem); aspect-ratio: 1; border: 1px solid currentColor; border-radius: 50%; animation: receipt-open 700ms var(--ease) both; }
+.receipt-mark i { position: absolute; inset: 25%; border: 1px dashed currentColor; border-radius: 50%; }
+.receipt-mark i:last-child { inset: 43%; border-style: solid; background: var(--signal-tomato); }
+@keyframes receipt-open { from { opacity: 0; transform: scale(.82) rotate(-12deg); } }
+
+.contribution-status-page { min-height: 85svh; padding: clamp(8rem, 13vw, 12rem) var(--page-pad) var(--stage-space); }
+.contribution-status-page > p:not(.mono) { max-width: 52rem; font-size: clamp(1.2rem, 2vw, 1.8rem); }
+.contribution-status-page dl { grid-template-columns: repeat(2, 1fr); max-width: 52rem; }
+
+@media (max-width: 74.99rem) {
+  .contribution-page { display: block; }
+  .contribution-progress { position: relative; z-index: 2; top: auto; height: auto; padding: 1.25rem var(--page-pad); border-right: 0; border-bottom: 1px solid currentColor; overflow: visible; }
+  .contribution-progress ol { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .contribution-progress li { border-bottom: 0; border-right: 1px solid var(--line); }
+  .contribution-progress li:last-child { border-right: 0; }
+  .contribution-progress li > a, .contribution-progress li > span:not(.mono) { min-height: 4rem; grid-template-columns: 1.8rem 1fr; padding: .5rem .75rem; }
+  .contribution-progress i { display: none; }
+  .contribution-chapter { display: none; }
+  .contribution-workspace { width: 100%; }
+}
+
+@media (max-width: 47.99rem) {
+  .contribution-page { padding-top: 5.35rem; }
+  .contribution-progress { position: sticky; top: 0; padding: .75rem var(--page-pad); background: var(--signal-tomato); }
+  .contribution-progress-compact { display: flex; min-height: 2.75rem; justify-content: space-between; align-items: center; }
+  .contribution-progress-compact button { min-height: 2.75rem; border: 0; border-bottom: 1px solid currentColor; background: transparent; font-size: .8rem; }
+  .contribution-progress ol { display: none; grid-template-columns: 1fr; }
+  .contribution-progress ol.is-expanded { display: grid; }
+  .contribution-progress li { border-right: 0; border-bottom: 1px solid var(--line); }
+  .contribution-progress li > a, .contribution-progress li > span:not(.mono) { grid-template-columns: 2rem 1fr auto; }
+  .contribution-progress i { display: block; }
+  .contribution-workspace { padding: 3.5rem var(--page-pad) calc(7rem + env(safe-area-inset-bottom)); }
+  .contribution-stage-heading h1 { font-size: clamp(3rem, 16vw, 5rem); }
+  .contribution-choice-grid, .contribution-form-pair, .contribution-form-triplet, .contribution-nutrients, .review-section dl { grid-template-columns: 1fr; }
+  .contribution-choice-grid label { border-right: 0; }
+  .contribution-actions-inline { position: static; }
+  .contribution-actions-mobile.is-visible { position: fixed; z-index: 90; right: 0; bottom: 0; left: 0; display: flex; padding: .75rem var(--page-pad) calc(.75rem + env(safe-area-inset-bottom)); color: var(--commons-ink); background: var(--rice-paper); }
+  .contribution-actions button { max-width: 65%; }
+  .receipt-mark { position: relative; width: 8rem; margin: 0 0 3rem auto; }
+  .contribution-receipt dl, .contribution-status-page dl { grid-template-columns: 1fr; }
+  .contribution-receipt dl div, .contribution-status-page dl div { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .receipt-mark { animation: none; }
+}

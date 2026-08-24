@@ -98,3 +98,27 @@ states require release proof and a count. Illustrative and unavailable states ca
 A projection lag is partial, a later verification failure is stale, and first-run absence or invalid
 artifacts are unavailable. The web adapter rejects malformed state, count, proof, activity-window,
 or reason combinations and falls back without a number or fabricated activity.
+
+## Contribution draft contract
+
+The authenticated contribution write model lives under `/api/v1/contribution-drafts`. Create,
+patch, and submit require CSRF protection; reads require the owner session. Another owner receives
+the same not-found response as a missing draft.
+
+`POST /api/v1/contribution-drafts` accepts an optional device `client_draft_id`. Repeating that
+handoff for the same owner returns the existing draft. `PATCH
+/api/v1/contribution-drafts/{draft_id}` accepts an expected positive `draft_version`, one
+`operation_id`, an optional requested stage, and 1–25 typed field patches. Replaying an operation
+is idempotent. A stale expected version returns conflict instead of overwriting newer work.
+
+`GET /api/v1/contribution-drafts/{draft_id}?requested_stage=...` and every successful mutation
+return one schema-version-1 capability document: workflow and draft versions, review state,
+completed and accessible stages, field-addressed blockers, next and resolved safe stages, repair
+reason, saved time, normalized fields, at most five exact-name duplicate candidates, and an
+optional receipt. Unknown or inaccessible stage requests resolve to the nearest safe stage rather
+than authorizing a forged URL.
+
+`POST /api/v1/contribution-drafts/{draft_id}/submit` accepts the expected draft version and an
+idempotency key. The server rechecks duplicates and every stage before moving the draft to
+`in_review`. The receipt says `received_for_review` and includes a submission ID, timestamps,
+public attribution, and stable status path. It never claims approval, acceptance, or publication.
