@@ -33,9 +33,10 @@ export async function resolvePublicCommonsSnapshot(
   fetcher: typeof fetch = fetch,
 ): Promise<PublicCommonsSnapshot> {
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+  const visualFixtures = process.env.OPENNOSH_VISUAL_FIXTURES === "1";
   try {
     const response = await fetcher(`${apiOrigin}/api/v1/public/commons-snapshot`, {
-      next: { revalidate: 300 },
+      ...(visualFixtures ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(requestTimeoutMs),
     });

@@ -208,6 +208,51 @@ jobs:
           path: web/test-results/motion-*.json
           if-no-files-found: error
 
+  visual:
+    name: visual regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --ipc=host
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install locked web dependencies
+        run: npm --prefix web ci
+
+      - name: Verify baseline hashes and approval metadata
+        run: npm --prefix web run check:visual-baselines
+
+      - name: Compare deterministic screenshots
+        run: |
+          set +e
+          npm --prefix web run test:visual
+          visual_status=$?
+          set -e
+          if [ "$visual_status" -ne 0 ]; then
+            mkdir -p web/test-results/visual-diffs
+            cp -R web/test-results/visual/. web/test-results/visual-diffs/
+            npm --prefix web run test:visual -- --update-snapshots
+          fi
+          npm --prefix web run check:visual-baselines
+          git diff --exit-code -- web/tests/visual/__screenshots__
+
+      - name: Upload rendered visual diffs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: visual-regression-${{ github.run_attempt }}
+          path: |
+            web/test-results/visual
+            web/test-results/visual-diffs
+            web/playwright-report/visual
+            web/tests/visual/__screenshots__
+          if-no-files-found: ignore
+          retention-days: 14
+
   compose:
     name: Compose application boot
     runs-on: ubuntu-latest

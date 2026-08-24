@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -59,6 +59,10 @@ benchmark-extraction:
 motion-performance-check: build
 	npm --prefix web run check:motion-budgets
 	npm --prefix web run benchmark:motion -- --output test-results/motion-performance.json
+
+visual-regression-check:
+	npm --prefix web run check:visual-baselines
+	npm --prefix web run test:visual
 
 web-e2e:
 	npm --prefix web run test:e2e

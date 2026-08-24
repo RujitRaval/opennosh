@@ -289,6 +289,20 @@ The approved interactive artifact lives outside the repository at:
 
 It demonstrates the homepage, search, activity model, food record, measurement toggle, contribution path, API and self-hosting surfaces, responsive behavior, dark mode, and logo colorways. This document, not the prototype implementation, is the durable source of truth.
 
+## Visual Regression
+
+- Contract screenshots run in one digest-pinned Playwright image with frozen browser time, UTC,
+  `en-US`, committed fixtures, loaded local fonts, deterministic identifiers, and a visible
+  font-motion-shell readiness marker.
+- The baseline matrix protects public proof states, hub and record hierarchy, contribution stages,
+  logo surfaces, public boundaries, responsive reflow, focused accessibility variants, and Tracker
+  isolation. It uses no broad masks.
+- Baseline changes require an inspected rendered diff, a reason, a linked decision in this file, and
+  reviewer acknowledgement in `web/tests/visual/baselines.json`.
+- Logo-colorway and Tracker diffs are release-blocking until explicitly approved. Passing screenshots
+  do not replace semantic tests, accessibility checks, motion acceptance assertions, or live design
+  review.
+
 ## Decisions Log
 
 | Date | Decision | Rationale |
@@ -301,6 +315,7 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 | 2026-08-22 | Treat contribution activity as real or clearly illustrative | The commons cannot build trust with fabricated live activity. |
 | 2026-08-22 | Preserve original units and calculate nutrition in grams | US display coexists with a stable canonical model. |
 | 2026-08-22 | Keep health language neutral | opennosh reports data without guilt, competition, or coercive engagement. |
+| 2026-08-24 | Pin a deterministic visual-regression matrix | Known public, contribution, logo, responsive, accessibility, and Tracker compositions fail visibly when their reviewed pixels drift. |
 
 ## Production delivery contract
 

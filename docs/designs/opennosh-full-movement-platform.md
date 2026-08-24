@@ -2160,7 +2160,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: public and contribution message catalogs, catalog types and validation, static UI-copy rule, pseudo-locale transformer, Vitest fixtures, Playwright projects, CI.
   - Verify: exact key and parameter/plural parity, deterministic fallback, document/metadata/route language agreement, no forbidden raw interface copy, desktop/mobile text expansion, all five contribution stages, hydration, language switching, and independent food-data locale all pass; right-to-left coverage is required before an RTL language ships.
 
-- [ ] **T24 (P1, human: ~2-3 days / Codex: ~1 day)** - Visual regression - Establish the deterministic Living Commons and tracker screenshot matrix.
+- [x] **T24 (P1, human: ~2-3 days / Codex: ~1 day)** - Visual regression - Establish the deterministic Living Commons and tracker screenshot matrix.
   - Surfaced by: Test re-review D39 - diagnostic screenshots do not detect logo, token, typography, movement composition, style-isolation, or reflow regressions.
   - Files: Playwright visual project/configuration, stable public and contribution fixtures, font/motion readiness helpers, screenshot baselines, tracker baseline, CI artifact and approval rules.
   - Verify: pinned runtime, frozen time, loaded local fonts, deterministic data, public proof states, food record, all contribution stages, every logo surface, loading/error boundaries, 320 px/mobile/tablet/desktop, zoom, pseudo-locale, reduced motion, forced colors, keyboard focus, safe-area actions, and unchanged tracker all pass without broad defect-hiding masks.

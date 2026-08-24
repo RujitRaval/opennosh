@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
+  "generatedAt": "2026-08-24T17:46:35.387Z",
+  "approval": {
+    "reason": "Normalize the initial T24 validation-focus baseline after fixture isolation.",
+    "designDecision": "DESIGN.md Visual Regression contract; validation summary must retain visible error focus.",
+    "reviewerAcknowledgement": "Repository owner approved finalized D39/T24 plan; this initial baseline is reviewed in the T24 PR."
+  },
+  "releaseBlockingPatterns": [
+    "**/logo-colorways.png",
+    "**/tracker-*.png"
+  ],
+  "files": {
+    "desktop-1440/commons-live.png": "c68033a476308a2cb9863f4e1b4ac94adddc4c759fc99ac3295e7ef2fd385fec",
+    "desktop-1440/commons-partial.png": "8511574e186deae6d6ec5fce04a33ccd17bc35c690f4671a15e1d200ce2bfbec",
+    "desktop-1440/commons-quiet.png": "d9a64be1f837242a6df110e9373786fa63e31a9bd079389ce60018616edba28e",
+    "desktop-1440/commons-stale.png": "06451c55c625fd040f73683ae2a76426181cc8ea2e0a019b148bd06f4159de89",
+    "desktop-1440/commons-unavailable.png": "ca731f3790e0aa87e6f18990ff2bf33ca488f50f159b8a70033ef1eabd85c382",
+    "desktop-1440/contribution-details.png": "3f74df49be8697312116d229583cb5982f34cfeecda3266bc60d5faa6afa41cd",
+    "desktop-1440/contribution-duplicates.png": "5e64ab592939367c3a0d849908c698126b6ef86fcaf5ef03b1b2be353ef38fd8",
+    "desktop-1440/contribution-evidence.png": "bcefa970f48fd41356373cc5127094d8d6b7e06770d1672a392e77ed6f0bfc67",
+    "desktop-1440/contribution-provenance.png": "1fae3879525734ab0e0096b6c2c11742eaa9cb9b16cdeef9ce5d3c8bdceaab31",
+    "desktop-1440/contribution-repair.png": "877f98b1ce903716d22d3ef221d4219b58fbf0b7bc256e82188ba8d93283bf31",
+    "desktop-1440/contribution-review.png": "335c9d16040a19e0a47c7e6fbb995c61b2376d5976abed3ce0907c94736b1648",
+    "desktop-1440/contribution-validation.png": "52af9e69af5a0712cd0a438d8cc3fcb7780715d9dca22f99cc8ec2e76e903cb5",
+    "desktop-1440/explore-hub.png": "a6deae88b5475e157af114d7519eb7663d432b61e12bb2e771b5bee8def188e4",
+    "desktop-1440/food-record-first-viewport.png": "e4fd670718b27c1acb0196fd16f5c5b8e5000060006c495b2d7c61e77ca6ae09",
+    "desktop-1440/forced-colors-contribution.png": "05eb15dc784556f4ebba0e4846e68094a786f061bf2c5875394f6c06cd5155b5",
+    "desktop-1440/keyboard-focus-hero.png": "5cd196e30a8de7b6f5aa84b712240d264141638517274e4e006b4c4bce1a6e47",
+    "desktop-1440/logo-colorways.png": "50598c401a2b268ce3c5d6265bf9db394ae4a482e915a13ba88a841a6db4b406",
+    "desktop-1440/pseudo-home-first-viewport.png": "e921993a73bdf1d0670bd0452a6cffa11ce5892eb852b7dc15e9c543ce14a481",
+    "desktop-1440/public-record-error.png": "f3282b9850d8bd0e73e126492bbb161e61ea29cd99081fa18c95da5e5e486a9c",
+    "desktop-1440/public-record-loading.png": "e5b03ee9234a104b08a44f50b49890d9cf567e9574a8352d8ddcde1372179451",
+    "desktop-1440/reduced-motion-hero.png": "9aac1a32d991072df4eb2c7d4d4047857dab3da56ce8124aa65f5d18665fa0b0",
+    "desktop-1440/tracker-catalogue-results.png": "91783670524004981d1d39e8c9a703be3582503282df49eb828b8fc7e5462af5",
+    "desktop-1440/tracker-daily-log.png": "79351b102195e732d1be5a7397697a7e930232c88f06a6e86463827696119333",
+    "mobile-390/homepage-first-viewport.png": "a801857ab24412ea7897eff1338fb5203bce351828af41f2af0d5b56a1a46177",
+    "mobile-390/mobile-safe-area-actions.png": "b32f05cd23c56cf4b03ddfd27c0a6b4d8ee9685489db4faaf39d5128736337b7",
+    "reflow-320/food-record-first-viewport.png": "56d324c051e4e95db3f251921e6844cea6a24a0b2189e92f80facf2f705d1b67",
+    "reflow-320/homepage-first-viewport.png": "f7de4cbf1ac65a7c11fde4d029c31980a0792eb59470d91c8126bacd86dcf53e",
+    "tablet-768/homepage-first-viewport.png": "58c9caf7a73fb953bd8198822630f127eab3cd8d274bad7ba533013206ba896e",
+    "wide-1728/homepage-first-viewport.png": "6ab60304303725aff1b80faacca5da6c90750901434787a50b268b01633aa2ca"
+  }
+}
