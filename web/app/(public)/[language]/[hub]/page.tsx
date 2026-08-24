@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
+import { PublicFooter } from "@/components/public/public-footer";
 import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
@@ -57,7 +58,8 @@ export default async function PublicHubPage({
   const actionClassName = "hub-primary-action";
 
   return (
-    <main id="main-content" className={`hub-page hub-page-${hub}`}>
+    <>
+      <main id="main-content" className={`hub-page hub-page-${hub}`}>
       <PublicBreadcrumbs
         items={[
           { label: "Home", href: routes.publicHome(language) },
@@ -116,6 +118,8 @@ export default async function PublicHubPage({
           </p>
         )}
       </section>
-    </main>
+      </main>
+      <PublicFooter language={language} />
+    </>
   );
 }

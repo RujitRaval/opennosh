@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     food_search_snapshot_refresh_seconds: PositiveInt = 300
     food_search_snapshot_retention_seconds: PositiveInt = 1_200
     food_search_snapshot_build_timeout_ms: PositiveInt = 30_000
+    public_commons_latest_pointer_path: Path | None = None
+    public_commons_release_directory: Path | None = None
+    public_commons_checkpoint_path: Path | None = None
+    public_commons_verifying_keys: str = "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+    public_commons_stale_after_seconds: PositiveInt = 300
     open_food_facts_enabled: bool = False
     open_food_facts_base_url: str = "https://world.openfoodfacts.org"
     open_food_facts_timeout_seconds: PositiveFloat = 3.0
@@ -79,6 +84,14 @@ class Settings(BaseSettings):
         from opennosh_api.foods.cursors import SearchCursorKeyRing
 
         SearchCursorKeyRing.from_secret(value)
+        return value
+
+    @field_validator("public_commons_verifying_keys")
+    @classmethod
+    def validate_public_commons_verifying_keys(cls, value: str) -> str:
+        from opennosh_api.public_commons.manifests import ManifestKeyRing
+
+        ManifestKeyRing.from_config(value)
         return value
 
     @field_validator("target_kcal_floor")
@@ -125,6 +138,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if (self.public_commons_latest_pointer_path is None) != (
+            self.public_commons_release_directory is None
+        ):
+            raise ValueError(
+                "Public commons latest pointer and release directory must be configured together"
+            )
+        if (
+            self.app_environment == "production"
+            and self.public_commons_latest_pointer_path is not None
+            and self.public_commons_checkpoint_path is None
+        ):
+            raise ValueError("Production public commons reads require a durable checkpoint path")
         if (
             self.food_search_snapshot_refresh_seconds >= self.food_search_snapshot_retention_seconds
             or self.food_search_cursor_lifetime_seconds
@@ -137,6 +162,13 @@ class Settings(BaseSettings):
             == "v1:opennosh-development-search-cursor-key-2026"
         ):
             raise ValueError("Production requires unique food search cursor signing keys")
+        if (
+            self.app_environment == "production"
+            and self.public_commons_latest_pointer_path is not None
+            and self.public_commons_verifying_keys
+            == "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+        ):
+            raise ValueError("Production requires approved public commons verifying keys")
         if (
             self.app_environment == "production"
             and self.trusted_web_proxy_token is not None

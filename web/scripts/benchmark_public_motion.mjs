@@ -132,7 +132,7 @@ try {
     const response = await page.goto(`${baseURL}/en`, { waitUntil: "networkidle" });
     if (!response?.ok()) fail(`${profile.name} returned ${response?.status()}`);
     const heading = page.getByRole("heading", { level: 1 });
-    if (!(await heading.isVisible()) || !(await page.getByText("No accepted changes to report yet.").isVisible())) {
+    if (!(await heading.isVisible()) || !(await page.getByText("Accepted activity is unavailable.").isVisible())) {
       fail(`${profile.name} is missing server-rendered public content`);
     }
 

@@ -2135,7 +2135,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `web/app/explore`, public food-record routes, `web/components/foods`, API-to-UI adapters, food-record browser tests.
   - Verify: identity, verification, portion, nutrients, source summary, version, license, provenance, variants, correction, and food-locale preference remain visible and correctly ordered on desktop, mobile, zoom, and conflicting-record fixtures.
 
-- [ ] **T19 (P1, human: ~3-4 days / Codex: ~1 day)** - Public truth signals - Implement verified hero counts and complete accepted-activity states.
+- [x] **T19 (P1, human: ~3-4 days / Codex: ~1 day)** - Public truth signals - Implement verified hero counts and complete accepted-activity states.
   - Surfaced by: Design D4 and D6 - the approved prototype contained illustrative activity and an automatically increasing record count.
   - Files: signed release/read manifest, public commons snapshot schema/endpoint and web adapter, homepage hero, accepted-activity list, public status adapter, accessibility and state fixtures.
   - Verify: one server-resolved snapshot drives hero, footer, activity, and freshness; published releases update the count exactly once; no timer changes it; cross-release races, live, loading, quiet, stale, partial, illustrative, and unavailable states show correct proofs, labels, timestamps, summaries, actions, and reduced-motion behavior.

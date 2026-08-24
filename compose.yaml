@@ -85,7 +85,15 @@ services:
       FOOD_SEARCH_SNAPSHOT_REFRESH_SECONDS: ${FOOD_SEARCH_SNAPSHOT_REFRESH_SECONDS:-300}
       FOOD_SEARCH_SNAPSHOT_RETENTION_SECONDS: ${FOOD_SEARCH_SNAPSHOT_RETENTION_SECONDS:-1200}
       FOOD_SEARCH_SNAPSHOT_BUILD_TIMEOUT_MS: ${FOOD_SEARCH_SNAPSHOT_BUILD_TIMEOUT_MS:-30000}
+      PUBLIC_COMMONS_LATEST_POINTER_PATH: /app/public-commons/latest.json
+      PUBLIC_COMMONS_RELEASE_DIRECTORY: /app/public-commons/releases
+      PUBLIC_COMMONS_CHECKPOINT_PATH: /app/public-commons-state/release-checkpoint.json
+      PUBLIC_COMMONS_VERIFYING_KEYS: ${PUBLIC_COMMONS_VERIFYING_KEYS:-development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw}
+      PUBLIC_COMMONS_STALE_AFTER_SECONDS: ${PUBLIC_COMMONS_STALE_AFTER_SECONDS:-300}
       TARGET_KCAL_FLOOR: ${TARGET_KCAL_FLOOR:-1200}
+    volumes:
+      - ${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}:/app/public-commons:ro
+      - ${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}:/app/public-commons-state
     depends_on:
       migrate:
         condition: service_completed_successfully

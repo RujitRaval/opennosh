@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const forwardedRequestHeaders = ["accept", "content-type", "cookie", "x-csrf-token"];
+const forwardedRequestHeaders = ["accept", "content-type", "cookie", "if-none-match", "x-csrf-token"];
 
 function proxyProblem(
   status: 400 | 502,
@@ -52,6 +52,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   }
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join("/");
+  const cacheablePublicSnapshot =
+    request.method === "GET" && encodedPath === "public/commons-snapshot";
   const target = new URL(`/api/v1/${encodedPath}${request.nextUrl.search}`, apiOrigin);
   const headers = new Headers();
   for (const name of forwardedRequestHeaders) {
@@ -60,6 +62,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   }
   const proxyToken = process.env.WEB_PROXY_TOKEN;
   const clientAddress = request.headers.get("x-forwarded-for");
+  if (cacheablePublicSnapshot) headers.delete("cookie");
   if (proxyToken && clientAddress) {
     headers.set("x-opennosh-client-address", clientAddress);
     headers.set("x-opennosh-proxy-token", proxyToken);
@@ -81,7 +84,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     for (const cookie of cookies) responseHeaders.append("set-cookie", cookie);
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");
-    responseHeaders.set("Cache-Control", "no-store");
+    if (!cacheablePublicSnapshot) responseHeaders.set("Cache-Control", "no-store");
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch {
     return proxyProblem(

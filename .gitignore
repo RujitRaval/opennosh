@@ -17,3 +17,5 @@ web/playwright-report/
 web/test-results/
 web/CLAUDE.md
 web/*.tsbuildinfo
+var/public-commons/
+var/public-commons-state/

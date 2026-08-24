@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
+import { PublicFooter } from "@/components/public/public-footer";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -16,7 +17,8 @@ export default async function NoticesPage({
   const { language } = await params;
 
   return (
-    <main className="legal-page" id="main-content">
+    <>
+      <main className="legal-page" id="main-content">
       <PublicBreadcrumbs
         items={[
           { label: "Home", href: routes.publicHome(language) },
@@ -86,6 +88,8 @@ export default async function NoticesPage({
         </a>{" "}
         for operative links and packaging details.
       </p>
-    </main>
+      </main>
+      <PublicFooter language={language} />
+    </>
   );
 }

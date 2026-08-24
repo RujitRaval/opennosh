@@ -28,6 +28,8 @@ from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
 from opennosh_api.problems import RequestIdMiddleware, install_problem_handlers
+from opennosh_api.public_commons.manifests import ManifestKeyRing, PublicCommonsSnapshotService
+from opennosh_api.public_commons.router import router as public_commons_router
 from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.settings import Settings, get_settings
 from opennosh_api.targets.router import router as targets_router
@@ -106,11 +108,19 @@ def create_app(
     application.state.private_export_semaphore = asyncio.Semaphore(
         resolved_settings.private_export_concurrency_limit
     )
+    application.state.public_commons_snapshot_service = PublicCommonsSnapshotService(
+        latest_pointer_path=resolved_settings.public_commons_latest_pointer_path,
+        release_directory=resolved_settings.public_commons_release_directory,
+        key_ring=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
+        stale_after_seconds=resolved_settings.public_commons_stale_after_seconds,
+        checkpoint_path=resolved_settings.public_commons_checkpoint_path,
+    )
     application.add_middleware(RequestIdMiddleware)
     application.add_middleware(FoodLogNoStoreMiddleware)
     install_problem_handlers(application)
     application.include_router(health_router)
     application.include_router(database_metrics_router)
+    application.include_router(public_commons_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

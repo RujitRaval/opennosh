@@ -5,6 +5,46 @@ export type ClientOptions = {
 };
 
 /**
+ * AcceptedActivityEvent
+ */
+export type AcceptedActivityEvent = {
+    /**
+     * Accepted At
+     */
+    accepted_at: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    event_type: AcceptedEventType;
+    /**
+     * Food Locale
+     */
+    food_locale: string;
+    /**
+     * Food Or Pack Id
+     */
+    food_or_pack_id: string;
+    /**
+     * Public Contributor Credit
+     */
+    public_contributor_credit?: string | null;
+    /**
+     * Source Commit
+     */
+    source_commit: string;
+    /**
+     * Summary
+     */
+    summary: string;
+};
+
+/**
+ * AcceptedEventType
+ */
+export type AcceptedEventType = 'food' | 'source' | 'portion' | 'pack';
+
+/**
  * AccountExport
  */
 export type AccountExport = {
@@ -161,6 +201,61 @@ export type BodyMetricWrite = {
      */
     value: number | string;
 };
+
+/**
+ * CommonsActivityWindow
+ */
+export type CommonsActivityWindow = {
+    /**
+     * Accepted Count
+     */
+    accepted_count: number;
+    /**
+     * Ends At
+     */
+    ends_at: string;
+    /**
+     * Events
+     */
+    events?: Array<AcceptedActivityEvent>;
+    most_recent_verified_record?: MostRecentVerifiedRecord | null;
+    /**
+     * Starts At
+     */
+    starts_at: string;
+};
+
+/**
+ * CommonsComponentFreshness
+ */
+export type CommonsComponentFreshness = {
+    /**
+     * Activity
+     */
+    activity: 'verified' | 'partial' | 'stale' | 'unavailable';
+    /**
+     * Checked At
+     */
+    checked_at: string;
+    /**
+     * Release
+     */
+    release: 'verified' | 'stale' | 'unavailable';
+    /**
+     * Stale Since
+     */
+    stale_since?: string | null;
+};
+
+/**
+ * CommonsSnapshotReason
+ */
+export type CommonsSnapshotReason = 'activity_projection_lag' | 'invalid_latest_pointer' | 'invalid_release_manifest' | 'latest_release_unavailable' | 'no_published_release';
+
+/**
+ * CommonsSnapshotState
+ */
+export type CommonsSnapshotState = 'live' | 'quiet' | 'stale' | 'partial' | 'illustrative' | 'unavailable';
 
 /**
  * CommunityFoodExport
@@ -1106,6 +1201,32 @@ export type LoggedFood = {
 };
 
 /**
+ * MostRecentVerifiedRecord
+ */
+export type MostRecentVerifiedRecord = {
+    /**
+     * Food Locale
+     */
+    food_locale: string;
+    /**
+     * Href
+     */
+    href: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Record Id
+     */
+    record_id: string;
+    /**
+     * Verified At
+     */
+    verified_at: string;
+};
+
+/**
  * NutrientProfile
  *
  * The single internal storage basis used by calculations and persistence.
@@ -1424,6 +1545,58 @@ export type ProblemDetails = {
      * Type
      */
     type: string;
+};
+
+/**
+ * PublicCommonsSnapshot
+ */
+export type PublicCommonsSnapshot = {
+    activity: CommonsActivityWindow;
+    /**
+     * As Of
+     */
+    as_of: string;
+    freshness: CommonsComponentFreshness;
+    /**
+     * Reasons
+     */
+    reasons?: Array<CommonsSnapshotReason>;
+    release: PublicReleaseProof | null;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1';
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: string;
+    state: CommonsSnapshotState;
+    /**
+     * Verified Record Count
+     */
+    verified_record_count: number | null;
+};
+
+/**
+ * PublicReleaseProof
+ */
+export type PublicReleaseProof = {
+    /**
+     * Manifest Digest
+     */
+    manifest_digest: string;
+    /**
+     * Publication Receipt Digest
+     */
+    publication_receipt_digest: string;
+    /**
+     * Published At
+     */
+    published_at: string;
+    /**
+     * Version
+     */
+    version: string;
 };
 
 /**
@@ -3983,6 +4156,77 @@ export type DetailApiV1LogsEntryIdGetResponses = {
 };
 
 export type DetailApiV1LogsEntryIdGetResponse = DetailApiV1LogsEntryIdGetResponses[keyof DetailApiV1LogsEntryIdGetResponses];
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * If-None-Match
+         */
+        'if-none-match'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/commons-snapshot';
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetError = CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors[keyof CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors];
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicCommonsSnapshot;
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponse = CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses[keyof CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses];
 
 export type ListAllApiV1RecipesGetData = {
     body?: never;

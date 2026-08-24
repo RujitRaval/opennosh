@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { PublicFooter } from "@/components/public/public-footer";
+import { AcceptedActivity, HeroReleaseProof } from "@/components/public/public-truth-signals";
+import type { PublicCommonsSnapshot } from "@/lib/api/domain/public-commons";
+import { getPublicCommonsSnapshot } from "@/lib/public-commons";
+
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 const foods = ["Jollof rice", "Masala dosa", "Mole poblano", "Gaeng keow wan", "Ful medames", "Feijoada"];
@@ -11,14 +16,28 @@ export default async function PublicHome({
 }) {
   const { language } = await params;
 
+  const snapshot = await getPublicCommonsSnapshot();
+
+  return <PublicHomeView language={language} snapshot={snapshot} />;
+}
+
+export function PublicHomeView({
+  language,
+  snapshot,
+}: {
+  language: InterfaceLanguage;
+  snapshot: PublicCommonsSnapshot;
+}) {
   return (
-    <main id="main-content">
+    <>
+      <main id="main-content">
       <section className="hero" aria-labelledby="hero-title" data-motion-region="hero">
         <div className="hero-grid" aria-hidden="true" />
         <div className="hero-meta mono">
           <span>The open food commons</span>
           <span>CC0 · public · versioned</span>
         </div>
+        <HeroReleaseProof snapshot={snapshot} language={language} />
         <h1 id="hero-title" className="hero-title">
           <span>Food data</span>
           <span>belongs to</span>
@@ -69,16 +88,7 @@ export default async function PublicHome({
           <h2 id="commons-title">A commons earns trust in public.</h2>
           <p>Accepted changes will become movement: new foods, verified portions, source additions, and published packs—drawn only from real repository events.</p>
         </div>
-        <div className="activity-field">
-          <div className="activity-head mono"><span>Contributions / last 24h</span><span>Production state</span></div>
-          <div className="quiet-orbit" aria-hidden="true"><i /><i /><i /></div>
-          <p className="quiet-state"><strong>No accepted changes to report yet.</strong><span>This area stays quiet until production events exist. No sample count is presented as fact.</span></p>
-          <dl className="activity-legend mono">
-            <div><dt>Food</dt><dd>Accepted new record</dd></div>
-            <div><dt>Source</dt><dd>Evidence attached</dd></div>
-            <div><dt>Pack</dt><dd>Version published</dd></div>
-          </dl>
-        </div>
+        <AcceptedActivity snapshot={snapshot} language={language} />
       </section>
 
       <section className="contribute-stage motion-stage" id="contribute" aria-labelledby="contribute-title" data-motion-region="contribute">
@@ -114,6 +124,8 @@ export default async function PublicHome({
         <h2 id="closing-title">Open the<br />record.</h2>
         <a className="closing-link" href="https://github.com/RujitRaval/opennosh"><span>Join on GitHub</span><span aria-hidden="true">↗</span></a>
       </section>
-    </main>
+      </main>
+      <PublicFooter language={language} snapshot={snapshot} />
+    </>
   );
 }

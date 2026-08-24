@@ -70,7 +70,6 @@ export function PublicPerformanceSignals({
 
     let cancelled = false;
     let disposeRuntime: (() => void) | undefined;
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     let idleHandle: number | undefined;
 
     const loadRuntime = async () => {
@@ -86,18 +85,22 @@ export function PublicPerformanceSignals({
       }
     };
 
-    if (browserWindow.requestIdleCallback) {
-      idleHandle = browserWindow.requestIdleCallback(() => void loadRuntime(), { timeout: 1_200 });
-    } else {
-      timeoutHandle = setTimeout(() => void loadRuntime(), 1);
-    }
+    // Decoration is optional. Give streamed server segments time to hydrate before
+    // the runtime adds visibility attributes that React also reconciles.
+    const hydrationHandle = setTimeout(() => {
+      if (browserWindow.requestIdleCallback) {
+        idleHandle = browserWindow.requestIdleCallback(() => void loadRuntime(), { timeout: 1_200 });
+      } else {
+        void loadRuntime();
+      }
+    }, 2_000);
 
     return () => {
       cancelled = true;
       disposeRuntime?.();
       delete root.dataset.motionGate;
       if (idleHandle !== undefined) browserWindow.cancelIdleCallback?.(idleHandle);
-      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+      if (hydrationHandle !== undefined) clearTimeout(hydrationHandle);
     };
   }, [decorationsEnabled]);
 
