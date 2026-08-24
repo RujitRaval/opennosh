@@ -92,9 +92,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [mobileActionsVisible, setMobileActionsVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const errorSummary = useRef<HTMLDivElement>(null);
+  const stageHeading = useRef<HTMLElement>(null);
+  const inlineActions = useRef<HTMLDivElement>(null);
   const rawStage = isContributionStage(requestedStage) ? requestedStage : "evidence";
   const stage = draft && localAccessibleStages(draft).includes(rawStage)
     ? rawStage : draft ? localAccessibleStages(draft).at(-1) ?? "evidence" : rawStage;
@@ -102,9 +105,9 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (routeDraftId === "local") {
-        const stored = readLocalContributionDraft(localStorage.getItem(localContributionStorageKey));
+        const stored = readLocalContributionDraft(window.localStorage.getItem(localContributionStorageKey));
         const nextDraft = stored ?? newLocalContributionDraft();
-        localStorage.setItem(localContributionStorageKey, JSON.stringify(nextDraft));
+        window.localStorage.setItem(localContributionStorageKey, JSON.stringify(nextDraft));
         setDraft(nextDraft);
         return;
       }
@@ -135,9 +138,26 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     }
   }, [draft, language, requestedStage, routeDraftId, router, stage]);
 
+  useEffect(() => {
+    if (!draft || !stageHeading.current || !inlineActions.current) return;
+    let headingVisible = true;
+    let actionsVisible = false;
+    const updateVisibility = () => setMobileActionsVisible(!headingVisible && !actionsVisible);
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === stageHeading.current) headingVisible = entry.isIntersecting;
+        if (entry.target === inlineActions.current) actionsVisible = entry.isIntersecting;
+      }
+      updateVisibility();
+    });
+    observer.observe(stageHeading.current);
+    observer.observe(inlineActions.current);
+    return () => observer.disconnect();
+  }, [draft, stage]);
+
   function persist(nextDraft: LocalContributionDraft) {
     const saved = { ...nextDraft, savedAt: new Date().toISOString(), saveState: "saved_on_device" as const };
-    localStorage.setItem(localContributionStorageKey, JSON.stringify(saved));
+    window.localStorage.setItem(localContributionStorageKey, JSON.stringify(saved));
     setDraft(saved);
   }
 
@@ -222,7 +242,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         expected_draft_version: remote.draftVersion, idempotency_key: crypto.randomUUID(),
       });
       if (!submitted.receipt) throw new Error("The server did not return a submission receipt.");
-      localStorage.removeItem(localContributionStorageKey);
+      window.localStorage.removeItem(localContributionStorageKey);
       setReceipt(submitted.receipt);
       setAuthRequired(false);
       router.replace(routes.contributionStatus(language, submitted.draftId));
@@ -248,7 +268,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   return <main id="main-content" className="contribution-page">
     <Progress language={language} pathDraftId={routeDraftId} draft={draft} stage={stage} />
     <article className="contribution-workspace">
-      <header className="contribution-stage-heading">
+      <header ref={stageHeading} className="contribution-stage-heading">
         <p className="mono">{contributionCatalog(language).chapters[stageMeta.chapter].label} · {String(stageMeta.order).padStart(2, "0")} / 05</p>
         <h1 id={stageMeta.headingAnchor}>{contributionMessage(language, stageMeta.headingKey)}</h1>
         <p>{contributionMessage(language, stageMeta.descriptionKey)}</p>
@@ -327,10 +347,14 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           </form> : null}
         </section> : null}
       </div>
-      <div className="contribution-actions contribution-actions-inline">
+      <div ref={inlineActions} className="contribution-actions contribution-actions-inline">
         {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← Back</button> : <span />}
         {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>Continue →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? "Handing over…" : "Hand to review →"}</button>}
       </div>
     </article>
+    <div className={`contribution-actions contribution-actions-mobile${mobileActionsVisible ? " is-visible" : ""}`}>
+      {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← Back</button> : <span />}
+      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>Continue →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? "Handing over…" : "Hand to review →"}</button>}
+    </div>
   </main>;
 }

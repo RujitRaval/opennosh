@@ -97,6 +97,7 @@
 .contribution-check { display: flex; max-width: 48rem; align-items: flex-start; gap: .9rem; padding: 1.25rem 0; border-block: 1px solid currentColor; cursor: pointer; }
 
 .contribution-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid currentColor; }
+.contribution-actions-mobile { display: none; }
 .contribution-primary, .contribution-secondary, .contribution-back {
   display: inline-flex;
   min-height: 3.75rem;
@@ -186,7 +187,8 @@
   .contribution-stage-heading h1 { font-size: clamp(3rem, 16vw, 5rem); }
   .contribution-choice-grid, .contribution-form-pair, .contribution-form-triplet, .contribution-nutrients, .review-section dl { grid-template-columns: 1fr; }
   .contribution-choice-grid label { border-right: 0; }
-  .contribution-actions-inline { position: sticky; z-index: 3; bottom: 0; margin: 0 calc(-1 * var(--page-pad)); padding: .75rem var(--page-pad) calc(.75rem + env(safe-area-inset-bottom)); background: var(--rice-paper); }
+  .contribution-actions-inline { position: static; }
+  .contribution-actions-mobile.is-visible { position: fixed; z-index: 90; right: 0; bottom: 0; left: 0; display: flex; padding: .75rem var(--page-pad) calc(.75rem + env(safe-area-inset-bottom)); color: var(--commons-ink); background: var(--rice-paper); }
   .contribution-actions button { max-width: 65%; }
   .receipt-mark { position: relative; width: 8rem; margin: 0 0 3rem auto; }
   .contribution-receipt dl, .contribution-status-page dl { grid-template-columns: 1fr; }
