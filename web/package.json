@@ -7,12 +7,16 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run check:design-build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "check:design-system": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_living_commons_design_system.mjs",
+    "check:design-build": "node scripts/check_production_font_isolation.mjs",
+    "check:motion-budgets": "node scripts/check_public_motion_budgets.mjs",
+    "benchmark:motion": "node scripts/benchmark_public_motion.mjs",
     "generate:api-contracts": "node ../scripts/generate_web_contracts.mjs",
     "check:api-contracts": "npm run generate:api-contracts && git diff --exit-code -- lib/generated"
   },

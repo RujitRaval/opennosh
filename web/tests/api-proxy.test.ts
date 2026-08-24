@@ -41,6 +41,38 @@ describe("same-origin API proxy", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
+
+  it("preserves conditional caching only for the anonymous commons snapshot", async () => {
+    const upstreamHeaders = new Headers({
+      "Cache-Control": "public, max-age=0, s-maxage=300, stale-if-error=86400",
+      ETag: '"snapshot-etag"',
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(null, { status: 304, headers: upstreamHeaders }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest(
+      "http://localhost:3000/api/v1/public/commons-snapshot",
+      {
+        headers: {
+          Cookie: "opennosh_session=must-not-cross-public-boundary",
+          "If-None-Match": '"snapshot-etag"',
+        },
+      },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({ path: ["public", "commons-snapshot"] }),
+    });
+
+    const upstreamRequest = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(upstreamRequest.get("if-none-match")).toBe('"snapshot-etag"');
+    expect(upstreamRequest.get("cookie")).toBeNull();
+    expect(response.status).toBe(304);
+    expect(response.headers.get("etag")).toBe('"snapshot-etag"');
+    expect(response.headers.get("cache-control")).toContain("s-maxage=300");
+  });
+
   it("forwards mutation bodies and CSRF headers", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     fetchMock.mockResolvedValue(Response.json({ ok: true }));

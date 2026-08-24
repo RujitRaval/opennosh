@@ -8,7 +8,7 @@ test("public root redirects into the localized movement site", async ({ page }) 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Food data");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("everyone");
-  await expect(page.getByText("No accepted changes to report yet.")).toBeVisible();
+  await expect(page.getByText("Accepted activity is unavailable.")).toBeVisible();
   await expect(page.getByText("18,429")).toHaveCount(0);
   await expect(page.locator('link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]')).toHaveCount(0);
 
@@ -112,9 +112,155 @@ test("tracker document excludes public navigation and public font variables", as
   await expect(page.locator("html")).toHaveAttribute("data-surface", "tracker");
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(0);
   await expect(page.locator("body")).not.toHaveClass(/font-archivo/);
+  await expect(page.locator("body")).toHaveCSS("font-family", /Trebuchet MS/);
   expect(
     requestedResources.some((url) =>
       /archivo-latin-variable|source-sans-3-latin-variable|ibm-plex-mono-latin/.test(url),
     ),
   ).toBe(false);
+});
+
+test("public tokens provide visible focus on light, Tomato, and Ink surfaces", async ({ page }) => {
+  await page.goto("/en");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  await expect(page.locator("body")).toHaveCSS("font-family", /sourceSans/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /archivo/);
+  await expect(page.locator(".mono").first()).toHaveCSS("font-family", /plexMono/);
+
+  const lightTokens = await page.locator("html").evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return {
+      text: styles.getPropertyValue("--color-text").trim(),
+      surface: styles.getPropertyValue("--color-surface").trim(),
+      focus: styles.getPropertyValue("--focus-ring").trim(),
+    };
+  });
+  expect(lightTokens).toEqual({
+    text: "#12120f",
+    surface: "#f4f0e6",
+    focus: "#5848e8",
+  });
+
+  const start = page.getByRole("link", { name: "Start" });
+  await start.focus();
+  await expect(start).toHaveCSS("outline-style", "solid");
+  await expect(start).toHaveCSS("outline-color", "rgb(88, 72, 232)");
+
+  await page.goto("/en/contribute/local/evidence");
+  const contributionHome = page
+    .getByRole("banner")
+    .getByRole("link", { name: "opennosh home" });
+  await contributionHome.focus();
+  await expect(contributionHome).toHaveCSS("outline-color", "rgb(18, 18, 15)");
+
+  await page.goto("/en/build");
+  const darkHeaderHome = page
+    .getByRole("banner")
+    .getByRole("link", { name: "opennosh home" });
+  await darkHeaderHome.focus();
+  await expect(darkHeaderHome).toHaveCSS("outline-color", "rgb(215, 243, 76)");
+});
+
+test("the public home remains complete when JavaScript is unavailable", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+
+  await page.goto("/en");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Food data");
+  await expect(page.getByRole("link", { name: "Start" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Read the contribution guide/ })).toBeVisible();
+  await expect(page.getByText("Accepted activity is unavailable.")).toBeVisible();
+  const actions = page.getByRole("navigation", { name: "Commons activity actions" });
+  await expect(actions.getByRole("link", { name: "Search verified records" })).toBeVisible();
+  await expect(actions.getByRole("link", { name: "Contribute a food" })).toBeVisible();
+  await expect(page.getByText("18,429")).toHaveCount(0);
+  await expect(page.locator(".footer-release-proof")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+
+  await context.close();
+});
+
+test("eligible motion activates sparingly and pauses away from the viewport", async ({ page }) => {
+  await page.goto("/en");
+
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-motion-runtime",
+    "opennosh:motion-runtime:v1",
+  );
+  await expect(page.locator('html[data-motion-state="running"]')).toHaveCount(1);
+  expect(
+    await page.locator('[data-motion-region][data-motion-visible="true"]').count(),
+  ).toBeLessThanOrEqual(2);
+
+  await page.locator('[data-motion-region="contribute"]').scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-motion-region="hero"]')).toHaveAttribute(
+    "data-motion-visible",
+    "false",
+  );
+  expect(
+    await page.locator('[data-motion-region][data-motion-visible="true"]').count(),
+  ).toBeLessThanOrEqual(2);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-motion-state", "paused");
+});
+
+test("the runtime disables decoration after a long-task budget breach", async ({ page }) => {
+  await page.goto("/en");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-motion-runtime",
+    "opennosh:motion-runtime:v1",
+  );
+
+  await page.evaluate(() => {
+    setTimeout(() => {
+      const end = performance.now() + 70;
+      while (performance.now() < end) {
+        // Intentionally occupy the main thread to exercise the runtime kill switch.
+      }
+    }, 0);
+  });
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "limited");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "long-task-budget");
+});
+
+test("reduced-motion visitors never download the optional runtime", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await context.newPage();
+
+  await page.goto("/en");
+  await page.waitForTimeout(1_300);
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "reduced-motion");
+  await expect(page.locator("html")).not.toHaveAttribute("data-motion-runtime", /.+/);
+
+  await context.close();
+});
+
+test("data-saver and low-power visitors keep the static experience", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "connection", {
+      configurable: true,
+      value: { saveData: true, effectiveType: "4g" },
+    });
+    Object.defineProperty(navigator, "hardwareConcurrency", {
+      configurable: true,
+      value: 2,
+    });
+  });
+
+  await page.goto("/en");
+  await page.waitForTimeout(1_300);
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "data-saver");
+  await expect(page.locator("html")).not.toHaveAttribute("data-motion-runtime", /.+/);
 });

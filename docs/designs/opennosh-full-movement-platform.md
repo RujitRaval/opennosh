@@ -2135,22 +2135,22 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `web/app/explore`, public food-record routes, `web/components/foods`, API-to-UI adapters, food-record browser tests.
   - Verify: identity, verification, portion, nutrients, source summary, version, license, provenance, variants, correction, and food-locale preference remain visible and correctly ordered on desktop, mobile, zoom, and conflicting-record fixtures.
 
-- [ ] **T19 (P1, human: ~3-4 days / Codex: ~1 day)** - Public truth signals - Implement verified hero counts and complete accepted-activity states.
+- [x] **T19 (P1, human: ~3-4 days / Codex: ~1 day)** - Public truth signals - Implement verified hero counts and complete accepted-activity states.
   - Surfaced by: Design D4 and D6 - the approved prototype contained illustrative activity and an automatically increasing record count.
   - Files: signed release/read manifest, public commons snapshot schema/endpoint and web adapter, homepage hero, accepted-activity list, public status adapter, accessibility and state fixtures.
   - Verify: one server-resolved snapshot drives hero, footer, activity, and freshness; published releases update the count exactly once; no timer changes it; cross-release races, live, loading, quiet, stale, partial, illustrative, and unavailable states show correct proofs, labels, timestamps, summaries, actions, and reduced-motion behavior.
 
-- [ ] **T20 (P1, human: ~5-7 days / Codex: ~1-2 days)** - Contribution experience - Implement the three-chapter, five-stage responsive journey, exhaustive presentation registry, and truthful completion receipt.
+- [x] **T20 (P1, human: ~5-7 days / Codex: ~1-2 days)** - Contribution experience - Implement the three-chapter, five-stage responsive journey, exhaustive presentation registry, and truthful completion receipt.
   - Surfaced by: Design D5, D8, and D9 plus re-review D37 - the contribution mock, workflow states, responsive navigation, and post-submit emotion require one reconciled contract and one shared presentation map.
   - Files: `web/app/contribute`, contribution components/state, generated stage-capability types, exhaustive frontend stage registry, translation catalogs, draft and review API adapters, validation summaries, responsive and browser tests.
   - Verify: enum exhaustiveness, unique order/slug/anchor/analytics identifiers, translation-key coverage, chapter/stage mapping, server-authorized URLs, forged and stale stage repair, backward invalidation, autosave, resume, Back, mobile progress, safe-area actions, error focus, 320 px, 200 percent zoom, text zoom, interruption, and the Handed to the commons receipt all pass; only publication emits acceptance motion.
 
-- [ ] **T21 (P1, human: ~3-4 days / Codex: ~1 day)** - Design system - Commit and wire the canonical Living Commons system, CSS-native tokens, and production assets.
+- [x] **T21 (P1, human: ~3-4 days / Codex: ~1 day)** - Design system - Commit and wire the canonical Living Commons system, CSS-native tokens, and production assets.
   - Surfaced by: Design D7 and re-review D36 - the approved design source exists only in one local archive, while an unresolved CSS-or-generated-token choice would permit runtime values and logo mappings to drift.
   - Files: `DESIGN.md`, root base styles, public route layout and scoped token stylesheet, tracker style entrypoint, typed brand-asset manifest, versioned logo and font asset directories, token/asset validation, contrast and visual fixtures.
   - Verify: a clean offline clone renders every approved logo colorway, self-hosted Archivo/Source Sans 3/IBM Plex Mono, documented semantic tokens, focus states, dark surfaces, and WCAG 2.2 AA without external design files or font CDNs; raw brand literals do not spread beyond approved sources; every manifest mapping passes contrast checks; tracker visual and behavior baselines remain unchanged.
 
-- [ ] **T22 (P2, human: ~1 day / Codex: ~30-45 min)** - Design reference - Refresh the approved Living Commons mock after the reviewed contracts are implemented.
+- [x] **T22 (P2, human: ~1 day / Codex: ~30-45 min)** - Design reference - Refresh the approved Living Commons mock after the reviewed contracts are implemented.
   - Surfaced by: Design passes 1-7 - the existing mock predates the final navigation, count, activity, contribution, and mobile-stage decisions.
   - Files: `~/.gstack/projects/RujitRaval-opennosh/designs/living-commons/`.
   - Verify: the refreshed mock demonstrates Explore/Contribute/Commons/Build, verified snapshot labeling, the honest quiet state, utility-with-visible-trust record hierarchy, three chapters/five stages, responsive progress, and surface-correct wordmarks.
@@ -2170,7 +2170,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: licensed source fonts and manifests, reproducible subset tooling, centralized public font definitions, localized public layout, tracker resource assertions, performance and visual fixtures, CI budgets.
   - Verify: initial Latin font transfer is at most 160 KB and total after deferred mono at most 220 KB; font-attributable CLS is at most 0.02; only required script subsets load; no unused critical preload appears; fallback and slow-font states remain usable; /tracker transfers zero Living Commons font bytes.
 
-- [ ] **T26 (P1, human: ~2-4 days / Codex: ~1 day)** - Motion performance - Implement and gate the CSS-first progressive Living Commons motion layer.
+- [x] **T26 (P1, human: ~2-4 days / Codex: ~1 day)** - Motion performance - Implement and gate the CSS-first progressive Living Commons motion layer.
   - Surfaced by: Performance re-review D41 - qualitative motion guidance lacked JavaScript, main-thread, frame-time, preference, and field-performance ceilings.
   - Files: public CSS motion primitives, optional observer/controller island, route bundle analysis, preference and visibility gates, low-power benchmark profile, Web Vitals collection, CI performance artifacts and decoration kill switch.
   - Verify: server-rendered content is complete without motion or JavaScript; motion JS is at most 12 KB gzip and all design-delta JS at most 45 KB gzip beyond framework; no motion task exceeds 50 ms; visible-motion p95 frame time stays below 20 ms; optional chunks do not load for reduced-motion/data-saver paths; offscreen work pauses; mobile/desktop p75 LCP <=2.5 s, INP <=200 ms, and CLS <=0.1.

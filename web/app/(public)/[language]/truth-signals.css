@@ -1,0 +1,157 @@
+.hero-proof {
+  position: absolute;
+  z-index: 3;
+  top: clamp(7rem, 10vw, 10rem);
+  left: var(--page-pad);
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 0 .65rem;
+  padding-top: .7rem;
+  border-top: 1px solid currentColor;
+}
+
+.hero-proof strong {
+  grid-row: span 2;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2rem, 4.2vw, 4.75rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 790;
+  line-height: .8;
+  letter-spacing: -.055em;
+}
+
+.hero-proof span { font-size: clamp(.9rem, 1.2vw, 1.2rem); }
+.hero-proof small { font-size: .62rem; text-transform: uppercase; }
+
+.activity-summary {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin: 3rem 0 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rice-paper);
+}
+
+.activity-summary strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2rem, 4vw, 4.25rem);
+  line-height: .9;
+  letter-spacing: -.045em;
+}
+
+.activity-summary span { max-width: 42rem; }
+.activity-warning strong { color: var(--field-acid); }
+
+.activity-events {
+  margin: auto 0;
+  padding: 0;
+  border-top: 1px solid color-mix(in srgb, var(--rice-paper) 35%, transparent);
+  list-style: none;
+}
+
+.activity-events li {
+  display: grid;
+  grid-template-columns: 5rem minmax(10rem, 1fr) minmax(9rem, auto) 4.5rem;
+  align-items: center;
+  gap: 1rem;
+  min-height: 6.5rem;
+  padding: .8rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rice-paper) 25%, transparent);
+}
+
+.activity-event-type {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  color: var(--field-acid);
+  text-transform: uppercase;
+}
+
+.activity-event-type::before {
+  width: .55rem;
+  aspect-ratio: 1;
+  border: 1px solid var(--rice-paper);
+  border-radius: 50%;
+  background: var(--field-acid);
+  content: "";
+}
+
+.activity-events strong { display: block; line-height: 1.05; }
+.activity-events p { margin: .25rem 0 0; color: color-mix(in srgb, var(--rice-paper) 74%, transparent); }
+.activity-events time, .activity-events > li > a { font-size: .58rem; text-transform: uppercase; }
+.activity-events > li > a { min-height: 2.75rem; display: flex; align-items: center; justify-content: end; }
+
+.activity-actions {
+  display: flex;
+  gap: 1rem;
+  margin: 2rem 0 0;
+}
+
+.activity-actions a {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: .7rem 0;
+  border-bottom: 1px solid var(--rice-paper);
+  font-family: var(--font-data), monospace;
+  font-size: .62rem;
+  text-transform: uppercase;
+}
+
+.illustrative-label {
+  width: max-content;
+  margin: auto 0 0;
+  padding: .55rem .7rem;
+  color: var(--commons-ink);
+  background: var(--field-acid);
+  text-transform: uppercase;
+}
+
+.quiet-orbit-unavailable i { opacity: .18; }
+.activity-state-loading .quiet-orbit i { opacity: .2; }
+
+.footer-statement { justify-self: end; }
+.footer-statement > p { margin: 0; text-align: right; }
+.footer-release-proof {
+  display: flex;
+  justify-content: end;
+  gap: .5rem;
+  margin: 0 0 .55rem;
+  font-size: .6rem;
+  text-transform: uppercase;
+}
+.footer-release-proof strong { font-size: inherit; }
+.footer-release-proof span { padding-left: .5rem; border-left: 1px solid currentColor; }
+
+html[data-motion="full"] .activity-state-live[data-motion-state="running"] .activity-event-type::before {
+  animation: accepted-event-pulse 2.8s ease-out infinite;
+}
+
+@keyframes accepted-event-pulse {
+  0%, 55%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--field-acid) 40%, transparent); }
+  75% { box-shadow: 0 0 0 .55rem transparent; }
+}
+
+@media (max-width: 900px) {
+  .activity-events li { grid-template-columns: 4.5rem 1fr auto; }
+  .activity-events time { grid-column: 2; }
+  .activity-events > li > a { grid-column: 3; grid-row: 1 / span 2; }
+}
+
+@media (max-width: 640px) {
+  .hero-proof { top: 6.2rem; grid-template-columns: auto 1fr; }
+  .hero-proof strong { font-size: 2rem; }
+  .hero-proof span { font-size: .82rem; }
+  .hero-proof small { font-size: .52rem; }
+  .activity-events li { grid-template-columns: 4.25rem 1fr; gap: .65rem; }
+  .activity-events time, .activity-events > li > a { grid-column: 2; grid-row: auto; justify-content: start; }
+  .activity-actions { flex-direction: column; gap: 0; }
+  .footer-statement { justify-self: start; }
+  .footer-statement > p, .footer-release-proof { justify-content: start; text-align: left; }
+  .footer-release-proof { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-event-type::before { animation: none !important; }
+}

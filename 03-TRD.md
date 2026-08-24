@@ -52,6 +52,13 @@ foods_odbl               -- ODbL, opt-in v1 integration. Separate export path.
 foods_custom             -- private to one user, never exported in bulk
   id, user_id, name, nutrients_json, portions_json, created_at
 
+contribution_drafts      -- owner-scoped operational proposals; not accepted food data
+  id, user_id, client_draft_id, workflow_version, draft_version, review_state,
+  fields_json, duplicate_candidates_json, submission_id, submission_key_hash,
+  submitted_at, created_at, updated_at
+contribution_draft_operations
+  draft_id, operation_id, resulting_version, created_at
+
 recipes
   id, user_id, name, yield_grams, is_public
 recipe_ingredients
@@ -149,6 +156,10 @@ are documented in `docs/api-contracts.md`.
 ```
 POST   /auth/register | /auth/login | /auth/logout
 GET    /auth/session
+POST   /contribution-drafts
+GET    /contribution-drafts/{id}?requested_stage=
+PATCH  /contribution-drafts/{id}
+POST   /contribution-drafts/{id}/submit
 GET    /foods/capabilities
 GET    /foods/search?q=&locale=&source=&limit=&cursor=
 GET    /foods/{source}/{id}

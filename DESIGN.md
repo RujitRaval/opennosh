@@ -87,7 +87,9 @@ Never reuse the Signal Tomato “nosh” accent on a Signal Tomato surface. Logo
 - **Data, labels, tables, and code:** IBM Plex Mono with tabular numerals for quantities, timestamps, versions, identifiers, and nutrition values.
 - **Multilingual fallback:** Noto Sans for content in scripts not covered by the primary families. Never transliterate a food name merely to fit the brand font.
 
-Self-host variable WOFF2 files in production, preload only the above-fold weights, and use `font-display: swap`. External font CDNs are prototype-only.
+Self-host variable WOFF2 files in production and use `font-display: swap`. Add preloads only when
+production route-isolation evidence proves they stay on the public surface; external font CDNs are
+prototype-only.
 
 ### Scale
 
@@ -126,6 +128,16 @@ Tight tracking belongs only on large Archivo headlines. Body copy keeps normal t
 | `info` | `#3157C8` | Neutral system guidance |
 
 Pair color with text or iconography. Never encode provenance, validation, or nutrition meaning through color alone.
+
+### Runtime token contract
+
+`web/app/(public)/[language]/tokens.css` is the CSS-native source of truth. It scopes the system to `:root[data-surface="public"]`; the Tracker document never imports it.
+
+- Core values use `--color-commons-ink`, `--color-rice-paper`, `--color-signal-tomato`, `--color-field-acid`, and `--color-dataset-indigo`.
+- Components prefer semantic roles: `--color-text`, `--color-surface`, `--color-action`, `--color-accepted`, `--color-data`, and `--color-border`.
+- Type roles use `--font-display`, `--font-body`, and `--font-data`; spacing uses the `--space-*` scale.
+- Every interactive public surface uses `--focus-ring` and `--focus-gap`. Dark, Indigo, Tomato, and Ink stages override those roles with a tested 3:1-or-better focus treatment.
+- Raw core palette literals are allowed only in `tokens.css` and the approved outlined SVG assets. Validation rejects copies elsewhere in public source.
 
 ### Dark mode
 
@@ -197,7 +209,11 @@ Every public record exposes nutrients, portions, cuisine or locale, provenance, 
 
 ### Contribution flow
 
-Use three chapters: name and context, ingredients and portions, then sources and review. Explain why evidence is requested. Preserve contributor intent and original units. Git remains the source of truth; do not create a second independently editable food database.
+Use three chapters across five stages: begin the record with evidence and details, verify the claim
+with duplicate checking and provenance, then send the exact proposal to review. Explain why evidence
+is requested. Preserve contributor intent, source terms, public credit, and original units beside
+canonical grams. Device and server drafts are operational proposals, not accepted food data; Git
+and verified releases remain the source of truth for the published commons.
 
 ### Provenance
 
@@ -237,6 +253,16 @@ Suggested fields: `event_type`, `food_or_pack_id`, `food_locale`, `accepted_at`,
 - Search may expand into results; accepted contributions may create a restrained pulse; headlines may change width or weight between chapters.
 - Do not use splash loaders, scroll hijacking, forced parallax, autoplay audio, or motion that blocks content.
 - Respect `prefers-reduced-motion` by removing loops and making state changes immediate.
+- The public document starts with `data-motion="off"`; headings, navigation, status, and actions are
+  complete and visible before JavaScript runs. Motion never reveals required content.
+- The optional controller loads after browser readiness only when reduced-motion, data-saver, slow
+  network, low-power, and the build-time decoration kill switch allow it.
+- At most two visible motion regions may run. Hidden tabs and offscreen regions pause, and frame or
+  long-task budget breaches disable decoration for the remainder of the page visit.
+- Motion source is limited to 12 KB gzip, the attributed public design delta to 45 KB gzip, motion
+  tasks to 50 ms, and visible-motion p95 frames to less than 20 ms.
+- `make motion-performance-check` is the executable contract. Its desktop/mobile Core Web Vitals
+  gates are LCP <=2.5 s, INP <=200 ms, and CLS <=0.1.
 
 ## Accessibility
 
@@ -278,9 +304,11 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 
 ## Production delivery contract
 
-- `web/app/(public)/[language]/public.css` is the runtime source for public color, spacing, grid, motion, and responsive tokens.
-- `web/assets/fonts/` contains the self-hosted production font subsets and their retained licenses; the public root alone imports them through `web/lib/public-fonts.ts`.
-- `web/public/brand/` contains outlined SVG wordmarks for every approved surface. Components select a named surface through `web/lib/brand-assets.ts`; they never recolor one generic asset.
+- `web/app/base.css` contains surface-neutral document primitives. `web/app/(public)/[language]/tokens.css` is the runtime source for public color, type, spacing, radius, focus, and motion tokens; `public.css` composes with those tokens.
+- `web/assets/fonts/v1/` contains the immutable self-hosted production font files and their retained licenses. `web/lib/public-font-assets.ts` records their version and SHA-256; the public root alone imports them through its route-local `fonts.ts`.
+- Next.js 16 automatic font preloads remain disabled because its production manifest hoists them across independent root route groups. Public CSS still loads the self-hosted faces on demand; T25 owns a measured, route-isolated preload strategy.
+- `web/public/brand/v1/` contains outlined SVG wordmarks for every approved surface. Components select a named, contrast-checked mapping through the typed `web/lib/brand-assets.ts` manifest; they never recolor one generic asset.
+- `npm --prefix web run check:design-system` validates token values, raw-literal containment, asset hashes, SVG outlines, every colorway's intended-surface contrast, offline completeness, focus roles, and source-level Tracker isolation. `npm --prefix web run build` also rejects production font manifests that preload public fonts on Tracker routes.
 - `web/lib/public-navigation.ts` and `web/lib/routes.ts` are the typed source of truth for the four public hubs, interface-language fallback, feature-gated child links, and Tracker routes.
 - The public and tracker route groups are independent document roots. Public brand CSS and fonts must not enter the tracker bundle.
 - Proposed changes to identity, type roles, core palette, voice, or measurement behavior require updating this contract and its tests in the same change.

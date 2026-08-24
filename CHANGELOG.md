@@ -2,32 +2,124 @@
 
 All notable changes to opennosh will be documented in this file.
 
-## [0.31.0.0] - 2026-08-23
-
-### Added
-
-- Let anyone open a public food record and see its identity, preparation, selected household
-  portion, nutrition, source, release version, license, uncertainty, and provenance together.
-- Add Metric and US portion displays while retaining canonical grams, complete nutrient and
-  evidence ledgers, an honest record-history surface, correction links, and reusable API access.
-- Keep explicitly related food records separate when values or licenses disagree, without
-  averaging conflicts into a score or guessing relationships from fuzzy search results.
+## [0.35.0.0] - 2026-08-24
 
 ### Changed
 
-- Server-render complete food-record content so identity, trust, nutrients, source, license, and
-  provenance remain available without JavaScript; client code now owns only controls and retry.
-- Show missing verification, revision, source, and contributor facts as unavailable instead of
-  inventing proof, and keep Tracker navigation generic until record handoff is implemented.
+- Refresh the approved Living Commons reference so the finalized Explore, Contribute, Commons, and
+  Build hubs read as one movement while Tracker remains a clearly separate utility.
+- Make the reference trustworthy at every viewport with a fixed verified-record snapshot, an honest
+  quiet Commons state, trust-first food records, the complete contribution journey, and six
+  surface-correct production wordmarks.
+- Record reproducible acceptance evidence, responsive browser checks, design-audit results, and
+  exact source hashes for the persistent reference artifact.
+
+## [0.34.0.0] - 2026-08-24
+
+### Added
+
+- Establish the canonical Living Commons design system with scoped public tokens, six approved
+  wordmark colorways, and versioned self-hosted Archivo, Source Sans 3, and IBM Plex Mono assets.
+- Add automated logo, typography, color, contrast, focus, offline-asset, and route-isolation checks
+  to the local, build, and continuous-integration quality gates.
+
+### Changed
+
+- Give the public website semantic type, color, spacing, radius, motion, light, and dark roles while
+  preserving the Tracker's independent Trebuchet-based visual contract.
+- Load public fonts only when a public route uses them, avoiding automatic preloads on independent
+  Tracker routes and removing 119,488 bytes of unused font transfers from a direct Tracker visit.
 
 ### Fixed
 
-- Preserve valid BCP 47 food-locale preferences, omit the locale filter when no preference is
-  selected, and reset record identity safely across route changes.
-- Keep the primary trusted record visible without waiting on optional relationships, reject fuzzy
-  same-food inference, and bound server API reads with an honest retryable failure state.
-- Reflow the full trust hierarchy at mobile and 200-percent zoom-equivalent widths, preserve
-  canonical units, expose accessible focus and contrast states, and honor reduced motion.
+- Keep every approved opennosh wordmark legible on its intended surface and validate each exact
+  foreground-to-background pairing instead of relying on a self-referential asset manifest.
+- Resolve public font-variable aliases at the same scope as the generated font definitions so the
+  intended display, reading, and data typefaces render reliably in production.
+
+## [0.33.0.0] - 2026-08-24
+
+### Added
+
+- Start a food-record proposal at `/en/contribute` and move through evidence, details, duplicate
+  checking, provenance, and exact-proposal review without needing Git knowledge.
+- Save work immediately on the device, sign in only when handing it over, resume an authenticated
+  server draft, and follow a stable server-verified receipt after submission.
+- Add owner-scoped contribution-draft APIs with optimistic versions, idempotent field patches and
+  submission, capability-based stage repair, duplicate rechecking, and a truthful review receipt.
+
+### Changed
+
+- Preserve original grams, ounces, pounds, or serving units beside canonical grams, keep contributor
+  credit and source terms visible, and separate review intake from accepted public data.
+- Publish the real contribution entry point in the public navigation and use a responsive
+  three-chapter, five-stage layout with error focus, compact progress, and safe-area actions.
+
+### Fixed
+
+- Prevent stage navigation from reloading a server draft over unsynced device edits, and isolate
+  those edits from the anonymous device draft.
+- Keep both halves of the wordmark visible on Tomato contribution surfaces, avoid mobile actions
+  covering form choices, and keep deep-route header context from sending contributors backward.
+- Recheck exact-name duplicates on the server, require review of every newly found candidate, and
+  prevent repeated device handoffs or submit retries from creating duplicate drafts or receipts.
+- Mark every private contribution-draft API response as non-cacheable and provide a recoverable
+  error state when a server draft cannot be opened.
+
+## [0.32.0.0] - 2026-08-24
+
+### Added
+
+- Add a signed latest-release pointer and content-addressed release-manifest reader with typed live,
+  quiet, stale, partial, illustrative, and unavailable public commons snapshot states.
+- Add the database-independent `/api/v1/public/commons-snapshot` endpoint, generated web contract,
+  stable domain adapter, exact-content ETags, and read-only Compose artifact mount.
+- Add verified hero and footer counts plus accepted-activity events, proof metadata, quiet recovery
+  actions, stale age, and visibly non-production illustrative fixtures.
+
+### Changed
+
+- Resolve one immutable snapshot on the server and pass it through the homepage render tree so hero,
+  activity, freshness, and footer cannot drift across release boundaries.
+- Delay optional decoration until streamed content hydrates and keep unavailable, quiet, stale,
+  partial, reduced-motion, data-saver, low-power, and no-JavaScript paths free of speculative motion.
+
+### Fixed
+
+- Never display a verified record count or accepted event when the latest pointer, signed manifest,
+  API response, or first published release cannot be trusted.
+- Bind cache validators to exact snapshot content and distinguish missing first-run artifacts from
+  invalid signed pointers.
+- Keep release signing authority offline with Ed25519 public-key verification, reject release
+  rollback or equivocation through a durable checkpoint, and bound manifest and snapshot sizes.
+- Preserve public conditional-cache headers through the web ingress and use the approved five-minute
+  activity and revalidation bucket.
+
+## [0.30.0.0] - 2026-08-23
+
+### Added
+
+- Add a CSS-first Living Commons movement layer whose full content and actions remain present in
+  server-rendered HTML before JavaScript or animation is available.
+- Add a small preference and device-capability gate, a separately loaded visibility controller,
+  offscreen/background pausing, a two-region activity cap, and automatic decoration shutdown when
+  frame or main-thread budgets are breached.
+- Capture browser Web Vitals locally and expose a same-page custom event for future first-party
+  telemetry without sending visitor measurements to an external service.
+- Add an emitted-chunk budget audit and six-profile production browser benchmark covering desktop,
+  mobile, reduced motion, data saver, low power, and no JavaScript, with CI artifacts for review.
+
+### Changed
+
+- Run ambient orbit, ribbon, and section-settle effects only after the client proves the visitor is
+  eligible and the corresponding region is visible.
+- Gate release quality on a 12 KB gzip motion ceiling, a 45 KB gzip public design-delta ceiling,
+  50 ms long-task and 20 ms p95 frame limits, and the Core Web Vitals good thresholds.
+
+### Fixed
+
+- Prevent reduced-motion, data-saver, and low-power visitors from starting the optional movement
+  runtime, while preserving the same readable, actionable public experience.
 
 ## [0.29.0.0] - 2026-08-23
 

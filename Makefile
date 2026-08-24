@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check benchmark-corpus benchmark-run benchmark-extraction web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -13,7 +13,7 @@ typecheck:
 	uv run mypy --strict benchmarks/performance
 	npm --prefix web run typecheck
 
-test: foodpack-validate benchmark-contract-check database-capacity-check
+test: contracts-check foodpack-validate benchmark-contract-check database-capacity-check design-system-check
 	PYTHONPATH=api:. uv run pytest
 	PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
@@ -44,6 +44,9 @@ benchmark-contract-check:
 database-capacity-check:
 	PYTHONPATH=api:. uv run python scripts/check_database_capacity.py
 
+design-system-check:
+	npm --prefix web run check:design-system
+
 benchmark-corpus:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.corpus --profile $${PROFILE:-launch-reference} --output $${OUTPUT:--}
 
@@ -52,6 +55,10 @@ benchmark-run:
 
 benchmark-extraction:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.extraction $${ARTIFACT_DIRS}
+
+motion-performance-check: build
+	npm --prefix web run check:motion-budgets
+	npm --prefix web run benchmark:motion -- --output test-results/motion-performance.json
 
 web-e2e:
 	npm --prefix web run test:e2e

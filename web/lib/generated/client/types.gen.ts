@@ -5,6 +5,46 @@ export type ClientOptions = {
 };
 
 /**
+ * AcceptedActivityEvent
+ */
+export type AcceptedActivityEvent = {
+    /**
+     * Accepted At
+     */
+    accepted_at: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    event_type: AcceptedEventType;
+    /**
+     * Food Locale
+     */
+    food_locale: string;
+    /**
+     * Food Or Pack Id
+     */
+    food_or_pack_id: string;
+    /**
+     * Public Contributor Credit
+     */
+    public_contributor_credit?: string | null;
+    /**
+     * Source Commit
+     */
+    source_commit: string;
+    /**
+     * Summary
+     */
+    summary: string;
+};
+
+/**
+ * AcceptedEventType
+ */
+export type AcceptedEventType = 'food' | 'source' | 'portion' | 'pack';
+
+/**
  * AccountExport
  */
 export type AccountExport = {
@@ -163,6 +203,61 @@ export type BodyMetricWrite = {
 };
 
 /**
+ * CommonsActivityWindow
+ */
+export type CommonsActivityWindow = {
+    /**
+     * Accepted Count
+     */
+    accepted_count: number;
+    /**
+     * Ends At
+     */
+    ends_at: string;
+    /**
+     * Events
+     */
+    events?: Array<AcceptedActivityEvent>;
+    most_recent_verified_record?: MostRecentVerifiedRecord | null;
+    /**
+     * Starts At
+     */
+    starts_at: string;
+};
+
+/**
+ * CommonsComponentFreshness
+ */
+export type CommonsComponentFreshness = {
+    /**
+     * Activity
+     */
+    activity: 'verified' | 'partial' | 'stale' | 'unavailable';
+    /**
+     * Checked At
+     */
+    checked_at: string;
+    /**
+     * Release
+     */
+    release: 'verified' | 'stale' | 'unavailable';
+    /**
+     * Stale Since
+     */
+    stale_since?: string | null;
+};
+
+/**
+ * CommonsSnapshotReason
+ */
+export type CommonsSnapshotReason = 'activity_projection_lag' | 'invalid_latest_pointer' | 'invalid_release_manifest' | 'latest_release_unavailable' | 'no_published_release';
+
+/**
+ * CommonsSnapshotState
+ */
+export type CommonsSnapshotState = 'live' | 'quiet' | 'stale' | 'partial' | 'illustrative' | 'unavailable';
+
+/**
  * CommunityFoodExport
  */
 export type CommunityFoodExport = {
@@ -272,6 +367,271 @@ export type CommunityFoodExportEntry = {
      * Source Uri
      */
     source_uri: string | null;
+};
+
+/**
+ * ContributionBlocker
+ */
+export type ContributionBlocker = {
+    /**
+     * Code
+     */
+    code: string;
+    field?: ContributionFieldName | null;
+    /**
+     * Message
+     */
+    message: string;
+    stage: ContributionStage;
+};
+
+/**
+ * ContributionCapability
+ */
+export type ContributionCapability = {
+    /**
+     * Accessible Stages
+     */
+    accessible_stages: Array<ContributionStage>;
+    /**
+     * Blockers
+     */
+    blockers: Array<ContributionBlocker>;
+    /**
+     * Completed Stages
+     */
+    completed_stages: Array<ContributionStage>;
+    /**
+     * Draft Id
+     */
+    draft_id: string;
+    /**
+     * Draft Version
+     */
+    draft_version: number;
+    /**
+     * Duplicate Candidates
+     */
+    duplicate_candidates: Array<DuplicateCandidate>;
+    fields: ContributionDraftFields;
+    next_safe_stage: ContributionStage;
+    receipt?: ContributionReceipt | null;
+    /**
+     * Repair Reason
+     */
+    repair_reason?: 'unknown_stage' | 'stage_not_accessible' | null;
+    requested_stage: ContributionStage;
+    resolved_stage: ContributionStage;
+    review_state: ContributionReviewState;
+    /**
+     * Saved At
+     */
+    saved_at: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1';
+    /**
+     * Workflow Version
+     */
+    workflow_version?: '1';
+};
+
+/**
+ * ContributionDraftCreate
+ */
+export type ContributionDraftCreate = {
+    /**
+     * Client Draft Id
+     */
+    client_draft_id?: string | null;
+};
+
+/**
+ * ContributionDraftFields
+ */
+export type ContributionDraftFields = {
+    /**
+     * Attribution
+     */
+    attribution?: string | null;
+    /**
+     * Carbohydrate G
+     */
+    carbohydrate_g?: string | null;
+    /**
+     * Category
+     */
+    category?: string | null;
+    /**
+     * Duplicates Resolved
+     */
+    duplicates_resolved?: boolean;
+    /**
+     * Energy Kcal
+     */
+    energy_kcal?: string | null;
+    evidence_type?: ContributionEvidenceType | null;
+    /**
+     * Fat G
+     */
+    fat_g?: string | null;
+    /**
+     * Ingredients
+     */
+    ingredients?: string | null;
+    /**
+     * Locale
+     */
+    locale?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Name Local
+     */
+    name_local?: string | null;
+    /**
+     * Pack Id
+     */
+    pack_id?: string | null;
+    /**
+     * Portion Amount
+     */
+    portion_amount?: string | null;
+    /**
+     * Portion Description
+     */
+    portion_description?: string | null;
+    /**
+     * Portion Grams
+     */
+    portion_grams?: string | null;
+    /**
+     * Portion Unit
+     */
+    portion_unit?: 'g' | 'oz' | 'lb' | 'serving' | null;
+    /**
+     * Protein G
+     */
+    protein_g?: string | null;
+    /**
+     * Review Acknowledged
+     */
+    review_acknowledged?: boolean;
+    /**
+     * Rights Acknowledged
+     */
+    rights_acknowledged?: boolean;
+    /**
+     * Source Date
+     */
+    source_date?: string | null;
+    source_license?: ContributionSourceLicense | null;
+    /**
+     * Source Uri
+     */
+    source_uri?: string | null;
+};
+
+/**
+ * ContributionDraftPatch
+ */
+export type ContributionDraftPatch = {
+    /**
+     * Expected Draft Version
+     */
+    expected_draft_version: number;
+    /**
+     * Operation Id
+     */
+    operation_id: string;
+    /**
+     * Patches
+     */
+    patches: Array<ContributionFieldPatch>;
+    requested_stage?: ContributionStage | null;
+};
+
+/**
+ * ContributionEvidenceType
+ */
+export type ContributionEvidenceType = 'packaging_label' | 'government_database' | 'public_document' | 'maintainer_attestation';
+
+/**
+ * ContributionFieldName
+ */
+export type ContributionFieldName = 'evidence_type' | 'source_uri' | 'rights_acknowledged' | 'name' | 'name_local' | 'locale' | 'category' | 'portion_description' | 'portion_amount' | 'portion_unit' | 'portion_grams' | 'energy_kcal' | 'protein_g' | 'fat_g' | 'carbohydrate_g' | 'ingredients' | 'duplicates_resolved' | 'pack_id' | 'source_date' | 'attribution' | 'source_license' | 'review_acknowledged';
+
+/**
+ * ContributionFieldPatch
+ */
+export type ContributionFieldPatch = {
+    field: ContributionFieldName;
+    /**
+     * Value
+     */
+    value: string | number | string | boolean | null;
+};
+
+/**
+ * ContributionReceipt
+ */
+export type ContributionReceipt = {
+    /**
+     * Acknowledgement Due At
+     */
+    acknowledgement_due_at: string;
+    /**
+     * Attribution
+     */
+    attribution: string;
+    /**
+     * Status
+     */
+    status?: 'received_for_review';
+    /**
+     * Status Href
+     */
+    status_href: string;
+    /**
+     * Submission Id
+     */
+    submission_id: string;
+    /**
+     * Submitted At
+     */
+    submitted_at: string;
+};
+
+/**
+ * ContributionReviewState
+ */
+export type ContributionReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved' | 'publication_pending' | 'published';
+
+/**
+ * ContributionSourceLicense
+ */
+export type ContributionSourceLicense = 'contributor-original' | 'CC0-1.0' | 'public-domain';
+
+/**
+ * ContributionStage
+ */
+export type ContributionStage = 'evidence' | 'details' | 'duplicates' | 'provenance' | 'review';
+
+/**
+ * ContributionSubmit
+ */
+export type ContributionSubmit = {
+    /**
+     * Expected Draft Version
+     */
+    expected_draft_version: number;
+    /**
+     * Idempotency Key
+     */
+    idempotency_key: string;
 };
 
 /**
@@ -421,6 +781,28 @@ export type DailyTotalsResponse = {
      * Timezone
      */
     timezone: string;
+};
+
+/**
+ * DuplicateCandidate
+ */
+export type DuplicateCandidate = {
+    /**
+     * Locale
+     */
+    locale?: string | null;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Source
+     */
+    source: 'community' | 'usda';
+    /**
+     * Source Id
+     */
+    source_id: string;
 };
 
 /**
@@ -1106,6 +1488,32 @@ export type LoggedFood = {
 };
 
 /**
+ * MostRecentVerifiedRecord
+ */
+export type MostRecentVerifiedRecord = {
+    /**
+     * Food Locale
+     */
+    food_locale: string;
+    /**
+     * Href
+     */
+    href: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Record Id
+     */
+    record_id: string;
+    /**
+     * Verified At
+     */
+    verified_at: string;
+};
+
+/**
  * NutrientProfile
  *
  * The single internal storage basis used by calculations and persistence.
@@ -1424,6 +1832,58 @@ export type ProblemDetails = {
      * Type
      */
     type: string;
+};
+
+/**
+ * PublicCommonsSnapshot
+ */
+export type PublicCommonsSnapshot = {
+    activity: CommonsActivityWindow;
+    /**
+     * As Of
+     */
+    as_of: string;
+    freshness: CommonsComponentFreshness;
+    /**
+     * Reasons
+     */
+    reasons?: Array<CommonsSnapshotReason>;
+    release: PublicReleaseProof | null;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1';
+    /**
+     * Snapshot Id
+     */
+    snapshot_id: string;
+    state: CommonsSnapshotState;
+    /**
+     * Verified Record Count
+     */
+    verified_record_count: number | null;
+};
+
+/**
+ * PublicReleaseProof
+ */
+export type PublicReleaseProof = {
+    /**
+     * Manifest Digest
+     */
+    manifest_digest: string;
+    /**
+     * Publication Receipt Digest
+     */
+    publication_receipt_digest: string;
+    /**
+     * Published At
+     */
+    published_at: string;
+    /**
+     * Version
+     */
+    version: string;
 };
 
 /**
@@ -2707,6 +3167,286 @@ export type DeleteApiV1BodyMetricsMetricIdDeleteResponses = {
 
 export type DeleteApiV1BodyMetricsMetricIdDeleteResponse = DeleteApiV1BodyMetricsMetricIdDeleteResponses[keyof DeleteApiV1BodyMetricsMetricIdDeleteResponses];
 
+export type CreateApiV1ContributionDraftsPostData = {
+    body: ContributionDraftCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/contribution-drafts';
+};
+
+export type CreateApiV1ContributionDraftsPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CreateApiV1ContributionDraftsPostError = CreateApiV1ContributionDraftsPostErrors[keyof CreateApiV1ContributionDraftsPostErrors];
+
+export type CreateApiV1ContributionDraftsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ContributionCapability;
+};
+
+export type CreateApiV1ContributionDraftsPostResponse = CreateApiV1ContributionDraftsPostResponses[keyof CreateApiV1ContributionDraftsPostResponses];
+
+export type ReadApiV1ContributionDraftsDraftIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: {
+        /**
+         * Requested Stage
+         */
+        requested_stage?: string | null;
+    };
+    url: '/api/v1/contribution-drafts/{draft_id}';
+};
+
+export type ReadApiV1ContributionDraftsDraftIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReadApiV1ContributionDraftsDraftIdGetError = ReadApiV1ContributionDraftsDraftIdGetErrors[keyof ReadApiV1ContributionDraftsDraftIdGetErrors];
+
+export type ReadApiV1ContributionDraftsDraftIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ContributionCapability;
+};
+
+export type ReadApiV1ContributionDraftsDraftIdGetResponse = ReadApiV1ContributionDraftsDraftIdGetResponses[keyof ReadApiV1ContributionDraftsDraftIdGetResponses];
+
+export type PatchApiV1ContributionDraftsDraftIdPatchData = {
+    body: ContributionDraftPatch;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}';
+};
+
+export type PatchApiV1ContributionDraftsDraftIdPatchErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PatchApiV1ContributionDraftsDraftIdPatchError = PatchApiV1ContributionDraftsDraftIdPatchErrors[keyof PatchApiV1ContributionDraftsDraftIdPatchErrors];
+
+export type PatchApiV1ContributionDraftsDraftIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ContributionCapability;
+};
+
+export type PatchApiV1ContributionDraftsDraftIdPatchResponse = PatchApiV1ContributionDraftsDraftIdPatchResponses[keyof PatchApiV1ContributionDraftsDraftIdPatchResponses];
+
+export type SubmitApiV1ContributionDraftsDraftIdSubmitPostData = {
+    body: ContributionSubmit;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/submit';
+};
+
+export type SubmitApiV1ContributionDraftsDraftIdSubmitPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type SubmitApiV1ContributionDraftsDraftIdSubmitPostError = SubmitApiV1ContributionDraftsDraftIdSubmitPostErrors[keyof SubmitApiV1ContributionDraftsDraftIdSubmitPostErrors];
+
+export type SubmitApiV1ContributionDraftsDraftIdSubmitPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ContributionCapability;
+};
+
+export type SubmitApiV1ContributionDraftsDraftIdSubmitPostResponse = SubmitApiV1ContributionDraftsDraftIdSubmitPostResponses[keyof SubmitApiV1ContributionDraftsDraftIdSubmitPostResponses];
+
 export type SearchApiV1ExercisesSearchGetData = {
     body?: never;
     path?: never;
@@ -3983,6 +4723,77 @@ export type DetailApiV1LogsEntryIdGetResponses = {
 };
 
 export type DetailApiV1LogsEntryIdGetResponse = DetailApiV1LogsEntryIdGetResponses[keyof DetailApiV1LogsEntryIdGetResponses];
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * If-None-Match
+         */
+        'if-none-match'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/commons-snapshot';
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetError = CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors[keyof CommonsSnapshotApiV1PublicCommonsSnapshotGetErrors];
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicCommonsSnapshot;
+};
+
+export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponse = CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses[keyof CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses];
 
 export type ListAllApiV1RecipesGetData = {
     body?: never;

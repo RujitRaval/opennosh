@@ -64,3 +64,61 @@ snapshots, mismatched inputs, changed ranking policy, and retired keys return
 page. An unsupported signed cursor schema or ranking version also requires restart; a missing version
 is invalid. The API does not silently cross projection snapshots within a pagination journey. Its
 production entrypoint disables raw access logging so query and cursor parameters are not logged.
+
+## Public commons snapshot contract
+
+`GET /api/v1/public/commons-snapshot` returns schema version `1`. It is a rebuildable read model,
+not a trust root: release proof carries the signed manifest digest and publication-receipt digest.
+The activity window includes the total accepted count and at most the four newest event rows. Hero,
+activity, freshness, and footer consumers map the generated transport type into the handwritten
+`web/lib/api/domain/public-commons.ts` model through the adapter boundary.
+
+The latest pointer and release manifest are JSON signed envelopes with exactly four top-level
+fields: `schema_version`, `key_id`, `payload`, and `signature`. The signature is an unpadded base64url Ed25519 signature over UTF-8 canonical JSON for
+`payload` using sorted keys and compact separators. Verifier configuration uses comma-separated
+`key-id:unpadded-base64url-public-key` entries. The API receives public keys only; private signing
+keys remain in the offline publication boundary.
+
+The pointer payload binds `release_version`, a constrained
+`release-<four-part-version>.json` filename, and the SHA-256 digest of the complete signed manifest
+bytes. The release payload binds publication time and receipt digest, verified record count,
+projection completeness, bounded accepted events, and the optional most-recent verified record used
+for the quiet state. Event IDs are unique, event timestamps cannot exceed the publication time, and
+source commits are lowercase hexadecimal identifiers. Latest pointers are capped at 16 KiB, signed
+release manifests at 8 MiB and 10,000 events, and serialized public snapshots at 24 KiB. The
+five-minute snapshot bucket bounds the rolling window and cache identity.
+
+The API records the highest accepted release version, manifest digest, and publication time in
+`PUBLIC_COMMONS_CHECKPOINT_PATH`. A lower signed version, a different manifest for an already
+trusted version, or a publication-time rollback fails closed even after restart. The checkpoint must
+be on durable writable storage; the signed artifact mount remains read-only.
+
+Snapshot states are `live`, `quiet`, `stale`, `partial`, `illustrative`, and `unavailable`. Verified
+states require release proof and a count. Illustrative and unavailable states cannot claim either.
+A projection lag is partial, a later verification failure is stale, and first-run absence or invalid
+artifacts are unavailable. The web adapter rejects malformed state, count, proof, activity-window,
+or reason combinations and falls back without a number or fabricated activity.
+
+## Contribution draft contract
+
+The authenticated contribution write model lives under `/api/v1/contribution-drafts`. Create,
+patch, and submit require CSRF protection; reads require the owner session. Another owner receives
+the same not-found response as a missing draft.
+
+`POST /api/v1/contribution-drafts` accepts an optional device `client_draft_id`. Repeating that
+handoff for the same owner returns the existing draft. `PATCH
+/api/v1/contribution-drafts/{draft_id}` accepts an expected positive `draft_version`, one
+`operation_id`, an optional requested stage, and 1–25 typed field patches. Replaying an operation
+is idempotent. A stale expected version returns conflict instead of overwriting newer work.
+
+`GET /api/v1/contribution-drafts/{draft_id}?requested_stage=...` and every successful mutation
+return one schema-version-1 capability document: workflow and draft versions, review state,
+completed and accessible stages, field-addressed blockers, next and resolved safe stages, repair
+reason, saved time, normalized fields, at most five exact-name duplicate candidates, and an
+optional receipt. Unknown or inaccessible stage requests resolve to the nearest safe stage rather
+than authorizing a forged URL.
+
+`POST /api/v1/contribution-drafts/{draft_id}/submit` accepts the expected draft version and an
+idempotency key. The server rechecks duplicates and every stage before moving the draft to
+`in_review`. The receipt says `received_for_review` and includes a submission ID, timestamps,
+public attribution, and stable status path. It never claims approval, acceptance, or publication.

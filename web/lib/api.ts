@@ -2,6 +2,10 @@ import type {
   AuthenticatedUser as TransportUser,
   BodyMetricListResponse as TransportMetricList,
   BodyMetricTrendResponse as TransportMetricTrend,
+  ContributionCapability as TransportContributionCapability,
+  ContributionDraftCreate,
+  ContributionDraftPatch,
+  ContributionSubmit,
   CustomFoodResponse as TransportCustomFood,
   DailyTotalsRangeResponse as TransportTotalsRange,
   DailyTotalsResponse as TransportTotals,
@@ -17,6 +21,7 @@ import type {
   WorkoutTrendResponse as TransportWorkoutTrend,
 } from "./generated/client/types.gen";
 import { authenticatedUser, sessionResponse } from "./api/adapters/auth";
+import { contributionCapability } from "./api/adapters/contributions";
 import {
   barcodeFood,
   customFood,
@@ -47,6 +52,29 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }).then(sessionResponse),
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
+  createContributionDraft: (input: ContributionDraftCreate = {}) =>
+    request<TransportContributionCapability>("/api/v1/contribution-drafts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then(contributionCapability),
+  contributionDraft: (draftId: string, requestedStage?: string) =>
+    request<TransportContributionCapability>(
+      `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}${
+        requestedStage
+          ? `?${new URLSearchParams({ requested_stage: requestedStage })}`
+          : ""
+      }`,
+    ).then(contributionCapability),
+  patchContributionDraft: (draftId: string, input: ContributionDraftPatch) =>
+    request<TransportContributionCapability>(
+      `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+    ).then(contributionCapability),
+  submitContributionDraft: (draftId: string, input: ContributionSubmit) =>
+    request<TransportContributionCapability>(
+      `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/submit`,
+      { method: "POST", body: JSON.stringify(input) },
+    ).then(contributionCapability),
   logs: (day: string, timezone: string) =>
     request<TransportLogList>(
       `/api/v1/logs?${new URLSearchParams({ day, timezone, limit: "100" })}`,

@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { PublicFooter } from "@/components/public/public-footer";
+import { AcceptedActivity, HeroReleaseProof } from "@/components/public/public-truth-signals";
+import type { PublicCommonsSnapshot } from "@/lib/api/domain/public-commons";
+import { getPublicCommonsSnapshot } from "@/lib/public-commons";
+
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 
 const foods = ["Jollof rice", "Masala dosa", "Mole poblano", "Gaeng keow wan", "Ful medames", "Feijoada"];
@@ -11,14 +16,28 @@ export default async function PublicHome({
 }) {
   const { language } = await params;
 
+  const snapshot = await getPublicCommonsSnapshot();
+
+  return <PublicHomeView language={language} snapshot={snapshot} />;
+}
+
+export function PublicHomeView({
+  language,
+  snapshot,
+}: {
+  language: InterfaceLanguage;
+  snapshot: PublicCommonsSnapshot;
+}) {
   return (
-    <main id="main-content">
-      <section className="hero" aria-labelledby="hero-title">
+    <>
+      <main id="main-content">
+      <section className="hero" aria-labelledby="hero-title" data-motion-region="hero">
         <div className="hero-grid" aria-hidden="true" />
         <div className="hero-meta mono">
           <span>The open food commons</span>
           <span>CC0 · public · versioned</span>
         </div>
+        <HeroReleaseProof snapshot={snapshot} language={language} />
         <h1 id="hero-title" className="hero-title">
           <span>Food data</span>
           <span>belongs to</span>
@@ -39,13 +58,13 @@ export default async function PublicHome({
         </div>
       </section>
 
-      <div className="food-ribbon" aria-label="Foods the commons should represent">
+      <div className="food-ribbon" aria-label="Foods the commons should represent" data-motion-region="ribbon">
         <div className="ribbon-track">
           {[...foods, ...foods].map((food, index) => <span key={`${food}-${index}`}>{food}<i aria-hidden="true">◆</i></span>)}
         </div>
       </div>
 
-      <section className="explore-stage" id="explore" aria-labelledby="explore-title">
+      <section className="explore-stage motion-stage" id="explore" aria-labelledby="explore-title" data-motion-region="explore">
         <p className="section-index mono">01 / Explore</p>
         <div className="stage-heading">
           <h2 id="explore-title">Find the food.<br />See the source.</h2>
@@ -63,25 +82,16 @@ export default async function PublicHome({
         </div>
       </section>
 
-      <section className="commons-stage" id="commons" aria-labelledby="commons-title">
+      <section className="commons-stage motion-stage" id="commons" aria-labelledby="commons-title" data-motion-region="commons">
         <div className="commons-copy">
           <p className="section-index mono">02 / Commons</p>
           <h2 id="commons-title">A commons earns trust in public.</h2>
           <p>Accepted changes will become movement: new foods, verified portions, source additions, and published packs—drawn only from real repository events.</p>
         </div>
-        <div className="activity-field">
-          <div className="activity-head mono"><span>Contributions / last 24h</span><span>Production state</span></div>
-          <div className="quiet-orbit" aria-hidden="true"><i /><i /><i /></div>
-          <p className="quiet-state"><strong>No accepted changes to report yet.</strong><span>This area stays quiet until production events exist. No sample count is presented as fact.</span></p>
-          <dl className="activity-legend mono">
-            <div><dt>Food</dt><dd>Accepted new record</dd></div>
-            <div><dt>Source</dt><dd>Evidence attached</dd></div>
-            <div><dt>Pack</dt><dd>Version published</dd></div>
-          </dl>
-        </div>
+        <AcceptedActivity snapshot={snapshot} language={language} />
       </section>
 
-      <section className="contribute-stage" id="contribute" aria-labelledby="contribute-title">
+      <section className="contribute-stage motion-stage" id="contribute" aria-labelledby="contribute-title" data-motion-region="contribute">
         <p className="section-index mono">03 / Contribute</p>
         <div className="stage-heading">
           <h2 id="contribute-title">What is missing<br /><span>belongs here too.</span></h2>
@@ -95,7 +105,7 @@ export default async function PublicHome({
         <a className="text-arrow-link" href="https://github.com/RujitRaval/opennosh/blob/main/CONTRIBUTING.md">Read the contribution guide <span aria-hidden="true">↗</span></a>
       </section>
 
-      <section className="build-stage" id="build" aria-labelledby="build-title">
+      <section className="build-stage motion-stage" id="build" aria-labelledby="build-title" data-motion-region="build">
         <p className="section-index mono">04 / Build</p>
         <div className="stage-heading">
           <h2 id="build-title">Take the data.<br />Make it useful.</h2>
@@ -109,11 +119,13 @@ export default async function PublicHome({
         </div>
       </section>
 
-      <section className="closing-stage" aria-labelledby="closing-title">
+      <section className="closing-stage motion-stage" aria-labelledby="closing-title" data-motion-region="closing">
         <p className="mono">The commons begins with what we can document together.</p>
         <h2 id="closing-title">Open the<br />record.</h2>
         <a className="closing-link" href="https://github.com/RujitRaval/opennosh"><span>Join on GitHub</span><span aria-hidden="true">↗</span></a>
       </section>
-    </main>
+      </main>
+      <PublicFooter language={language} snapshot={snapshot} />
+    </>
   );
 }

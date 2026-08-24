@@ -1,0 +1,93 @@
+:root[data-surface="public"] {
+  color-scheme: light;
+
+  /* Canonical Living Commons palette. Raw brand values belong only here and in v1 SVGs. */
+  --color-commons-ink: #12120f;
+  --color-rice-paper: #f4f0e6;
+  --color-signal-tomato: #f04e35;
+  --color-field-acid: #d7f34c;
+  --color-dataset-indigo: #5848e8;
+  --color-success: #176b43;
+  --color-warning: #9a5b00;
+  --color-error: #b3261e;
+  --color-info: #3157c8;
+
+  /* Stable public aliases retained for component CSS readability. */
+  --commons-ink: var(--color-commons-ink);
+  --rice-paper: var(--color-rice-paper);
+  --signal-tomato: var(--color-signal-tomato);
+  --field-acid: var(--color-field-acid);
+  --dataset-indigo: var(--color-dataset-indigo);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-error);
+  --info: var(--color-info);
+
+  /* Semantic roles. Components consume meaning instead of inventing new colors. */
+  --color-text: var(--color-commons-ink);
+  --color-text-inverse: var(--color-rice-paper);
+  --color-surface: var(--color-rice-paper);
+  --color-surface-inverse: var(--color-commons-ink);
+  --color-action: var(--color-signal-tomato);
+  --color-accepted: var(--color-field-acid);
+  --color-data: var(--color-dataset-indigo);
+  --color-border: color-mix(in srgb, var(--color-commons-ink) 22%, transparent);
+
+  /* Type scale is surface-scoped; family roles bind where next/font variables exist. */
+  --type-body: 1.125rem;
+  --type-utility: .6875rem;
+  --leading-body: 1.4;
+
+  /* Eight-pixel rhythm with explicit exceptions for hairline and compact geometry. */
+  --space-2xs: .125rem;
+  --space-xs: .25rem;
+  --space-sm: .5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+  --space-5xl: 8rem;
+  --space-page: clamp(1.25rem, 3.2vw, 3.75rem);
+  --space-stage: clamp(6.5rem, 13vw, 13rem);
+
+  --radius-none: 0;
+  --radius-sm: .125rem;
+  --radius-md: .25rem;
+  --radius-full: 9999px;
+
+  --duration-micro: 100ms;
+  --duration-short: 200ms;
+  --duration-medium: 375ms;
+  --duration-long: 750ms;
+  --ease-movement: cubic-bezier(.16, 1, .3, 1);
+
+  --focus-ring: var(--color-dataset-indigo);
+  --focus-gap: var(--color-rice-paper);
+  --focus-width: .1875rem;
+  --focus-offset: .1875rem;
+
+  /* Backward-compatible layout aliases used by the existing movement layer. */
+  --page-pad: var(--space-page);
+  --stage-space: var(--space-stage);
+  --line: var(--color-border);
+  --ease: var(--ease-movement);
+}
+
+.public-root {
+  --font-display: var(--font-archivo), "Arial Narrow", sans-serif;
+  --font-body: var(--font-source-sans), Arial, sans-serif;
+  --font-data: var(--font-plex-mono), monospace;
+}
+
+:root[data-surface="public"][data-theme="dark"] {
+  color-scheme: dark;
+  --color-text: var(--color-rice-paper);
+  --color-text-inverse: var(--color-commons-ink);
+  --color-surface: var(--color-commons-ink);
+  --color-surface-inverse: var(--color-rice-paper);
+  --color-border: color-mix(in srgb, var(--color-rice-paper) 28%, transparent);
+  --focus-ring: var(--color-field-acid);
+  --focus-gap: var(--color-commons-ink);
+}

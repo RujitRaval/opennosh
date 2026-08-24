@@ -142,6 +142,84 @@ gate loads 10,000 representative rows, verifies snapshot-indexed execution, and 
 launch-reference, 10x, and 100x corpora, mixed workload, cache states, latency/relevance gates, and
 machine-readable evidence needed before considering a dedicated search projection.
 
+### Public motion performance
+
+The localized public site is complete in server-rendered HTML and starts with decoration disabled.
+Eligible browsers load a separate, CSS-first movement controller after interaction readiness. It
+activates no more than two visible regions, pauses in hidden tabs and offscreen sections, and turns
+decoration off if the 50 ms long-task or 20 ms p95 frame budget is breached. Reduced-motion,
+data-saver, low-power, and no-JavaScript paths keep the same content and actions without starting
+the optional runtime.
+
+Run the production bundle and six-profile browser gate with:
+
+```bash
+make motion-performance-check
+```
+
+Set `NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS=off` at build time for the emergency decoration kill
+switch. Web Vitals samples are held only in the page and dispatched as `opennosh:web-vital`
+events; the movement layer does not transmit them to an external service.
+
+### Verified public commons snapshot
+
+The public homepage resolves one server-side snapshot from:
+
+```text
+GET /api/v1/public/commons-snapshot
+```
+
+That single immutable response drives the hero count, accepted-activity ledger, freshness message,
+and repeated footer proof. The API does not require PostgreSQL for this endpoint. It verifies a
+signed latest pointer, resolves the content-addressed release manifest named by that pointer, and
+counts only accepted events inside the rolling 24-hour release boundary. Invalid or missing first
+releases omit the record count; a later verification failure retains only the last verified in-memory
+snapshot and labels it stale.
+
+Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
+`/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
+files use the schema-version-1 signed envelope documented in
+[`docs/api-contracts.md`](docs/api-contracts.md). Set `PUBLIC_COMMONS_VERIFYING_KEYS` as
+`current-id:unpadded-base64url-public-key,previous-id:public-key` during rotation. The API holds
+verification keys only; offline publishers retain private Ed25519 signing keys. Production refuses
+the documented development verifier. Compose persists the anti-rollback checkpoint under
+`${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}`; native deployments set
+`PUBLIC_COMMONS_CHECKPOINT_PATH` to a durable writable file.
+`PUBLIC_COMMONS_STALE_AFTER_SECONDS` defaults to 300.
+
+Publish the immutable release manifest before replacing `latest.json`. The pointer binds the exact
+release version, filename, and SHA-256 digest, so a cross-release race cannot combine one pointer
+with another release. Responses include an exact-content ETag and a shared-cache policy with a
+five-minute revalidation window.
+
+### Contribute a food record
+
+Open `/en/contribute` to begin a proposal without an account. The browser saves the draft on the
+device immediately and guides the contributor through five stages: source evidence, food and
+portion details, duplicate checking, provenance, and review. Original `g`, `oz`, `lb`, or
+serving units remain visible beside the canonical gram weight.
+
+Sign-in is required only when the proposal is handed to the commons. The server creates or resumes
+one owner-scoped draft, rechecks exact-name duplicate candidates, validates the whole proposal, and
+returns a stable receipt with the submission reference, public credit, expected acknowledgement
+time, and current review state. “Received for review” never means approved or published; accepted
+food data still enters the commons only through the separate reviewed publication path.
+
+Authenticated clients use:
+
+```text
+POST  /api/v1/contribution-drafts
+GET   /api/v1/contribution-drafts/{draft_id}?requested_stage=details
+PATCH /api/v1/contribution-drafts/{draft_id}
+POST  /api/v1/contribution-drafts/{draft_id}/submit
+```
+
+Create, patch, and submit require the session CSRF token. Patches carry the expected draft version,
+a unique operation ID, and at most 25 field changes; submit carries the expected version and an
+idempotency key. Every response is a capability document containing completed and accessible
+stages, blockers, the repaired safe stage, duplicate candidates, and the receipt when submitted.
+See [the contribution contract](docs/api-contracts.md#contribution-draft-contract).
+
 ### Open Food Facts barcode lookup
 
 Open Food Facts access is off by default, so local food search, logging, and startup never require
@@ -559,7 +637,8 @@ were omitted.
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
 | `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
 | `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
-| `web/assets/fonts/README.md` | Self-hosted public font subsets, licenses, loading policy, and integrity hashes | Frontend contributors + release reviewers |
+| `docs/designs/t22-living-commons-reference-evidence.md` | Refreshed Living Commons reference acceptance map, responsive audit, and source hashes | Designers + release reviewers |
+| `web/assets/fonts/v1/README.md` | Self-hosted public font subsets, licenses, loading policy, and integrity hashes | Frontend contributors + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
 | `07-LAUNCH-PLAN.md` | Naming, positioning, launch sequencing | You |
