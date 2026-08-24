@@ -1,9 +1,10 @@
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -35,6 +36,41 @@ from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.settings import Settings, get_settings
 from opennosh_api.targets.router import router as targets_router
 from opennosh_api.workouts.router import router as workouts_router
+
+
+async def run_public_commons_materializer(
+    service: PublicCommonsSnapshotService,
+    settings: Settings,
+) -> None:
+    while True:
+        await asyncio.sleep(settings.public_commons_refresh_seconds)
+        await refresh_public_commons_once(service, settings)
+
+
+async def refresh_public_commons_once(
+    service: PublicCommonsSnapshotService,
+    settings: Settings,
+) -> None:
+    resolution = await service.refresh_response()
+    if (
+        resolution.cache_status == "rebuilt"
+        and settings.public_commons_revalidation_url is not None
+        and settings.public_commons_revalidation_token is not None
+    ):
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                response = await client.post(
+                    settings.public_commons_revalidation_url,
+                    headers={
+                        "x-opennosh-proxy-token": (
+                            settings.public_commons_revalidation_token.get_secret_value()
+                        )
+                    },
+                )
+                response.raise_for_status()
+        except httpx.HTTPError:
+            # The projection remains canonical. Edge TTL is the bounded fallback.
+            pass
 
 
 def read_app_version() -> str:
@@ -87,10 +123,24 @@ def create_app(
         app.state.database_pool_metrics = database_pool_metrics
         app.state.database_capacity_manifest = capacity_manifest
         app.state.open_food_facts_client = open_food_facts_client
+        materializer_task: asyncio.Task[None] | None = None
+        public_commons_service: PublicCommonsSnapshotService = (
+            app.state.public_commons_snapshot_service
+        )
+        if getattr(public_commons_service, "materialization_enabled", False):
+            await refresh_public_commons_once(public_commons_service, resolved_settings)
+            materializer_task = asyncio.create_task(
+                run_public_commons_materializer(public_commons_service, resolved_settings),
+                name="public-commons-materializer",
+            )
         try:
             yield
         finally:
             try:
+                if materializer_task is not None:
+                    materializer_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await materializer_task
                 if open_food_facts_client is not None:
                     await open_food_facts_client.aclose()
             finally:
@@ -115,6 +165,7 @@ def create_app(
         key_ring=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
         stale_after_seconds=resolved_settings.public_commons_stale_after_seconds,
         checkpoint_path=resolved_settings.public_commons_checkpoint_path,
+        projection_path=resolved_settings.public_commons_projection_path,
     )
     application.add_middleware(RequestIdMiddleware)
     application.add_middleware(FoodLogNoStoreMiddleware)

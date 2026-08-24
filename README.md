@@ -193,11 +193,13 @@ GET /api/v1/public/commons-snapshot
 ```
 
 That single immutable response drives the hero count, accepted-activity ledger, freshness message,
-and repeated footer proof. The API does not require PostgreSQL for this endpoint. It verifies a
-signed latest pointer, resolves the content-addressed release manifest named by that pointer, and
-counts only accepted events inside the rolling 24-hour release boundary. Invalid or missing first
-releases omit the record count; a later verification failure retains only the last verified in-memory
-snapshot and labels it stale.
+and repeated footer proof. The API does not require PostgreSQL for this endpoint. A background
+materializer verifies the signed latest pointer and rebuilds a bounded projection from the
+content-addressed release manifest named by that pointer. Requests read only that materialized
+projection; they never scan the manifest. The response contains the rolling 24-hour count and at
+most four accepted events. Invalid or missing first releases omit the record count. A later
+verification failure retains the durable last verified projection across process restarts and
+labels it stale.
 
 Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
 `/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
@@ -206,14 +208,25 @@ files use the schema-version-1 signed envelope documented in
 `current-id:unpadded-base64url-public-key,previous-id:public-key` during rotation. The API holds
 verification keys only; offline publishers retain private Ed25519 signing keys. Production refuses
 the documented development verifier. Compose persists the anti-rollback checkpoint under
-`${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}`; native deployments set
-`PUBLIC_COMMONS_CHECKPOINT_PATH` to a durable writable file.
-`PUBLIC_COMMONS_STALE_AFTER_SECONDS` defaults to 300.
+`${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}`; native deployments set both
+`PUBLIC_COMMONS_CHECKPOINT_PATH` and `PUBLIC_COMMONS_PROJECTION_PATH` to durable writable files.
+Those state paths must be separate from each other and the read-only signed artifacts.
+`PUBLIC_COMMONS_REFRESH_SECONDS` defaults to 5 and
+`PUBLIC_COMMONS_STALE_AFTER_SECONDS` defaults to 300. Set
+`PUBLIC_COMMONS_REVALIDATION_URL` to the web app's authenticated internal revalidation endpoint so
+same-bucket publication changes invalidate the complete cached snapshot immediately. Configure a
+dedicated `PUBLIC_COMMONS_REVALIDATION_TOKEN` in both processes and allow only the intended web
+service hostname through `PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS`.
 
 Publish the immutable release manifest before replacing `latest.json`. The pointer binds the exact
 release version, filename, and SHA-256 digest, so a cross-release race cannot combine one pointer
-with another release. Responses include an exact-content ETag and a shared-cache policy with a
-five-minute revalidation window.
+with another release. Projection files are capped, fsynced, atomically replaced, and content-bound
+to the durable trusted checkpoint loaded at process startup. The background materializer watches
+publication changes and five-minute bucket rollover under a process-safe lock; cache identity binds
+the release digest, event checkpoint, activity cutoff, and bucket. Each request reads only the
+bounded projection file. Responses include the exact ETag, snapshot byte count, cache status in
+`Server-Timing`, and a five-minute shared-cache revalidation policy. The homepage performs one
+server request and never polls.
 
 ### Contribute a food record
 

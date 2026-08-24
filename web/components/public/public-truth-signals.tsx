@@ -101,7 +101,7 @@ function ActivityEvents({
         <li key={event.event_id}>
           <span className="activity-event-type mono">{copy.eventLabels[event.event_type]}</span>
           <div>
-            <strong>{event.summary}</strong>
+            <strong><Link href={event.href}>{event.summary}</Link></strong>
             <p>{event.food_locale}</p>
           </div>
           <time className="mono" dateTime={event.accepted_at}>

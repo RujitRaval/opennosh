@@ -83,6 +83,7 @@ function event(value: unknown): AcceptedActivityEvent {
     food_locale: requireString(input.food_locale, "food locale", 80),
     accepted_at: requireTimestamp(input.accepted_at, "accepted time"),
     source_commit: requirePattern(input.source_commit, "source commit", sourceCommit, 64),
+    href: requirePattern(input.href, "event record link", localHref, 512),
     summary: requireString(input.summary, "event summary", 240),
     public_contributor_credit: (contributor as string | null | undefined) ?? null,
   };

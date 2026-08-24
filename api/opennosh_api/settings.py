@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     public_commons_latest_pointer_path: Path | None = None
     public_commons_release_directory: Path | None = None
     public_commons_checkpoint_path: Path | None = None
+    public_commons_projection_path: Path | None = None
+    public_commons_refresh_seconds: PositiveFloat = 5.0
+    public_commons_revalidation_url: str | None = None
+    public_commons_revalidation_token: SecretStr | None = Field(
+        default=None, min_length=32
+    )
+    public_commons_revalidation_allowed_hosts: str = "web,localhost,127.0.0.1,::1"
     public_commons_verifying_keys: str = "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
     public_commons_stale_after_seconds: PositiveInt = 300
     open_food_facts_enabled: bool = False
@@ -93,6 +100,38 @@ class Settings(BaseSettings):
 
         ManifestKeyRing.from_config(value)
         return value
+
+    @field_validator("public_commons_revalidation_url")
+    @classmethod
+    def validate_public_commons_revalidation_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError(
+                "Public commons revalidation URL must be a safe HTTP URL"
+            ) from error
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.path != "/api/internal/public-commons/revalidate"
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Public commons revalidation URL must be a safe HTTP URL")
+        return value
+
+    @field_validator("public_commons_revalidation_token", mode="before")
+    @classmethod
+    def blank_public_commons_revalidation_token_is_disabled(
+        cls, value: object
+    ) -> object:
+        return None if value == "" else value
 
     @field_validator("target_kcal_floor")
     @classmethod
@@ -150,6 +189,65 @@ class Settings(BaseSettings):
             and self.public_commons_checkpoint_path is None
         ):
             raise ValueError("Production public commons reads require a durable checkpoint path")
+        if (
+            self.app_environment == "production"
+            and self.public_commons_latest_pointer_path is not None
+            and self.public_commons_projection_path is None
+        ):
+            raise ValueError("Production public commons reads require a durable projection path")
+        if (
+            self.app_environment == "production"
+            and self.public_commons_latest_pointer_path is not None
+            and self.public_commons_checkpoint_path is not None
+            and self.public_commons_projection_path is not None
+            and self.public_commons_release_directory is not None
+        ):
+            pointer_path = self.public_commons_latest_pointer_path.resolve(strict=False)
+            release_directory = self.public_commons_release_directory.resolve(strict=False)
+            checkpoint_path = self.public_commons_checkpoint_path.resolve(strict=False)
+            projection_path = self.public_commons_projection_path.resolve(strict=False)
+            checkpoint_lock_path = checkpoint_path.with_suffix(
+                f"{checkpoint_path.suffix}.lock"
+            )
+            projection_lock_path = projection_path.with_suffix(
+                f"{projection_path.suffix}.lock"
+            )
+            state_paths = {
+                checkpoint_path,
+                checkpoint_lock_path,
+                projection_path,
+                projection_lock_path,
+            }
+            if len(state_paths) != 4:
+                raise ValueError(
+                    "Public commons checkpoint and projection state paths must be distinct"
+                )
+            for state_path in state_paths:
+                if state_path == pointer_path or state_path.is_relative_to(release_directory):
+                    raise ValueError(
+                        "Public commons durable state paths must be separate from signed artifacts"
+                    )
+        if (
+            self.public_commons_revalidation_url is not None
+            and self.public_commons_revalidation_token is None
+        ):
+            raise ValueError("Public commons edge revalidation requires a scoped token")
+        if self.public_commons_revalidation_url is not None:
+            allowed_hosts = {
+                host.strip().casefold()
+                for host in self.public_commons_revalidation_allowed_hosts.split(",")
+                if host.strip()
+            }
+            callback_host = urlsplit(self.public_commons_revalidation_url).hostname
+            if callback_host is None or callback_host.casefold() not in allowed_hosts:
+                raise ValueError("Public commons revalidation host is not allowlisted")
+        if (
+            self.app_environment == "production"
+            and self.public_commons_revalidation_token is not None
+            and self.public_commons_revalidation_token.get_secret_value()
+            == "opennosh-local-public-commons-revalidation-token-2026"
+        ):
+            raise ValueError("Production requires a unique public commons revalidation token")
         if (
             self.food_search_snapshot_refresh_seconds >= self.food_search_snapshot_retention_seconds
             or self.food_search_cursor_lifetime_seconds
