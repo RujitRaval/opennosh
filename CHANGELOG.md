@@ -2,6 +2,18 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.35.0.0] - 2026-08-24
+
+### Changed
+
+- Refresh the approved Living Commons reference so the finalized Explore, Contribute, Commons, and
+  Build hubs read as one movement while Tracker remains a clearly separate utility.
+- Make the reference trustworthy at every viewport with a fixed verified-record snapshot, an honest
+  quiet Commons state, trust-first food records, the complete contribution journey, and six
+  surface-correct production wordmarks.
+- Record reproducible acceptance evidence, responsive browser checks, design-audit results, and
+  exact source hashes for the persistent reference artifact.
+
 ## [0.34.0.0] - 2026-08-24
 
 ### Added
