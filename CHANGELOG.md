@@ -22,11 +22,14 @@ All notable changes to opennosh will be documented in this file.
 
 ### Fixed
 
-- Prevent stage navigation from reloading a server draft over unsynced device edits.
+- Prevent stage navigation from reloading a server draft over unsynced device edits, and isolate
+  those edits from the anonymous device draft.
 - Keep both halves of the wordmark visible on Tomato contribution surfaces, avoid mobile actions
   covering form choices, and keep deep-route header context from sending contributors backward.
-- Recheck exact-name duplicates on the server and prevent repeated device handoffs or submit
-  retries from creating duplicate drafts or receipts.
+- Recheck exact-name duplicates on the server, require review of every newly found candidate, and
+  prevent repeated device handoffs or submit retries from creating duplicate drafts or receipts.
+- Mark every private contribution-draft API response as non-cacheable and provide a recoverable
+  error state when a server draft cannot be opened.
 
 ## [0.32.0.0] - 2026-08-24
 
