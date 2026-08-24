@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.40.0.0] - 2026-08-24
+
+### Added
+
+- Let the public homepage read one materialized Commons snapshot containing no more than four
+  verified events plus a five-minute rolling contribution count.
+- Add protected projection-health metrics and a scoped internal callback that invalidates the
+  tagged website cache immediately after a new snapshot is published.
+
+### Changed
+
+- Serve homepage proof from a bounded, crash-safe projection instead of rebuilding signed release
+  data on visitor requests, with shared snapshot identity across public consumers and no polling.
+- Cache live snapshots for five minutes at the API and Next.js layers while preserving explicit
+  quiet, partial, stale, and unavailable states when source data cannot be refreshed.
+
+### Fixed
+
+- Preserve the last trusted projection across process restarts, concurrent workers, interrupted
+  writes, release races, tampered files, and failed edge revalidation without serving mixed state.
+- Reject oversized snapshots, summaries, unsafe callback destinations, aliased state paths, and
+  invalid revalidation credentials before they can enter the public proof path.
+
 ## [0.39.0.0] - 2026-08-24
 
 ### Added
