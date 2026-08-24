@@ -8,6 +8,7 @@ import {
   localStageBlockers,
   newLocalContributionDraft,
   readLocalContributionDraft,
+  serverCandidatesNeedReview,
 } from "@/lib/contributions/local-draft";
 import {
   contributionStageList,
@@ -81,6 +82,22 @@ describe("contribution journey contract", () => {
     expect(restored?.saveState).toBe("saved_on_device");
     expect(readLocalContributionDraft("not json")).toBeNull();
     expect(readLocalContributionDraft(JSON.stringify({ schemaVersion: "2" }))).toBeNull();
+  });
+
+  it("requires review when the server finds a duplicate absent from the earlier check", () => {
+    const draft = newLocalContributionDraft("device-draft");
+    draft.fields.duplicates_resolved = true;
+    const newlyFound = {
+      source: "community" as const,
+      sourceId: "existing-dal",
+      name: "Existing dal",
+      locale: "en-IN",
+    };
+
+    expect(serverCandidatesNeedReview(draft, [newlyFound])).toBe(true);
+    draft.duplicateCandidates = [newlyFound];
+    expect(serverCandidatesNeedReview(draft, [newlyFound])).toBe(false);
+    expect(serverCandidatesNeedReview(draft, [])).toBe(false);
   });
 
   it("publishes the real contribution entry point without a feature flag", () => {

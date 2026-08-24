@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ContributionJourney } from "@/components/contributions/contribution-journey";
 import { ContributionStatus } from "@/components/contributions/contribution-status";
 import type { ContributionCapability } from "@/lib/contributions/domain";
-import { emptyContributionFields } from "@/lib/contributions/local-draft";
+import {
+  contributionDraftStorageKey,
+  emptyContributionFields,
+  localContributionStorageKey,
+} from "@/lib/contributions/local-draft";
 
 const router = { push: vi.fn(), replace: vi.fn() };
 const apiState = vi.hoisted(() => ({ contributionDraft: vi.fn() }));
@@ -75,6 +79,7 @@ describe("server-backed contribution continuity", () => {
   it("hydrates a remote draft once and preserves device edits while stages change", async () => {
     vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
     apiState.contributionDraft.mockResolvedValue(capability());
+    window.localStorage.setItem(localContributionStorageKey, "anonymous device draft");
 
     const { rerender } = render(
       <ContributionJourney language="en" routeDraftId="server-draft" requestedStage="details" />,
@@ -91,6 +96,23 @@ describe("server-backed contribution continuity", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Food name")).toHaveValue("Device edit"));
     expect(apiState.contributionDraft).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(localContributionStorageKey)).toBe("anonymous device draft");
+    expect(window.localStorage.getItem(contributionDraftStorageKey("server-draft"))).toContain("Device edit");
+  });
+
+  it("shows a recoverable error when a remote draft cannot be opened", async () => {
+    apiState.contributionDraft.mockRejectedValue(new Error("Contribution draft not found."));
+
+    render(
+      <ContributionJourney language="en" routeDraftId="missing-draft" requestedStage="evidence" />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "We could not open this contribution" })).toBeVisible();
+    expect(screen.getByText("Contribution draft not found.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to your device draft" })).toHaveAttribute(
+      "href",
+      "/en/contribute/local/evidence",
+    );
   });
 
   it("renders the complete server-authoritative receipt on the stable status route", async () => {

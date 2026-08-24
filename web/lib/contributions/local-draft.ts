@@ -3,10 +3,31 @@ import {
   type ContributionBlocker,
   type ContributionFields,
   type ContributionStage,
+  type DuplicateCandidate,
   type LocalContributionDraft,
 } from "@/lib/contributions/domain";
 
 export const localContributionStorageKey = "opennosh.contribution.local.v1";
+
+export function contributionDraftStorageKey(routeDraftId: string): string {
+  return routeDraftId === "local"
+    ? localContributionStorageKey
+    : `opennosh.contribution.remote.v1.${routeDraftId}`;
+}
+
+export function serverCandidatesNeedReview(
+  draft: LocalContributionDraft,
+  serverCandidates: readonly DuplicateCandidate[],
+): boolean {
+  if (serverCandidates.length === 0) return false;
+  if (!draft.fields.duplicates_resolved) return true;
+  const reviewed = new Set(
+    draft.duplicateCandidates.map((candidate) => `${candidate.source}:${candidate.sourceId}`),
+  );
+  return serverCandidates.some(
+    (candidate) => !reviewed.has(`${candidate.source}:${candidate.sourceId}`),
+  );
+}
 
 export const emptyContributionFields: ContributionFields = {
   evidence_type: null,
@@ -144,4 +165,3 @@ export function readLocalContributionDraft(raw: string | null): LocalContributio
     return null;
   }
 }
-

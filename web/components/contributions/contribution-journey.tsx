@@ -12,8 +12,9 @@ import type {
   LocalContributionDraft,
 } from "@/lib/contributions/domain";
 import {
-  localAccessibleStages, localCompletedStages, localContributionStorageKey,
+  contributionDraftStorageKey, localAccessibleStages, localCompletedStages,
   localStageBlockers, newLocalContributionDraft, readLocalContributionDraft,
+  serverCandidatesNeedReview,
 } from "@/lib/contributions/local-draft";
 import {
   contributionStageHref, contributionStageList, contributionStageRegistry,
@@ -83,6 +84,17 @@ function allFieldPatches(fields: ContributionFields): ContributionFieldPatch[] {
     .map(([field, value]) => ({ field, value }));
 }
 
+function newerDeviceDraft(
+  stored: LocalContributionDraft | null,
+  serverDraft: LocalContributionDraft,
+): LocalContributionDraft {
+  if (
+    stored?.clientDraftId === serverDraft.clientDraftId
+    && Date.parse(stored.savedAt) > Date.parse(serverDraft.savedAt)
+  ) return stored;
+  return serverDraft;
+}
+
 export function ContributionJourney({ language, routeDraftId, requestedStage }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState<LocalContributionDraft | null>(null);
@@ -106,16 +118,17 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (routeDraftId === "local") {
-        const stored = readLocalContributionDraft(window.localStorage.getItem(localContributionStorageKey));
+        const storageKey = contributionDraftStorageKey(routeDraftId);
+        const stored = readLocalContributionDraft(window.localStorage.getItem(storageKey));
         const nextDraft = stored ?? newLocalContributionDraft();
-        window.localStorage.setItem(localContributionStorageKey, JSON.stringify(nextDraft));
+        window.localStorage.setItem(storageKey, JSON.stringify(nextDraft));
         setDraft(nextDraft);
         return;
       }
       if (hydratedRemoteDraftId.current === routeDraftId) return;
       hydratedRemoteDraftId.current = routeDraftId;
       api.contributionDraft(routeDraftId, requestedStage).then((remote) => {
-        setDraft({
+        const serverDraft: LocalContributionDraft = {
           schemaVersion: "1",
           clientDraftId: remote.draftId,
           fields: remote.fields,
@@ -123,7 +136,11 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           duplicateQuery: `${remote.fields.name.trim()}|${remote.fields.locale.trim()}`,
           savedAt: remote.savedAt,
           saveState: "synced",
-        });
+        };
+        const stored = readLocalContributionDraft(
+          window.localStorage.getItem(contributionDraftStorageKey(routeDraftId)),
+        );
+        setDraft(newerDeviceDraft(stored, serverDraft));
         if (remote.resolvedStage !== requestedStage) {
           router.replace(contributionStageHref(language, routeDraftId, remote.resolvedStage));
         }
@@ -161,7 +178,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
 
   function persist(nextDraft: LocalContributionDraft) {
     const saved = { ...nextDraft, savedAt: new Date().toISOString(), saveState: "saved_on_device" as const };
-    window.localStorage.setItem(localContributionStorageKey, JSON.stringify(saved));
+    window.localStorage.setItem(contributionDraftStorageKey(routeDraftId), JSON.stringify(saved));
     setDraft(saved);
   }
 
@@ -236,6 +253,19 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         expected_draft_version: remote.draftVersion, operation_id: crypto.randomUUID(),
         requested_stage: stage, patches: allFieldPatches(draft.fields),
       });
+      if (serverCandidatesNeedReview(draft, remote.duplicateCandidates)) {
+        persist({
+          ...draft,
+          fields: { ...draft.fields, duplicates_resolved: false },
+          duplicateCandidates: [...remote.duplicateCandidates],
+          duplicateQuery: `${draft.fields.name.trim()}|${draft.fields.locale.trim()}`,
+        });
+        showErrors([
+          "The server found a possible existing record that was not in your earlier check. Review it before handing this proposal over.",
+        ]);
+        navigate("duplicates");
+        return;
+      }
       if (remote.duplicateCandidates.length > 0 && draft.fields.duplicates_resolved) {
         remote = await api.patchContributionDraft(remote.draftId, {
           expected_draft_version: remote.draftVersion, operation_id: crypto.randomUUID(),
@@ -246,7 +276,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         expected_draft_version: remote.draftVersion, idempotency_key: crypto.randomUUID(),
       });
       if (!submitted.receipt) throw new Error("The server did not return a submission receipt.");
-      window.localStorage.removeItem(localContributionStorageKey);
+      window.localStorage.removeItem(contributionDraftStorageKey(routeDraftId));
       setReceipt(submitted.receipt);
       setAuthRequired(false);
       router.replace(routes.contributionStatus(language, submitted.draftId));
@@ -256,7 +286,13 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     } finally { setBusy(false); }
   }
 
-  if (!draft) return <main id="main-content" className="contribution-loading" aria-busy="true">Opening your device draft…</main>;
+  if (!draft && errors.length) return <main id="main-content" className="contribution-status-page contribution-status-state" role="alert">
+    <p className="mono">Draft unavailable</p>
+    <h1>We could not open this contribution</h1>
+    <p>{errors[0]}</p>
+    <Link className="contribution-primary" href={routes.contributionStart(language)}>Return to your device draft</Link>
+  </main>;
+  if (!draft) return <main id="main-content" className="contribution-loading" aria-busy="true">Opening your contribution…</main>;
   if (receipt) return <main id="main-content" className="contribution-receipt-page"><Receipt receipt={receipt} /></main>;
 
   const stageMeta = contributionStageRegistry[stage];
@@ -276,7 +312,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         <p className="mono">{contributionCatalog(language).chapters[stageMeta.chapter].label} · {String(stageMeta.order).padStart(2, "0")} / 05</p>
         <h1 id={stageMeta.headingAnchor}>{contributionMessage(language, stageMeta.headingKey)}</h1>
         <p>{contributionMessage(language, stageMeta.descriptionKey)}</p>
-        <span className="contribution-save mono" role="status">● Saved on this device</span>
+        <span className="contribution-save mono" role="status">● {draft.saveState === "synced" ? "Saved on server" : "Saved on this device"}</span>
       </header>
 
       {errors.length ? <div ref={errorSummary} tabIndex={-1} className="contribution-errors" role="alert" id={stageMeta.validationAnchor}>

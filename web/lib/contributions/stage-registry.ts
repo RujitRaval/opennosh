@@ -97,4 +97,3 @@ export function contributionStageHref(
 ): string {
   return routes.contributionDraft(language, draftId, contributionStageRegistry[stage].slug);
 }
-

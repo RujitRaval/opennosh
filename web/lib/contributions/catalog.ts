@@ -67,4 +67,3 @@ export function contributionMessage(
   const stage = catalog.stages[id as keyof typeof catalog.stages];
   return stage[property as "heading" | "description"];
 }
-

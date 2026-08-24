@@ -117,12 +117,15 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
         json=create_payload,
     )
     assert created.status_code == retried_create.status_code == 201
+    assert created.headers["cache-control"] == "no-store"
     assert created.json()["draft_id"] == retried_create.json()["draft_id"]
     draft_id = created.json()["draft_id"]
 
     hidden = contribution_clients.attacker.get(f"{route}/{draft_id}")
     absent = contribution_clients.attacker.get(f"{route}/{uuid4()}")
     assert hidden.status_code == absent.status_code == 404
+    read = contribution_clients.owner.get(f"{route}/{draft_id}")
+    assert read.headers["cache-control"] == "no-store"
 
     operation_id = str(uuid4())
     patched = contribution_clients.owner.patch(
@@ -136,6 +139,7 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
         },
     )
     assert patched.status_code == 200
+    assert patched.headers["cache-control"] == "no-store"
     assert patched.json()["draft_version"] == 2
     assert patched.json()["resolved_stage"] == "review"
     assert patched.json()["completed_stages"] == [
@@ -176,6 +180,7 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
         json={"expected_draft_version": 2, "idempotency_key": submission_key},
     )
     assert submitted.status_code == 200
+    assert submitted.headers["cache-control"] == "no-store"
     assert submitted.json()["review_state"] == "in_review"
     assert submitted.json()["receipt"]["status"] == "received_for_review"
     assert submitted.json()["receipt"]["status_href"] == f"/en/contribute/{draft_id}/status"
