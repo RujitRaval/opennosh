@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check benchmark-corpus benchmark-run benchmark-extraction web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -52,6 +52,10 @@ benchmark-run:
 
 benchmark-extraction:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.extraction $${ARTIFACT_DIRS}
+
+motion-performance-check: build
+	npm --prefix web run check:motion-budgets
+	npm --prefix web run benchmark:motion -- --output test-results/motion-performance.json
 
 web-e2e:
 	npm --prefix web run test:e2e

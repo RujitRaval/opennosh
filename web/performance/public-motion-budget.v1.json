@@ -1,0 +1,21 @@
+{
+  "contract_id": "opennosh-public-motion-performance-v1",
+  "active_motion_regions_max": 2,
+  "budgets": {
+    "motion_source_gzip_bytes_max": 12288,
+    "public_design_delta_gzip_bytes_max": 46080,
+    "motion_long_task_ms_max": 50,
+    "visible_frame_p95_ms_max": 20,
+    "field_p75_lcp_ms_max": 2500,
+    "field_p75_inp_ms_max": 200,
+    "field_p75_cls_max": 0.1
+  },
+  "required_profiles": [
+    "desktop",
+    "mobile",
+    "reduced-motion",
+    "data-saver",
+    "low-power",
+    "no-javascript"
+  ]
+}

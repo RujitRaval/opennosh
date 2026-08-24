@@ -118,3 +118,98 @@ test("tracker document excludes public navigation and public font variables", as
     ),
   ).toBe(false);
 });
+
+test("the public home remains complete when JavaScript is unavailable", async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+
+  await page.goto("/en");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Food data");
+  await expect(page.getByRole("link", { name: "Start" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Read the contribution guide/ })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+
+  await context.close();
+});
+
+test("eligible motion activates sparingly and pauses away from the viewport", async ({ page }) => {
+  await page.goto("/en");
+
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-motion-runtime",
+    "opennosh:motion-runtime:v1",
+  );
+  await expect(page.locator('html[data-motion-state="running"]')).toHaveCount(1);
+  expect(
+    await page.locator('[data-motion-region][data-motion-visible="true"]').count(),
+  ).toBeLessThanOrEqual(2);
+
+  await page.locator('[data-motion-region="contribute"]').scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-motion-region="hero"]')).toHaveAttribute(
+    "data-motion-visible",
+    "false",
+  );
+  expect(
+    await page.locator('[data-motion-region][data-motion-visible="true"]').count(),
+  ).toBeLessThanOrEqual(2);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-motion-state", "paused");
+});
+
+test("the runtime disables decoration after a long-task budget breach", async ({ page }) => {
+  await page.goto("/en");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-motion-runtime",
+    "opennosh:motion-runtime:v1",
+  );
+
+  await page.evaluate(() => {
+    setTimeout(() => {
+      const end = performance.now() + 70;
+      while (performance.now() < end) {
+        // Intentionally occupy the main thread to exercise the runtime kill switch.
+      }
+    }, 0);
+  });
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "limited");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "long-task-budget");
+});
+
+test("reduced-motion visitors never download the optional runtime", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await context.newPage();
+
+  await page.goto("/en");
+  await page.waitForTimeout(1_300);
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "reduced-motion");
+  await expect(page.locator("html")).not.toHaveAttribute("data-motion-runtime", /.+/);
+
+  await context.close();
+});
+
+test("data-saver and low-power visitors keep the static experience", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "connection", {
+      configurable: true,
+      value: { saveData: true, effectiveType: "4g" },
+    });
+    Object.defineProperty(navigator, "hardwareConcurrency", {
+      configurable: true,
+      value: 2,
+    });
+  });
+
+  await page.goto("/en");
+  await page.waitForTimeout(1_300);
+
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  await expect(page.locator("html")).toHaveAttribute("data-motion-reason", "data-saver");
+  await expect(page.locator("html")).not.toHaveAttribute("data-motion-runtime", /.+/);
+});
