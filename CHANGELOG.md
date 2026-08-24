@@ -2,6 +2,32 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.33.0.0] - 2026-08-24
+
+### Added
+
+- Start a food-record proposal at `/en/contribute` and move through evidence, details, duplicate
+  checking, provenance, and exact-proposal review without needing Git knowledge.
+- Save work immediately on the device, sign in only when handing it over, resume an authenticated
+  server draft, and follow a stable server-verified receipt after submission.
+- Add owner-scoped contribution-draft APIs with optimistic versions, idempotent field patches and
+  submission, capability-based stage repair, duplicate rechecking, and a truthful review receipt.
+
+### Changed
+
+- Preserve original grams, ounces, pounds, or serving units beside canonical grams, keep contributor
+  credit and source terms visible, and separate review intake from accepted public data.
+- Publish the real contribution entry point in the public navigation and use a responsive
+  three-chapter, five-stage layout with error focus, compact progress, and safe-area actions.
+
+### Fixed
+
+- Prevent stage navigation from reloading a server draft over unsynced device edits.
+- Keep both halves of the wordmark visible on Tomato contribution surfaces, avoid mobile actions
+  covering form choices, and keep deep-route header context from sending contributors backward.
+- Recheck exact-name duplicates on the server and prevent repeated device handoffs or submit
+  retries from creating duplicate drafts or receipts.
+
 ## [0.32.0.0] - 2026-08-24
 
 ### Added

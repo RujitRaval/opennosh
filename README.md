@@ -181,6 +181,34 @@ release version, filename, and SHA-256 digest, so a cross-release race cannot co
 with another release. Responses include an exact-content ETag and a shared-cache policy with a
 five-minute revalidation window.
 
+### Contribute a food record
+
+Open `/en/contribute` to begin a proposal without an account. The browser saves the draft on the
+device immediately and guides the contributor through five stages: source evidence, food and
+portion details, duplicate checking, provenance, and review. Original `g`, `oz`, `lb`, or
+serving units remain visible beside the canonical gram weight.
+
+Sign-in is required only when the proposal is handed to the commons. The server creates or resumes
+one owner-scoped draft, rechecks exact-name duplicate candidates, validates the whole proposal, and
+returns a stable receipt with the submission reference, public credit, expected acknowledgement
+time, and current review state. “Received for review” never means approved or published; accepted
+food data still enters the commons only through the separate reviewed publication path.
+
+Authenticated clients use:
+
+```text
+POST  /api/v1/contribution-drafts
+GET   /api/v1/contribution-drafts/{draft_id}?requested_stage=details
+PATCH /api/v1/contribution-drafts/{draft_id}
+POST  /api/v1/contribution-drafts/{draft_id}/submit
+```
+
+Create, patch, and submit require the session CSRF token. Patches carry the expected draft version,
+a unique operation ID, and at most 25 field changes; submit carries the expected version and an
+idempotency key. Every response is a capability document containing completed and accessible
+stages, blockers, the repaired safe stage, duplicate candidates, and the receipt when submitted.
+See [the contribution contract](docs/api-contracts.md#contribution-draft-contract).
+
 ### Open Food Facts barcode lookup
 
 Open Food Facts access is off by default, so local food search, logging, and startup never require
