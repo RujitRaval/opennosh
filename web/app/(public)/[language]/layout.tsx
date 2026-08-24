@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
 import { PublicPerformanceSignals } from "@/components/public/public-performance-signals";
 import {
@@ -13,6 +12,7 @@ import { archivo, plexMono, sourceSans } from "@/lib/public-fonts";
 import { isSupportedLanguage, supportedLanguages } from "@/lib/routes";
 
 import "./public.css";
+import "./truth-signals.css";
 
 export const metadata: Metadata = {
   title: "Food data belongs to everyone - opennosh",
@@ -52,9 +52,8 @@ export default async function PublicLayout({
       <body className={`public-root ${archivo.variable} ${sourceSans.variable} ${plexMono.variable}`}>
         <a className="skip-link" href="#main-content">Skip to content</a>
         <PublicHeader language={language} navigation={navigation} />
-        <PublicPerformanceSignals decorationsEnabled={decorationsEnabled} />
         {children}
-        <PublicFooter language={language} />
+        <PublicPerformanceSignals decorationsEnabled={decorationsEnabled} />
       </body>
     </html>
   );

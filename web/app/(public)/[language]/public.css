@@ -191,7 +191,7 @@ img { display: block; max-width: 100%; height: auto; }
 .quiet-state { display: flex; flex-direction: column; max-width: 38rem; gap: .45rem; margin: 0; padding-top: 1rem; border-top: 1px solid var(--rice-paper); }
 .quiet-state strong { font-family: var(--font-archivo), sans-serif; font-size: clamp(1.7rem, 3vw, 3.2rem); line-height: 1; letter-spacing: -.04em; }
 .quiet-state span { max-width: 35rem; color: var(--rice-paper); }
-.activity-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 3rem 0 0; }
+.activity-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 3rem 0 0; }
 .activity-legend div { padding-top: .7rem; border-top: 1px solid color-mix(in srgb, var(--rice-paper) 35%, transparent); }
 .activity-legend dt { color: var(--field-acid); }
 .activity-legend dd { margin: .25rem 0 0; text-transform: none; }

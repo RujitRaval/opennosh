@@ -8,7 +8,7 @@ test("public root redirects into the localized movement site", async ({ page }) 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Food data");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("everyone");
-  await expect(page.getByText("No accepted changes to report yet.")).toBeVisible();
+  await expect(page.getByText("Accepted activity is unavailable.")).toBeVisible();
   await expect(page.getByText("18,429")).toHaveCount(0);
   await expect(page.locator('link[href*="fonts.googleapis.com"], link[href*="fonts.gstatic.com"]')).toHaveCount(0);
 
@@ -127,6 +127,12 @@ test("the public home remains complete when JavaScript is unavailable", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Food data");
   await expect(page.getByRole("link", { name: "Start" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Read the contribution guide/ })).toBeVisible();
+  await expect(page.getByText("Accepted activity is unavailable.")).toBeVisible();
+  const actions = page.getByRole("navigation", { name: "Commons activity actions" });
+  await expect(actions.getByRole("link", { name: "Search verified records" })).toBeVisible();
+  await expect(actions.getByRole("link", { name: "Contribute a food" })).toBeVisible();
+  await expect(page.getByText("18,429")).toHaveCount(0);
+  await expect(page.locator(".footer-release-proof")).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
 
   await context.close();

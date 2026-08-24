@@ -50,10 +50,9 @@ describe("independent public and tracker roots", () => {
     render(await PublicHome({ params: Promise.resolve({ language: "en" }) }));
 
     expect(screen.getByRole("heading", { name: /Food databelongs toeveryone\./ })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Private tracker/ })).toHaveAttribute(
-      "href",
-      "/tracker",
-    );
+    const trackerLinks = screen.getAllByRole("link", { name: /Private tracker/ });
+    expect(trackerLinks).toHaveLength(2);
+    for (const link of trackerLinks) expect(link).toHaveAttribute("href", "/tracker");
   });
 
   it("renders the tracker directly at its canonical route", async () => {
