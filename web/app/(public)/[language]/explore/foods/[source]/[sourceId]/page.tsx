@@ -7,15 +7,22 @@ import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
 import { loadPublicFoodRecord } from "@/lib/server/public-food-record";
 import { isSupportedLanguage, routes } from "@/lib/routes";
 import type { CatalogueFoodSource } from "@/lib/types";
+import { getCatalog } from "@/lib/i18n/catalog";
 
 const sources: readonly CatalogueFoodSource[] = ["usda", "community"];
 const sourceIdPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const foodLocalePattern = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
-export const metadata: Metadata = {
-  title: "Food record - opennosh",
-  description: "Inspect nutrition together with its source, version, license, and provenance.",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ language: string }>;
+}): Promise<Metadata> {
+  const { language } = await params;
+  if (!isSupportedLanguage(language)) return {};
+  const copy = getCatalog(language).metadata;
+  return { title: copy.foodTitle, description: copy.foodDescription };
+}
 
 export default async function FoodRecordPage({
   params,
@@ -51,6 +58,7 @@ export default async function FoodRecordPage({
   const requestedUnits = Array.isArray(query.units) ? query.units[0] : query.units;
   const initialMeasurement = requestedUnits === "us" ? "us" : "metric";
   const recordSource = source as CatalogueFoodSource;
+  const copy = getCatalog(language);
   const requestHeaders = await headers();
   const initialState = await loadPublicFoodRecord({
     source: recordSource,
@@ -63,13 +71,14 @@ export default async function FoodRecordPage({
   return (
     <main id="main-content" className="food-record-page">
       <PublicBreadcrumbs
+        label={copy.common.breadcrumb}
         items={[
-          { label: "Home", href: routes.publicHome(language) },
+          { label: copy.common.home, href: routes.publicHome(language) },
           {
-            label: "Explore",
+            label: copy.common.explore,
             href: `${routes.publicHub("explore", language)}?${new URLSearchParams({ food_locale: foodLocale })}`,
           },
-          { label: "Food record" },
+          { label: copy.common.foodRecord },
         ]}
       />
       <PublicFoodRecord

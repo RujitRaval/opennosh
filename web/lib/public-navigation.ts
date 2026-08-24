@@ -4,6 +4,7 @@ import {
   type InterfaceLanguage,
   type PublicHubId,
 } from "@/lib/routes";
+import { getCatalog } from "@/lib/i18n/catalog";
 
 export const publicFeatureIds = [
   "explorer-search",
@@ -32,66 +33,13 @@ export type PublicNavigationHub = {
     href: string;
     external?: boolean;
   };
-  principles: readonly [string, string, string];
+  principles: readonly string[];
   children: readonly PublicNavigationChild[];
 };
-
-type HubCopy = Omit<PublicNavigationHub, "id" | "index" | "children">;
-
-const shellCatalogs = {
-  en: {
-    interfaceLanguage: "English",
-    menu: "Menu",
-    close: "Close",
-    tracker: "Tracker",
-    mobileTracker: "Open private tracker",
-    hubs: {
-      explore: {
-        label: "Explore",
-        description:
-          "Find food knowledge with its source, preparation, portion, locale, and uncertainty still attached.",
-        nextAction: { label: "See how records work", compactLabel: "Records", href: "#principles" },
-        principles: ["Public by default", "Context beside numbers", "Provenance in the open"],
-      },
-      contribute: {
-        label: "Contribute",
-        description:
-          "Document a missing food without flattening the place, preparation, or people that give it meaning.",
-        nextAction: {
-          label: "Start a contribution",
-          compactLabel: "Start",
-          href: "/contribute",
-        },
-        principles: ["Name the context", "Keep original units", "Publish through review"],
-      },
-      commons: {
-        label: "Commons",
-        description:
-          "Inspect the rules, sources, versions, and stewardship that let shared food data earn trust in public.",
-        nextAction: { label: "Read licenses and notices", compactLabel: "Notices", href: "/notices" },
-        principles: ["Visible stewardship", "Versioned releases", "Licenses stay attached"],
-      },
-      build: {
-        label: "Build",
-        description:
-          "Use inspectable schemas, packs, APIs, and source code to make food knowledge useful elsewhere.",
-        nextAction: {
-          label: "View the source repository",
-          compactLabel: "Source",
-          href: "https://github.com/RujitRaval/opennosh",
-          external: true,
-        },
-        principles: ["Portable schemas", "Reusable public data", "Open-source tools"],
-      },
-    } satisfies Record<PublicHubId, HubCopy>,
-  },
-} as const;
 
 type ChildDefinition = {
   id: string;
   hub: PublicHubId;
-  label: string;
-  description: string;
   feature?: PublicFeatureId;
   target: string;
 };
@@ -100,45 +48,35 @@ const childDefinitions: readonly ChildDefinition[] = [
   {
     id: "search",
     hub: "explore",
-    label: "Search foods",
-    description: "Search public food records without an account.",
     feature: "explorer-search",
     target: "search",
   },
   {
     id: "start",
     hub: "contribute",
-    label: "Start a contribution",
-    description: "Begin a guided food record contribution.",
     target: "start",
   },
   {
     id: "packs",
     hub: "commons",
-    label: "Browse data packs",
-    description: "Inspect public, versioned food-data releases.",
     feature: "public-packs",
     target: "packs",
   },
   {
     id: "api",
     hub: "build",
-    label: "API reference",
-    description: "Use the public contract in another product.",
     feature: "api-reference",
     target: "api",
   },
   {
     id: "notices",
     hub: "build",
-    label: "Licenses + notices",
-    description: "Understand the terms attached to each source and export.",
     target: "notices",
   },
 ];
 
 export function getPublicShellCopy(language: InterfaceLanguage) {
-  return shellCatalogs[language];
+  return getCatalog(language).shell;
 }
 
 export function parsePublicFeatureFlags(value: string | undefined): readonly PublicFeatureId[] {
@@ -152,7 +90,7 @@ export function buildPublicNavigation(
   enabledFeatures: readonly PublicFeatureId[] = [],
 ): readonly PublicNavigationHub[] {
   const enabled = new Set(enabledFeatures);
-  const copy = getPublicShellCopy(language);
+  const copy = getCatalog(language).navigation;
 
   return publicHubIds.map((id, position) => {
     const hub = copy.hubs[id];
@@ -160,8 +98,8 @@ export function buildPublicNavigation(
       .filter((child) => child.hub === id && (!child.feature || enabled.has(child.feature)))
       .map((child) => ({
         id: child.id,
-        label: child.label,
-        description: child.description,
+        label: copy.children[child.id as keyof typeof copy.children].label,
+        description: copy.children[child.id as keyof typeof copy.children].description,
         href:
           child.target === "notices"
             ? routes.publicNotices(language)
@@ -170,12 +108,18 @@ export function buildPublicNavigation(
             : `${routes.publicHub(id, language)}#${child.target}`,
       }));
 
-    const nextAction =
-      hub.nextAction.href === "/contribute"
-        ? { ...hub.nextAction, href: routes.contributionStart(language) }
-        : hub.nextAction.href === "/notices"
-        ? { ...hub.nextAction, href: routes.publicNotices(language) }
-        : hub.nextAction;
+    const nextAction = id === "contribute"
+      ? { label: hub.action, compactLabel: hub.compactAction, href: routes.contributionStart(language) }
+      : id === "commons"
+        ? { label: hub.action, compactLabel: hub.compactAction, href: routes.publicNotices(language) }
+        : id === "build"
+          ? {
+              label: hub.action,
+              compactLabel: hub.compactAction,
+              href: "https://github.com/RujitRaval/opennosh",
+              external: true,
+            }
+          : { label: hub.action, compactLabel: hub.compactAction, href: "#principles" };
 
     return {
       id,

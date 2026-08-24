@@ -10,7 +10,16 @@ import {
   resolvePublicHub,
   type PublicNavigationHub,
 } from "@/lib/public-navigation";
-import { routes, type InterfaceLanguage } from "@/lib/routes";
+import {
+  interfaceLanguageCookie,
+  isPseudoLanguageEnabled,
+  localizePublicPath,
+  pseudoLanguage,
+  routes,
+  supportedLanguages,
+  type InterfaceLanguage,
+} from "@/lib/routes";
+import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
 
 import { BrandLogo } from "./brand-logo";
 
@@ -25,11 +34,13 @@ export function PublicHeader({
   const activeHub = resolvePublicHub(pathname, language);
   const usesDarkHeader = pathname === routes.publicHub("build", language);
   const usesTomatoHeader = pathname.startsWith(`${routes.publicHub("contribute", language)}/`);
+  const catalog = getCatalog(language);
+  const copy = getPublicShellCopy(language);
   const contextHub = navigation.find((hub) => hub.id === activeHub) ?? navigation[0];
   const contextAction = usesTomatoHeader
-    ? {
+      ? {
         href: routes.publicHub("contribute", language),
-        compactLabel: "Contribution",
+        compactLabel: copy.contributionContext,
       }
     : activeHub
       ? contextHub.nextAction
@@ -37,10 +48,23 @@ export function PublicHeader({
           href: routes.publicHub("explore", language),
           compactLabel: contextHub.label,
         };
-  const copy = getPublicShellCopy(language);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
+  const languageOptions: readonly InterfaceLanguage[] =
+    isPseudoLanguageEnabled()
+      ? [...supportedLanguages, pseudoLanguage]
+      : supportedLanguages;
+
+  function changeLanguage(nextLanguage: InterfaceLanguage) {
+    const search = window.location.search;
+    document.cookie = interfaceLanguageCookie + "=" + encodeURIComponent(nextLanguage) + "; Path=/; Max-Age=31536000; SameSite=Lax";
+    window.location.assign(localizePublicPath({
+      pathname,
+      search,
+      language: nextLanguage,
+    }));
+  }
 
   const closeMenu = useCallback(({ restoreFocus = false } = {}) => {
     setOpen(false);
@@ -64,7 +88,7 @@ export function PublicHeader({
     <header
       className={`public-header${usesDarkHeader ? " public-header-dark" : ""}${usesTomatoHeader ? " public-header-tomato" : ""}`}
     >
-      <Link className="public-brand" href={routes.publicHome(language)} aria-label="opennosh home">
+      <Link className="public-brand" href={routes.publicHome(language)} aria-label={catalog.common.opennoshHome}>
         <BrandLogo
           surface={usesDarkHeader ? "commons-ink" : usesTomatoHeader ? "signal-tomato" : "rice-paper"}
           priority
@@ -73,7 +97,7 @@ export function PublicHeader({
         />
       </Link>
 
-      <nav className="public-nav" aria-label="Primary navigation">
+      <nav className="public-nav" aria-label={copy.primaryNavigation}>
         {navigation.map((hub) => (
           <Link
             key={hub.id}
@@ -86,18 +110,24 @@ export function PublicHeader({
       </nav>
 
       <div className="public-utilities">
-        <span
+        <select
           className="language-label"
-          aria-label={`Interface language: ${copy.interfaceLanguage}`}
-          title="Food locale is selected independently in Explore"
+          aria-label={formatMessage(copy.interfaceLabel, { language: copy.interfaceLanguage })}
+          title={copy.foodLocaleIndependent}
+          value={language}
+          onChange={(event) => changeLanguage(event.target.value as InterfaceLanguage)}
         >
-          EN
-        </span>
+          {languageOptions.map((option) => (
+            <option key={option} value={option}>{getCatalog(option).shell.languageCode}</option>
+          ))}
+        </select>
         <Link className="tracker-link" href={routes.tracker.home}>
           {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
         </Link>
         <Link className="mobile-context-action" href={contextAction.href}>
-          {usesTomatoHeader ? contextAction.compactLabel : `Next / ${contextAction.compactLabel}`}
+          {usesTomatoHeader
+            ? contextAction.compactLabel
+            : formatMessage(copy.nextAction, { action: contextAction.compactLabel })}
         </Link>
         <button
           ref={buttonRef}
@@ -111,7 +141,7 @@ export function PublicHeader({
         </button>
       </div>
 
-      <nav id="mobile-menu" className="mobile-menu" aria-label="Mobile navigation" hidden={!open}>
+      <nav id="mobile-menu" className="mobile-menu" aria-label={copy.mobileNavigation} hidden={!open}>
         <div className="mobile-hubs">
           {navigation.map((hub, index) => (
             <section key={hub.id} className="mobile-hub" aria-labelledby={`mobile-${hub.id}`}>
@@ -138,10 +168,19 @@ export function PublicHeader({
             </section>
           ))}
         </div>
-        <div className="mobile-utilities" aria-label="Utilities">
-          <span aria-label={`Interface language: ${copy.interfaceLanguage}`}>
-            Interface / EN
-          </span>
+        <div className="mobile-utilities" aria-label={copy.utilities}>
+          <select
+            aria-label={formatMessage(copy.interfaceLabel, { language: copy.interfaceLanguage })}
+            title={copy.foodLocaleIndependent}
+            value={language}
+            onChange={(event) => changeLanguage(event.target.value as InterfaceLanguage)}
+          >
+            {languageOptions.map((option) => (
+              <option key={option} value={option}>
+                {formatMessage(getCatalog(option).shell.interfaceCompact, { code: getCatalog(option).shell.languageCode })}
+              </option>
+            ))}
+          </select>
           <Link className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
             {copy.mobileTracker} <span aria-hidden="true">{"\u2197"}</span>
           </Link>

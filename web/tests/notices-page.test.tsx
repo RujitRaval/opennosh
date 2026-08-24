@@ -1,13 +1,14 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import NoticesPage, { metadata } from "@/app/(public)/[language]/notices/page";
+import NoticesPage, { generateMetadata } from "@/app/(public)/[language]/notices/page";
 import { TrackerFooter } from "@/components/tracker/tracker-footer";
 
 afterEach(cleanup);
 
 describe("license and data notices", () => {
   it("publishes focused metadata and an accessible notice hierarchy", async () => {
+    const metadata = await generateMetadata({ params: Promise.resolve({ language: "en" }) });
     expect(metadata.title).toContain("Licenses and data notices");
     render(await NoticesPage({ params: Promise.resolve({ language: "en" }) }));
 

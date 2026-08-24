@@ -2155,7 +2155,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `~/.gstack/projects/RujitRaval-opennosh/designs/living-commons/`.
   - Verify: the refreshed mock demonstrates Explore/Contribute/Commons/Build, verified snapshot labeling, the honest quiet state, utility-with-visible-trust record hierarchy, three chapters/five stages, responsive progress, and surface-correct wordmarks.
 
-- [ ] **T23 (P1, human: ~2-3 days / Codex: ~1 day)** - Localization quality - Build the typed catalog contract, deterministic fallback tests, pseudo-locale, and shipped-language browser smoke lane.
+- [x] **T23 (P1, human: ~2-3 days / Codex: ~1 day)** - Localization quality - Build the typed catalog contract, deterministic fallback tests, pseudo-locale, and shipped-language browser smoke lane.
   - Surfaced by: Test re-review D38 - localized routes can pass navigation tests while missing keys, interpolation drift, hard-coded copy, or text expansion breaks visible interface trust.
   - Files: public and contribution message catalogs, catalog types and validation, static UI-copy rule, pseudo-locale transformer, Vitest fixtures, Playwright projects, CI.
   - Verify: exact key and parameter/plural parity, deterministic fallback, document/metadata/route language agreement, no forbidden raw interface copy, desktop/mobile text expansion, all five contribution stages, hydration, language switching, and independent food-data locale all pass; right-to-left coverage is required before an RTL language ships.

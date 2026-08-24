@@ -21,6 +21,7 @@ import {
   isContributionStage,
 } from "@/lib/contributions/stage-registry";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
+import { fallbackLanguage, formatMessage, pseudoLanguage } from "@/lib/i18n/catalog";
 
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
 type AuthMode = "login" | "register";
@@ -41,20 +42,21 @@ function Field({ name, label, hint, children }: { name: keyof ContributionFields
   </div>;
 }
 
-function Receipt({ receipt }: { receipt: ContributionReceipt }) {
-  const due = new Intl.DateTimeFormat("en", { dateStyle: "long", timeStyle: "short" }).format(new Date(receipt.acknowledgementDueAt));
+function Receipt({ receipt, language }: { receipt: ContributionReceipt; language: InterfaceLanguage }) {
+  const copy = contributionCatalog(language);
+  const due = new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, { dateStyle: "long", timeStyle: "short" }).format(new Date(receipt.acknowledgementDueAt));
   return <section className="contribution-receipt" aria-labelledby="receipt-title">
     <div className="receipt-mark" aria-hidden="true"><i /><i /></div>
-    <p className="mono">Received for review</p>
-    <h1 id="receipt-title">Handed to the commons</h1>
-    <p className="receipt-lead">Your proposal is safely in the review queue. It is not published or counted as accepted yet.</p>
+    <p className="mono">{copy.receiptLabel}</p>
+    <h1 id="receipt-title">{copy.receiptTitle}</h1>
+    <p className="receipt-lead">{copy.receiptLead}</p>
     <dl>
-      <div><dt>Submission</dt><dd>{receipt.submissionId}</dd></div>
-      <div><dt>Public credit</dt><dd>{receipt.attribution}</dd></div>
-      <div><dt>Acknowledgement expected</dt><dd>{due}</dd></div>
+      <div><dt>{copy.submission}</dt><dd>{receipt.submissionId}</dd></div>
+      <div><dt>{copy.publicCredit}</dt><dd>{receipt.attribution}</dd></div>
+      <div><dt>{copy.acknowledgement}</dt><dd>{due}</dd></div>
     </dl>
-    <p>A steward may approve it, ask for changes, dispute the evidence, or prepare it for a future release. Publication is the separate event that adds it to the accepted commons.</p>
-    <Link className="contribution-primary" href={receipt.statusHref}>View stable status</Link>
+    <p>{copy.receiptBody}</p>
+    <Link className="contribution-primary" href={receipt.statusHref}>{copy.stableStatus}</Link>
   </section>;
 }
 
@@ -64,8 +66,8 @@ function Progress({ language, pathDraftId, draft, stage }: { language: Interface
   const accessible = new Set(localAccessibleStages(draft));
   const catalog = contributionCatalog(language);
   const stages = contributionStageList();
-  return <nav className="contribution-progress" aria-label="Contribution progress">
-    <div className="contribution-progress-compact"><span className="mono">Step {contributionStageRegistry[stage].order} of 5</span><button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? catalog.actions.hideAll : catalog.actions.viewAll}</button></div>
+  return <nav className="contribution-progress" aria-label={catalog.progress}>
+    <div className="contribution-progress-compact"><span className="mono">{formatMessage(catalog.stepCount, { step: contributionStageRegistry[stage].order })}</span><button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? catalog.actions.hideAll : catalog.actions.viewAll}</button></div>
     <ol className={expanded ? "is-expanded" : undefined}>{stages.map((item, index) => {
       const current = item.slug === stage;
       const allowed = accessible.has(item.slug);
@@ -96,6 +98,7 @@ function newerDeviceDraft(
 }
 
 export function ContributionJourney({ language, routeDraftId, requestedStage }: Props) {
+  const copy = contributionCatalog(language);
   const router = useRouter();
   const [draft, setDraft] = useState<LocalContributionDraft | null>(null);
   const [receipt, setReceipt] = useState<ContributionReceipt | null>(null);
@@ -146,11 +149,11 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         }
       }).catch((caught) => {
         hydratedRemoteDraftId.current = null;
-        setErrors([caught instanceof Error ? caught.message : "This server draft could not be opened."]);
+        setErrors([caught instanceof Error ? caught.message : copy.draftOpenFallback]);
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [language, requestedStage, routeDraftId, router]);
+  }, [copy.draftOpenFallback, language, requestedStage, routeDraftId, router]);
 
   useEffect(() => {
     if (!draft) return;
@@ -206,7 +209,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   function continueJourney() {
     if (!draft) return;
     const blockers = localStageBlockers(draft, stage);
-    if (blockers.length) return showErrors(blockers.map((item) => item.message));
+    if (blockers.length) return showErrors(blockers.map((item) => {
+      const key = item.code === "required" ? item.field : item.code;
+      return key && key in copy.validation
+        ? copy.validation[key as keyof typeof copy.validation]
+        : item.message;
+    }));
     const next = contributionStageRegistry[stage].next;
     if (next) navigate(next);
   }
@@ -214,7 +222,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   async function checkDuplicates() {
     if (!draft) return;
     const detailsBlockers = localStageBlockers(draft, "details");
-    if (detailsBlockers.length) return showErrors(detailsBlockers.map((item) => item.message));
+    if (detailsBlockers.length) return showErrors(detailsBlockers.map((item) => {
+      const key = item.code === "required" ? item.field : item.code;
+      return key && key in copy.validation
+        ? copy.validation[key as keyof typeof copy.validation]
+        : item.message;
+    }));
     setCheckingDuplicates(true);
     try {
       const result = await api.searchFoods(draft.fields.name.trim(), draft.fields.locale.trim());
@@ -229,7 +242,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       });
       setErrors([]);
     } catch (caught) {
-      showErrors([caught instanceof Error ? caught.message : "The food index could not be checked."]);
+      showErrors([caught instanceof Error ? caught.message : copy.indexFallback]);
     } finally { setCheckingDuplicates(false); }
   }
 
@@ -261,7 +274,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           duplicateQuery: `${draft.fields.name.trim()}|${draft.fields.locale.trim()}`,
         });
         showErrors([
-          "The server found a possible existing record that was not in your earlier check. Review it before handing this proposal over.",
+          copy.serverDuplicate,
         ]);
         navigate("duplicates");
         return;
@@ -275,25 +288,25 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       const submitted = await api.submitContributionDraft(remote.draftId, {
         expected_draft_version: remote.draftVersion, idempotency_key: crypto.randomUUID(),
       });
-      if (!submitted.receipt) throw new Error("The server did not return a submission receipt.");
+      if (!submitted.receipt) throw new Error(copy.serverReceiptMissing);
       window.localStorage.removeItem(contributionDraftStorageKey(routeDraftId));
       setReceipt(submitted.receipt);
       setAuthRequired(false);
       router.replace(routes.contributionStatus(language, submitted.draftId));
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "The contribution could not be handed over.";
-      showErrors([`${message} Your device copy is still safe. Review the duplicate check and try again.`]);
+      const message = caught instanceof Error ? caught.message : copy.handoffFallback;
+      showErrors([formatMessage(copy.safeDeviceCopy, { message })]);
     } finally { setBusy(false); }
   }
 
   if (!draft && errors.length) return <main id="main-content" className="contribution-status-page contribution-status-state" role="alert">
-    <p className="mono">Draft unavailable</p>
-    <h1>We could not open this contribution</h1>
+    <p className="mono">{copy.draftUnavailable}</p>
+    <h1>{copy.draftOpenTitle}</h1>
     <p>{errors[0]}</p>
-    <Link className="contribution-primary" href={routes.contributionStart(language)}>Return to your device draft</Link>
+    <Link className="contribution-primary" href={routes.contributionStart(language)}>{copy.returnDraft}</Link>
   </main>;
-  if (!draft) return <main id="main-content" className="contribution-loading" aria-busy="true">Opening your contribution…</main>;
-  if (receipt) return <main id="main-content" className="contribution-receipt-page"><Receipt receipt={receipt} /></main>;
+  if (!draft) return <main id="main-content" className="contribution-loading" aria-busy="true">{copy.opening}</main>;
+  if (receipt) return <main id="main-content" className="contribution-receipt-page"><Receipt receipt={receipt} language={language} /></main>;
 
   const stageMeta = contributionStageRegistry[stage];
   const fields = draft.fields;
@@ -309,63 +322,63 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     <Progress language={language} pathDraftId={routeDraftId} draft={draft} stage={stage} />
     <article className="contribution-workspace">
       <header ref={stageHeading} className="contribution-stage-heading">
-        <p className="mono">{contributionCatalog(language).chapters[stageMeta.chapter].label} · {String(stageMeta.order).padStart(2, "0")} / 05</p>
+        <p className="mono">{formatMessage(copy.stageCount, { chapter: copy.chapters[stageMeta.chapter].label, step: String(stageMeta.order).padStart(2, "0") })}</p>
         <h1 id={stageMeta.headingAnchor}>{contributionMessage(language, stageMeta.headingKey)}</h1>
         <p>{contributionMessage(language, stageMeta.descriptionKey)}</p>
-        <span className="contribution-save mono" role="status">● {draft.saveState === "synced" ? "Saved on server" : "Saved on this device"}</span>
+        <span className="contribution-save mono" role="status">● {draft.saveState === "synced" ? copy.savedServer : copy.savedDevice}</span>
       </header>
 
       {errors.length ? <div ref={errorSummary} tabIndex={-1} className="contribution-errors" role="alert" id={stageMeta.validationAnchor}>
-        <strong>There {errors.length === 1 ? "is one thing" : `are ${errors.length} things`} to fix</strong>
+        <strong>{errors.length === 1 ? copy.errorsOne : formatMessage(copy.errorsMany, { count: errors.length })}</strong>
         <ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul>
       </div> : null}
 
       <div className="contribution-form">
         {stage === "evidence" ? <>
-          <fieldset><legend>What kind of source supports this record?</legend><div className="contribution-choice-grid">
-            {([['packaging_label', 'Packaging label'], ['government_database', 'Government database'], ['public_document', 'Public document'], ['maintainer_attestation', 'Maintainer attestation']] as const).map(([value, label]) =>
+          <fieldset><legend>{copy.evidenceLegend}</legend><div className="contribution-choice-grid">
+            {([["packaging_label", copy.evidenceTypes.packaging], ["government_database", copy.evidenceTypes.government], ["public_document", copy.evidenceTypes.document], ["maintainer_attestation", copy.evidenceTypes.attestation]] as const).map(([value, label]) =>
               <label key={value}><input type="radio" name="evidence_type" value={value} checked={fields.evidence_type === value} onChange={() => update("evidence_type", value)} /><span>{label}</span></label>)}
           </div></fieldset>
-          <Field name="source_uri" label="Public source URL" hint="Use a durable HTTPS page that a reviewer can inspect."><input id="contribution-source_uri" type="url" inputMode="url" value={fields.source_uri} onChange={(event) => update("source_uri", event.target.value)} {...described("source_uri")} /></Field>
-          <label className="contribution-check"><input id="contribution-rights_acknowledged" type="checkbox" checked={fields.rights_acknowledged} onChange={(event) => update("rights_acknowledged", event.target.checked)} /><span>I can reference this source, and its terms will remain attached to the proposal.</span></label>
+          <Field name="source_uri" label={copy.sourceUrl} hint={copy.sourceUrlHint}><input id="contribution-source_uri" type="url" inputMode="url" value={fields.source_uri} onChange={(event) => update("source_uri", event.target.value)} {...described("source_uri")} /></Field>
+          <label className="contribution-check"><input id="contribution-rights_acknowledged" type="checkbox" checked={fields.rights_acknowledged} onChange={(event) => update("rights_acknowledged", event.target.checked)} /><span>{copy.rights}</span></label>
         </> : null}
 
         {stage === "details" ? <>
-          <Field name="name" label="Food name"><input id="contribution-name" value={fields.name} onChange={(event) => update("name", event.target.value)} {...described("name")} /></Field>
-          <Field name="name_local" label="Name in its original language (optional)"><input id="contribution-name_local" value={fields.name_local} onChange={(event) => update("name_local", event.target.value)} /></Field>
+          <Field name="name" label={copy.fields.name}><input id="contribution-name" value={fields.name} onChange={(event) => update("name", event.target.value)} {...described("name")} /></Field>
+          <Field name="name_local" label={copy.fields.nameLocal}><input id="contribution-name_local" value={fields.name_local} onChange={(event) => update("name_local", event.target.value)} /></Field>
           <div className="contribution-form-pair">
-            <Field name="locale" label="Locale"><input id="contribution-locale" placeholder="en-US" value={fields.locale} onChange={(event) => update("locale", event.target.value)} {...described("locale")} /></Field>
-            <Field name="category" label="Category"><input id="contribution-category" value={fields.category} onChange={(event) => update("category", event.target.value)} {...described("category")} /></Field>
+            <Field name="locale" label={copy.fields.locale}><input id="contribution-locale" placeholder={copy.fields.localePlaceholder} value={fields.locale} onChange={(event) => update("locale", event.target.value)} {...described("locale")} /></Field>
+            <Field name="category" label={copy.fields.category}><input id="contribution-category" value={fields.category} onChange={(event) => update("category", event.target.value)} {...described("category")} /></Field>
           </div>
           <div className="contribution-form-triplet">
-            <Field name="portion_description" label="Portion description"><input id="contribution-portion_description" placeholder="1 cup" value={fields.portion_description} onChange={(event) => update("portion_description", event.target.value)} {...described("portion_description")} /></Field>
-            <Field name="portion_amount" label="Amount"><input id="contribution-portion_amount" inputMode="decimal" value={fields.portion_amount} onChange={(event) => update("portion_amount", event.target.value)} {...described("portion_amount")} /></Field>
-            <Field name="portion_unit" label="Original unit"><select id="contribution-portion_unit" value={fields.portion_unit} onChange={(event) => update("portion_unit", event.target.value as ContributionFields["portion_unit"])}><option value="g">grams (g)</option><option value="oz">ounces (oz)</option><option value="lb">pounds (lb)</option><option value="serving">serving</option></select></Field>
+            <Field name="portion_description" label={copy.fields.portionDescription}><input id="contribution-portion_description" placeholder={copy.fields.portionPlaceholder} value={fields.portion_description} onChange={(event) => update("portion_description", event.target.value)} {...described("portion_description")} /></Field>
+            <Field name="portion_amount" label={copy.fields.amount}><input id="contribution-portion_amount" inputMode="decimal" value={fields.portion_amount} onChange={(event) => update("portion_amount", event.target.value)} {...described("portion_amount")} /></Field>
+            <Field name="portion_unit" label={copy.fields.originalUnit}><select id="contribution-portion_unit" value={fields.portion_unit} onChange={(event) => update("portion_unit", event.target.value as ContributionFields["portion_unit"])}><option value="g">{copy.units.grams}</option><option value="oz">{copy.units.ounces}</option><option value="lb">{copy.units.pounds}</option><option value="serving">{copy.units.serving}</option></select></Field>
           </div>
-          <Field name="portion_grams" label="Canonical weight in grams" hint="Original units remain visible; grams make records comparable."><input id="contribution-portion_grams" inputMode="decimal" value={fields.portion_grams} onChange={(event) => update("portion_grams", event.target.value)} {...described("portion_grams")} /></Field>
+          <Field name="portion_grams" label={copy.fields.canonicalGrams} hint={copy.fields.canonicalHint}><input id="contribution-portion_grams" inputMode="decimal" value={fields.portion_grams} onChange={(event) => update("portion_grams", event.target.value)} {...described("portion_grams")} /></Field>
           <div className="contribution-nutrients">
-            {([['energy_kcal', 'Energy', 'kcal'], ['protein_g', 'Protein', 'g'], ['fat_g', 'Fat', 'g'], ['carbohydrate_g', 'Carbohydrate', 'g']] as const).map(([name, label, unit]) =>
+            {([["energy_kcal", copy.fields.energy, "kcal"], ["protein_g", copy.fields.protein, "g"], ["fat_g", copy.fields.fat, "g"], ["carbohydrate_g", copy.fields.carbohydrate, "g"]] as const).map(([name, label, unit]) =>
               <Field key={name} name={name} label={label}><div className="unit-input"><input id={`contribution-${name}`} inputMode="decimal" value={fields[name]} onChange={(event) => update(name, event.target.value)} {...described(name)} /><span>{unit}</span></div></Field>)}
           </div>
-          <Field name="ingredients" label="Ingredients or preparation notes (optional)"><textarea id="contribution-ingredients" value={fields.ingredients} onChange={(event) => update("ingredients", event.target.value)} /></Field>
+          <Field name="ingredients" label={copy.fields.ingredients}><textarea id="contribution-ingredients" value={fields.ingredients} onChange={(event) => update("ingredients", event.target.value)} /></Field>
         </> : null}
         {stage === "duplicates" ? <section className="duplicate-check" aria-labelledby="duplicate-title">
-          <h2 id="duplicate-title">Search the live index</h2>
-          <p>We will search for <strong>{fields.name || "your food"}</strong> in <strong>{fields.locale || "its locale"}</strong>.</p>
-          <button className="contribution-secondary" type="button" onClick={() => void checkDuplicates()} disabled={checkingDuplicates}>{checkingDuplicates ? "Checking…" : draft.duplicateQuery ? "Check again" : "Check current food index"}</button>
+          <h2 id="duplicate-title">{copy.duplicateTitle}</h2>
+          <p>{formatMessage(copy.duplicateLead, { food: fields.name || copy.yourFood, locale: fields.locale || copy.itsLocale })}</p>
+          <button className="contribution-secondary" type="button" onClick={() => void checkDuplicates()} disabled={checkingDuplicates}>{checkingDuplicates ? copy.checking : draft.duplicateQuery ? copy.checkAgain : copy.checkIndex}</button>
           {draft.duplicateQuery ? draft.duplicateCandidates.length ? <div className="duplicate-results">
-            <p className="mono">Possible matches · {draft.duplicateCandidates.length}</p>
+            <p className="mono">{formatMessage(copy.possibleMatches, { count: draft.duplicateCandidates.length })}</p>
             <ul>{draft.duplicateCandidates.map((candidate) => <li key={`${candidate.source}-${candidate.sourceId}`}><strong>{candidate.name}</strong><span>{candidate.source} / {candidate.sourceId}</span></li>)}</ul>
-            <label className="contribution-check"><input id="contribution-duplicates_resolved" type="checkbox" checked={fields.duplicates_resolved} onChange={(event) => update("duplicates_resolved", event.target.checked)} /><span>I reviewed these records. This proposal is still needed or adds meaning they do not contain.</span></label>
-          </div> : <p className="duplicate-clear" role="status">No current matches found. The server will check once more at handoff.</p> : null}
+            <label className="contribution-check"><input id="contribution-duplicates_resolved" type="checkbox" checked={fields.duplicates_resolved} onChange={(event) => update("duplicates_resolved", event.target.checked)} /><span>{copy.duplicateConfirm}</span></label>
+          </div> : <p className="duplicate-clear" role="status">{copy.noMatches}</p> : null}
         </section> : null}
 
         {stage === "provenance" ? <>
-          <Field name="pack_id" label="Target data pack" hint="A stable collection identifier, for example global-core."><input id="contribution-pack_id" value={fields.pack_id} onChange={(event) => update("pack_id", event.target.value)} {...described("pack_id")} /></Field>
-          <Field name="source_date" label="Source date"><input id="contribution-source_date" type="date" value={fields.source_date} onChange={(event) => update("source_date", event.target.value)} {...described("source_date")} /></Field>
-          <Field name="attribution" label="Public contributor credit" hint="This credit remains attached even if the account is later deleted."><input id="contribution-attribution" value={fields.attribution} onChange={(event) => update("attribution", event.target.value)} {...described("attribution")} /></Field>
-          <fieldset><legend>Source license</legend><div className="contribution-choice-grid">
-            {([['contributor-original', 'My original documentation'], ['CC0-1.0', 'CC0 1.0'], ['public-domain', 'Public domain']] as const).map(([value, label]) => <label key={value}><input type="radio" name="source_license" checked={fields.source_license === value} onChange={() => update("source_license", value)} /><span>{label}</span></label>)}
+          <Field name="pack_id" label={copy.fields.pack} hint={copy.fields.packHint}><input id="contribution-pack_id" value={fields.pack_id} onChange={(event) => update("pack_id", event.target.value)} {...described("pack_id")} /></Field>
+          <Field name="source_date" label={copy.fields.sourceDate}><input id="contribution-source_date" type="date" value={fields.source_date} onChange={(event) => update("source_date", event.target.value)} {...described("source_date")} /></Field>
+          <Field name="attribution" label={copy.fields.attribution} hint={copy.fields.attributionHint}><input id="contribution-attribution" value={fields.attribution} onChange={(event) => update("attribution", event.target.value)} {...described("attribution")} /></Field>
+          <fieldset><legend>{copy.licenseLegend}</legend><div className="contribution-choice-grid">
+            {([["contributor-original", copy.licenses.original], ["CC0-1.0", copy.licenses.cc0], ["public-domain", copy.licenses.publicDomain]] as const).map(([value, label]) => <label key={value}><input type="radio" name="source_license" checked={fields.source_license === value} onChange={() => update("source_license", value)} /><span>{label}</span></label>)}
           </div></fieldset>
         </> : null}
 
@@ -373,28 +386,28 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           {contributionStageList().slice(0, 4).map((item) => <div className="review-section" key={item.slug}>
             <p className="mono">{String(item.order).padStart(2, "0")} · {contributionMessage(language, item.headingKey)}</p>
             <dl>{stageFields[item.slug].filter((name) => !["rights_acknowledged", "duplicates_resolved"].includes(name)).map((name) => fields[name] ? <div key={name}><dt>{name.replaceAll("_", " ")}</dt><dd>{String(fields[name])}</dd></div> : null)}</dl>
-            <button type="button" onClick={() => navigate(item.slug)}>Edit</button>
+            <button type="button" onClick={() => navigate(item.slug)}>{copy.actions.edit}</button>
           </div>)}
-          <div className="review-warning"><strong>Review, not instant publication</strong><p>A steward checks evidence, duplicates, terms, and fit. Approval and publication are recorded separately and visibly.</p></div>
-          <label className="contribution-check"><input id="contribution-review_acknowledged" type="checkbox" checked={fields.review_acknowledged} onChange={(event) => update("review_acknowledged", event.target.checked)} /><span>I confirm this proposal, its public attribution, source terms, and the review process.</span></label>
+          <div className="review-warning"><strong>{copy.reviewWarning}</strong><p>{copy.reviewWarningBody}</p></div>
+          <label className="contribution-check"><input id="contribution-review_acknowledged" type="checkbox" checked={fields.review_acknowledged} onChange={(event) => update("review_acknowledged", event.target.checked)} /><span>{copy.reviewConfirm}</span></label>
           {authRequired ? <form className="contribution-auth" onSubmit={authSubmit}>
-            <p className="mono">Account required only for handoff</p><h2>Keep a responsible author attached</h2>
-            <p>Your device draft stays local until you submit. Account deletion does not erase the public attribution or license attached to accepted data.</p>
-            <div className="auth-mode"><button type="button" aria-pressed={authMode === "login"} onClick={() => setAuthMode("login")}>Sign in</button><button type="button" aria-pressed={authMode === "register"} onClick={() => setAuthMode("register")}>Create account</button></div>
-            <label>Email<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>Password<input required minLength={12} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            <button className="contribution-primary" type="submit" disabled={busy}>{busy ? "Handing over…" : authMode === "login" ? "Sign in and hand over" : "Create account and hand over"}</button>
+            <p className="mono">{copy.accountLabel}</p><h2>{copy.accountTitle}</h2>
+            <p>{copy.accountBody}</p>
+            <div className="auth-mode"><button type="button" aria-pressed={authMode === "login"} onClick={() => setAuthMode("login")}>{copy.signIn}</button><button type="button" aria-pressed={authMode === "register"} onClick={() => setAuthMode("register")}>{copy.createAccount}</button></div>
+            <label>{copy.email}<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+            <label>{copy.password}<input required minLength={12} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            <button className="contribution-primary" type="submit" disabled={busy}>{busy ? copy.handing : authMode === "login" ? copy.signInHandoff : copy.createHandoff}</button>
           </form> : null}
         </section> : null}
       </div>
       <div ref={inlineActions} className="contribution-actions contribution-actions-inline">
-        {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← Back</button> : <span />}
-        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>Continue →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? "Handing over…" : "Hand to review →"}</button>}
+        {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
+        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? copy.handing : copy.actions.submit + " →"}</button>}
       </div>
     </article>
     <div className={`contribution-actions contribution-actions-mobile${mobileActionsVisible ? " is-visible" : ""}`}>
-      {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← Back</button> : <span />}
-      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>Continue →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? "Handing over…" : "Hand to review →"}</button>}
+      {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
+      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? copy.handing : copy.actions.submit + " →"}</button>}
     </div>
   </main>;
 }

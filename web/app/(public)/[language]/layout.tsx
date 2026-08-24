@@ -8,7 +8,8 @@ import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
 } from "@/lib/public-navigation";
-import { isSupportedLanguage, supportedLanguages } from "@/lib/routes";
+import { isSupportedLanguage, pseudoLanguage, supportedLanguages } from "@/lib/routes";
+import { getCatalog } from "@/lib/i18n/catalog";
 
 import "../../base.css";
 import { archivo, plexMono, sourceSans } from "./fonts";
@@ -17,10 +18,16 @@ import "./public.css";
 import "./contribution.css";
 import "./truth-signals.css";
 
-export const metadata: Metadata = {
-  title: "Food data belongs to everyone - opennosh",
-  description: "Search, verify, improve, and reuse an open, versioned food-data commons.",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ language: string }>;
+}): Promise<Metadata> {
+  const { language } = await params;
+  if (!isSupportedLanguage(language)) return {};
+  const copy = getCatalog(language).metadata;
+  return { title: copy.homeTitle, description: copy.homeDescription };
+}
 
 export function generateStaticParams() {
   return supportedLanguages.map((language) => ({ language }));
@@ -35,6 +42,7 @@ export default async function PublicLayout({
 }>) {
   const { language } = await params;
   if (!isSupportedLanguage(language)) notFound();
+  const copy = getCatalog(language);
 
   const navigation = buildPublicNavigation(
     language,
@@ -51,9 +59,11 @@ export default async function PublicLayout({
       data-motion-state="paused"
       data-motion-reason={decorationsEnabled ? "server-static" : "kill-switch"}
       data-motion-decorations={decorationsEnabled ? "on" : "off"}
+      data-interface-language={language}
+      data-pseudo-locale={language === pseudoLanguage ? "true" : undefined}
     >
       <body className={`public-root ${archivo.variable} ${sourceSans.variable} ${plexMono.variable}`}>
-        <a className="skip-link" href="#main-content">Skip to content</a>
+        <a className="skip-link" href="#main-content">{copy.common.skipToContent}</a>
         <PublicHeader language={language} navigation={navigation} />
         {children}
         <PublicPerformanceSignals decorationsEnabled={decorationsEnabled} />

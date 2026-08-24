@@ -1,22 +1,33 @@
 export const supportedLanguages = ["en"] as const;
+export const pseudoLanguage = "en-XA" as const;
 
-export type InterfaceLanguage = (typeof supportedLanguages)[number];
+export type ShippedLanguage = (typeof supportedLanguages)[number];
+export type InterfaceLanguage = ShippedLanguage | typeof pseudoLanguage;
 
 export const defaultLanguage: InterfaceLanguage = "en";
 export const interfaceLanguageCookie = "opennosh_interface_language";
+
+export function isPseudoLanguageEnabled(): boolean {
+  return process.env.NODE_ENV !== "production"
+    && process.env.NEXT_PUBLIC_OPENNOSH_ENABLE_PSEUDO_LOCALE === "1";
+}
 
 export const publicHubIds = ["explore", "contribute", "commons", "build"] as const;
 export type PublicHubId = (typeof publicHubIds)[number];
 
 export function isSupportedLanguage(value: string): value is InterfaceLanguage {
-  return supportedLanguages.includes(value as InterfaceLanguage);
+  return supportedLanguages.includes(value as ShippedLanguage)
+    || (
+      value === pseudoLanguage
+      && isPseudoLanguageEnabled()
+    );
 }
 
 export function isPublicHub(value: string): value is PublicHubId {
   return publicHubIds.includes(value as PublicHubId);
 }
 
-function languageFromTag(value: string | undefined): InterfaceLanguage | undefined {
+function languageFromTag(value: string | undefined): ShippedLanguage | undefined {
   if (!value) return undefined;
   const normalized = value.trim().toLowerCase();
   if (!normalized) return undefined;
@@ -54,7 +65,7 @@ export function resolveInterfaceLanguage({
     .filter(
       (
         preference,
-      ): preference is { index: number; language: InterfaceLanguage; quality: number } =>
+      ): preference is { index: number; language: ShippedLanguage; quality: number } =>
         Boolean(preference.language) && preference.quality > 0,
     )
     .sort((left, right) => right.quality - left.quality || left.index - right.index);

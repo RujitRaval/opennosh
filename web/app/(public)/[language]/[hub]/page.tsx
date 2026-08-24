@@ -15,6 +15,7 @@ import {
   routes,
   type InterfaceLanguage,
 } from "@/lib/routes";
+import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
 
 function navigationFor(language: InterfaceLanguage) {
   return buildPublicNavigation(
@@ -37,7 +38,7 @@ export async function generateMetadata({
 
   const currentHub = navigationFor(language).find((item) => item.id === hub);
   return {
-    title: `${currentHub?.label ?? hub} - opennosh`,
+    title: (currentHub?.label ?? hub) + " - opennosh",
     description: currentHub?.description,
   };
 }
@@ -56,19 +57,21 @@ export default async function PublicHubPage({
 
   const action = currentHub.nextAction;
   const actionClassName = "hub-primary-action";
+  const copy = getCatalog(language);
 
   return (
     <>
       <main id="main-content" className={`hub-page hub-page-${hub}`}>
       <PublicBreadcrumbs
+        label={copy.common.breadcrumb}
         items={[
-          { label: "Home", href: routes.publicHome(language) },
+          { label: copy.common.home, href: routes.publicHome(language) },
           { label: currentHub.label },
         ]}
       />
       <section className="hub-intro" aria-labelledby="hub-title">
         <p className="hub-index mono">
-          Hub {currentHub.index} / {currentHub.label}
+          {formatMessage(copy.navigation.hubLabel, { index: currentHub.index, label: currentHub.label })}
         </p>
         <h1 id="hub-title">{currentHub.label}</h1>
         <p className="hub-description">{currentHub.description}</p>
@@ -84,7 +87,7 @@ export default async function PublicHubPage({
       </section>
 
       <section id="principles" className="hub-principles" aria-labelledby="principles-title">
-        <p id="principles-title" className="mono">What guides this hub</p>
+        <p id="principles-title" className="mono">{copy.navigation.guides}</p>
         <ol>
           {currentHub.principles.map((principle, index) => (
             <li key={principle}>
@@ -97,8 +100,8 @@ export default async function PublicHubPage({
 
       <section className="hub-contents" aria-labelledby="contents-title">
         <div className="hub-contents-heading">
-          <p className="mono">Available now</p>
-          <h2 id="contents-title">Inside {currentHub.label}</h2>
+          <p className="mono">{copy.navigation.availableNow}</p>
+          <h2 id="contents-title">{formatMessage(copy.navigation.inside, { label: currentHub.label })}</h2>
         </div>
         {currentHub.children.length > 0 ? (
           <div className="hub-content-ledger">
@@ -113,8 +116,7 @@ export default async function PublicHubPage({
           </div>
         ) : (
           <p className="hub-quiet-state">
-            This hub is in place. Its first public tool will appear here when that capability is
-            ready; the navigation will not advertise unfinished work.
+            {copy.navigation.quiet}
           </p>
         )}
       </section>

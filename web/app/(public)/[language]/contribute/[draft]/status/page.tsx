@@ -4,6 +4,7 @@ import { ContributionStatus } from "@/components/contributions/contribution-stat
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
 import { PublicFooter } from "@/components/public/public-footer";
 import { isSupportedLanguage, routes } from "@/lib/routes";
+import { getCatalog } from "@/lib/i18n/catalog";
 
 export default async function ContributionStatusPage({
   params,
@@ -12,12 +13,13 @@ export default async function ContributionStatusPage({
 }) {
   const { language, draft } = await params;
   if (!isSupportedLanguage(language)) notFound();
+  const copy = getCatalog(language);
   return <>
     <main id="main-content" className="contribution-status-page">
-      <PublicBreadcrumbs items={[
-        { label: "Home", href: routes.publicHome(language) },
-        { label: "Contribute", href: routes.publicHub("contribute", language) },
-        { label: "Status" },
+      <PublicBreadcrumbs label={copy.common.breadcrumb} items={[
+        { label: copy.common.home, href: routes.publicHome(language) },
+        { label: copy.common.contribute, href: routes.publicHub("contribute", language) },
+        { label: copy.common.status },
       ]} />
       <ContributionStatus language={language} draftId={draft} />
     </main>

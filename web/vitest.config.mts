@@ -12,6 +12,6 @@ export default defineConfig({
       jsdom: { url: "https://opennosh.test/" },
     },
     setupFiles: ["./vitest.setup.ts"],
-    exclude: ["tests/e2e/**", "node_modules/**"],
+    exclude: ["tests/e2e/**", "tests/localization/**", "node_modules/**"],
   },
 });

@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:localization": "playwright test --config playwright.localization.config.ts",
+    "check:localization": "node scripts/check_localized_ui_copy.mjs",
     "check:design-system": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check_living_commons_design_system.mjs",
     "check:design-build": "node scripts/check_production_font_isolation.mjs",
     "check:motion-budgets": "node scripts/check_public_motion_budgets.mjs",

@@ -67,7 +67,13 @@ img { height: auto; }
 }
 .public-nav a:hover::after, .tracker-link:hover::after { transform: scaleX(1); transform-origin: left; }
 .public-utilities { display: flex; justify-content: flex-end; align-items: center; gap: 1.1rem; font-size: .78rem; font-weight: 650; text-transform: uppercase; }
-.language-label { font-family: var(--font-data), monospace; font-size: .66rem; }
+.language-label {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-data), monospace;
+  font-size: .66rem;
+}
 .menu-button { display: none; min-width: 3.5rem; min-height: 2.75rem; padding: .4rem; border: 0; color: inherit; background: transparent; font-size: .78rem; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .mobile-context-action { display: none; min-height: 2.75rem; align-items: center; max-width: 18rem; overflow: hidden; font-family: var(--font-data), monospace; font-size: .6rem; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .mobile-menu { position: fixed; top: 5.35rem; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 1rem var(--page-pad) 2rem; color: var(--rice-paper); background: var(--commons-ink); border-bottom: 1px solid var(--rice-paper); overflow-y: auto; }

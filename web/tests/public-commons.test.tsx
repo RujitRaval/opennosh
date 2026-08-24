@@ -114,7 +114,7 @@ describe("public truth signal states", () => {
     const proofs = screen.getAllByText("18,429");
     expect(proofs).toHaveLength(2);
     expect(screen.getAllByText(/release 0\.30\.0\.0/i)).toHaveLength(3);
-    expect(screen.getByText("1 accepted changes")).toBeVisible();
+    expect(screen.getByText("1 accepted change")).toBeVisible();
     expect(screen.getByText("Accepted Dhokla as a verified food record.")).toBeVisible();
     expect(screen.getByText("Gujarat, India")).toBeVisible();
     expect(screen.getByText("Portion")).toBeVisible();
