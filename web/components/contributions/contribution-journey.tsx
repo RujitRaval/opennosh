@@ -98,6 +98,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const errorSummary = useRef<HTMLDivElement>(null);
   const stageHeading = useRef<HTMLElement>(null);
   const inlineActions = useRef<HTMLDivElement>(null);
+  const hydratedRemoteDraftId = useRef<string | null>(null);
   const rawStage = isContributionStage(requestedStage) ? requestedStage : "evidence";
   const stage = draft && localAccessibleStages(draft).includes(rawStage)
     ? rawStage : draft ? localAccessibleStages(draft).at(-1) ?? "evidence" : rawStage;
@@ -111,6 +112,8 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         setDraft(nextDraft);
         return;
       }
+      if (hydratedRemoteDraftId.current === routeDraftId) return;
+      hydratedRemoteDraftId.current = routeDraftId;
       api.contributionDraft(routeDraftId, requestedStage).then((remote) => {
         setDraft({
           schemaVersion: "1",
@@ -125,6 +128,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           router.replace(contributionStageHref(language, routeDraftId, remote.resolvedStage));
         }
       }).catch((caught) => {
+        hydratedRemoteDraftId.current = null;
         setErrors([caught instanceof Error ? caught.message : "This server draft could not be opened."]);
       });
     });
