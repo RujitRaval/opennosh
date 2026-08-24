@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,12 +87,15 @@ def _decimal(value: object, field: ContributionFieldName) -> str | None:
         return None
     if isinstance(value, bool):
         raise ValueError(f"{field.value} must be a number")
+    raw = str(value).strip()
+    if len(raw) > 64 or not raw or any(ord(character) < 32 for character in raw):
+        raise ValueError(f"{field.value} is invalid")
     try:
-        parsed = Decimal(str(value))
-    except (InvalidOperation, ValueError) as error:
-        raise ValueError(f"{field.value} must be a number") from error
+        parsed = Decimal(raw)
+    except (InvalidOperation, ValueError):
+        return raw
     if not parsed.is_finite() or parsed < 0 or parsed > _NUMERIC_LIMITS[field]:
-        raise ValueError(f"{field.value} is outside the supported range")
+        return raw
     return str(parsed.normalize())
 
 
@@ -101,12 +104,6 @@ def _normalize_patch(patch: ContributionFieldPatch) -> object:
     value = patch.value
     if field in _TEXT_LIMITS:
         normalized = _string(value, field, _TEXT_LIMITS[field])
-        if (
-            field is ContributionFieldName.LOCALE
-            and normalized
-            and not _LOCALE.fullmatch(normalized)
-        ):
-            raise ValueError("locale is invalid")
         if field is ContributionFieldName.PORTION_UNIT and normalized not in {
             None,
             "g",
@@ -131,12 +128,7 @@ def _normalize_patch(patch: ContributionFieldPatch) -> object:
         if normalized is None:
             return None
         source_url = urlsplit(normalized)
-        if (
-            source_url.scheme != "https"
-            or not source_url.hostname
-            or source_url.username
-            or source_url.password
-        ):
+        if source_url.username or source_url.password:
             raise ValueError("source_uri must be a public HTTPS URL")
         return normalized
     if field is ContributionFieldName.EVIDENCE_TYPE:
@@ -147,10 +139,14 @@ def _normalize_patch(patch: ContributionFieldPatch) -> object:
         if value is None or value == "":
             return None
         source_date = date.fromisoformat(str(value))
-        if source_date > date.today():
-            raise ValueError("source_date cannot be in the future")
         return source_date.isoformat()
     raise ValueError("Unsupported contribution field")
+
+
+def _normalize_base(patch: ContributionFieldPatch) -> object:
+    return _normalize_patch(
+        ContributionFieldPatch(field=patch.field, value=patch.base_value)
+    )
 
 
 async def _duplicate_candidates(
@@ -195,6 +191,16 @@ def _missing(
     return ContributionBlocker(stage=stage, field=field, code="required", message=message)
 
 
+def _valid_decimal(value: str | None, field: ContributionFieldName) -> bool:
+    if value is None:
+        return False
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation:
+        return False
+    return parsed.is_finite() and 0 <= parsed <= _NUMERIC_LIMITS[field]
+
+
 def _stage_blockers(
     fields: ContributionDraftFields,
     candidates: list[DuplicateCandidate],
@@ -208,7 +214,13 @@ def _stage_blockers(
                 "Choose the kind of source you are documenting.",
             )
         )
-    if not fields.source_uri:
+    source_url = urlsplit(fields.source_uri or "")
+    if (
+        source_url.scheme != "https"
+        or not source_url.hostname
+        or source_url.username
+        or source_url.password
+    ):
         blockers[ContributionStage.EVIDENCE].append(
             _missing(
                 ContributionStage.EVIDENCE,
@@ -257,7 +269,12 @@ def _stage_blockers(
             "Add carbohydrate per portion.",
         ),
     ):
-        if detail_value is None:
+        valid = detail_value is not None
+        if detail_field is ContributionFieldName.LOCALE:
+            valid = bool(detail_value and _LOCALE.fullmatch(detail_value))
+        if detail_field in _NUMERIC_LIMITS:
+            valid = isinstance(detail_value, str) and _valid_decimal(detail_value, detail_field)
+        if not valid:
             blockers[ContributionStage.DETAILS].append(
                 _missing(ContributionStage.DETAILS, detail_field, detail_message)
             )
@@ -283,7 +300,10 @@ def _stage_blockers(
         ),
         (ContributionFieldName.SOURCE_LICENSE, fields.source_license, "Choose the source license."),
     ):
-        if provenance_value is None:
+        valid = provenance_value is not None
+        if provenance_field is ContributionFieldName.SOURCE_DATE:
+            valid = isinstance(provenance_value, date) and provenance_value <= date.today()
+        if not valid:
             blockers[ContributionStage.PROVENANCE].append(
                 _missing(
                     ContributionStage.PROVENANCE,
@@ -448,8 +468,16 @@ async def patch_draft(
     draft_id: UUID,
     user_id: UUID,
     payload: ContributionDraftPatch,
+    operation_retention_seconds: int,
 ) -> ContributionCapability:
     draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
+    await database.execute(
+        delete(ContributionDraftOperation).where(
+            ContributionDraftOperation.draft_id == draft_id,
+            ContributionDraftOperation.created_at
+            <= datetime.now(UTC) - timedelta(seconds=operation_retention_seconds),
+        )
+    )
     existing_operation = (
         await database.execute(
             select(ContributionDraftOperation).where(
@@ -471,7 +499,15 @@ async def patch_draft(
             ]
         )
     if draft.draft_version != payload.expected_draft_version:
-        raise ContributionConflictError(build_capability(draft, payload.requested_stage))
+        fields = dict(draft.fields_json)
+        can_merge = all(
+            patch.base_version is not None
+            and patch.base_version <= payload.expected_draft_version
+            and fields.get(patch.field.value) == _normalize_base(patch)
+            for patch in payload.patches
+        )
+        if not can_merge:
+            raise ContributionConflictError(build_capability(draft, payload.requested_stage))
     fields = dict(draft.fields_json)
     for patch in payload.patches:
         fields[patch.field.value] = _normalize_patch(patch)

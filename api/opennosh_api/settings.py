@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     auth_rate_limit_attempts: PositiveInt = 5
     auth_rate_limit_window_seconds: PositiveInt = 300
     auth_rate_limit_retention_seconds: PositiveInt = 86_400
+    contribution_patch_rate_limit_attempts: PositiveInt = 120
+    contribution_patch_rate_limit_window_seconds: PositiveInt = 60
+    contribution_patch_account_rate_limit_attempts: PositiveInt = 240
+    contribution_operation_retention_seconds: PositiveInt = Field(
+        default=691_200, ge=604_800
+    )
     food_search_rate_limit_attempts: PositiveInt = 120
     food_search_rate_limit_window_seconds: PositiveInt = 60
     food_search_statement_timeout_ms: PositiveInt = 500
@@ -287,6 +293,7 @@ class Settings(BaseSettings):
             self.exercise_export_rate_limit_window_seconds,
             self.community_export_rate_limit_window_seconds,
             self.private_export_rate_limit_window_seconds,
+            self.contribution_patch_rate_limit_window_seconds,
         )
         if self.auth_rate_limit_retention_seconds < longest_window:
             raise ValueError("Rate-limit retention must cover every configured window")

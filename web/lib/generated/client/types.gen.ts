@@ -572,6 +572,14 @@ export type ContributionFieldName = 'evidence_type' | 'source_uri' | 'rights_ack
  * ContributionFieldPatch
  */
 export type ContributionFieldPatch = {
+    /**
+     * Base Value
+     */
+    base_value?: string | number | string | boolean | null;
+    /**
+     * Base Version
+     */
+    base_version?: number | null;
     field: ContributionFieldName;
     /**
      * Value

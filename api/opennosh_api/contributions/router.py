@@ -4,7 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opennosh_api.auth.dependencies import CurrentSession, get_current_session, require_csrf
+from opennosh_api.auth.dependencies import (
+    CurrentSession,
+    get_app_settings,
+    get_current_session,
+    require_csrf,
+)
+from opennosh_api.auth.rate_limit import enforce_rate_limit
 from opennosh_api.contributions.schemas import (
     ContributionCapability,
     ContributionDraftCreate,
@@ -21,6 +27,7 @@ from opennosh_api.contributions.service import (
     submit_draft,
 )
 from opennosh_api.database import get_database_session
+from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/contribution-drafts", tags=["contributions"])
 
@@ -87,11 +94,34 @@ async def patch(
     response: Response,
     current: Annotated[CurrentSession, Depends(require_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> ContributionCapability:
     _no_store(response)
     try:
+        await enforce_rate_limit(
+            database,
+            scope="contribution-patch-user",
+            key=str(current.user_id),
+            attempts=settings.contribution_patch_account_rate_limit_attempts,
+            window_seconds=settings.contribution_patch_rate_limit_window_seconds,
+            retention_seconds=settings.auth_rate_limit_retention_seconds,
+            detail="Too many contribution updates. Keep editing; sync will retry shortly.",
+        )
+        await enforce_rate_limit(
+            database,
+            scope="contribution-patch-user-draft",
+            key=f"{current.user_id}:{draft_id}",
+            attempts=settings.contribution_patch_rate_limit_attempts,
+            window_seconds=settings.contribution_patch_rate_limit_window_seconds,
+            retention_seconds=settings.auth_rate_limit_retention_seconds,
+            detail="Too many contribution updates. Keep editing; sync will retry shortly.",
+        )
         return await patch_draft(
-            database, draft_id=draft_id, user_id=current.user_id, payload=payload
+            database,
+            draft_id=draft_id,
+            user_id=current.user_id,
+            payload=payload,
+            operation_retention_seconds=settings.contribution_operation_retention_seconds,
         )
     except ContributionNotFoundError as error:
         raise _not_found() from error
