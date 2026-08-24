@@ -73,6 +73,17 @@ describe("public navigation", () => {
     expect(screen.getByRole("link", { name: "Explore" })).not.toHaveAttribute("aria-current");
   });
 
+  it("keeps a deep contribution journey anchored to its hub", () => {
+    navigationState.pathname = "/en/contribute/local/evidence";
+    render(<PublicHeader language="en" />);
+
+    expect(screen.getByRole("link", { name: "Contribution" })).toHaveAttribute(
+      "href",
+      "/en/contribute",
+    );
+    expect(screen.queryByRole("link", { name: "Next / Start" })).not.toBeInTheDocument();
+  });
+
   it("shows enabled children inside their hub without changing the four-hub trunk", () => {
     const navigation = buildPublicNavigation("en", ["explorer-search", "api-reference"]);
     render(<PublicHeader language="en" navigation={navigation} />);
