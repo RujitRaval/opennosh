@@ -33,10 +33,7 @@
   --color-data: var(--color-dataset-indigo);
   --color-border: color-mix(in srgb, var(--color-commons-ink) 22%, transparent);
 
-  /* Typography roles are supplied by next/font on the public document only. */
-  --font-display: var(--font-archivo), "Arial Narrow", sans-serif;
-  --font-body: var(--font-source-sans), Arial, sans-serif;
-  --font-data: var(--font-plex-mono), monospace;
+  /* Type scale is surface-scoped; family roles bind where next/font variables exist. */
   --type-body: 1.125rem;
   --type-utility: .6875rem;
   --leading-body: 1.4;
@@ -76,6 +73,12 @@
   --stage-space: var(--space-stage);
   --line: var(--color-border);
   --ease: var(--ease-movement);
+}
+
+.public-root {
+  --font-display: var(--font-archivo), "Arial Narrow", sans-serif;
+  --font-body: var(--font-source-sans), Arial, sans-serif;
+  --font-data: var(--font-plex-mono), monospace;
 }
 
 :root[data-surface="public"][data-theme="dark"] {
