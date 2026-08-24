@@ -58,10 +58,9 @@ const shellCatalogs = {
         description:
           "Document a missing food without flattening the place, preparation, or people that give it meaning.",
         nextAction: {
-          label: "Read the contribution guide",
-          compactLabel: "Guide",
-          href: "https://github.com/RujitRaval/opennosh/blob/main/CONTRIBUTING.md",
-          external: true,
+          label: "Start a contribution",
+          compactLabel: "Start",
+          href: "/contribute",
         },
         principles: ["Name the context", "Keep original units", "Publish through review"],
       },
@@ -111,7 +110,6 @@ const childDefinitions: readonly ChildDefinition[] = [
     hub: "contribute",
     label: "Start a contribution",
     description: "Begin a guided food record contribution.",
-    feature: "contribution-flow",
     target: "start",
   },
   {
@@ -167,11 +165,15 @@ export function buildPublicNavigation(
         href:
           child.target === "notices"
             ? routes.publicNotices(language)
+            : child.target === "start"
+              ? routes.contributionStart(language)
             : `${routes.publicHub(id, language)}#${child.target}`,
       }));
 
     const nextAction =
-      hub.nextAction.href === "/notices"
+      hub.nextAction.href === "/contribute"
+        ? { ...hub.nextAction, href: routes.contributionStart(language) }
+        : hub.nextAction.href === "/notices"
         ? { ...hub.nextAction, href: routes.publicNotices(language) }
         : hub.nextAction;
 

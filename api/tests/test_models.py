@@ -20,6 +20,8 @@ EXPECTED_TABLES = {
     "workout_sets",
     "exercises",
     "targets",
+    "contribution_drafts",
+    "contribution_draft_operations",
 }
 
 OWNER_TABLES = {
@@ -32,6 +34,7 @@ OWNER_TABLES = {
     "workouts",
     "workout_sets",
     "targets",
+    "contribution_drafts",
 }
 
 

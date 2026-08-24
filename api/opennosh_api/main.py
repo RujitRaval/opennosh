@@ -11,6 +11,7 @@ from opennosh_api.auth.router import router as auth_router
 from opennosh_api.body_metrics.router import router as body_metrics_router
 from opennosh_api.capacity import ProcessRole, load_capacity_manifest
 from opennosh_api.contracts import common_problem_responses, install_openapi_contract
+from opennosh_api.contributions.router import router as contributions_router
 from opennosh_api.database import (
     DatabaseIdentity,
     DatabasePoolMetrics,
@@ -121,6 +122,7 @@ def create_app(
     application.include_router(health_router)
     application.include_router(database_metrics_router)
     application.include_router(public_commons_router)
+    application.include_router(contributions_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

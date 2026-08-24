@@ -35,6 +35,8 @@ EXPECTED_TABLES = {
     "workout_sets",
     "exercises",
     "targets",
+    "contribution_drafts",
+    "contribution_draft_operations",
 }
 
 

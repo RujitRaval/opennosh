@@ -1,3 +1,4 @@
+from opennosh_api.contributions.models import ContributionDraft, ContributionDraftOperation
 from opennosh_api.models.base import Base
 from opennosh_api.models.enums import (
     BodyMetricType,
@@ -34,6 +35,8 @@ __all__ = [
     "BodyMetric",
     "BodyMetricType",
     "BodyMetricUnit",
+    "ContributionDraft",
+    "ContributionDraftOperation",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",
