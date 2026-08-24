@@ -2,6 +2,30 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.38.0.0] - 2026-08-24
+
+### Added
+
+- Add a digest-pinned Playwright visual-regression lane with 29 reviewed baselines across Living
+  Commons, food records, contribution, logo colorways, responsive layouts, accessibility states,
+  and the unchanged Tracker.
+- Add deterministic public proof-state, contribution, food-record, and Tracker fixtures with frozen
+  time, local-font readiness, stable identifiers, and explicit motion semantics.
+
+### Changed
+
+- Make visual baseline updates carry hash-verified approval metadata and upload expected, actual, and
+  diff renderings from the pinned Linux runtime for review.
+- Isolate visual-only cache and fixture behavior from standard unit, localization, and end-to-end
+  test lanes.
+
+### Fixed
+
+- Fail continuous integration when approved pixels drift, a new screenshot lacks a committed
+  manifest entry, or logo and Tracker baselines change without an explicit reviewed update.
+- Prevent Playwright visual specs from entering Vitest discovery and preserve the standard public
+  Commons unavailable fixture outside the visual lane.
+
 ## [0.37.0.0] - 2026-08-24
 
 ### Added
