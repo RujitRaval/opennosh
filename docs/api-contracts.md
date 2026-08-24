@@ -85,19 +85,46 @@ bytes. The release payload binds publication time and receipt digest, verified r
 projection completeness, bounded accepted events, and the optional most-recent verified record used
 for the quiet state. Event IDs are unique, event timestamps cannot exceed the publication time, and
 source commits are lowercase hexadecimal identifiers. Latest pointers are capped at 16 KiB, signed
-release manifests at 8 MiB and 10,000 events, and serialized public snapshots at 24 KiB. The
-five-minute snapshot bucket bounds the rolling window and cache identity.
+release manifests at 8 MiB and 10,000 events, serialized public snapshots at 24 KiB, and stored
+projection reads at 32 KiB. The five-minute snapshot bucket bounds the rolling window. Cache and
+snapshot identity bind the schema, source release digest, full accepted-event checkpoint, activity
+cutoff, and bucket, so changing hidden rows cannot preserve an old validator.
 
-The API records the highest accepted release version, manifest digest, and publication time in
-`PUBLIC_COMMONS_CHECKPOINT_PATH`. A lower signed version, a different manifest for an already
-trusted version, or a publication-time rollback fails closed even after restart. The checkpoint must
-be on durable writable storage; the signed artifact mount remains read-only.
+The API records the highest accepted release version, manifest digest, publication time, and
+canonical complete-projection digest in `PUBLIC_COMMONS_CHECKPOINT_PATH`. A lower signed version, a
+different manifest for an already trusted version, a publication-time rollback, or changed stored
+snapshot content fails closed even after restart. The checkpoint must be on durable writable
+storage; the signed artifact mount remains read-only. The rebuildable projection is independently
+persisted at `PUBLIC_COMMONS_PROJECTION_PATH`. The state paths must be distinct and cannot overlap
+the latest pointer, release directory, or projection lock. The projection records its source
+release, event checkpoint, cutoff, build time, exact pointer-file revision, and complete public
+snapshot. The checkpoint retains the immediately prior trusted projection digest as a bounded
+journal entry, so a crash after checkpoint publication but before projection replacement still
+serves the prior complete snapshot as stale and self-heals on the next refresh.
+
+The HTTP request path performs only one bounded projection read. It serves the current projection
+when it reconciles with the trusted checkpoint loaded at process startup, pointer revision, and
+five-minute bucket; otherwise it serves the trusted prior projection as stale or a typed unavailable
+response. It never reads, parses, sorts, or verifies the signed source manifest. Normal requests use
+the in-memory checkpoint; if another worker atomically publishes a new projection, the checkpoint
+file revision triggers one bounded checkpoint reload before that projection is accepted. A
+background materializer, running every `PUBLIC_COMMONS_REFRESH_SECONDS`, reloads the checkpoint and
+handles publication changes and bucket rollover under a process-safe lock, then publishes the whole
+projection with fsync plus atomic replacement. Stale and unavailable responses are never retained
+in the memory fast path, so another worker's completed projection is immediately observable.
 
 Snapshot states are `live`, `quiet`, `stale`, `partial`, `illustrative`, and `unavailable`. Verified
 states require release proof and a count. Illustrative and unavailable states cannot claim either.
 A projection lag is partial, a later verification failure is stale, and first-run absence or invalid
-artifacts are unavailable. The web adapter rejects malformed state, count, proof, activity-window,
-or reason combinations and falls back without a number or fabricated activity.
+artifacts are unavailable. A stale response keeps one previously verified count and event set; it
+never mixes fresh and old components. The web adapter rejects malformed state, count, proof,
+activity-window, or reason combinations and falls back without a number or fabricated activity. It
+uses whole-document five-minute edge revalidation and does not poll or stream activity. After an
+atomic rebuild, the API calls the authenticated `PUBLIC_COMMONS_REVALIDATION_URL`; the web route
+invalidates the `public-commons` cache tag. The callback uses a dedicated scoped
+`PUBLIC_COMMONS_REVALIDATION_TOKEN`, an exact fixed path, and the
+`PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS` destination allowlist. The five-minute TTL remains the
+bounded fallback when that callback is temporarily unavailable.
 
 ## Contribution draft contract
 

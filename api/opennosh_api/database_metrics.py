@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from opennosh_api.auth.client_address import PROXY_TOKEN_HEADER
 from opennosh_api.database import DatabasePoolMetrics
+from opennosh_api.public_commons.manifests import PublicCommonsSnapshotService
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/internal", tags=["operations"])
@@ -24,6 +25,20 @@ class DatabasePoolMetricsResponse(BaseModel):
     acquisition_count: int
     acquisition_latency_ms_average: float
     acquisition_latency_ms_max: float
+
+
+class PublicCommonsSnapshotMetricsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    projection_reads: int
+    projection_read_bytes: int
+    projection_writes: int
+    projection_write_bytes: int
+    source_artifact_reads: int
+    rebuilds: int
+    stale_fallbacks: int
+    unavailable_responses: int
+    last_response_bytes: int
 
 
 def require_operations_token(request: Request) -> None:
@@ -49,3 +64,16 @@ async def database_pool_metrics(
 ) -> DatabasePoolMetricsResponse:
     metrics: DatabasePoolMetrics = request.app.state.database_pool_metrics
     return DatabasePoolMetricsResponse.model_validate(metrics.snapshot())
+
+
+@router.get(
+    "/metrics/public-commons",
+    response_model=PublicCommonsSnapshotMetricsResponse,
+    include_in_schema=False,
+)
+async def public_commons_snapshot_metrics(
+    request: Request,
+    _authorized: Annotated[None, Depends(require_operations_token)],
+) -> PublicCommonsSnapshotMetricsResponse:
+    service: PublicCommonsSnapshotService = request.app.state.public_commons_snapshot_service
+    return PublicCommonsSnapshotMetricsResponse.model_validate(service.metrics)

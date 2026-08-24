@@ -36,7 +36,9 @@ export async function resolvePublicCommonsSnapshot(
   const visualFixtures = process.env.OPENNOSH_VISUAL_FIXTURES === "1";
   try {
     const response = await fetcher(`${apiOrigin}/api/v1/public/commons-snapshot`, {
-      ...(visualFixtures ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
+      ...(visualFixtures
+        ? { cache: "no-store" as const }
+        : { next: { revalidate: 300, tags: ["public-commons"] } }),
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(requestTimeoutMs),
     });

@@ -22,6 +22,7 @@ export type AcceptedActivityEvent = {
   food_locale: string;
   accepted_at: string;
   source_commit: string;
+  href: string;
   summary: string;
   public_contributor_credit?: string | null;
 };

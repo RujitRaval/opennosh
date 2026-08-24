@@ -30,6 +30,19 @@
             "title": "Food Or Pack Id",
             "type": "string"
           },
+          "href": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "pattern": "^/[A-Za-z0-9_?&=.%~-][A-Za-z0-9/_?&=.%~-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href"
+          },
           "public_contributor_credit": {
             "anyOf": [
               {
@@ -4715,7 +4728,7 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.39.0.0",
+    "version": "0.40.0.0",
     "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",

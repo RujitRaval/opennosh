@@ -88,6 +88,10 @@ services:
       PUBLIC_COMMONS_LATEST_POINTER_PATH: /app/public-commons/latest.json
       PUBLIC_COMMONS_RELEASE_DIRECTORY: /app/public-commons/releases
       PUBLIC_COMMONS_CHECKPOINT_PATH: /app/public-commons-state/release-checkpoint.json
+      PUBLIC_COMMONS_PROJECTION_PATH: /app/public-commons-state/homepage-snapshot.json
+      PUBLIC_COMMONS_REFRESH_SECONDS: ${PUBLIC_COMMONS_REFRESH_SECONDS:-5}
+      PUBLIC_COMMONS_REVALIDATION_URL: http://web:3000/api/internal/public-commons/revalidate
+      PUBLIC_COMMONS_REVALIDATION_TOKEN: ${PUBLIC_COMMONS_REVALIDATION_TOKEN:-opennosh-local-public-commons-revalidation-token-2026}
       PUBLIC_COMMONS_VERIFYING_KEYS: ${PUBLIC_COMMONS_VERIFYING_KEYS:-development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw}
       PUBLIC_COMMONS_STALE_AFTER_SECONDS: ${PUBLIC_COMMONS_STALE_AFTER_SECONDS:-300}
       TARGET_KCAL_FLOOR: ${TARGET_KCAL_FLOOR:-1200}
@@ -117,6 +121,7 @@ services:
     environment:
       API_URL: http://api:8000
       WEB_PROXY_TOKEN: ${WEB_PROXY_TOKEN:-opennosh-local-web-proxy-token-2026}
+      PUBLIC_COMMONS_REVALIDATION_TOKEN: ${PUBLIC_COMMONS_REVALIDATION_TOKEN:-opennosh-local-public-commons-revalidation-token-2026}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r => { if (!r.ok) process.exit(1) })"]
       interval: 5s

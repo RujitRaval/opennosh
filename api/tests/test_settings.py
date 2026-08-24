@@ -73,6 +73,103 @@ def test_proxy_token_must_be_long_and_unique_in_production() -> None:
             )
 
 
+def test_production_public_commons_requires_a_durable_projection_path() -> None:
+    configured = {
+        "app_environment": "production",
+        "food_search_cursor_signing_keys": "prod-v1:33333333333333333333333333333333",
+        "public_commons_latest_pointer_path": "/artifacts/latest.json",
+        "public_commons_release_directory": "/artifacts/releases",
+        "public_commons_checkpoint_path": "/state/checkpoint.json",
+        "public_commons_verifying_keys": (
+            "production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+        ),
+        "_env_file": None,
+    }
+
+    with pytest.raises(ValidationError, match="durable projection path"):
+        Settings(**configured)  # type: ignore[arg-type]
+
+    settings = Settings(
+        **configured,  # type: ignore[arg-type]
+        public_commons_projection_path="/state/homepage-snapshot.json",
+    )
+    assert settings.public_commons_projection_path is not None
+
+
+@pytest.mark.parametrize(
+    ("checkpoint_path", "projection_path", "message"),
+    [
+        ("/state/shared.json", "/state/shared.json", "must be distinct"),
+        ("/state/homepage-snapshot.json.lock", "/state/homepage-snapshot.json", "must be distinct"),
+        ("/state/checkpoint.json", "/state/checkpoint.json.lock", "must be distinct"),
+        (
+            "/artifacts/latest.json",
+            "/state/homepage-snapshot.json",
+            "separate from signed artifacts",
+        ),
+        (
+            "/state/checkpoint.json",
+            "/artifacts/releases/snapshot.json",
+            "separate from signed artifacts",
+        ),
+    ],
+)
+def test_production_public_commons_state_paths_cannot_alias_signed_artifacts(
+    checkpoint_path: str, projection_path: str, message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Settings(
+            app_environment="production",
+            food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+            public_commons_latest_pointer_path="/artifacts/latest.json",
+            public_commons_release_directory="/artifacts/releases",
+            public_commons_checkpoint_path=checkpoint_path,
+            public_commons_projection_path=projection_path,
+            public_commons_verifying_keys=(
+                "production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+            ),
+            _env_file=None,
+        )
+
+
+def test_public_commons_revalidation_requires_scoped_token_and_allowlisted_host() -> None:
+    callback_url = "http://web:3000/api/internal/public-commons/revalidate"
+    with pytest.raises(ValidationError, match="requires a scoped token"):
+        Settings(
+            public_commons_revalidation_url=callback_url,
+            _env_file=None,
+        )
+    settings = Settings(
+        public_commons_revalidation_url=callback_url,
+        public_commons_revalidation_token="test-public-commons-revalidation-token",
+        _env_file=None,
+    )
+    assert settings.public_commons_revalidation_url == callback_url
+
+    with pytest.raises(ValidationError, match="not allowlisted"):
+        Settings(
+            public_commons_revalidation_url=(
+                "http://169.254.169.254/api/internal/public-commons/revalidate"
+            ),
+            public_commons_revalidation_token="test-public-commons-revalidation-token",
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError, match="safe HTTP URL"):
+        Settings(
+            public_commons_revalidation_url="http://web:3000/latest/meta-data",
+            public_commons_revalidation_token="test-public-commons-revalidation-token",
+            _env_file=None,
+        )
+
+
+def test_blank_public_commons_revalidation_token_is_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PUBLIC_COMMONS_REVALIDATION_TOKEN", "")
+
+    assert Settings(_env_file=None).public_commons_revalidation_token is None
+
+
 def test_settings_read_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(
         "DATABASE_URL",

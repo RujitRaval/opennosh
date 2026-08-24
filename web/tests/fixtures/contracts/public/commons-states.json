@@ -23,6 +23,7 @@
           "food_locale": "Gujarat, India",
           "accepted_at": "2026-08-24T15:20:00Z",
           "source_commit": "abcdef1234567890",
+          "href": "/en/explore/foods/community/dhokla-gujarati",
           "summary": "Accepted Dhokla as a verified food record.",
           "public_contributor_credit": "Community contributor"
         },
@@ -33,6 +34,7 @@
           "food_locale": "Punjab, India",
           "accepted_at": "2026-08-24T13:05:00Z",
           "source_commit": "1234567abcdef890",
+          "href": "/en/explore/foods/community/rajma-masala",
           "summary": "Verified a household portion for Rajma masala.",
           "public_contributor_credit": "Punjab Foods Collective"
         }
@@ -110,6 +112,7 @@
           "food_locale": "Gujarat, India",
           "accepted_at": "2026-08-24T15:20:00Z",
           "source_commit": "abcdef1234567890",
+          "href": "/en/explore/foods/community/dhokla-gujarati",
           "summary": "Accepted Dhokla as a verified food record.",
           "public_contributor_credit": "Community contributor"
         }
@@ -154,6 +157,7 @@
           "food_locale": "Gujarat, India",
           "accepted_at": "2026-08-24T15:20:00Z",
           "source_commit": "abcdef1234567890",
+          "href": "/en/explore/foods/community/dhokla-gujarati",
           "summary": "Accepted Dhokla as a verified food record.",
           "public_contributor_credit": "Community contributor"
         }

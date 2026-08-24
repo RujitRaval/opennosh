@@ -26,6 +26,10 @@ export type AcceptedActivityEvent = {
      */
     food_or_pack_id: string;
     /**
+     * Href
+     */
+    href?: string | null;
+    /**
      * Public Contributor Credit
      */
     public_contributor_credit?: string | null;

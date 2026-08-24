@@ -14,6 +14,7 @@ const event = {
   food_locale: "Gujarat, India",
   accepted_at: "2026-08-23T17:30:00Z",
   source_commit: "abcdef1234567890",
+  href: "/en/explore/foods/community/dhokla-gujarati",
   summary: "Accepted Dhokla as a verified food record.",
   public_contributor_credit: "Community contributor",
 };

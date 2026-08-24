@@ -31,7 +31,9 @@ describe("public commons server adapter", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(fetcher).toHaveBeenCalledWith(
       "http://localhost:8000/api/v1/public/commons-snapshot",
-      expect.objectContaining({ next: { revalidate: 300 } }),
+      expect.objectContaining({
+        next: { revalidate: 300, tags: ["public-commons"] },
+      }),
     );
   });
 
@@ -61,6 +63,21 @@ describe("public commons server adapter", () => {
             {
               ...publicCommonsFixture("live").activity.events[0],
               event_type: "review",
+            },
+          ],
+        },
+      },
+    ],
+    [
+      "unsafe event record link",
+      {
+        ...publicCommonsFixture("live"),
+        activity: {
+          ...publicCommonsFixture("live").activity,
+          events: [
+            {
+              ...publicCommonsFixture("live").activity.events[0],
+              href: "//attacker.example",
             },
           ],
         },
@@ -120,6 +137,18 @@ describe("public commons server adapter", () => {
     expect(result.verified_record_count).toBeNull();
     expect(result.activity.events).toEqual([]);
   });
+
+  it("fails closed when the snapshot endpoint returns a non-success response", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("temporarily unavailable", { status: 503 }),
+    );
+
+    const result = await resolvePublicCommonsSnapshot(fetcher);
+
+    expect(result.state).toBe("unavailable");
+    expect(result.release).toBeNull();
+    expect(result.activity.events).toEqual([]);
+  });
 });
 
 describe("public truth signal states", () => {
@@ -131,6 +160,9 @@ describe("public truth signal states", () => {
     expect(screen.getAllByText(/release 0\.30\.0\.0/i)).toHaveLength(3);
     expect(screen.getByText("1 accepted change")).toBeVisible();
     expect(screen.getByText("Accepted Dhokla as a verified food record.")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Accepted Dhokla as a verified food record." }),
+    ).toHaveAttribute("href", "/en/explore/foods/community/dhokla-gujarati");
     expect(screen.getByText("Gujarat, India")).toBeVisible();
     expect(screen.getByText("Portion")).toBeVisible();
     expect(screen.getByRole("link", { name: /view source commit/i })).toHaveAttribute(

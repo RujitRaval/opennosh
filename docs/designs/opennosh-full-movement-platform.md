@@ -2175,7 +2175,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: public CSS motion primitives, optional observer/controller island, route bundle analysis, preference and visibility gates, low-power benchmark profile, Web Vitals collection, CI performance artifacts and decoration kill switch.
   - Verify: server-rendered content is complete without motion or JavaScript; motion JS is at most 12 KB gzip and all design-delta JS at most 45 KB gzip beyond framework; no motion task exceeds 50 ms; visible-motion p95 frame time stays below 20 ms; optional chunks do not load for reduced-motion/data-saver paths; offscreen work pauses; mobile/desktop p75 LCP <=2.5 s, INP <=200 ms, and CLS <=0.1.
 
-- [ ] **T27 (P1, human: ~2-3 days / Codex: ~1 day)** - Homepage proof performance - Materialize and serve the bounded four-event PublicCommonsSnapshot.
+- [x] **T27 (P1, human: ~2-3 days / Codex: ~1 day)** - Homepage proof performance - Materialize and serve the bounded four-event PublicCommonsSnapshot.
   - Surfaced by: Performance re-review D42 - a merely bounded activity field lacked an event cap, payload limit, read budget, atomic refresh, and no-polling rule.
   - Files: accepted-event public projection, snapshot schema/store/rebuilder, reconciliation checkpoint, API cache headers, homepage server adapter, size/query instrumentation, race and stale fixtures.
   - Verify: one bounded read returns at most four verified events plus the rolling count under 24 KB uncompressed; all proof consumers share one snapshot ID; five-minute buckets, publication invalidation, edge revalidation, cross-release races, quiet/stale/unavailable fallback, oversize summaries, and zero client polling all pass.

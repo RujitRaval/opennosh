@@ -38,6 +38,9 @@ class AcceptedActivityEvent(BaseModel):
     food_locale: Annotated[str, Field(min_length=1, max_length=80)]
     accepted_at: datetime
     source_commit: Annotated[str, Field(pattern=r"^[0-9a-f]{7,64}$")]
+    href: Annotated[
+        str, Field(max_length=512, pattern=r"^/[A-Za-z0-9_?&=.%~-][A-Za-z0-9/_?&=.%~-]*$")
+    ] | None = None
     summary: Annotated[str, Field(min_length=1, max_length=240)]
     public_contributor_credit: Annotated[str, Field(min_length=1, max_length=100)] | None = None
 
@@ -160,6 +163,8 @@ class PublicCommonsSnapshot(BaseModel):
             raise ValueError("activity window must cover exactly 24 hours")
 
         events = self.activity.events
+        if any(event.href is None for event in events):
+            raise ValueError("public activity events require a record link")
         if any(
             event.accepted_at < self.activity.starts_at or event.accepted_at > self.activity.ends_at
             for event in events
