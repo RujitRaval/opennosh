@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.34.0.0] - 2026-08-24
+
+### Added
+
+- Establish the canonical Living Commons design system with scoped public tokens, six approved
+  wordmark colorways, and versioned self-hosted Archivo, Source Sans 3, and IBM Plex Mono assets.
+- Add automated logo, typography, color, contrast, focus, offline-asset, and route-isolation checks
+  to the local, build, and continuous-integration quality gates.
+
+### Changed
+
+- Give the public website semantic type, color, spacing, radius, motion, light, and dark roles while
+  preserving the Tracker's independent Trebuchet-based visual contract.
+- Load public fonts only when a public route uses them, avoiding automatic preloads on independent
+  Tracker routes and removing 119,488 bytes of unused font transfers from a direct Tracker visit.
+
+### Fixed
+
+- Keep every approved opennosh wordmark legible on its intended surface and validate each exact
+  foreground-to-background pairing instead of relying on a self-referential asset manifest.
+- Resolve public font-variable aliases at the same scope as the generated font definitions so the
+  intended display, reading, and data typefaces render reliably in production.
+
 ## [0.33.0.0] - 2026-08-24
 
 ### Added

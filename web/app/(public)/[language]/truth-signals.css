@@ -13,7 +13,7 @@
 
 .hero-proof strong {
   grid-row: span 2;
-  font-family: var(--font-archivo), sans-serif;
+  font-family: var(--font-display), sans-serif;
   font-size: clamp(2rem, 4.2vw, 4.75rem);
   font-variant-numeric: tabular-nums;
   font-weight: 790;
@@ -34,7 +34,7 @@
 }
 
 .activity-summary strong {
-  font-family: var(--font-archivo), sans-serif;
+  font-family: var(--font-display), sans-serif;
   font-size: clamp(2rem, 4vw, 4.25rem);
   line-height: .9;
   letter-spacing: -.045em;
@@ -94,7 +94,7 @@
   align-items: center;
   padding: .7rem 0;
   border-bottom: 1px solid var(--rice-paper);
-  font-family: var(--font-plex-mono), monospace;
+  font-family: var(--font-data), monospace;
   font-size: .62rem;
   text-transform: uppercase;
 }

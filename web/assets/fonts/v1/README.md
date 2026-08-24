@@ -1,12 +1,14 @@
-# Self-hosted public fonts
+# Self-hosted public fonts v1
 
-These production WOFF2 files are the Latin subsets used by the public opennosh surface. They were downloaded from Google Fonts on 2026-08-23; the SIL Open Font License for each family is retained in `licenses/`.
+These immutable production WOFF2 files are the v1 Latin assets used by the public opennosh surface. They were downloaded from Google Fonts on 2026-08-23; the SIL Open Font License for each family is retained in `licenses/`.
 
 - Archivo Variable 100–900, width 75–125: display and movement type.
 - Source Sans 3 Variable 400–700: body and interface copy.
 - IBM Plex Mono 400, 500, 600: data, labels, and code.
 
-The tracker root does not import these files. Only the two proportional families are preloaded on the public root; IBM Plex Mono loads when used.
+The tracker root does not import these files. All five faces load on demand when public CSS uses
+them. Automatic Next.js preloads remain disabled until T25 establishes a measured, route-isolated
+strategy; this prevents public font transfers on direct Tracker visits.
 
 ## SHA-256
 

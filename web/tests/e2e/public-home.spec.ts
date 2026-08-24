@@ -112,11 +112,56 @@ test("tracker document excludes public navigation and public font variables", as
   await expect(page.locator("html")).toHaveAttribute("data-surface", "tracker");
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toHaveCount(0);
   await expect(page.locator("body")).not.toHaveClass(/font-archivo/);
+  await expect(page.locator("body")).toHaveCSS("font-family", /Trebuchet MS/);
   expect(
     requestedResources.some((url) =>
       /archivo-latin-variable|source-sans-3-latin-variable|ibm-plex-mono-latin/.test(url),
     ),
   ).toBe(false);
+});
+
+test("public tokens provide visible focus on light, Tomato, and Ink surfaces", async ({ page }) => {
+  await page.goto("/en");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  await expect(page.locator("body")).toHaveCSS("font-family", /sourceSans/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /archivo/);
+  await expect(page.locator(".mono").first()).toHaveCSS("font-family", /plexMono/);
+
+  const lightTokens = await page.locator("html").evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return {
+      text: styles.getPropertyValue("--color-text").trim(),
+      surface: styles.getPropertyValue("--color-surface").trim(),
+      focus: styles.getPropertyValue("--focus-ring").trim(),
+    };
+  });
+  expect(lightTokens).toEqual({
+    text: "#12120f",
+    surface: "#f4f0e6",
+    focus: "#5848e8",
+  });
+
+  const start = page.getByRole("link", { name: "Start" });
+  await start.focus();
+  await expect(start).toHaveCSS("outline-style", "solid");
+  await expect(start).toHaveCSS("outline-color", "rgb(88, 72, 232)");
+
+  await page.goto("/en/contribute/local/evidence");
+  const contributionHome = page
+    .getByRole("banner")
+    .getByRole("link", { name: "opennosh home" });
+  await contributionHome.focus();
+  await expect(contributionHome).toHaveCSS("outline-color", "rgb(18, 18, 15)");
+
+  await page.goto("/en/build");
+  const darkHeaderHome = page
+    .getByRole("banner")
+    .getByRole("link", { name: "opennosh home" });
+  await darkHeaderHome.focus();
+  await expect(darkHeaderHome).toHaveCSS("outline-color", "rgb(215, 243, 76)");
 });
 
 test("the public home remains complete when JavaScript is unavailable", async ({ browser }) => {

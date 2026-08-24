@@ -15,28 +15,17 @@
   --shadow: 0 16px 44px rgb(31 54 42 / 10%);
 }
 
-* {
-  box-sizing: border-box;
-}
-
 html {
   background: var(--paper);
 }
 
 body {
-  margin: 0;
   color: var(--ink);
   background:
     radial-gradient(circle at 90% 0, rgb(217 232 190 / 50%), transparent 28rem),
     var(--paper);
   font-family: "Trebuchet MS", "Gill Sans", sans-serif;
   line-height: 1.5;
-}
-
-button,
-input,
-select {
-  font: inherit;
 }
 
 button,
