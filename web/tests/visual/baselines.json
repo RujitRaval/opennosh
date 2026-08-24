@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
+  "generatedAt": "2026-08-24T18:05:01.155Z",
+  "approval": {
+    "reason": "Normalize the initial T24 baseline set to the digest-pinned Linux Playwright runtime from PR #73 run 32759841845.",
+    "designDecision": "DESIGN.md Visual Regression contract; pinned Linux output is the canonical cross-platform baseline.",
+    "reviewerAcknowledgement": "Repository owner requested T24; PR #73 review is the explicit acknowledgement gate."
+  },
+  "releaseBlockingPatterns": [
+    "**/logo-colorways.png",
+    "**/tracker-*.png"
+  ],
+  "files": {
+    "desktop-1440/commons-live.png": "8254aa9e539766b5184ebc96d977c82cc9d0adc4fa3483051c9462e8df47cb85",
+    "desktop-1440/commons-partial.png": "78ce8e196025abb3efa43844c2f089e1d7c3c2b95752439f17c62eeb860f81cd",
+    "desktop-1440/commons-quiet.png": "16e413ea0f62a66e0d292e3e4f7cd7cf7eb4a7bea0740f021e718a17bd6a9b83",
+    "desktop-1440/commons-stale.png": "83d438bdcfc58eaeb3ad2cb4381c62f6ad32dfa95dfd95df7502f38162d6633f",
+    "desktop-1440/commons-unavailable.png": "91594a136249aa3b0b0ff851dab81c60abc2a5c85d990e03a4ee5f9ff15a6ce5",
+    "desktop-1440/contribution-details.png": "98ee2461089127d9e4b5baa3a0a6019fcb57027fb78e1aac7cce0631dc1ef3a7",
+    "desktop-1440/contribution-duplicates.png": "cbc1d82904c0772ae69caeacf1f4aa126fe7a7a07abf0216c217b23d8a8d8e5a",
+    "desktop-1440/contribution-evidence.png": "b2f01fd47176ee110fad179f3a0ea6a45fa67c1fa461b0faec79e2d9d7701523",
+    "desktop-1440/contribution-provenance.png": "e7670dd62b108f034466fa99260cd75ad914f85669a4b972360c57ed5718592f",
+    "desktop-1440/contribution-repair.png": "986a3979832114cc04b76ecc116d92ff6f80ef8fbc7b17acb3b4a94f9ba60161",
+    "desktop-1440/contribution-review.png": "8d0ae38a1e5496c02c6d11860b2f055f93bc418fec74a75067a6a6588042b441",
+    "desktop-1440/contribution-validation.png": "948bfc09b330e0938e9b30373cdb94d7ddd959761da3d50e2edbc8ca327c4d85",
+    "desktop-1440/explore-hub.png": "00fbcf88ebcf1579143de074a05c48fb4224db6fccf596cfc405d9389cec4790",
+    "desktop-1440/food-record-first-viewport.png": "a517a37becf8ee3e5f15d61939d04202a4d705e43c4f466e6c96e0734290a071",
+    "desktop-1440/forced-colors-contribution.png": "bfa3adb7b74a8421cbc4307d01c01b696cac53a0614c4863a030e21c941aba76",
+    "desktop-1440/keyboard-focus-hero.png": "ba2e2f8423fddf08eb754c57869eeaec7ee2ae1dd605d0d4e95d825cbeb78e84",
+    "desktop-1440/logo-colorways.png": "be63237cfd01d72ea18933b746b39217ff697c4d1694146255d2ca1b172bb515",
+    "desktop-1440/pseudo-home-first-viewport.png": "c1945a59f2dcf37adc77d1ad4f5582aa21827696d4494c35b286e070c012e63d",
+    "desktop-1440/public-record-error.png": "88a7b2dc3e538d515cb77ec58075aa2a1a36fb63e41df59d6b29b965476cbd5c",
+    "desktop-1440/public-record-loading.png": "b891a9cc436b9bff89e21c2804e824e0007b8b1e7657057b61b69f4cb97f3625",
+    "desktop-1440/reduced-motion-hero.png": "9e41282761d895df6e2896c7d1bb9136e21ab875056ae48a0aceb14fae954233",
+    "desktop-1440/tracker-catalogue-results.png": "738c1f5f0322038ed374567a3285c5214effb683cbb58996b6f57eb2355d5f05",
+    "desktop-1440/tracker-daily-log.png": "adedbf76c658f2d39daca98c064e31191077559c1aed0bc168a6922207a1908a",
+    "mobile-390/homepage-first-viewport.png": "2a45f22fef95b5579b56b1dead708d8cf70f52dd0a99fe6e5f85a5b83e38d543",
+    "mobile-390/mobile-safe-area-actions.png": "da2081e9f320ea6c5d81dc8a31dccd76accd9bae27ae0bbd61b3a25cd4637658",
+    "reflow-320/food-record-first-viewport.png": "5baefde824106aa729a80786609a0a98baf4d7144772f36b511c78d2dc9bc991",
+    "reflow-320/homepage-first-viewport.png": "252e0f9b430398fc836c82982ae1f5e3ab57f072afc31e13d1c5c07e91170fdb",
+    "tablet-768/homepage-first-viewport.png": "d93dc62629a146db878d180e672d35fa83d736efd083625f4ad025f09732cddc",
+    "wide-1728/homepage-first-viewport.png": "c0953c2a0cc171c06334859b82376ff7bea019190c632ee4d8d57b9aa7a147b4"
+  }
+}

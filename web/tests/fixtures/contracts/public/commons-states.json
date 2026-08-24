@@ -1,0 +1,199 @@
+{
+  "live": {
+    "schema_version": "1",
+    "snapshot_id": "visual-live-20260824",
+    "as_of": "2026-08-24T16:00:00Z",
+    "state": "live",
+    "release": {
+      "version": "0.37.0.0",
+      "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "published_at": "2026-08-24T15:30:00Z"
+    },
+    "verified_record_count": 18429,
+    "activity": {
+      "starts_at": "2026-08-23T16:00:00Z",
+      "ends_at": "2026-08-24T16:00:00Z",
+      "accepted_count": 2,
+      "events": [
+        {
+          "event_id": "accepted-dhokla",
+          "event_type": "food",
+          "food_or_pack_id": "dhokla-gujarati",
+          "food_locale": "Gujarat, India",
+          "accepted_at": "2026-08-24T15:20:00Z",
+          "source_commit": "abcdef1234567890",
+          "summary": "Accepted Dhokla as a verified food record.",
+          "public_contributor_credit": "Community contributor"
+        },
+        {
+          "event_id": "verified-rajma-portion",
+          "event_type": "portion",
+          "food_or_pack_id": "rajma-masala",
+          "food_locale": "Punjab, India",
+          "accepted_at": "2026-08-24T13:05:00Z",
+          "source_commit": "1234567abcdef890",
+          "summary": "Verified a household portion for Rajma masala.",
+          "public_contributor_credit": "Punjab Foods Collective"
+        }
+      ],
+      "most_recent_verified_record": {
+        "record_id": "khichdi-gujarati",
+        "name": "Khichdi",
+        "food_locale": "Gujarat, India",
+        "verified_at": "2026-08-20T10:00:00Z",
+        "href": "/en/explore/foods/community/khichdi-gujarati"
+      }
+    },
+    "freshness": {
+      "release": "verified",
+      "activity": "verified",
+      "checked_at": "2026-08-24T16:00:00Z",
+      "stale_since": null
+    },
+    "reasons": []
+  },
+  "quiet": {
+    "schema_version": "1",
+    "snapshot_id": "visual-quiet-20260824",
+    "as_of": "2026-08-24T16:00:00Z",
+    "state": "quiet",
+    "release": {
+      "version": "0.37.0.0",
+      "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "published_at": "2026-08-24T15:30:00Z"
+    },
+    "verified_record_count": 18429,
+    "activity": {
+      "starts_at": "2026-08-23T16:00:00Z",
+      "ends_at": "2026-08-24T16:00:00Z",
+      "accepted_count": 0,
+      "events": [],
+      "most_recent_verified_record": {
+        "record_id": "khichdi-gujarati",
+        "name": "Khichdi",
+        "food_locale": "Gujarat, India",
+        "verified_at": "2026-08-20T10:00:00Z",
+        "href": "/en/explore/foods/community/khichdi-gujarati"
+      }
+    },
+    "freshness": {
+      "release": "verified",
+      "activity": "verified",
+      "checked_at": "2026-08-24T16:00:00Z",
+      "stale_since": null
+    },
+    "reasons": []
+  },
+  "partial": {
+    "schema_version": "1",
+    "snapshot_id": "visual-partial-20260824",
+    "as_of": "2026-08-24T16:00:00Z",
+    "state": "partial",
+    "release": {
+      "version": "0.37.0.0",
+      "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "published_at": "2026-08-24T15:30:00Z"
+    },
+    "verified_record_count": 18429,
+    "activity": {
+      "starts_at": "2026-08-23T16:00:00Z",
+      "ends_at": "2026-08-24T16:00:00Z",
+      "accepted_count": 1,
+      "events": [
+        {
+          "event_id": "accepted-dhokla",
+          "event_type": "food",
+          "food_or_pack_id": "dhokla-gujarati",
+          "food_locale": "Gujarat, India",
+          "accepted_at": "2026-08-24T15:20:00Z",
+          "source_commit": "abcdef1234567890",
+          "summary": "Accepted Dhokla as a verified food record.",
+          "public_contributor_credit": "Community contributor"
+        }
+      ],
+      "most_recent_verified_record": {
+        "record_id": "khichdi-gujarati",
+        "name": "Khichdi",
+        "food_locale": "Gujarat, India",
+        "verified_at": "2026-08-20T10:00:00Z",
+        "href": "/en/explore/foods/community/khichdi-gujarati"
+      }
+    },
+    "freshness": {
+      "release": "verified",
+      "activity": "partial",
+      "checked_at": "2026-08-24T16:00:00Z",
+      "stale_since": null
+    },
+    "reasons": ["activity_projection_lag"]
+  },
+  "stale": {
+    "schema_version": "1",
+    "snapshot_id": "visual-stale-20260824",
+    "as_of": "2026-08-24T16:00:00Z",
+    "state": "stale",
+    "release": {
+      "version": "0.37.0.0",
+      "manifest_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "publication_receipt_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "published_at": "2026-08-24T15:30:00Z"
+    },
+    "verified_record_count": 18429,
+    "activity": {
+      "starts_at": "2026-08-23T16:00:00Z",
+      "ends_at": "2026-08-24T16:00:00Z",
+      "accepted_count": 1,
+      "events": [
+        {
+          "event_id": "accepted-dhokla",
+          "event_type": "food",
+          "food_or_pack_id": "dhokla-gujarati",
+          "food_locale": "Gujarat, India",
+          "accepted_at": "2026-08-24T15:20:00Z",
+          "source_commit": "abcdef1234567890",
+          "summary": "Accepted Dhokla as a verified food record.",
+          "public_contributor_credit": "Community contributor"
+        }
+      ],
+      "most_recent_verified_record": {
+        "record_id": "khichdi-gujarati",
+        "name": "Khichdi",
+        "food_locale": "Gujarat, India",
+        "verified_at": "2026-08-20T10:00:00Z",
+        "href": "/en/explore/foods/community/khichdi-gujarati"
+      }
+    },
+    "freshness": {
+      "release": "stale",
+      "activity": "stale",
+      "checked_at": "2026-08-24T16:00:00Z",
+      "stale_since": "2026-08-24T15:35:00Z"
+    },
+    "reasons": ["latest_release_unavailable"]
+  },
+  "unavailable": {
+    "schema_version": "1",
+    "snapshot_id": "visual-unavailable-20260824",
+    "as_of": "2026-08-24T16:00:00Z",
+    "state": "unavailable",
+    "release": null,
+    "verified_record_count": null,
+    "activity": {
+      "starts_at": "2026-08-23T16:00:00Z",
+      "ends_at": "2026-08-24T16:00:00Z",
+      "accepted_count": 0,
+      "events": [],
+      "most_recent_verified_record": null
+    },
+    "freshness": {
+      "release": "unavailable",
+      "activity": "unavailable",
+      "checked_at": "2026-08-24T16:00:00Z",
+      "stale_since": null
+    },
+    "reasons": ["latest_release_unavailable"]
+  }
+}

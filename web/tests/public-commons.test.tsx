@@ -12,6 +12,7 @@ import { publicCommonsFixture } from "@/tests/fixtures/public-commons";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 describe("public commons server adapter", () => {
@@ -32,6 +33,20 @@ describe("public commons server adapter", () => {
       "http://localhost:8000/api/v1/public/commons-snapshot",
       expect.objectContaining({ next: { revalidate: 300 } }),
     );
+  });
+
+  it("uses uncached snapshots only inside the explicit visual fixture lane", async () => {
+    vi.stubEnv("OPENNOSH_VISUAL_FIXTURES", "1");
+    const snapshot = publicCommonsFixture("quiet");
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(Response.json(snapshot));
+
+    await expect(resolvePublicCommonsSnapshot(fetcher)).resolves.toEqual(snapshot);
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/public/commons-snapshot",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(fetcher.mock.calls[0]?.[1]).not.toHaveProperty("next");
   });
 
 
