@@ -13,8 +13,11 @@ import { publicFontAssets, publicFontAssetVersion } from "../lib/public-font-ass
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = path.resolve(webRoot, "..");
+const baseCssFile = path.join(webRoot, "app/base.css");
 const tokenFile = path.join(webRoot, "app/(public)/[language]/tokens.css");
 const publicCssFile = path.join(webRoot, "app/(public)/[language]/public.css");
+const contributionCssFile = path.join(webRoot, "app/(public)/[language]/contribution.css");
+const publicFontSourceFile = path.join(webRoot, "app/(public)/[language]/fonts.ts");
 const publicLayoutFile = path.join(webRoot, "app/(public)/[language]/layout.tsx");
 const trackerLayoutFile = path.join(webRoot, "app/(tracker)/tracker/layout.tsx");
 const trackerRoot = path.join(webRoot, "app/(tracker)");
@@ -30,6 +33,15 @@ const expectedColors = {
   warning: "#9a5b00",
   error: "#b3261e",
   info: "#3157c8",
+};
+
+const expectedBrandAssets = {
+  "rice-paper": { open: "commons-ink", nosh: "signal-tomato", intendedSurfaces: ["rice-paper"] },
+  "commons-ink": { open: "rice-paper", nosh: "field-acid", intendedSurfaces: ["commons-ink"] },
+  "signal-tomato": { open: "commons-ink", nosh: "rice-paper", intendedSurfaces: ["signal-tomato"] },
+  "field-acid": { open: "commons-ink", nosh: "dataset-indigo", intendedSurfaces: ["field-acid"] },
+  "one-light": { open: "rice-paper", nosh: "rice-paper", intendedSurfaces: ["commons-ink", "dataset-indigo", "signal-tomato"] },
+  "one-dark": { open: "commons-ink", nosh: "commons-ink", intendedSurfaces: ["rice-paper", "field-acid", "signal-tomato"] },
 };
 
 const failures = [];
@@ -86,8 +98,27 @@ if (publicFontAssetVersion !== "v1") {
   fail("The canonical public font manifest must remain explicitly versioned.");
 }
 
-for (const surface of brandSurfaces) {
+const expectedBrandSurfaces = Object.keys(expectedBrandAssets);
+if (
+  JSON.stringify([...brandSurfaces].sort()) !== JSON.stringify([...expectedBrandSurfaces].sort())
+) {
+  fail(`The brand manifest must expose exactly: ${expectedBrandSurfaces.join(", ")}.`);
+}
+
+for (const surface of expectedBrandSurfaces) {
   const asset = brandWordmarks[surface];
+  const expected = expectedBrandAssets[surface];
+  if (!asset) {
+    fail(`${surface} is missing from the brand manifest.`);
+    continue;
+  }
+  if (
+    asset.open !== expected.open ||
+    asset.nosh !== expected.nosh ||
+    JSON.stringify(asset.intendedSurfaces) !== JSON.stringify(expected.intendedSurfaces)
+  ) {
+    fail(`${surface} does not match its approved color and intended-surface mapping.`);
+  }
   const assetFile = path.join(webRoot, "public", asset.src);
   if (!existsSync(assetFile)) {
     fail(`${surface} wordmark is missing at ${relative(assetFile)}.`);
@@ -116,8 +147,11 @@ for (const surface of brandSurfaces) {
   }
 }
 
-const publicFontSource = read(path.join(webRoot, "lib/public-fonts.ts"));
+const publicFontSource = read(publicFontSourceFile);
 for (const asset of Object.values(publicFontAssets)) {
+  if (asset.preload) {
+    fail("Automatic next/font preloads must stay disabled until they are isolated from Tracker routes.");
+  }
   const assetFile = path.resolve(webRoot, "lib", asset.path);
   if (!existsSync(assetFile)) {
     fail(`Font asset is missing at ${relative(assetFile)}.`);
@@ -127,7 +161,7 @@ for (const asset of Object.values(publicFontAssets)) {
   if (digest !== asset.sha256) {
     fail(`${relative(assetFile)} does not match its approved SHA-256.`);
   }
-  if (!publicFontSource.includes(asset.path)) {
+  if (!publicFontSource.includes(path.basename(asset.path))) {
     fail(`${relative(assetFile)} is not wired through next/font/local.`);
   }
 }
@@ -137,20 +171,26 @@ const publicSourceRoots = [
   path.join(webRoot, "components/public"),
   path.join(webRoot, "lib"),
 ];
-const sourceFiles = publicSourceRoots
-  .flatMap(walk)
+const sourceFiles = [...publicSourceRoots.flatMap(walk), baseCssFile]
   .filter((file) => /\.(css|ts|tsx)$/.test(file));
 const canonicalHexes = new Set(Object.values(expectedColors).map((value) => value.toLowerCase()));
 for (const file of sourceFiles) {
-  if (file === tokenFile) continue;
   const source = read(file);
-  for (const match of source.matchAll(/#[0-9a-f]{6}\b/gi)) {
-    if (canonicalHexes.has(match[0].toLowerCase())) {
-      fail(`Raw Living Commons color ${match[0]} escaped the token source into ${relative(file)}.`);
+  if (file !== tokenFile) {
+    for (const match of source.matchAll(/#[0-9a-f]{6}\b/gi)) {
+      if (canonicalHexes.has(match[0].toLowerCase())) {
+        fail(`Raw Living Commons color ${match[0]} escaped the token source into ${relative(file)}.`);
+      }
     }
   }
   if (/fonts\.(googleapis|gstatic)\.com|@import\s+url\(\s*["']?https?:/i.test(source)) {
     fail(`${relative(file)} loads an external font or stylesheet; a clean offline clone must be complete.`);
+  }
+  if (
+    file !== tokenFile &&
+    /var\(--font-(archivo|source-sans|plex-mono)\)/.test(source)
+  ) {
+    fail(`${relative(file)} bypasses the semantic public font roles.`);
   }
 }
 
@@ -176,16 +216,44 @@ for (const file of walk(trackerRoot).filter((target) => /\.(css|ts|tsx)$/.test(t
 }
 
 const publicCss = read(publicCssFile);
-for (const contract of [
-  "--focus-ring",
-  "--focus-gap",
-  ".public-header-dark",
-  ".public-header-tomato",
-  ".commons-stage",
-  ".contribute-stage",
-  ".build-stage",
-]) {
-  if (!`${tokenCss}\n${publicCss}`.includes(contract)) fail(`Focus contract is missing ${contract}.`);
+const contributionCss = read(contributionCssFile);
+if (!publicCss.includes(".public-root :focus-visible")) {
+  fail("The public root must render its semantic focus ring.");
+}
+
+const focusContexts = [
+  { source: tokenCss, selector: ':root[data-surface="public"]', ring: "color-dataset-indigo", gap: "color-rice-paper" },
+  { source: tokenCss, selector: ':root[data-surface="public"][data-theme="dark"]', ring: "color-field-acid", gap: "color-commons-ink" },
+  { source: publicCss, selector: ".public-header-dark", ring: "field-acid", gap: "commons-ink" },
+  { source: publicCss, selector: ".public-header-tomato", ring: "commons-ink", gap: "signal-tomato" },
+  { source: publicCss, selector: ".commons-stage", ring: "field-acid", gap: "dataset-indigo" },
+  { source: publicCss, selector: ".contribute-stage", ring: "commons-ink", gap: "signal-tomato" },
+  { source: publicCss, selector: ".build-stage", ring: "field-acid", gap: "commons-ink" },
+  { source: contributionCss, selector: ".contribution-progress", ring: "commons-ink", gap: "signal-tomato" },
+  { source: contributionCss, selector: ".contribution-workspace", ring: "dataset-indigo", gap: "rice-paper" },
+  { source: contributionCss, selector: ".contribution-auth", ring: "commons-ink", gap: "field-acid" },
+  { source: contributionCss, selector: ".contribution-loading", ring: "commons-ink", gap: "signal-tomato" },
+  { source: contributionCss, selector: ".contribution-receipt-page", ring: "commons-ink", gap: "field-acid" },
+];
+
+const escapeRegExp = (value) => value.replace(/[.*+?^{}()|[\]\\]/g, "\\$&");
+for (const context of focusContexts) {
+  const block = context.source.match(
+    new RegExp(`${escapeRegExp(context.selector)}\\s*\\{([^}]*)\\}`, "s"),
+  )?.[1];
+  if (
+    !block?.includes(`--focus-ring: var(--${context.ring});`) ||
+    !block.includes(`--focus-gap: var(--${context.gap});`)
+  ) {
+    fail(`Focus contract is missing the approved pair for ${context.selector}.`);
+    continue;
+  }
+  const ring = declaredColors[context.ring.replace(/^color-/, "")];
+  const gap = declaredColors[context.gap.replace(/^color-/, "")];
+  const ratio = contrast(ring, gap);
+  if (ratio + Number.EPSILON < 3) {
+    fail(`${context.selector} focus ring is ${ratio.toFixed(2)}:1 against its gap; expected 3:1.`);
+  }
 }
 
 const design = read(designFile);

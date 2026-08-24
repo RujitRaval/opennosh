@@ -122,6 +122,13 @@ test("tracker document excludes public navigation and public font variables", as
 
 test("public tokens provide visible focus on light, Tomato, and Ink surfaces", async ({ page }) => {
   await page.goto("/en");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  await expect(page.locator("body")).toHaveCSS("font-family", /sourceSans/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /archivo/);
+  await expect(page.locator(".mono").first()).toHaveCSS("font-family", /plexMono/);
 
   const lightTokens = await page.locator("html").evaluate((element) => {
     const styles = getComputedStyle(element);

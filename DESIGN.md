@@ -303,9 +303,10 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 ## Production delivery contract
 
 - `web/app/base.css` contains surface-neutral document primitives. `web/app/(public)/[language]/tokens.css` is the runtime source for public color, type, spacing, radius, focus, and motion tokens; `public.css` composes with those tokens.
-- `web/assets/fonts/v1/` contains the immutable self-hosted production font files and their retained licenses. `web/lib/public-font-assets.ts` records their version and SHA-256; the public root alone imports them through `web/lib/public-fonts.ts`.
+- `web/assets/fonts/v1/` contains the immutable self-hosted production font files and their retained licenses. `web/lib/public-font-assets.ts` records their version and SHA-256; the public root alone imports them through its route-local `fonts.ts`.
+- Next.js 16 automatic font preloads remain disabled because its production manifest hoists them across independent root route groups. Public CSS still loads the self-hosted faces on demand; T25 owns a measured, route-isolated preload strategy.
 - `web/public/brand/v1/` contains outlined SVG wordmarks for every approved surface. Components select a named, contrast-checked mapping through the typed `web/lib/brand-assets.ts` manifest; they never recolor one generic asset.
-- `npm --prefix web run check:design-system` validates token values, raw-literal containment, asset hashes, SVG outlines, every colorway's intended-surface contrast, offline completeness, focus roles, and Tracker isolation.
+- `npm --prefix web run check:design-system` validates token values, raw-literal containment, asset hashes, SVG outlines, every colorway's intended-surface contrast, offline completeness, focus roles, and source-level Tracker isolation. `npm --prefix web run build` also rejects production font manifests that preload public fonts on Tracker routes.
 - `web/lib/public-navigation.ts` and `web/lib/routes.ts` are the typed source of truth for the four public hubs, interface-language fallback, feature-gated child links, and Tracker routes.
 - The public and tracker route groups are independent document roots. Public brand CSS and fonts must not enter the tracker bundle.
 - Proposed changes to identity, type roles, core palette, voice, or measurement behavior require updating this contract and its tests in the same change.

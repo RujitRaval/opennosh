@@ -13,14 +13,14 @@ export const publicFontAssets = {
     family: "Archivo",
     path: "../assets/fonts/v1/archivo-latin-variable.woff2",
     role: "display",
-    preload: true,
+    preload: false,
     sha256: "4c98b9d490d1698ec95f2ff17a6c7d0e72691864c0c5d7bc2a2c161b45afe5ad",
   },
   sourceSans: {
     family: "Source Sans 3",
     path: "../assets/fonts/v1/source-sans-3-latin-variable.woff2",
     role: "body",
-    preload: true,
+    preload: false,
     sha256: "ac057a5593cbe3df0d2585da5dd5f33b8efa84aa30550c710fe061b37fc5c54b",
   },
   plexMono400: {
