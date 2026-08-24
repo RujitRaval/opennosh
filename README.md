@@ -150,6 +150,37 @@ Set `NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS=off` at build time for the emergenc
 switch. Web Vitals samples are held only in the page and dispatched as `opennosh:web-vital`
 events; the movement layer does not transmit them to an external service.
 
+### Verified public commons snapshot
+
+The public homepage resolves one server-side snapshot from:
+
+```text
+GET /api/v1/public/commons-snapshot
+```
+
+That single immutable response drives the hero count, accepted-activity ledger, freshness message,
+and repeated footer proof. The API does not require PostgreSQL for this endpoint. It verifies a
+signed latest pointer, resolves the content-addressed release manifest named by that pointer, and
+counts only accepted events inside the rolling 24-hour release boundary. Invalid or missing first
+releases omit the record count; a later verification failure retains only the last verified in-memory
+snapshot and labels it stale.
+
+Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
+`/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
+files use the schema-version-1 signed envelope documented in
+[`docs/api-contracts.md`](docs/api-contracts.md). Set `PUBLIC_COMMONS_VERIFYING_KEYS` as
+`current-id:unpadded-base64url-public-key,previous-id:public-key` during rotation. The API holds
+verification keys only; offline publishers retain private Ed25519 signing keys. Production refuses
+the documented development verifier. Compose persists the anti-rollback checkpoint under
+`${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}`; native deployments set
+`PUBLIC_COMMONS_CHECKPOINT_PATH` to a durable writable file.
+`PUBLIC_COMMONS_STALE_AFTER_SECONDS` defaults to 300.
+
+Publish the immutable release manifest before replacing `latest.json`. The pointer binds the exact
+release version, filename, and SHA-256 digest, so a cross-release race cannot combine one pointer
+with another release. Responses include an exact-content ETag and a shared-cache policy with a
+five-minute revalidation window.
+
 ### Open Food Facts barcode lookup
 
 Open Food Facts access is off by default, so local food search, logging, and startup never require
