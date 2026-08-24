@@ -142,6 +142,10 @@ a same-field change returns conflict instead of overwriting newer work. Operatio
 retained for eight days, longer than the seven-day client retry window, and older records are
 pruned per draft. PATCH mutations are rate-limited per draft (120 per minute) and across each owner
 (240 per minute) by default, bounding randomized-draft abuse as well as one hot draft.
+Configure these bounds with `CONTRIBUTION_PATCH_RATE_LIMIT_ATTEMPTS`,
+`CONTRIBUTION_PATCH_RATE_LIMIT_WINDOW_SECONDS`,
+`CONTRIBUTION_PATCH_ACCOUNT_RATE_LIMIT_ATTEMPTS`, and
+`CONTRIBUTION_OPERATION_RETENTION_SECONDS`; operation retention cannot be set below seven days.
 
 Eligible fields are written to a schema-versioned, 64 KiB device draft before the UI announces
 `Saved on this device`. Remote drafts coalesce the newest value per field, wait 750 ms after the
