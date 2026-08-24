@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { TrackerFooter } from "@/components/tracker/tracker-footer";
 
+import "../../base.css";
 import "./tracker.css";
 
 export const metadata: Metadata = {

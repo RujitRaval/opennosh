@@ -1,0 +1,21 @@
+/* Shared document primitives only. Surface identity stays in each route-group entrypoint. */
+:where(*, *::before, *::after) {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}

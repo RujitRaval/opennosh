@@ -11,6 +11,8 @@ import {
 import { archivo, plexMono, sourceSans } from "@/lib/public-fonts";
 import { isSupportedLanguage, supportedLanguages } from "@/lib/routes";
 
+import "../../base.css";
+import "./tokens.css";
 import "./public.css";
 import "./contribution.css";
 import "./truth-signals.css";

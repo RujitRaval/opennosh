@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BrandLogo } from "@/components/public/brand-logo";
 import { PublicHeader } from "@/components/public/public-header";
-import { brandSurfaces, brandWordmarks } from "@/lib/brand-assets";
+import { brandAssetVersion, brandSurfaces, brandWordmarks } from "@/lib/brand-assets";
 import { buildPublicNavigation } from "@/lib/public-navigation";
 
 const navigationState = vi.hoisted(() => ({ pathname: "/en" }));
@@ -34,6 +34,9 @@ describe("public brand assets", () => {
 
     expect(svg).toContain("<path");
     expect(svg).not.toContain("<text");
+    expect(asset.version).toBe(brandAssetVersion);
+    expect(asset.src).toContain(`/brand/${brandAssetVersion}/`);
+    expect(asset.minimumContrast).toBe(3);
     for (const color of expectedColors[surface]) expect(svg).toContain(color);
   });
 
@@ -41,7 +44,7 @@ describe("public brand assets", () => {
     render(<BrandLogo surface="commons-ink" />);
     expect(screen.getByRole("img", { name: "opennosh" })).toHaveAttribute(
       "src",
-      "/brand/wordmark-commons-ink.svg",
+      "/brand/v1/wordmark-commons-ink.svg",
     );
   });
 });

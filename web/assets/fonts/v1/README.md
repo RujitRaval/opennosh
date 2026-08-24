@@ -1,6 +1,6 @@
-# Self-hosted public fonts
+# Self-hosted public fonts v1
 
-These production WOFF2 files are the Latin subsets used by the public opennosh surface. They were downloaded from Google Fonts on 2026-08-23; the SIL Open Font License for each family is retained in `licenses/`.
+These immutable production WOFF2 files are the v1 Latin assets used by the public opennosh surface. They were downloaded from Google Fonts on 2026-08-23; the SIL Open Font License for each family is retained in `licenses/`.
 
 - Archivo Variable 100–900, width 75–125: display and movement type.
 - Source Sans 3 Variable 400–700: body and interface copy.

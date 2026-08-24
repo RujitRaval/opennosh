@@ -61,7 +61,9 @@ export function PublicHeader({
   }, [closeMenu, open]);
 
   return (
-    <header className={`public-header${usesDarkHeader ? " public-header-dark" : ""}`}>
+    <header
+      className={`public-header${usesDarkHeader ? " public-header-dark" : ""}${usesTomatoHeader ? " public-header-tomato" : ""}`}
+    >
       <Link className="public-brand" href={routes.publicHome(language)} aria-label="opennosh home">
         <BrandLogo
           surface={usesDarkHeader ? "commons-ink" : usesTomatoHeader ? "signal-tomato" : "rice-paper"}

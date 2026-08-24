@@ -160,6 +160,9 @@ jobs:
       - name: Verify generated TypeScript contracts
         run: npm --prefix web run check:api-contracts
 
+      - name: Validate Living Commons design system
+        run: npm --prefix web run check:design-system
+
       - name: Lint web app
         run: npm --prefix web run lint
 

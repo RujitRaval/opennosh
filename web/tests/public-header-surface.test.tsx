@@ -19,7 +19,7 @@ describe("public header surface contrast", () => {
     expect(build.container.querySelector(".public-header")).toHaveClass("public-header-dark");
     expect(build.container.querySelector(".public-brand-image")).toHaveAttribute(
       "src",
-      "/brand/wordmark-commons-ink.svg",
+      "/brand/v1/wordmark-commons-ink.svg",
     );
 
     cleanup();
@@ -28,7 +28,7 @@ describe("public header surface contrast", () => {
     expect(notices.container.querySelector(".public-header")).not.toHaveClass("public-header-dark");
     expect(notices.container.querySelector(".public-brand-image")).toHaveAttribute(
       "src",
-      "/brand/wordmark-rice-paper.svg",
+      "/brand/v1/wordmark-rice-paper.svg",
     );
   });
 
@@ -38,7 +38,10 @@ describe("public header surface contrast", () => {
 
     expect(contribution.container.querySelector(".public-brand-image")).toHaveAttribute(
       "src",
-      "/brand/wordmark-signal-tomato.svg",
+      "/brand/v1/wordmark-signal-tomato.svg",
+    );
+    expect(contribution.container.querySelector(".public-header")).toHaveClass(
+      "public-header-tomato",
     );
   });
 });

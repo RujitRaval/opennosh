@@ -127,6 +127,16 @@ Tight tracking belongs only on large Archivo headlines. Body copy keeps normal t
 
 Pair color with text or iconography. Never encode provenance, validation, or nutrition meaning through color alone.
 
+### Runtime token contract
+
+`web/app/(public)/[language]/tokens.css` is the CSS-native source of truth. It scopes the system to `:root[data-surface="public"]`; the Tracker document never imports it.
+
+- Core values use `--color-commons-ink`, `--color-rice-paper`, `--color-signal-tomato`, `--color-field-acid`, and `--color-dataset-indigo`.
+- Components prefer semantic roles: `--color-text`, `--color-surface`, `--color-action`, `--color-accepted`, `--color-data`, and `--color-border`.
+- Type roles use `--font-display`, `--font-body`, and `--font-data`; spacing uses the `--space-*` scale.
+- Every interactive public surface uses `--focus-ring` and `--focus-gap`. Dark, Indigo, Tomato, and Ink stages override those roles with a tested 3:1-or-better focus treatment.
+- Raw core palette literals are allowed only in `tokens.css` and the approved outlined SVG assets. Validation rejects copies elsewhere in public source.
+
 ### Dark mode
 
 - Swap Rice Paper and Commons Ink as surface and text roles.
@@ -292,9 +302,10 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 
 ## Production delivery contract
 
-- `web/app/(public)/[language]/public.css` is the runtime source for public color, spacing, grid, motion, and responsive tokens.
-- `web/assets/fonts/` contains the self-hosted production font subsets and their retained licenses; the public root alone imports them through `web/lib/public-fonts.ts`.
-- `web/public/brand/` contains outlined SVG wordmarks for every approved surface. Components select a named surface through `web/lib/brand-assets.ts`; they never recolor one generic asset.
+- `web/app/base.css` contains surface-neutral document primitives. `web/app/(public)/[language]/tokens.css` is the runtime source for public color, type, spacing, radius, focus, and motion tokens; `public.css` composes with those tokens.
+- `web/assets/fonts/v1/` contains the immutable self-hosted production font files and their retained licenses. `web/lib/public-font-assets.ts` records their version and SHA-256; the public root alone imports them through `web/lib/public-fonts.ts`.
+- `web/public/brand/v1/` contains outlined SVG wordmarks for every approved surface. Components select a named, contrast-checked mapping through the typed `web/lib/brand-assets.ts` manifest; they never recolor one generic asset.
+- `npm --prefix web run check:design-system` validates token values, raw-literal containment, asset hashes, SVG outlines, every colorway's intended-surface contrast, offline completeness, focus roles, and Tracker isolation.
 - `web/lib/public-navigation.ts` and `web/lib/routes.ts` are the typed source of truth for the four public hubs, interface-language fallback, feature-gated child links, and Tracker routes.
 - The public and tracker route groups are independent document roots. Public brand CSS and fonts must not enter the tracker bundle.
 - Proposed changes to identity, type roles, core palette, voice, or measurement behavior require updating this contract and its tests in the same change.

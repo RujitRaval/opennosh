@@ -8,6 +8,8 @@
 }
 
 .contribution-progress {
+  --focus-ring: var(--commons-ink);
+  --focus-gap: var(--signal-tomato);
   position: sticky;
   top: 0;
   height: 100svh;
@@ -34,6 +36,8 @@
 .contribution-progress li:first-child .contribution-chapter { margin-top: 0; }
 
 .contribution-workspace {
+  --focus-ring: var(--dataset-indigo);
+  --focus-gap: var(--rice-paper);
   width: min(100%, 76rem);
   min-width: 0;
   padding: clamp(4rem, 8vw, 8rem) clamp(1.25rem, 7vw, 8rem) 7rem;
@@ -135,15 +139,15 @@
 .review-warning { padding: 1.5rem; color: var(--rice-paper); background: var(--dataset-indigo); }
 .review-warning strong { font-family: var(--font-archivo), sans-serif; font-size: 1.55rem; }
 .review-warning p { max-width: 39rem; margin: .5rem 0 0; }
-.contribution-auth { display: grid; gap: 1.25rem; margin-top: 1rem; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid currentColor; background: var(--field-acid); }
+.contribution-auth { --focus-ring: var(--commons-ink); --focus-gap: var(--field-acid); display: grid; gap: 1.25rem; margin-top: 1rem; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid currentColor; background: var(--field-acid); }
 .contribution-auth > p { max-width: 42rem; margin: 0; }
 .contribution-auth > label { display: grid; gap: .35rem; font-weight: 700; }
 .auth-mode { display: grid; grid-template-columns: repeat(2, 1fr); }
 .auth-mode button { min-height: 3.25rem; border: 1px solid currentColor; background: transparent; cursor: pointer; }
 .auth-mode button[aria-pressed="true"] { color: var(--rice-paper); background: var(--commons-ink); }
 
-.contribution-loading { min-height: 100svh; padding: 10rem var(--page-pad); background: var(--signal-tomato); }
-.contribution-receipt-page { min-height: 100svh; padding: clamp(9rem, 15vw, 14rem) var(--page-pad) 5rem; background: var(--field-acid); }
+.contribution-loading { --focus-ring: var(--commons-ink); --focus-gap: var(--signal-tomato); min-height: 100svh; padding: 10rem var(--page-pad); background: var(--signal-tomato); }
+.contribution-receipt-page { --focus-ring: var(--commons-ink); --focus-gap: var(--field-acid); min-height: 100svh; padding: clamp(9rem, 15vw, 14rem) var(--page-pad) 5rem; background: var(--field-acid); }
 .contribution-receipt { position: relative; max-width: 76rem; margin: 0 auto; }
 .contribution-receipt h1 { max-width: 10ch; font-size: clamp(4rem, 11vw, 11rem); }
 .receipt-lead { max-width: 48rem; font-size: clamp(1.3rem, 2.3vw, 2.2rem); line-height: 1.08; }
