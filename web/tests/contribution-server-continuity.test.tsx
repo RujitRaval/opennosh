@@ -11,11 +11,17 @@ import {
 } from "@/lib/contributions/local-draft";
 
 const router = { push: vi.fn(), replace: vi.fn() };
-const apiState = vi.hoisted(() => ({ contributionDraft: vi.fn() }));
+const apiState = vi.hoisted(() => ({
+  contributionDraft: vi.fn(),
+  patchContributionDraft: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/lib/api", () => ({
-  api: { contributionDraft: apiState.contributionDraft },
+  api: {
+    contributionDraft: apiState.contributionDraft,
+    patchContributionDraft: apiState.patchContributionDraft,
+  },
   ApiError: class ApiError extends Error {},
 }));
 
@@ -69,10 +75,12 @@ function capability(receipt: ContributionCapability["receipt"] = null): Contribu
 afterEach(() => {
   cleanup();
   apiState.contributionDraft.mockReset();
+  apiState.patchContributionDraft.mockReset();
   router.push.mockReset();
   router.replace.mockReset();
   window.localStorage.clear();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("server-backed contribution continuity", () => {
@@ -113,6 +121,76 @@ describe("server-backed contribution continuity", () => {
       "href",
       "/en/contribute/local/evidence",
     );
+  });
+
+  it("sends only coalesced changed fields and announces server sync after acknowledgement", async () => {
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
+    apiState.contributionDraft.mockResolvedValue(capability());
+    apiState.patchContributionDraft.mockImplementation(async (_draftId, input) => {
+      const updated = capability();
+      return {
+        ...updated,
+        draftVersion: 4,
+        fields: {
+          ...updated.fields,
+          name: input.patches.find((patch: { field: string }) => patch.field === "name")?.value,
+          duplicates_resolved: false,
+        },
+      };
+    });
+
+    render(
+      <ContributionJourney language="en" routeDraftId="server-draft" requestedStage="details" />,
+    );
+    const name = await screen.findByLabelText("Food name");
+    vi.useFakeTimers();
+    fireEvent.change(name, { target: { value: "D" } });
+    fireEvent.change(name, { target: { value: "Da" } });
+    fireEvent.change(name, { target: { value: "Dal" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("sync scheduled");
+    await vi.advanceTimersByTimeAsync(750);
+
+    expect(apiState.patchContributionDraft).toHaveBeenCalledTimes(1);
+    expect(apiState.patchContributionDraft.mock.calls[0]?.[1]).toMatchObject({
+      expected_draft_version: 3,
+      patches: expect.arrayContaining([
+        { field: "name", value: "Dal", base_value: "Server name", base_version: 3 },
+        { field: "duplicates_resolved", value: false, base_value: false, base_version: 3 },
+      ]),
+    });
+    expect(apiState.patchContributionDraft.mock.calls[0]?.[1].patches).toHaveLength(2);
+    expect(screen.getByRole("status")).toHaveTextContent("Synced");
+  });
+
+  it("flushes a pending edit when continuing to the next stage", async () => {
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
+    vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    apiState.contributionDraft.mockResolvedValue(capability());
+    apiState.patchContributionDraft.mockResolvedValue({
+      ...capability(),
+      draftVersion: 4,
+      fields: { ...capability().fields, source_uri: "https://example.test/new-source" },
+    });
+
+    render(
+      <ContributionJourney language="en" routeDraftId="server-draft" requestedStage="evidence" />,
+    );
+    fireEvent.change(await screen.findByLabelText("Public source URL"), {
+      target: { value: "https://example.test/new-source" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /Continue/ })[0]!);
+
+    await waitFor(() => expect(apiState.patchContributionDraft).toHaveBeenCalledTimes(1));
+    expect(apiState.patchContributionDraft.mock.calls[0]?.[1]).toMatchObject({
+      requested_stage: "details",
+      patches: expect.arrayContaining([
+        expect.objectContaining({
+          field: "source_uri", value: "https://example.test/new-source",
+        }),
+      ]),
+    });
+    expect(router.push).toHaveBeenCalledWith("/en/contribute/server-draft/details");
   });
 
   it("renders the complete server-authoritative receipt on the stable status route", async () => {
