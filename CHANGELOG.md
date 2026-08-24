@@ -2,6 +2,35 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.32.0.0] - 2026-08-24
+
+### Added
+
+- Add a signed latest-release pointer and content-addressed release-manifest reader with typed live,
+  quiet, stale, partial, illustrative, and unavailable public commons snapshot states.
+- Add the database-independent `/api/v1/public/commons-snapshot` endpoint, generated web contract,
+  stable domain adapter, exact-content ETags, and read-only Compose artifact mount.
+- Add verified hero and footer counts plus accepted-activity events, proof metadata, quiet recovery
+  actions, stale age, and visibly non-production illustrative fixtures.
+
+### Changed
+
+- Resolve one immutable snapshot on the server and pass it through the homepage render tree so hero,
+  activity, freshness, and footer cannot drift across release boundaries.
+- Delay optional decoration until streamed content hydrates and keep unavailable, quiet, stale,
+  partial, reduced-motion, data-saver, low-power, and no-JavaScript paths free of speculative motion.
+
+### Fixed
+
+- Never display a verified record count or accepted event when the latest pointer, signed manifest,
+  API response, or first published release cannot be trusted.
+- Bind cache validators to exact snapshot content and distinguish missing first-run artifacts from
+  invalid signed pointers.
+- Keep release signing authority offline with Ed25519 public-key verification, reject release
+  rollback or equivocation through a durable checkpoint, and bound manifest and snapshot sizes.
+- Preserve public conditional-cache headers through the web ingress and use the approved five-minute
+  activity and revalidation bucket.
+
 ## [0.30.0.0] - 2026-08-23
 
 ### Added
