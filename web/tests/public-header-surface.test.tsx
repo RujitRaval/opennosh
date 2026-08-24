@@ -31,4 +31,14 @@ describe("public header surface contrast", () => {
       "/brand/wordmark-rice-paper.svg",
     );
   });
+
+  it("keeps both wordmark halves visible on the Tomato contribution journey", () => {
+    navigationState.pathname = "/en/contribute/local/evidence";
+    const contribution = render(<PublicHeader language="en" />);
+
+    expect(contribution.container.querySelector(".public-brand-image")).toHaveAttribute(
+      "src",
+      "/brand/wordmark-signal-tomato.svg",
+    );
+  });
 });

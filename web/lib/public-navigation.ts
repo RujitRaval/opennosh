@@ -194,5 +194,8 @@ export function resolvePublicHub(
   language: InterfaceLanguage,
 ): PublicHubId | undefined {
   if (pathname === routes.publicNotices(language)) return "build";
-  return publicHubIds.find((hub) => pathname === routes.publicHub(hub, language));
+  return publicHubIds.find((hub) => {
+    const hubPath = routes.publicHub(hub, language);
+    return pathname === hubPath || pathname.startsWith(`${hubPath}/`);
+  });
 }
