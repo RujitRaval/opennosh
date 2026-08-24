@@ -1,6 +1,7 @@
 .DS_Store
 .env
-.gstack/
+.gstack/*
+!.gstack/package-json-path
 __pycache__/
 *.py[cod]
 .mypy_cache/

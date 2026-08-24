@@ -13,7 +13,7 @@ typecheck:
 	uv run mypy --strict benchmarks/performance
 	npm --prefix web run typecheck
 
-test: foodpack-validate benchmark-contract-check database-capacity-check design-system-check
+test: contracts-check foodpack-validate benchmark-contract-check database-capacity-check design-system-check
 	PYTHONPATH=api:. uv run pytest
 	PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 	python3 scripts/check_docs.py

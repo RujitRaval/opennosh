@@ -2150,7 +2150,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `DESIGN.md`, root base styles, public route layout and scoped token stylesheet, tracker style entrypoint, typed brand-asset manifest, versioned logo and font asset directories, token/asset validation, contrast and visual fixtures.
   - Verify: a clean offline clone renders every approved logo colorway, self-hosted Archivo/Source Sans 3/IBM Plex Mono, documented semantic tokens, focus states, dark surfaces, and WCAG 2.2 AA without external design files or font CDNs; raw brand literals do not spread beyond approved sources; every manifest mapping passes contrast checks; tracker visual and behavior baselines remain unchanged.
 
-- [ ] **T22 (P2, human: ~1 day / Codex: ~30-45 min)** - Design reference - Refresh the approved Living Commons mock after the reviewed contracts are implemented.
+- [x] **T22 (P2, human: ~1 day / Codex: ~30-45 min)** - Design reference - Refresh the approved Living Commons mock after the reviewed contracts are implemented.
   - Surfaced by: Design passes 1-7 - the existing mock predates the final navigation, count, activity, contribution, and mobile-stage decisions.
   - Files: `~/.gstack/projects/RujitRaval-opennosh/designs/living-commons/`.
   - Verify: the refreshed mock demonstrates Explore/Contribute/Commons/Build, verified snapshot labeling, the honest quiet state, utility-with-visible-trust record hierarchy, three chapters/five stages, responsive progress, and surface-correct wordmarks.

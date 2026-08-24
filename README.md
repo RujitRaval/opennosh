@@ -626,6 +626,7 @@ were omitted.
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
 | `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
 | `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
+| `docs/designs/t22-living-commons-reference-evidence.md` | Refreshed Living Commons reference acceptance map, responsive audit, and source hashes | Designers + release reviewers |
 | `web/assets/fonts/v1/README.md` | Self-hosted public font subsets, licenses, loading policy, and integrity hashes | Frontend contributors + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |
