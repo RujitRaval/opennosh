@@ -87,7 +87,9 @@ Never reuse the Signal Tomato “nosh” accent on a Signal Tomato surface. Logo
 - **Data, labels, tables, and code:** IBM Plex Mono with tabular numerals for quantities, timestamps, versions, identifiers, and nutrition values.
 - **Multilingual fallback:** Noto Sans for content in scripts not covered by the primary families. Never transliterate a food name merely to fit the brand font.
 
-Self-host variable WOFF2 files in production, preload only the above-fold weights, and use `font-display: swap`. External font CDNs are prototype-only.
+Self-host variable WOFF2 files in production and use `font-display: swap`. Add preloads only when
+production route-isolation evidence proves they stay on the public surface; external font CDNs are
+prototype-only.
 
 ### Scale
 

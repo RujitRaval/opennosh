@@ -6,7 +6,9 @@ These immutable production WOFF2 files are the v1 Latin assets used by the publi
 - Source Sans 3 Variable 400–700: body and interface copy.
 - IBM Plex Mono 400, 500, 600: data, labels, and code.
 
-The tracker root does not import these files. Only the two proportional families are preloaded on the public root; IBM Plex Mono loads when used.
+The tracker root does not import these files. All five faces load on demand when public CSS uses
+them. Automatic Next.js preloads remain disabled until T25 establishes a measured, route-isolated
+strategy; this prevents public font transfers on direct Tracker visits.
 
 ## SHA-256
 
