@@ -10,7 +10,7 @@ data-contract, motion-budget, or live design review.
 - Browser package: Playwright `1.62.1`, locked by `package-lock.json`
 - Locale and timezone: `en-US`, `UTC`
 - Browser time: `2026-08-24T16:00:00.000Z`
-- Fonts: committed files from `web/assets/fonts/v1/`; capture waits for `document.fonts.ready`
+- Fonts: reproducibly generated subsets from `web/public/fonts/v2/`; capture waits for `document.fonts.ready`
 - Data: committed public, food-record, contribution, and Tracker fixtures with stable identifiers
 - Motion: the decoration kill switch removes incidental motion; focused assertions still prove
   reduced-motion input and accepted-versus-non-live activity semantics

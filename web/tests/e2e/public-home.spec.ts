@@ -115,7 +115,7 @@ test("tracker document excludes public navigation and public font variables", as
   await expect(page.locator("body")).toHaveCSS("font-family", /Trebuchet MS/);
   expect(
     requestedResources.some((url) =>
-      /archivo-latin-variable|source-sans-3-latin-variable|ibm-plex-mono-latin/.test(url),
+      /\/fonts\/v2\/opennosh-(display|sans|mono)-latin/.test(url),
     ),
   ).toBe(false);
 });
@@ -126,9 +126,9 @@ test("public tokens provide visible focus on light, Tomato, and Ink surfaces", a
     await document.fonts.ready;
   });
 
-  await expect(page.locator("body")).toHaveCSS("font-family", /sourceSans/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /archivo/);
-  await expect(page.locator(".mono").first()).toHaveCSS("font-family", /plexMono/);
+  await expect(page.locator("body")).toHaveCSS("font-family", /opennosh Sans/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /opennosh Display/);
+  await expect(page.locator(".mono").first()).toHaveCSS("font-family", /opennosh Mono/);
 
   const lightTokens = await page.locator("html").evaluate((element) => {
     const styles = getComputedStyle(element);

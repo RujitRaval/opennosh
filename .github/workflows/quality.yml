@@ -48,6 +48,8 @@ jobs:
             *) echo "Branch must use the agent/<description> convention: $HEAD_REF"; exit 1 ;;
           esac
           python3 scripts/check_pr_title.py "$PR_TITLE"
+      - name: Verify reproducible public font build
+        run: uv run --frozen python scripts/build_public_fonts.py
 
       - name: Run repository tests
         run: PYTHONPATH=api:. uv run --frozen python -m unittest discover -s tests -v
@@ -106,7 +108,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint API and performance contract
-        run: uv run ruff check api benchmarks scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
+        run: uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
 
       - name: Type-check API and performance contract
         run: |
@@ -162,6 +164,9 @@ jobs:
 
       - name: Validate Living Commons design system
         run: npm --prefix web run check:design-system
+
+      - name: Enforce Living Commons font budgets
+        run: npm --prefix web run check:font-budgets
 
       - name: Block hard-coded public interface copy
         run: npm --prefix web run check:localization

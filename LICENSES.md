@@ -8,6 +8,7 @@ dataset, UI, and export notices without changing any operative terms.
 | Material | License | Operative notice |
 |---|---|---|
 | Original application code, scripts, tests, configuration, and project documentation | MIT | [`LICENSE`](LICENSE) |
+| Licensed font sources under `web/assets/fonts/v2/sources/` and generated derivatives under `web/public/fonts/v2/` | SIL Open Font License 1.1 | Family-specific notices in [`web/assets/fonts/v2/licenses/`](web/assets/fonts/v2/licenses/) |
 | Eligible original community food-pack material under `packs/` | CC0 1.0 Universal | [`packs/LICENSE.md`](packs/LICENSE.md) and [`packs/CC0-1.0.txt`](packs/CC0-1.0.txt) |
 | USDA data | Public domain / CC0, as marked at source | Source metadata retained per record |
 | Open Food Facts data | ODbL 1.0 database rights and DbCL 1.0 contents rights | Separate store, attribution, and export described in [`04-DATA-LICENSING.md`](04-DATA-LICENSING.md) |

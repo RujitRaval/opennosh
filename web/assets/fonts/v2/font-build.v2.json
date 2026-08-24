@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "assetVersion": "v2",
+  "tool": {
+    "name": "fonttools",
+    "version": "4.60.1",
+    "sourceDateEpoch": 0
+  },
+  "licenses": [
+    {
+      "family": "Archivo",
+      "source": "licenses/Archivo-OFL.txt",
+      "public": "../../../public/fonts/v2/licenses/Archivo-OFL.txt",
+      "sha256": "1778201b7bd33e8c08a2eda32a4ad2f69bc38ced9731b01cc3fc47f268c8ef3c"
+    },
+    {
+      "family": "Source Sans 3",
+      "source": "licenses/SourceSans3-OFL.txt",
+      "public": "../../../public/fonts/v2/licenses/SourceSans3-OFL.txt",
+      "sha256": "7fac2f6c6bc47144e2c35e8f41147b3c8c895490d44b46266a5312fe93364d2e"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "source": "licenses/IBMPlexMono-OFL.txt",
+      "public": "../../../public/fonts/v2/licenses/IBMPlexMono-OFL.txt",
+      "sha256": "d741e57d5f865e294df801f96b7b5161a88b211df65887e4358d271c9fc5fb4f"
+    }
+  ],
+  "scripts": {
+    "latin": {
+      "interfaceLanguages": [
+        "en",
+        "en-XA"
+      ],
+      "unicodes": "glyphs/latin.txt"
+    }
+  },
+  "budgets": {
+    "criticalBytes": 163840,
+    "totalBytes": 225280,
+    "criticalRequests": 2,
+    "totalRequests": 5,
+    "fontCls": 0.02,
+    "trackerBytes": 0
+  },
+  "fonts": [
+    {
+      "id": "opennosh-display-latin-variable",
+      "family": "Archivo",
+      "reservedNames": [],
+      "role": "display",
+      "script": "latin",
+      "source": "sources/archivo-upstream-latin-variable.woff2",
+      "sourceSha256": "4c98b9d490d1698ec95f2ff17a6c7d0e72691864c0c5d7bc2a2c161b45afe5ad",
+      "axisLimits": [
+        "wght=600:900",
+        "wdth=75:125"
+      ],
+      "outputNames": {
+        "family": "opennosh Display",
+        "subfamily": "Regular",
+        "full": "opennosh Display",
+        "postScript": "opennoshDisplay"
+      },
+      "output": "../../../public/fonts/v2/opennosh-display-latin-variable.woff2",
+      "delivery": "critical",
+      "outputBytes": 61676,
+      "outputSha256": "1adb41b88aaf62be29e2e835b356ade1385ff59d7e60f71f1a20ee4bdc4679fe"
+    },
+    {
+      "id": "opennosh-sans-latin-variable",
+      "family": "Source Sans 3",
+      "reservedNames": [
+        "Source"
+      ],
+      "role": "body",
+      "script": "latin",
+      "source": "sources/source-sans-3-upstream-latin-variable.woff2",
+      "sourceSha256": "ac057a5593cbe3df0d2585da5dd5f33b8efa84aa30550c710fe061b37fc5c54b",
+      "axisLimits": [
+        "wght=400:700"
+      ],
+      "outputNames": {
+        "family": "opennosh Sans",
+        "subfamily": "Regular",
+        "full": "opennosh Sans",
+        "postScript": "opennoshSans"
+      },
+      "output": "../../../public/fonts/v2/opennosh-sans-latin-variable.woff2",
+      "delivery": "critical",
+      "outputBytes": 28016,
+      "outputSha256": "9c2e5b4f05d07448244df778a775589557d971b0d39f32cfbc263c5e445439e0"
+    },
+    {
+      "id": "opennosh-mono-latin-400",
+      "family": "IBM Plex Mono",
+      "reservedNames": [
+        "Plex"
+      ],
+      "role": "data",
+      "script": "latin",
+      "source": "sources/ibm-plex-mono-upstream-latin-400.woff2",
+      "sourceSha256": "c36f509c0a8f9f85f29cb44bc8701d8a9e0b14c499e77a884f789ead7093a7ac",
+      "axisLimits": [],
+      "outputNames": {
+        "family": "opennosh Mono",
+        "subfamily": "Regular",
+        "full": "opennosh Mono Regular",
+        "postScript": "opennoshMono-Regular"
+      },
+      "output": "../../../public/fonts/v2/opennosh-mono-latin-400.woff2",
+      "delivery": "deferred",
+      "outputBytes": 9384,
+      "outputSha256": "d5efccc413ca81bfcb2a94a781e1cad6e5fc2616d5e26bfed9420ce779bbbe3b"
+    },
+    {
+      "id": "opennosh-mono-latin-500",
+      "family": "IBM Plex Mono",
+      "reservedNames": [
+        "Plex"
+      ],
+      "role": "data",
+      "script": "latin",
+      "source": "sources/ibm-plex-mono-upstream-latin-500.woff2",
+      "sourceSha256": "a76f53ca6612e7b3828eec2311098675b7f9849ae4169a8bcef6302aec02a6c0",
+      "axisLimits": [],
+      "outputNames": {
+        "family": "opennosh Mono",
+        "subfamily": "Medium",
+        "full": "opennosh Mono Medium",
+        "postScript": "opennoshMono-Medium"
+      },
+      "output": "../../../public/fonts/v2/opennosh-mono-latin-500.woff2",
+      "delivery": "deferred",
+      "outputBytes": 9372,
+      "outputSha256": "60540ab9e42002d08971f4daf1b413c3b1db19764226875df1bb774fdcab9951"
+    },
+    {
+      "id": "opennosh-mono-latin-600",
+      "family": "IBM Plex Mono",
+      "reservedNames": [
+        "Plex"
+      ],
+      "role": "data",
+      "script": "latin",
+      "source": "sources/ibm-plex-mono-upstream-latin-600.woff2",
+      "sourceSha256": "ad4580d8cb4b5f627c2d18457656732f7f7b070f7837fbc380e08054157e6f6c",
+      "axisLimits": [],
+      "outputNames": {
+        "family": "opennosh Mono",
+        "subfamily": "SemiBold",
+        "full": "opennosh Mono SemiBold",
+        "postScript": "opennoshMono-SemiBold"
+      },
+      "output": "../../../public/fonts/v2/opennosh-mono-latin-600.woff2",
+      "delivery": "deferred",
+      "outputBytes": 9412,
+      "outputSha256": "c86dfce44d15b2edff518a712e05ef46d2e576d83fd2e0bc28d28d4e4a05ede1"
+    }
+  ]
+}
