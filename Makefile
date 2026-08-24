@@ -1,11 +1,11 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
 	npm --prefix web ci
 
 lint:
-	uv run ruff check api benchmarks scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
+	uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
 	npm --prefix web run lint
 
 typecheck:
@@ -49,6 +49,10 @@ design-system-check:
 
 benchmark-corpus:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.corpus --profile $${PROFILE:-launch-reference} --output $${OUTPUT:--}
+
+font-performance-check:
+	uv run --frozen python scripts/build_public_fonts.py
+	npm --prefix web run check:font-budgets
 
 benchmark-run:
 	PYTHONPATH=api:. uv run python -m benchmarks.performance.harness $${BENCHMARK_ARGS}

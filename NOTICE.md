@@ -9,6 +9,15 @@ Original application code, scripts, tests, configuration, and project documentat
 © 2026 Rujit Raval and are distributed under the MIT License in [`LICENSE`](LICENSE). Distributions
 must retain that copyright and permission notice.
 
+## Third-party typefaces
+
+The Living Commons interface embeds modified WOFF2 subsets derived from Archivo, Source Sans 3,
+and IBM Plex Mono. Those font sources and derivatives remain under the SIL Open Font License 1.1;
+the operative family-specific notices are retained in
+[`web/assets/fonts/v2/licenses/`](web/assets/fonts/v2/licenses/). Generated derivatives use
+opennosh-specific family, PostScript, and file names so Reserved Font Names are not reused.
+The root MIT license does not relicense these font files.
+
 ## Community food packs
 
 Eligible original material submitted under `packs/` is dedicated under CC0 1.0 Universal. The

@@ -976,7 +976,7 @@ FEW EXPENSIVE TESTS
 ### D40: Route-scoped font delivery budget
 
 - Living Commons uses licensed WOFF2 variable-font subsets for Archivo, Source Sans 3, and IBM Plex Mono. Source files, subset commands, licenses, glyph/script manifests, and output hashes are versioned so a clean build is reproducible and auditable.
-- Centralized `next/font/local` definitions expose CSS variables to the localized public layout only. The tracker layout receives no Living Commons font class or preload and downloads none of these font files.
+- Route-local `@font-face` definitions use stable `/fonts/v2/` URLs, and the localized public layout emits only the typed critical preloads. This explicit boundary replaces `next/font/local`, whose production manifest hoists preloads across independent roots; Tracker receives no Living Commons font class, preload, reference, or byte.
 - The default Latin public route preloads only the above-the-fold Archivo display subset and Source Sans 3 body subset. IBM Plex Mono is non-critical and loads without preload. Additional script subsets are selected only for interface languages that need them; food-data locale alone never downloads another interface-font subset.
 - All faces use reviewed metric-compatible fallbacks and a non-blocking display policy. The first render remains complete in fallback type, and font arrival cannot hide controls, alter reading order, or move the current task unexpectedly.
 - Initial transferred font bytes for the default Latin public route are at most 160 KB. Deferred mono may bring the route total to at most 220 KB. A language needing another script records its measured subset budget and may replace, not automatically add to, the Latin payload when the page does not require both.
@@ -2165,7 +2165,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: Playwright visual project/configuration, stable public and contribution fixtures, font/motion readiness helpers, screenshot baselines, tracker baseline, CI artifact and approval rules.
   - Verify: pinned runtime, frozen time, loaded local fonts, deterministic data, public proof states, food record, all contribution stages, every logo surface, loading/error boundaries, 320 px/mobile/tablet/desktop, zoom, pseudo-locale, reduced motion, forced colors, keyboard focus, safe-area actions, and unchanged tracker all pass without broad defect-hiding masks.
 
-- [ ] **T25 (P1, human: ~2-3 days / Codex: ~1 day)** - Font performance - Build reproducible route-scoped WOFF2 subsets and enforce Living Commons font budgets.
+- [x] **T25 (P1, human: ~2-3 days / Codex: ~1 day)** - Font performance - Build reproducible route-scoped WOFF2 subsets and enforce Living Commons font budgets.
   - Surfaced by: Performance re-review D40 - three self-hosted variable fonts lacked subset, preload, fallback, transfer, and tracker-isolation rules.
   - Files: licensed source fonts and manifests, reproducible subset tooling, centralized public font definitions, localized public layout, tracker resource assertions, performance and visual fixtures, CI budgets.
   - Verify: initial Latin font transfer is at most 160 KB and total after deferred mono at most 220 KB; font-attributable CLS is at most 0.02; only required script subsets load; no unused critical preload appears; fallback and slow-font states remain usable; /tracker transfers zero Living Commons font bytes.

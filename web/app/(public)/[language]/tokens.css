@@ -33,7 +33,7 @@
   --color-data: var(--color-dataset-indigo);
   --color-border: color-mix(in srgb, var(--color-commons-ink) 22%, transparent);
 
-  /* Type scale is surface-scoped; family roles bind where next/font variables exist. */
+  /* Type scale and metric-compatible family roles are scoped to the public document root. */
   --type-body: 1.125rem;
   --type-utility: .6875rem;
   --leading-body: 1.4;
@@ -76,9 +76,9 @@
 }
 
 .public-root {
-  --font-display: var(--font-archivo), "Arial Narrow", sans-serif;
-  --font-body: var(--font-source-sans), Arial, sans-serif;
-  --font-data: var(--font-plex-mono), monospace;
+  --font-display: "opennosh Display", "opennosh Display Fallback", "Arial Narrow", Arial, sans-serif;
+  --font-body: "opennosh Sans", "opennosh Sans Fallback", Arial, sans-serif;
+  --font-data: "opennosh Mono", "opennosh Mono Fallback", "Courier New", monospace;
 }
 
 :root[data-surface="public"][data-theme="dark"] {

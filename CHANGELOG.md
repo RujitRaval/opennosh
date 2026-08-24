@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.39.0.0] - 2026-08-24
+
+### Added
+
+- Give Living Commons pages reproducible, self-hosted Latin font subsets with complete public
+  license notices and project-specific derivative names.
+- Add automated transfer, preload, layout-shift, and Tracker-isolation checks for every public
+  font release.
+
+### Changed
+
+- Load the two critical public faces only from Living Commons routes, defer monospace faces until
+  needed, and keep content usable through metric-compatible system fallbacks while fonts arrive.
+
+### Fixed
+
+- Prevent public fonts from leaking into Tracker pages and fail continuous integration when font
+  bytes, preload counts, reproducible hashes, or slow-font layout stability exceed their budgets.
+
 ## [0.38.0.0] - 2026-08-24
 
 ### Added

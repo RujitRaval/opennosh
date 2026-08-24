@@ -54,6 +54,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+  "fonttools[woff]==4.60.1",
   "hypothesis>=6.138,<7",
   "mypy>=1.17,<2",
   "pytest>=8.4,<9",

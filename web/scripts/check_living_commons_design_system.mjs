@@ -18,6 +18,7 @@ const tokenFile = path.join(webRoot, "app/(public)/[language]/tokens.css");
 const publicCssFile = path.join(webRoot, "app/(public)/[language]/public.css");
 const contributionCssFile = path.join(webRoot, "app/(public)/[language]/contribution.css");
 const publicFontSourceFile = path.join(webRoot, "app/(public)/[language]/fonts.ts");
+const publicFontCssFile = path.join(webRoot, "app/(public)/[language]/fonts.css");
 const publicLayoutFile = path.join(webRoot, "app/(public)/[language]/layout.tsx");
 const trackerLayoutFile = path.join(webRoot, "app/(tracker)/tracker/layout.tsx");
 const trackerRoot = path.join(webRoot, "app/(tracker)");
@@ -94,7 +95,7 @@ for (const token of brandColorTokens) {
 if (brandAssetVersion !== "v1") {
   fail("The canonical brand asset manifest must remain explicitly versioned.");
 }
-if (publicFontAssetVersion !== "v1") {
+if (publicFontAssetVersion !== "v2") {
   fail("The canonical public font manifest must remain explicitly versioned.");
 }
 
@@ -148,21 +149,22 @@ for (const surface of expectedBrandSurfaces) {
 }
 
 const publicFontSource = read(publicFontSourceFile);
+const publicFontCss = read(publicFontCssFile);
 for (const asset of Object.values(publicFontAssets)) {
-  if (asset.preload) {
-    fail("Automatic next/font preloads must stay disabled until they are isolated from Tracker routes.");
-  }
-  const assetFile = path.resolve(webRoot, "lib", asset.path);
+  const assetFile = path.join(webRoot, "public", asset.href);
   if (!existsSync(assetFile)) {
     fail(`Font asset is missing at ${relative(assetFile)}.`);
     continue;
   }
   const digest = createHash("sha256").update(readFileSync(assetFile)).digest("hex");
-  if (digest !== asset.sha256) {
+  if (digest !== asset.sha256 || readFileSync(assetFile).byteLength !== asset.bytes) {
     fail(`${relative(assetFile)} does not match its approved SHA-256.`);
   }
-  if (!publicFontSource.includes(path.basename(asset.path))) {
-    fail(`${relative(assetFile)} is not wired through next/font/local.`);
+  if (!publicFontCss.includes(asset.href)) {
+    fail(`${relative(assetFile)} is not wired through the route-local font sheet.`);
+  }
+  if (asset.delivery === "critical" && !publicFontSource.includes('asset.delivery === "critical"')) {
+    fail(`${relative(assetFile)} is not selected by the typed critical-preload contract.`);
   }
 }
 
@@ -198,7 +200,8 @@ const publicLayout = read(publicLayoutFile);
 const trackerLayout = read(trackerLayoutFile);
 if (
   !publicLayout.includes('import "../../base.css";') ||
-  !publicLayout.includes('import "./tokens.css";')
+  !publicLayout.includes('import "./tokens.css";') ||
+  !publicLayout.includes('import "./fonts.css";')
 ) {
   fail("The public layout must import shared primitives before its scoped token sheet.");
 }
@@ -210,7 +213,7 @@ if (
 }
 for (const file of walk(trackerRoot).filter((target) => /\.(css|ts|tsx)$/.test(target))) {
   const source = read(file);
-  if (/tokens\.css|public-fonts|brand\/v1|--color-(commons|rice|signal|field|dataset)/.test(source)) {
+  if (/tokens\.css|fonts\.css|fonts\/v2|public-fonts|brand\/v1|--color-(commons|rice|signal|field|dataset)/.test(source)) {
     fail(`${relative(file)} crosses the public design-system boundary.`);
   }
 }
@@ -257,7 +260,7 @@ for (const context of focusContexts) {
 }
 
 const design = read(designFile);
-for (const documented of ["tokens.css", "/brand/v1/", "/fonts/v1/", "--color-text", "--focus-ring"]) {
+for (const documented of ["tokens.css", "/brand/v1/", "/fonts/v2/", "--color-text", "--focus-ring"]) {
   if (!design.includes(documented)) fail(`DESIGN.md does not document ${documented}.`);
 }
 
@@ -268,5 +271,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Living Commons design system v1 validated: ${brandSurfaces.length} wordmarks, ${Object.keys(publicFontAssets).length} font files, ${Object.keys(expectedColors).length} canonical colors.`,
+  `Living Commons design system validated: ${brandSurfaces.length} wordmarks, font assets ${publicFontAssetVersion}, ${Object.keys(expectedColors).length} canonical colors.`,
 );
