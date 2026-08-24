@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "@/lib/api";
+import foodDetailFixture from "@/tests/fixtures/contracts/foods/v1-detail-community.json";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -105,6 +106,39 @@ describe("browser API client", () => {
       cursor: "signed.cursor+/=",
     });
     expect(url.searchParams.has("offset")).toBe(false);
+  });
+
+  it("omits the optional locale when a public food search has no preference", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(
+      Response.json({
+        schema_version: "2.0",
+        items: [],
+        limit: 12,
+        has_more: false,
+        next_cursor: null,
+        snapshot_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497",
+        snapshot_expires_at: "2026-08-23T14:30:00Z",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.searchFoods("green beans");
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]), "https://opennosh.test");
+    expect(url.searchParams.get("q")).toBe("green beans");
+    expect(url.searchParams.has("locale")).toBe(false);
+  });
+
+  it("forwards a cancellation signal when loading a public food detail", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(Response.json(foodDetailFixture));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await api.foodDetail("community", "rajma-masala", controller.signal);
+
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
 
   it("prefers the production CSRF cookie and accepts empty success responses", async () => {

@@ -2,6 +2,35 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.36.0.0] - 2026-08-24
+
+### Added
+
+- Let anyone open a public food record and see its identity, preparation, selected household
+  portion, nutrition, source, release version, license, uncertainty, and provenance together.
+- Add Metric and US portion displays while retaining canonical grams, complete nutrient and
+  evidence ledgers, an honest record-history surface, correction links, and reusable API access.
+- Keep explicitly related food records separate when values or licenses disagree, without
+  averaging conflicts into a score or guessing relationships from fuzzy search results.
+
+### Changed
+
+- Server-render complete food-record content so identity, trust, nutrients, source, license, and
+  provenance remain available without JavaScript; client code now owns only controls and retry.
+- Show missing verification, revision, source, and contributor facts as unavailable instead of
+  inventing proof, and keep Tracker navigation generic until record handoff is implemented.
+- Align the food-record surface with the current Living Commons navigation, semantic typography,
+  motion preferences, and contribution routes introduced after T18 was first prepared.
+
+### Fixed
+
+- Preserve valid BCP 47 food-locale preferences, omit the locale filter when no preference is
+  selected, and reset record identity safely across route changes.
+- Keep the primary trusted record visible without waiting on optional relationships, reject fuzzy
+  same-food inference, and bound server API reads with an honest retryable failure state.
+- Reflow the full trust hierarchy at mobile and 200-percent zoom-equivalent widths, preserve
+  canonical units, expose accessible focus and contrast states, and honor reduced motion.
+
 ## [0.35.0.0] - 2026-08-24
 
 ### Changed

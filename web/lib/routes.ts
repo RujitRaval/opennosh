@@ -88,6 +88,11 @@ export const routes = {
     hub: PublicHubId,
     language: InterfaceLanguage = defaultLanguage,
   ) => `/${language}/${hub}`,
+  publicFoodRecord: (
+    source: "usda" | "community",
+    sourceId: string,
+    language: InterfaceLanguage = defaultLanguage,
+  ) => `/${language}/explore/foods/${source}/${encodeURIComponent(sourceId)}`,
   contributionStart: (language: InterfaceLanguage = defaultLanguage) =>
     `/${language}/contribute/local/evidence`,
   contributionDraft: (

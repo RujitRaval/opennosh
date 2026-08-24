@@ -121,22 +121,23 @@ export const api = {
     request<TransportCapabilities>("/api/v1/foods/capabilities").then(foodCapabilities),
   searchFoods: (
     query: string,
-    locale: string,
+    locale?: string,
     source?: "usda" | "community",
     cursor?: string,
   ) =>
     request<TransportFoodSearch>(
       `/api/v1/foods/search?${new URLSearchParams({
         q: query,
-        locale,
+        ...(locale ? { locale } : {}),
         limit: "12",
         ...(source ? { source } : {}),
         ...(cursor ? { cursor } : {}),
       })}`,
     ).then(foodSearch),
-  foodDetail: (source: "usda" | "community", sourceId: string) =>
+  foodDetail: (source: "usda" | "community", sourceId: string, signal?: AbortSignal) =>
     request<TransportFoodDetail>(
       `/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
+      { signal },
     ).then(foodDetail),
   lookupBarcode: (barcode: string) =>
     request<TransportBarcodeFood>(

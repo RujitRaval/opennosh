@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "id": "community:rajma-masala",
+  "source": "community",
+  "source_id": "rajma-masala",
+  "name": "Rajma masala",
+  "name_local": "राजमा मसाला",
+  "category": "Punjabi home-style preparation",
+  "attribution": {
+    "source": "community",
+    "license": "CC0-1.0",
+    "source_uri": "https://example.org/evidence/rajma-masala",
+    "source_license": "CC BY 4.0",
+    "contributed_by": "Punjab Foods Collective",
+    "pack_id": "north-india-home-foods",
+    "pack_version": "2.4.0",
+    "provenance": "Recipe analysis checked against two household preparations"
+  },
+  "nutrients": {
+    "basis": "per_100g",
+    "nutrients": {
+      "energy_kcal": "127",
+      "protein_g": "6.2",
+      "carbohydrate_g": "19.6",
+      "fat_g": "2.6",
+      "fibre_g": "5.8",
+      "sodium_mg": "238"
+    }
+  },
+  "portions": [
+    { "name": "1 katori", "grams": "180" },
+    { "name": "1 cup", "grams": "240" }
+  ]
+}
