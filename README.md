@@ -142,6 +142,29 @@ gate loads 10,000 representative rows, verifies snapshot-indexed execution, and 
 launch-reference, 10x, and 100x corpora, mixed workload, cache states, latency/relevance gates, and
 machine-readable evidence needed before considering a dedicated search projection.
 
+### Localization quality
+
+English is the current shipped interface language. Public-shell, food-record, legal-notice, and
+contribution copy comes from one typed catalog; missing or extra messages, placeholder drift,
+plural-shape drift, and direct JSX interface copy fail the pull-request gate. Food locale remains
+independent from interface language.
+
+Run the fast catalog and copy checks with:
+
+```bash
+npm --prefix web run check:localization
+npm --prefix web test -- --run tests/localization-catalog.test.ts
+```
+
+The dedicated browser matrix covers shipped English plus a deliberately expanded `en-XA`
+pseudo-locale at desktop and mobile widths, including every contribution stage and language
+switching. The pseudo-locale is available only when the non-production test server explicitly sets
+`NEXT_PUBLIC_OPENNOSH_ENABLE_PSEUDO_LOCALE=1`:
+
+```bash
+npm --prefix web run test:localization
+```
+
 ### Public motion performance
 
 The localized public site is complete in server-rendered HTML and starts with decoration disabled.

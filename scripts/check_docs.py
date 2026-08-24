@@ -45,6 +45,10 @@ LICENSE_NOTICE_REQUIREMENTS = {
         "CC BY-SA 3.0",
     ),
     Path("web/app/(public)/[language]/notices/page.tsx"): (
+        "getCatalog(language)",
+        "catalog.notices",
+    ),
+    Path("web/lib/i18n/catalog.ts"): (
         "MIT License",
         "CC0 1.0 Universal",
         "USDA FoodData Central",

@@ -5,9 +5,15 @@ export type PublicBreadcrumb = {
   href?: string;
 };
 
-export function PublicBreadcrumbs({ items }: { items: readonly PublicBreadcrumb[] }) {
+export function PublicBreadcrumbs({
+  items,
+  label = "Breadcrumb",
+}: {
+  items: readonly PublicBreadcrumb[];
+  label?: string;
+}) {
   return (
-    <nav className="public-breadcrumbs" aria-label="Breadcrumb">
+    <nav className="public-breadcrumbs" aria-label={label}>
       <ol>
         {items.map((item, index) => {
           const current = index === items.length - 1;

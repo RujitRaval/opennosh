@@ -163,6 +163,9 @@ jobs:
       - name: Validate Living Commons design system
         run: npm --prefix web run check:design-system
 
+      - name: Block hard-coded public interface copy
+        run: npm --prefix web run check:localization
+
       - name: Lint web app
         run: npm --prefix web run lint
 
@@ -184,6 +187,9 @@ jobs:
 
       - name: Test accessible daily-log journey
         run: npm --prefix web run test:e2e
+
+      - name: Test shipped and pseudo-localized interfaces
+        run: npm --prefix web run test:localization
 
       - name: Build web app
         run: npm --prefix web run build

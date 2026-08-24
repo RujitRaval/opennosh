@@ -5,9 +5,10 @@ import type {
   PublicCommonsSnapshot,
 } from "@/lib/api/domain/public-commons";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
+import { fallbackLanguage, formatMessage, formatPlural, getCatalog, pseudoLanguage } from "@/lib/i18n/catalog";
 
 function formatDateTime(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(language, {
+  return new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -19,19 +20,10 @@ function formatDateTime(value: string, language: InterfaceLanguage) {
 }
 
 function formatDate(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(language, {
+  return new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, {
     dateStyle: "long",
     timeZone: "UTC",
   }).format(new Date(value));
-}
-
-function eventLabel(event: AcceptedActivityEvent) {
-  return {
-    food: "Food",
-    source: "Source",
-    portion: "Portion",
-    pack: "Pack",
-  }[event.event_type];
 }
 
 function hasVerifiedRelease(snapshot: PublicCommonsSnapshot) {
@@ -50,14 +42,15 @@ export function HeroReleaseProof({
   snapshot: PublicCommonsSnapshot;
   language: InterfaceLanguage;
 }) {
+  const copy = getCatalog(language).truth;
   if (!hasVerifiedRelease(snapshot) || !snapshot.release) return null;
   return (
-    <aside className="hero-proof" aria-label="Verified commons release">
+    <aside className="hero-proof" aria-label={copy.verifiedRelease}>
       <strong>{snapshot.verified_record_count?.toLocaleString(language)}</strong>
-      <span>verified records</span>
+      <span>{formatPlural(copy.verifiedRecords, snapshot.verified_record_count ?? 0, language)}</span>
       <small className="mono">
-        release {snapshot.release.version}
-        {snapshot.state === "stale" ? " · stale" : ""}
+        {formatMessage(copy.release, { version: snapshot.release.version })}
+        {snapshot.state === "stale" ? copy.staleSuffix : ""}
       </small>
     </aside>
   );
@@ -70,23 +63,26 @@ export function FooterReleaseProof({
   snapshot?: PublicCommonsSnapshot;
   language: InterfaceLanguage;
 }) {
+  const copy = getCatalog(language).truth;
   if (!snapshot || !hasVerifiedRelease(snapshot) || !snapshot.release) return null;
   return (
     <p className="footer-release-proof mono">
-      <strong>{snapshot.verified_record_count?.toLocaleString(language)}</strong> verified records
+      <strong>{snapshot.verified_record_count?.toLocaleString(language)}</strong>{" "}
+      {formatPlural(copy.verifiedRecords, snapshot.verified_record_count ?? 0, language)}
       <span>
-        release {snapshot.release.version}
-        {snapshot.state === "stale" ? " · stale" : ""}
+        {formatMessage(copy.release, { version: snapshot.release.version })}
+        {snapshot.state === "stale" ? copy.staleSuffix : ""}
       </span>
     </p>
   );
 }
 
 function ActivityActions({ language }: { language: InterfaceLanguage }) {
+  const copy = getCatalog(language).truth;
   return (
-    <nav className="activity-actions" aria-label="Commons activity actions">
-      <Link href={routes.publicHub("explore", language)}>Search verified records</Link>
-      <Link href={routes.publicHub("contribute", language)}>Contribute a food</Link>
+    <nav className="activity-actions" aria-label={copy.activityActions}>
+      <Link href={routes.publicHub("explore", language)}>{copy.searchRecords}</Link>
+      <Link href={routes.publicHub("contribute", language)}>{copy.contributeFood}</Link>
     </nav>
   );
 }
@@ -98,11 +94,12 @@ function ActivityEvents({
   events: AcceptedActivityEvent[];
   language: InterfaceLanguage;
 }) {
+  const copy = getCatalog(language).truth;
   return (
     <ol className="activity-events">
       {events.map((event) => (
         <li key={event.event_id}>
-          <span className="activity-event-type mono">{eventLabel(event)}</span>
+          <span className="activity-event-type mono">{copy.eventLabels[event.event_type]}</span>
           <div>
             <strong>{event.summary}</strong>
             <p>{event.food_locale}</p>
@@ -113,7 +110,7 @@ function ActivityEvents({
           <a
             className="mono"
             href={`https://github.com/RujitRaval/opennosh/commit/${event.source_commit}`}
-            aria-label={`View source commit for ${event.summary}`}
+            aria-label={formatMessage(copy.sourceCommit, { summary: event.summary })}
           >
             {event.source_commit.slice(0, 7)} ↗
           </a>
@@ -130,16 +127,10 @@ export function AcceptedActivity({
   snapshot: PublicCommonsSnapshot;
   language: InterfaceLanguage;
 }) {
+  const copy = getCatalog(language).truth;
   const events = snapshot.activity.events ?? [];
   const recent = snapshot.activity.most_recent_verified_record;
-  const status = {
-    live: "Verified release",
-    quiet: "Quiet · verified",
-    stale: "Stale snapshot",
-    partial: "Partial snapshot",
-    illustrative: "Illustrative data",
-    unavailable: "Unavailable",
-  }[snapshot.state];
+  const status = copy.statuses[snapshot.state];
 
   return (
     <div
@@ -148,16 +139,19 @@ export function AcceptedActivity({
       data-motion-state={snapshot.state === "live" ? "running" : "paused"}
     >
       <div className="activity-head mono">
-        <span>Accepted activity / last 24h</span>
+        <span>{copy.heading}</span>
         <span>{status}</span>
       </div>
 
       {snapshot.state === "live" && (
         <>
           <p className="activity-summary" role="status">
-            <strong>{snapshot.activity.accepted_count} accepted changes</strong>
+            <strong>{formatPlural(copy.acceptedChanges, snapshot.activity.accepted_count, language)}</strong>
             <span>
-              Through {formatDateTime(snapshot.activity.ends_at, language)} · release {snapshot.release?.version}
+              {formatMessage(copy.throughRelease, {
+                date: formatDateTime(snapshot.activity.ends_at, language),
+                version: snapshot.release?.version ?? "",
+              })}
             </span>
           </p>
           <ActivityEvents events={events} language={language} />
@@ -168,13 +162,13 @@ export function AcceptedActivity({
         <>
           <div className="quiet-orbit" aria-hidden="true"><i /><i /><i /></div>
           <p className="quiet-state" role="status">
-            <strong>No accepted changes in the last 24 hours.</strong>
+            <strong>{copy.quietTitle}</strong>
             {recent ? (
               <span>
-                Most recently verified: <Link href={recent.href}>{recent.name}</Link>, {recent.food_locale}, on {formatDate(recent.verified_at, language)}.
+                {copy.recentPrefix} <Link href={recent.href}>{recent.name}</Link>, {recent.food_locale}, {copy.recentOn} {formatDate(recent.verified_at, language)}.
               </span>
             ) : (
-              <span>The signed release contains no earlier verified record to show here.</span>
+              <span>{copy.noRecent}</span>
             )}
           </p>
           <ActivityActions language={language} />
@@ -184,13 +178,13 @@ export function AcceptedActivity({
       {snapshot.state === "stale" && (
         <>
           <p className="activity-summary activity-warning" role="status">
-            <strong>Activity is temporarily stale.</strong>
+            <strong>{copy.staleTitle}</strong>
             <span>
-              Frozen at the last verified release {snapshot.release?.version}.
+              {formatMessage(copy.frozen, { version: snapshot.release?.version ?? "" })}
               {snapshot.freshness.stale_since
-                ? ` Stale since ${formatDateTime(snapshot.freshness.stale_since, language)}.`
-                : " The stale time is unavailable."}
-              {` Verification last retried ${formatDateTime(snapshot.freshness.checked_at, language)}.`}
+                ? formatMessage(copy.staleSince, { date: formatDateTime(snapshot.freshness.stale_since, language) })
+                : copy.staleUnknown}
+              {formatMessage(copy.retried, { date: formatDateTime(snapshot.freshness.checked_at, language) })}
             </span>
           </p>
           {events.length > 0 && <ActivityEvents events={events} language={language} />}
@@ -201,9 +195,9 @@ export function AcceptedActivity({
       {snapshot.state === "partial" && (
         <>
           <p className="activity-summary activity-warning" role="status">
-            <strong>Accepted activity is still catching up.</strong>
+            <strong>{copy.partialTitle}</strong>
             <span>
-              The record count is verified for release {snapshot.release?.version}; this event list may be incomplete.
+              {formatMessage(copy.partialBody, { version: snapshot.release?.version ?? "" })}
             </span>
           </p>
           {events.length > 0 && <ActivityEvents events={events} language={language} />}
@@ -213,10 +207,10 @@ export function AcceptedActivity({
 
       {snapshot.state === "illustrative" && (
         <>
-          <p className="illustrative-label mono">Illustrative data</p>
+          <p className="illustrative-label mono">{copy.illustrativeLabel}</p>
           <p className="activity-summary" role="status">
-            <strong>This preview is not production activity.</strong>
-            <span>Sample events and counts are visibly separated from verified commons facts.</span>
+            <strong>{copy.illustrativeTitle}</strong>
+            <span>{copy.illustrativeBody}</span>
           </p>
           {events.length > 0 && <ActivityEvents events={events} language={language} />}
         </>
@@ -226,31 +220,31 @@ export function AcceptedActivity({
         <>
           <div className="quiet-orbit quiet-orbit-unavailable" aria-hidden="true"><i /><i /><i /></div>
           <p className="quiet-state" role="status">
-            <strong>Accepted activity is unavailable.</strong>
-            <span>No verified release snapshot is available, so opennosh is not showing a count or invented activity.</span>
+            <strong>{copy.unavailableTitle}</strong>
+            <span>{copy.unavailableBody}</span>
           </p>
           <ActivityActions language={language} />
         </>
       )}
 
       <dl className="activity-legend mono">
-        <div><dt>Food</dt><dd>Accepted new record</dd></div>
-        <div><dt>Source</dt><dd>Evidence attached</dd></div>
-        <div><dt>Portion</dt><dd>Verified serving</dd></div>
-        <div><dt>Pack</dt><dd>Version published</dd></div>
+        {Object.entries(copy.legend).map(([key, item]) => (
+          <div key={key}><dt>{item.term}</dt><dd>{item.description}</dd></div>
+        ))}
       </dl>
     </div>
   );
 }
 
-export function AcceptedActivityLoading() {
+export function AcceptedActivityLoading({ language = "en" }: { language?: InterfaceLanguage }) {
+  const copy = getCatalog(language).truth;
   return (
     <div className="activity-field activity-state-loading" aria-busy="true">
-      <div className="activity-head mono"><span>Accepted activity / last 24h</span><span>Loading</span></div>
+      <div className="activity-head mono"><span>{copy.heading}</span><span>{copy.statuses.loading}</span></div>
       <div className="quiet-orbit" aria-hidden="true"><i /><i /><i /></div>
       <p className="quiet-state" role="status">
-        <strong>Checking the latest accepted events.</strong>
-        <span>No speculative pulses or counts are shown while the signed release is resolved.</span>
+        <strong>{copy.checking}</strong>
+        <span>{copy.checkingBody}</span>
       </p>
     </div>
   );

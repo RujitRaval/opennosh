@@ -2,6 +2,30 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.37.0.0] - 2026-08-24
+
+### Added
+
+- Add a route-aware interface-language control that preserves the independently selected food
+  locale while moving between localized public pages.
+- Add a deliberately expanded, non-production pseudo-locale and desktop/mobile browser coverage
+  for the public site, localized metadata, and every contribution stage.
+
+### Changed
+
+- Move public navigation, homepage, contribution, food-record, truth-signal, and legal-notice copy
+  into one typed catalog with deterministic English fallback.
+- Keep English as the only shipped interface language while making future catalogs prove exact
+  message, parameter, plural, array-entry, route, and metadata agreement before release.
+
+### Fixed
+
+- Reject hard-coded interface copy in localized public components and fail continuous integration
+  when catalog keys, placeholders, plural shapes, hydration, language switching, or expanded text
+  drift from the reviewed contract.
+- Prevent the pseudo-locale from being negotiated from browser or cookie preferences or enabled in
+  production, even when its test flag is set accidentally.
+
 ## [0.36.0.0] - 2026-08-24
 
 ### Added
