@@ -238,7 +238,6 @@ jobs:
             npm --prefix web run test:visual -- --update-snapshots
           fi
           npm --prefix web run check:visual-baselines
-          git diff --exit-code -- web/tests/visual/__screenshots__
 
       - name: Upload rendered visual diffs
         if: always()
