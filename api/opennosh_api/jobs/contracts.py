@@ -30,6 +30,7 @@ class JobMessage(BaseModel):
     job_type: Literal["publication.wake"]
     subject_id: UUID
     idempotency_key: str = Field(min_length=16, max_length=255)
+    workflow_revision: int | None = Field(default=None, ge=0)
     trace: JobTraceContext = Field(default_factory=JobTraceContext)
 
     @field_validator("idempotency_key")

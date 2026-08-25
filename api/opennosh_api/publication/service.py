@@ -116,6 +116,7 @@ async def create_publication_intent(
                 job_type="publication.wake",
                 subject_id=intent.id,
                 idempotency_key=command.idempotency_key,
+                workflow_revision=intent.workflow_revision,
                 trace=command.trace,
             ),
             run_after=intent.next_attempt_at,

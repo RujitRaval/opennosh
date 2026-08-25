@@ -2,21 +2,34 @@ from __future__ import annotations
 
 import asyncio
 import signal
+from datetime import timedelta
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 from pgqueuer import PgQueuer
 from pgqueuer.db import AsyncpgPoolDriver
-from pgqueuer.models import Channel
+from pgqueuer.errors import RetryRequested
+from pgqueuer.models import Channel, Job
 from sqlalchemy.engine import make_url
 
 from opennosh_api.capacity import ProcessRole, load_capacity_manifest
-from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, build_queries
+from opennosh_api.jobs.pgqueuer import (
+    PGQUEUER_SETTINGS,
+    PUBLICATION_ENTRYPOINT,
+    build_queries,
+    decode_message,
+)
+from opennosh_api.publication.adapters import PublicationAdapterRegistry
+from opennosh_api.publication.executor import PublicationEffectExecutor
+from opennosh_api.publication.orchestrator import PublicationOrchestrator
+from opennosh_api.publication.repository import PostgresPublicationRepository
 from opennosh_api.runtime import supervise_role
 from opennosh_api.settings import Settings, get_settings
 
 PUBLICATION_DRAIN_TIMEOUT_SECONDS = 30.0
 PGQUEUER_HEARTBEAT_TIMEOUT_SECONDS = 30.0
+PUBLICATION_FAILURE_RETRY_DELAY = timedelta(seconds=65)
+PUBLICATION_MAX_UNEXPECTED_ATTEMPTS = 5
 
 
 def asyncpg_dsn(database_url: str) -> str:
@@ -74,8 +87,36 @@ class PgQueuerRoleDriver:
         await self._pool.close()
 
 
+async def process_publication_wakeup(
+    orchestrator: PublicationOrchestrator,
+    job: Job,
+) -> None:
+    message = decode_message(job.payload)
+    try:
+        await orchestrator.process(
+            message,
+            queue_job_id=int(job.id),
+        )
+    except asyncio.CancelledError as error:
+        # PgQueuer otherwise records an interrupted picked job as canceled. Turn
+        # graceful-drain cancellation into a retry that runs after any lease held
+        # by this process has expired.
+        raise RetryRequested(
+            delay=PUBLICATION_FAILURE_RETRY_DELAY,
+            reason="publication recovery after worker cancellation",
+        ) from error
+    except Exception as error:
+        if int(job.attempts) >= PUBLICATION_MAX_UNEXPECTED_ATTEMPTS:
+            raise
+        raise RetryRequested(
+            delay=PUBLICATION_FAILURE_RETRY_DELAY,
+            reason=f"publication recovery after {type(error).__name__}",
+        ) from error
+
+
 async def create_publication_role_driver(
     settings: Settings | None = None,
+    adapters: PublicationAdapterRegistry | None = None,
 ) -> PgQueuerRoleDriver:
     configured = settings or get_settings()
     manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
@@ -100,6 +141,20 @@ async def create_publication_role_driver(
         channel=Channel(PGQUEUER_SETTINGS.channel),
         queries=build_queries(driver),
     )
+    orchestrator = PublicationOrchestrator(
+        PostgresPublicationRepository(pool),
+        PublicationEffectExecutor(adapters or {}),
+        owner=f"publication:{queue.qm.queue_manager_id}",
+    )
+
+    @queue.entrypoint(
+        PUBLICATION_ENTRYPOINT,
+        concurrency_limit=max(1, budget.max_in_flight_database_sections),
+        on_failure="hold",
+    )
+    async def publication_wakeup(job: Job) -> None:
+        await process_publication_wakeup(orchestrator, job)
+
     return PgQueuerRoleDriver(
         queue,
         pool,

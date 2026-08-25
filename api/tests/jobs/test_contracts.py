@@ -46,6 +46,7 @@ def test_job_payload_is_typed_minimal_and_deterministic() -> None:
         "job_type",
         "subject_id",
         "idempotency_key",
+        "workflow_revision",
         "trace",
     }
     assert b"approved_payload" not in encoded
