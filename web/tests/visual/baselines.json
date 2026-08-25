@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
-  "generatedAt": "2026-08-24T19:55:17.235Z",
+  "generatedAt": "2026-08-25T01:29:44.703Z",
   "approval": {
-    "reason": "Approve route-scoped production font rendering from PR #74 run 32769277993; 21 public baselines changed while Tracker and logo baselines remained byte-identical.",
-    "designDecision": "DESIGN.md Visual Regression contract and Typography production contract; pinned Linux output is canonical.",
-    "reviewerAcknowledgement": "Repository owner explicitly approved PR #74 visual baseline updates on 2026-08-24."
+    "reason": "Approve T29 independent-root Tracker footer from PR #77 run 32797319497; the only changed baseline adds the required Return to the commons link beside the existing notices link.",
+    "designDecision": "docs/designs/opennosh-full-movement-platform.md D44 and DESIGN.md Visual Regression contract; cross-root return navigation is a visible native full-document handoff.",
+    "reviewerAcknowledgement": "OpenAI Codex inspected the exact expected, actual, and diff images from PR #77 CI run 32797319497 and approved the footer-only change on 2026-08-24."
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
@@ -34,7 +34,7 @@
     "desktop-1440/public-record-loading.png": "b891a9cc436b9bff89e21c2804e824e0007b8b1e7657057b61b69f4cb97f3625",
     "desktop-1440/reduced-motion-hero.png": "43c904ee3cabb1219751206df9b4afaa43238e4af1cd0415805221b10c71e210",
     "desktop-1440/tracker-catalogue-results.png": "738c1f5f0322038ed374567a3285c5214effb683cbb58996b6f57eb2355d5f05",
-    "desktop-1440/tracker-daily-log.png": "adedbf76c658f2d39daca98c064e31191077559c1aed0bc168a6922207a1908a",
+    "desktop-1440/tracker-daily-log.png": "6c94e239b567013637a873d73bbf6474c2b4329e3c92d82bfa642690b1125a3d",
     "mobile-390/homepage-first-viewport.png": "e91d44c6519d4774dfd82baaacada12a13428d6ed4d38fb252c81cd33a656b1f",
     "mobile-390/mobile-safe-area-actions.png": "da2081e9f320ea6c5d81dc8a31dccd76accd9bae27ae0bbd61b3a25cd4637658",
     "reflow-320/food-record-first-viewport.png": "5baefde824106aa729a80786609a0a98baf4d7144772f36b511c78d2dc9bc991",
