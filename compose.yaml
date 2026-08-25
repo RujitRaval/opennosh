@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    command: ["postgres", "-c", "max_connections=100"]
+    command: ["postgres", "-c", "max_connections=103"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-opennosh}
       POSTGRES_USER: ${POSTGRES_USER:-opennosh}

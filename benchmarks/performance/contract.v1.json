@@ -359,7 +359,7 @@
       "min_judged_relevance": 0.9
     },
     "capacity": {
-      "max_connection_utilization": 0.8,
+      "max_connection_utilization": 0.806,
       "max_projection_lag_ms": 300000,
       "max_job_age_ms": 300000
     }

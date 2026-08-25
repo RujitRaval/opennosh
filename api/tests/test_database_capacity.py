@@ -44,7 +44,7 @@ def test_canonical_manifest_reserves_recovery_capacity() -> None:
 
     assert manifest.roles[ProcessRole.WEB].allocated_connections == 12
     assert report["total_committed_connections"] == 32
-    assert report["uncommitted_connections"] == 68
+    assert report["uncommitted_connections"] == 71
     assert manifest.reserved_headroom.recovery == 6
     assert manifest.reserved_headroom.failover == 6
 
@@ -116,9 +116,9 @@ def test_incomplete_or_duplicate_deployment_topology_is_rejected() -> None:
 def test_live_database_ceiling_must_match_manifest() -> None:
     manifest = load_capacity_manifest()
 
-    validate_live_connection_ceiling(manifest, 100)
-    with pytest.raises(ValueError, match="live=99, declared=100"):
-        validate_live_connection_ceiling(manifest, 99)
+    validate_live_connection_ceiling(manifest, 103)
+    with pytest.raises(ValueError, match="live=100, declared=103"):
+        validate_live_connection_ceiling(manifest, 100)
 
 
 def test_preflight_requires_and_checks_live_database(
@@ -129,7 +129,7 @@ def test_preflight_requires_and_checks_live_database(
     assert "DATABASE_CAPACITY_URL is required" in capsys.readouterr().out
 
     async def fake_live_ceiling(_database_url: str) -> int:
-        return 100
+        return 103
 
     monkeypatch.setenv("DATABASE_CAPACITY_URL", "postgresql+asyncpg://unused")
     monkeypatch.setattr(capacity, "live_postgresql_connection_ceiling", fake_live_ceiling)

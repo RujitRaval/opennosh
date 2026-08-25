@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.4.0] - 2026-08-25
+
+### Fixed
+
+- Align the versioned database-capacity ceiling with Render PostgreSQL's verified 103-connection
+  limit while keeping the application allocation fixed at 32 and increasing uncommitted margin.
+
 ## [0.43.3.0] - 2026-08-25
 
 ### Fixed
