@@ -2083,7 +2083,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: API success and problem schemas, `web/lib/generated`, `web/lib/api`, per-domain outcome adapters, route error boundaries, CI.
   - Verify: deterministic generation, clean regeneration diff, N/N-1 mapping fixtures, exhaustive identity/license/provenance/unit/version mapping, every declared problem code, retry metadata, field errors, latest-state repair, unknown and malformed fallbacks, and safe request references.
 
-- [ ] **T8 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Persistence - Split models incrementally through one explicit registry.
+- [x] **T8 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Persistence - Split models incrementally through one explicit registry.
   - Surfaced by: Code Quality D9 - an implicit registration split could make Alembic treat existing tables as deleted.
   - Files: API domain model modules, `api/opennosh_api/models/registry.py`, Alembic, model ownership tests.
   - Verify: complete metadata, one owner per table, no schema diff for structural moves, clean Alembic check.

@@ -6,7 +6,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from opennosh_api.capacity import JobRole, load_capacity_manifest
-from opennosh_api.models import Base
+from opennosh_api.models.registry import metadata
 from opennosh_api.settings import Settings
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -23,7 +23,7 @@ database_url = os.getenv("INTEGRATION_DATABASE_URL") or settings.process_databas
 )
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
-target_metadata = Base.metadata
+target_metadata = metadata
 capacity_manifest = load_capacity_manifest(settings.database_capacity_manifest_path)
 migration_budget = capacity_manifest.jobs[JobRole.MIGRATION]
 

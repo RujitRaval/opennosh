@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.45.0.0] - 2026-08-25
+
+### Added
+
+- Give every SQLAlchemy table one explicit model owner through a central registry, with tests
+  that pin complete metadata, deterministic registration order, and unique ownership.
+
+### Changed
+
+- Move authentication persistence into its first domain model module while preserving the
+  existing public model imports for services and callers.
+- Make Alembic consume registry metadata directly so future model moves cannot make tables
+  appear deleted through missing import side effects.
+
 ## [0.44.0.0] - 2026-08-25
 
 ### Added

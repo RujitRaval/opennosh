@@ -1,4 +1,3 @@
-from opennosh_api.contributions.models import ContributionDraft, ContributionDraftOperation
 from opennosh_api.models.base import Base
 from opennosh_api.models.enums import (
     BodyMetricType,
@@ -8,10 +7,12 @@ from opennosh_api.models.enums import (
     Provenance,
     TargetDayType,
 )
-from opennosh_api.models.tables import (
+from opennosh_api.models.registry import (
     AuthRateLimit,
     AuthSession,
     BodyMetric,
+    ContributionDraft,
+    ContributionDraftOperation,
     Exercise,
     FoodCommunity,
     FoodCustom,
