@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.5.1] - 2026-08-25
+
+### Changed
+
+- Visit `opennosh.org` on the live Render deployment with a canonical `www` redirect, verified
+  health and branded assets, while Cloudflare Email Routing and DNSSEC remain intact.
+
 ## [0.43.5.0] - 2026-08-25
 
 ### Fixed
