@@ -5,7 +5,7 @@
   "approval": {
     "reason": "T30 aligns the Tracker with the approved Living Commons identity and adds mobile Trends coverage",
     "designDecision": "DESIGN.md: Tracker Living Commons identity",
-    "reviewerAcknowledgement": "Pending Rujit Raval approval on the T30 pull request"
+    "reviewerAcknowledgement": "Rujit Raval approved PR #85 visual baseline updates on 2026-08-25."
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
