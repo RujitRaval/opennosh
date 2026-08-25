@@ -223,7 +223,7 @@ describe("daily nutrition log", () => {
 
     const message = await screen.findByText(/your session ended/i);
     expect(screen.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
-    expect(message).toHaveFocus();
+    await waitFor(() => expect(message).toHaveFocus());
   });
 
   it("shows contributor credit, sends locale, and recovers when adding finds an expired session", async () => {
@@ -272,7 +272,7 @@ describe("daily nutrition log", () => {
 
     const message = await screen.findByText(/your session ended/i);
     expect(screen.getByRole("heading", { name: /sign in to your log/i })).toBeVisible();
-    expect(message).toHaveFocus();
+    await waitFor(() => expect(message).toHaveFocus());
   });
 
   it("returns to sign in when the API reports an expired session", async () => {
