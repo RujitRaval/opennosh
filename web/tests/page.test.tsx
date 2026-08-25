@@ -69,6 +69,16 @@ describe("daily nutrition log", () => {
     expect(screen.queryByText(/streak|failed|you went over/i)).not.toBeInTheDocument();
   });
 
+  it("keeps the Living Commons identity visible while the session is checked", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    render(<Home />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Opening your log…");
+    expect(within(status).getByRole("link", { name: "opennosh tracker" }).querySelector("img"))
+      .toHaveAttribute("src", "/brand/v1/wordmark-rice-paper.svg");
+  });
+
   it("lets a first-time user create an account", async () => {
     const fetchMock = dailyFetch((url, init) => {
       if (url === "/api/v1/auth/session") return json({ detail: "Not authenticated" }, 401);
@@ -97,6 +107,9 @@ describe("daily nutrition log", () => {
     render(<Home />);
 
     expect(await screen.findByRole("heading", { name: /nutrition at a glance/i })).toBeVisible();
+    const navigation = screen.getByRole("navigation", { name: /primary/i });
+    expect(within(navigation).getByRole("link", { name: "Daily log" })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).getByRole("link", { name: "Trends" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("heading", { name: /nothing logged for this day/i })).toBeVisible();
     expect(screen.getAllByText(/no target set/i)).toHaveLength(4);
     expect(screen.getByRole("button", { name: /add your first food/i })).toBeEnabled();

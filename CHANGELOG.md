@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.44.0.0] - 2026-08-25
+
+### Added
+
+- Protect the branded Tracker sign-in, daily log, catalogue, and Trends experiences with pinned
+  desktop and mobile visual baselines plus loading, active-navigation, and sign-out behavior tests.
+
+### Changed
+
+- Align the private Tracker with the Living Commons identity through approved typed wordmarks and
+  the core color palette while preserving its independent system-font stack and zero public font
+  or motion bytes.
+- Refresh the README walkthrough with a compact Rajma masala search-and-log recording and the
+  resulting daily totals.
+
 ## [0.43.5.1] - 2026-08-25
 
 ### Changed

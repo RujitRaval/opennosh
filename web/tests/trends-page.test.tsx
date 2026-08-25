@@ -10,9 +10,12 @@ function json(body: unknown, status = 200): Response {
 }
 
 function trendsFetch() {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), "http://opennosh.test");
     if (url.pathname === "/api/v1/auth/session") return json(user);
+    if (url.pathname === "/api/v1/auth/logout" && init?.method === "POST") {
+      return new Response(null, { status: 204 });
+    }
     if (url.pathname === "/api/v1/logs/daily-totals/range") {
       return json({
         from_date: url.searchParams.get("from"),
@@ -51,6 +54,16 @@ describe("trends page", () => {
     expect(metadata).toMatchObject({ title: "Trends · opennosh" });
   });
 
+  it("keeps the Living Commons identity visible while the session is checked", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    render(<TrendsPage />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Opening trends…");
+    expect(within(status).getByRole("link", { name: "opennosh tracker" }).querySelector("img"))
+      .toHaveAttribute("src", "/brand/v1/wordmark-rice-paper.svg");
+  });
+
   it("provides keyboard controls and a visible table alternative for every chart", async () => {
     const fetchMock = trendsFetch();
     vi.stubGlobal("fetch", fetchMock);
@@ -59,12 +72,21 @@ describe("trends page", () => {
     expect(await screen.findByRole("heading", { name: "Trends" })).toBeVisible();
     expect(screen.getByRole("radio", { name: "30 days" })).toBeChecked();
     expect(await screen.findAllByRole("table")).toHaveLength(3);
-    expect(screen.getByRole("navigation", { name: /primary/i })).toContainElement(screen.getByRole("link", { name: "Daily log" }));
+    const navigation = screen.getByRole("navigation", { name: /primary/i });
+    expect(within(navigation).getByRole("link", { name: "Trends" })).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).getByRole("link", { name: "Daily log" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByText(/diagnos|streak|failed|over target/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: "7 days" }));
     await waitFor(() => expect(screen.getByRole("radio", { name: "7 days" })).toBeChecked());
     await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("daily-totals/range")).length).toBeGreaterThan(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("heading", { name: /sign in to your log/i })).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/auth/logout",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("never combines body or strength values with incompatible units", async () => {

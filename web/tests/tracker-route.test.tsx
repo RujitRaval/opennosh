@@ -97,9 +97,11 @@ describe("independent public and tracker roots", () => {
 
     expect(metadata).toMatchObject({ title: "Daily nutrition log · opennosh" });
     expect(await screen.findByRole("heading", { name: "Sign in to your log" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "opennosh tracker" })).toHaveAttribute(
-      "href",
-      "/tracker",
+    const trackerWordmark = screen.getByRole("link", { name: "opennosh tracker" });
+    expect(trackerWordmark).toHaveAttribute("href", "/tracker");
+    expect(trackerWordmark.querySelector("img")).toHaveAttribute(
+      "src",
+      "/brand/v1/wordmark-commons-ink.svg",
     );
   });
 });

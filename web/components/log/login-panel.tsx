@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 
-import { routes } from "@/lib/routes";
+import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 
 type LoginPanelProps = {
   message?: string;
@@ -37,19 +36,24 @@ export function LoginPanel({ message, onAuthenticate }: LoginPanelProps) {
   return (
     <main id="main-content" className="auth-shell">
       <section className="auth-intro" aria-labelledby="auth-title">
-        <Link className="wordmark" href={routes.tracker.home} aria-label="opennosh tracker">
-          open<span>nosh</span>
-        </Link>
-        <p className="eyebrow">Nutrition, without judgment</p>
-        <h1 id="auth-title">A clear view of what fuels you.</h1>
-        <p className="lede">
-          Your daily food log, macro targets, and strength work—private, self-hosted, and built on
-          open food data.
+        <TrackerWordmark surface="commons-ink" priority />
+        <div className="auth-statement">
+          <p className="eyebrow">Nutrition, without judgment</p>
+          <h1 id="auth-title">A clear view of what fuels you.</h1>
+          <p className="lede">
+            Your daily food log, macro targets, and strength work—private, self-hosted, and built on
+            open food data.
+          </p>
+        </div>
+        <p className="auth-principles" aria-label="Tracker principles">
+          <span>Private by default</span>
+          <span>Your data</span>
+          <span>Open food records</span>
         </p>
       </section>
 
       <section className="auth-card" aria-labelledby="sign-in-title">
-        <p className="section-kicker">{mode === "login" ? "Welcome back" : "Your private log"}</p>
+        <p className="section-kicker">Private tracker / {mode === "login" ? "Sign in" : "New account"}</p>
         <h2 id="sign-in-title">{mode === "login" ? "Sign in to your log" : "Create your account"}</h2>
         {message ? (
           <p ref={messageRef} className="notice notice-neutral" role="status" tabIndex={-1}>

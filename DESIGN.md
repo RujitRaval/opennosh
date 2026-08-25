@@ -317,6 +317,7 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 | 2026-08-22 | Keep health language neutral | opennosh reports data without guilt, competition, or coercive engagement. |
 | 2026-08-24 | Pin a deterministic visual-regression matrix | Known public, contribution, logo, responsive, accessibility, and Tracker compositions fail visibly when their reviewed pixels drift. |
 | 2026-08-24 | Adopt route-scoped reproducible font delivery | Stable public URLs and explicit public-head preloads prevent Living Commons fonts from leaking into Tracker; pinned subsets enforce transfer and CLS budgets. |
+| 2026-08-25 | Extend Living Commons identity into the private Tracker utility mode | Approved wordmarks, palette, hard-edged hierarchy, and movement language now connect both roots while the Tracker remains calm, private, and free of public font or motion bytes. |
 
 ## Production delivery contract
 
@@ -328,4 +329,5 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 - `npm --prefix web run check:design-system` validates token values, raw-literal containment, asset hashes, SVG outlines, every colorway's intended-surface contrast, offline completeness, focus roles, and source-level Tracker isolation. `npm --prefix web run build` also rejects production font manifests that preload public fonts on Tracker routes.
 - `web/lib/public-navigation.ts` and `web/lib/routes.ts` are the typed source of truth for the four public hubs, interface-language fallback, feature-gated child links, and Tracker routes.
 - The public and tracker route groups are independent document roots. Public brand CSS and fonts must not enter the tracker bundle.
+- Tracker may consume the typed approved wordmark assets and core palette through its independent CSS, but it must not import public tokens, public font files, or the Living Commons motion layer.
 - Proposed changes to identity, type roles, core palette, voice, or measurement behavior require updating this contract and its tests in the same change.
