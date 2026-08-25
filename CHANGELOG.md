@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.46.0.0] - 2026-08-25
+
+### Added
+
+- Add a typed, replaceable job-queue port with a pinned PgQueuer 1.3.2 adapter, bounded
+  publication-worker lifecycle, namespaced queue schema, health counters, and explicit migration.
+- Add the durable publication-intent, step, acknowledgement, and accepted-event ledger that keeps
+  publication correctness under opennosh control instead of treating queue completion as proof.
+
+### Changed
+
+- Write publication intents and deduplicated queue wakeups through one PostgreSQL transaction so a
+  commit preserves both and a rollback preserves neither.
+- Record and gate the PgQueuer spike for priority, retry timing, stale-lease recovery, unknown jobs,
+  graceful shutdown, migration compatibility, and adapter replacement.
+
+### Security
+
+- Keep authority decisions, approved records, media, forge state, and secrets out of queue payloads.
+
 ## [0.45.0.0] - 2026-08-25
 
 ### Added
