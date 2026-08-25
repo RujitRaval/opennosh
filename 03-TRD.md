@@ -59,6 +59,19 @@ contribution_drafts      -- owner-scoped operational proposals; not accepted foo
 contribution_draft_operations
   draft_id, operation_id, resulting_version, created_at
 
+publication_intents
+  id, source_draft_id, source_draft_version, reviewed_decision_id,
+  approving_actor_id, approved_payload_digest, state, idempotency_key_hash
+publication_steps
+  id, publication_intent_id, step_name, step_version, state, lease_token,
+  lease_expires_at, next_attempt_at, observation_json
+publication_durable_acknowledgements
+  id, publication_intent_id, acknowledgement_kind, destination,
+  content_digest, external_reference, verified_at
+accepted_events
+  id, publication_intent_id, repository, commit_sha, pack_id, record_id,
+  event_type, receipt_digest, published_at
+
 recipes
   id, user_id, name, yield_grams, is_public
 recipe_ingredients
@@ -235,6 +248,9 @@ services:
 
 - Every boot validates the versioned global connection-capacity manifest and live PostgreSQL ceiling before running one migration job. Web and worker processes never run migrations on startup.
 - USDA and community-pack loading remains an explicit operator action after the schema is current.
+- The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
+  ledger. Its production replica count remains zero until the deterministic T10 handler lands; see
+  [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md).
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
 - nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.
 - Health endpoint at `/healthz` reporting DB connectivity and seed status.
