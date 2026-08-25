@@ -6,8 +6,8 @@ All notable changes to opennosh will be documented in this file.
 
 ### Changed
 
-- Record the completed `opennosh.org` production cutover, canonical `www` redirect, verified Render
-  health and asset checks, and the preserved Cloudflare email and DNSSEC configuration.
+- Visit `opennosh.org` on the live Render deployment with a canonical `www` redirect, verified
+  health and branded assets, while Cloudflare Email Routing and DNSSEC remain intact.
 
 ## [0.43.5.0] - 2026-08-25
 
