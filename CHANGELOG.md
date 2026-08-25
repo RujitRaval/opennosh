@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.5.0] - 2026-08-25
+
+### Fixed
+
+- Include the versioned public logo and WOFF2 font assets in the production web image so Render
+  serves the Living Commons brand and typography instead of returning asset 404 responses.
+
 ## [0.43.4.0] - 2026-08-25
 
 ### Fixed
