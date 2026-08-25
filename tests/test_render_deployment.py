@@ -265,10 +265,8 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
     assert len(create_statements) == (0 if existing_roles else 2)
     assert len(alter_statements) == 2
     assert all("SUPERUSER" not in statement for statement in alter_statements)
-    assert all(
-        "NOCREATEDB NOCREATEROLE NOREPLICATION" in statement
-        for statement in alter_statements
-    )
+    assert all("REPLICATION" not in statement for statement in alter_statements)
+    assert all("NOCREATEDB NOCREATEROLE" in statement for statement in alter_statements)
     assert any("GRANT CREATE ON DATABASE" in statement for statement in connection.executed)
     assert any("ALTER SCHEMA public OWNER" in statement for statement in connection.executed)
     assert connection.closed is True
