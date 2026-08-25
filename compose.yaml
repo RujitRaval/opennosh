@@ -122,6 +122,7 @@ services:
       API_URL: http://api:8000
       WEB_PROXY_TOKEN: ${WEB_PROXY_TOKEN:-opennosh-local-web-proxy-token-2026}
       PUBLIC_COMMONS_REVALIDATION_TOKEN: ${PUBLIC_COMMONS_REVALIDATION_TOKEN:-opennosh-local-public-commons-revalidation-token-2026}
+      OPENNOSH_PUBLIC_ROOT_ENABLED: ${OPENNOSH_PUBLIC_ROOT_ENABLED:-true}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r => { if (!r.ok) process.exit(1) })"]
       interval: 5s
