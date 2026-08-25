@@ -2,7 +2,8 @@
 
 Self-hosted nutrition and strength tracking built around food data the community can improve.
 
-Website: [opennosh.org](https://opennosh.org) (currently redirects to this repository).
+Website: [opennosh.org](https://opennosh.org) — the public Commons and private Tracker are live on
+the production Render deployment.
 
 ![Animated opennosh demo: search for chicken breast, select 150 grams for lunch, add it, then view updated daily calorie and macro totals.](docs/assets/opennosh-search-log-demo.gif)
 
@@ -45,10 +46,11 @@ deploying, and runs capacity validation plus Alembic migrations before replacing
 The API starts with only the `opennosh_web` database credential; the database-owner and migration
 credentials are removed from its runtime environment.
 
-The canonical health probe is `https://opennosh.org/api/v1/healthz`. Keep Cloudflare's existing
-GitHub redirect in place until the temporary Render hostname passes the complete smoke test, then
-perform the DNS cutover. See [`docs/operations/render-production.md`](docs/operations/render-production.md)
-for provisioning, verification, rollback, and domain steps.
+The canonical health probe is `https://opennosh.org/api/v1/healthz`. The Cloudflare cutover is
+complete: the apex serves Render and `www` permanently redirects to the apex, while DNSSEC and
+inbound Email Routing remain enabled. See
+[`docs/operations/render-production.md`](docs/operations/render-production.md) for provisioning,
+verification, rollback, and domain steps.
 
 For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
 

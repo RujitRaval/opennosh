@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.5.1] - 2026-08-25
+
+### Changed
+
+- Record the completed `opennosh.org` production cutover, canonical `www` redirect, verified Render
+  health and asset checks, and the preserved Cloudflare email and DNSSEC configuration.
+
 ## [0.43.5.0] - 2026-08-25
 
 ### Fixed
