@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import {
+  browserAutosaveMetric,
+  ContributionAutosave,
+  draftFromCapability,
+} from "@/lib/contributions/autosave";
 import { contributionCatalog, contributionMessage } from "@/lib/contributions/catalog";
 import type {
   ContributionFieldName, ContributionFieldPatch, ContributionFields,
@@ -14,6 +19,7 @@ import type {
 import {
   contributionDraftStorageKey, localAccessibleStages, localCompletedStages,
   localStageBlockers, newLocalContributionDraft, readLocalContributionDraft,
+  serializeLocalContributionDraft,
   serverCandidatesNeedReview,
 } from "@/lib/contributions/local-draft";
 import {
@@ -80,21 +86,19 @@ function Progress({ language, pathDraftId, draft, stage }: { language: Interface
   </nav>;
 }
 
-function allFieldPatches(fields: ContributionFields): ContributionFieldPatch[] {
+function allFieldPatches(
+  fields: ContributionFields,
+  baseFields: ContributionFields,
+  baseVersion: number,
+): ContributionFieldPatch[] {
   return (Object.entries(fields) as [ContributionFieldName, ContributionFields[keyof ContributionFields]][])
     .filter(([field]) => field !== "duplicates_resolved")
-    .map(([field, value]) => ({ field, value }));
-}
-
-function newerDeviceDraft(
-  stored: LocalContributionDraft | null,
-  serverDraft: LocalContributionDraft,
-): LocalContributionDraft {
-  if (
-    stored?.clientDraftId === serverDraft.clientDraftId
-    && Date.parse(stored.savedAt) > Date.parse(serverDraft.savedAt)
-  ) return stored;
-  return serverDraft;
+    .map(([field, value]) => ({
+      field,
+      value,
+      baseValue: baseFields[field],
+      baseVersion,
+    }));
 }
 
 export function ContributionJourney({ language, routeDraftId, requestedStage }: Props) {
@@ -114,36 +118,51 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const stageHeading = useRef<HTMLElement>(null);
   const inlineActions = useRef<HTMLDivElement>(null);
   const hydratedRemoteDraftId = useRef<string | null>(null);
+  const autosave = useRef<ContributionAutosave | null>(null);
   const rawStage = isContributionStage(requestedStage) ? requestedStage : "evidence";
   const stage = draft && localAccessibleStages(draft).includes(rawStage)
     ? rawStage : draft ? localAccessibleStages(draft).at(-1) ?? "evidence" : rawStage;
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      const storageKey = contributionDraftStorageKey(routeDraftId);
+      const startAutosave = (nextDraft: LocalContributionDraft) => {
+        autosave.current?.dispose();
+        autosave.current = new ContributionAutosave(nextDraft, {
+          storage: window.localStorage,
+          storageKey,
+          patch: (draftId, input) => api.patchContributionDraft(draftId, input),
+          reload: (draftId, requested) => api.contributionDraft(draftId, requested),
+          onDraft: setDraft,
+          onMetric: browserAutosaveMetric,
+        });
+      };
       if (routeDraftId === "local") {
-        const storageKey = contributionDraftStorageKey(routeDraftId);
         const stored = readLocalContributionDraft(window.localStorage.getItem(storageKey));
-        const nextDraft = stored ?? newLocalContributionDraft();
-        window.localStorage.setItem(storageKey, JSON.stringify(nextDraft));
+        let nextDraft = stored ?? newLocalContributionDraft();
+        try {
+          window.localStorage.setItem(storageKey, serializeLocalContributionDraft(nextDraft));
+        } catch {
+          nextDraft = { ...nextDraft, saveState: "repair_required", repairReason: "storage_failed" };
+        }
+        startAutosave(nextDraft);
         setDraft(nextDraft);
         return;
       }
       if (hydratedRemoteDraftId.current === routeDraftId) return;
       hydratedRemoteDraftId.current = routeDraftId;
       api.contributionDraft(routeDraftId, requestedStage).then((remote) => {
-        const serverDraft: LocalContributionDraft = {
-          schemaVersion: "1",
-          clientDraftId: remote.draftId,
-          fields: remote.fields,
-          duplicateCandidates: [...remote.duplicateCandidates],
-          duplicateQuery: `${remote.fields.name.trim()}|${remote.fields.locale.trim()}`,
-          savedAt: remote.savedAt,
-          saveState: "synced",
-        };
         const stored = readLocalContributionDraft(
-          window.localStorage.getItem(contributionDraftStorageKey(routeDraftId)),
+          window.localStorage.getItem(storageKey),
         );
-        setDraft(newerDeviceDraft(stored, serverDraft));
+        let nextDraft = draftFromCapability(remote, stored);
+        try {
+          window.localStorage.setItem(storageKey, serializeLocalContributionDraft(nextDraft));
+        } catch {
+          nextDraft = { ...nextDraft, saveState: "repair_required", repairReason: "storage_failed" };
+        }
+        startAutosave(nextDraft);
+        setDraft(nextDraft);
         if (remote.resolvedStage !== requestedStage) {
           router.replace(contributionStageHref(language, routeDraftId, remote.resolvedStage));
         }
@@ -154,6 +173,30 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     });
     return () => cancelAnimationFrame(frame);
   }, [copy.draftOpenFallback, language, requestedStage, routeDraftId, router]);
+
+  useEffect(() => () => autosave.current?.dispose(), []);
+
+  useEffect(() => {
+    const storageKey = contributionDraftStorageKey(routeDraftId);
+    const resume = () => {
+      if (navigator.onLine && document.visibilityState === "visible") {
+        void autosave.current?.retry();
+      }
+    };
+    const receive = (event: StorageEvent) => {
+      if (event.key !== storageKey) return;
+      const external = readLocalContributionDraft(event.newValue);
+      if (external) autosave.current?.acceptExternalDraft(external);
+    };
+    window.addEventListener("online", resume);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("storage", receive);
+    return () => {
+      window.removeEventListener("online", resume);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("storage", receive);
+    };
+  }, [routeDraftId]);
 
   useEffect(() => {
     if (!draft) return;
@@ -179,20 +222,15 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     return () => observer.disconnect();
   }, [draft, stage]);
 
-  function persist(nextDraft: LocalContributionDraft) {
-    const saved = { ...nextDraft, savedAt: new Date().toISOString(), saveState: "saved_on_device" as const };
-    window.localStorage.setItem(contributionDraftStorageKey(routeDraftId), JSON.stringify(saved));
-    setDraft(saved);
-  }
-
   function update<K extends keyof ContributionFields>(field: K, value: ContributionFields[K]) {
     if (!draft) return;
     const invalidatesDuplicates = field === "name" || field === "locale";
-    persist({
-      ...draft,
-      fields: { ...draft.fields, [field]: value, ...(invalidatesDuplicates ? { duplicates_resolved: false } : {}) },
-      ...(invalidatesDuplicates ? { duplicateCandidates: [], duplicateQuery: null } : {}),
-    });
+    autosave.current?.edit(
+      field,
+      value,
+      invalidatesDuplicates ? { duplicates_resolved: false } : {},
+      invalidatesDuplicates ? { duplicateCandidates: [], duplicateQuery: null } : {},
+    );
     setErrors([]);
   }
 
@@ -202,6 +240,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   }
 
   function navigate(target: ContributionStage) {
+    void autosave.current?.flush(target);
     router.push(contributionStageHref(language, routeDraftId, target));
     window.scrollTo({ top: 0, behavior: "instant" });
   }
@@ -234,11 +273,9 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       const candidates: DuplicateCandidate[] = result.items.map((item) => ({
         source: item.source, sourceId: item.source_id, name: item.name, locale: null,
       }));
-      persist({
-        ...draft,
+      autosave.current?.edit("duplicates_resolved", candidates.length === 0, {}, {
         duplicateCandidates: candidates,
         duplicateQuery: `${draft.fields.name.trim()}|${draft.fields.locale.trim()}`,
-        fields: { ...draft.fields, duplicates_resolved: candidates.length === 0 },
       });
       setErrors([]);
     } catch (caught) {
@@ -259,17 +296,29 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         if (auth.mode === "login") await api.login(auth.email, auth.password);
         else await api.register(auth.email, auth.password);
       }
+      const syncReady = await autosave.current?.settle(stage);
+      if (syncReady === false) {
+        showErrors([copy.syncBeforeSubmit]);
+        return;
+      }
       let remote = routeDraftId === "local"
         ? await api.createContributionDraft({ client_draft_id: draft.clientDraftId })
         : await api.contributionDraft(routeDraftId, stage);
-      remote = await api.patchContributionDraft(remote.draftId, {
-        expected_draft_version: remote.draftVersion, operation_id: crypto.randomUUID(),
-        requested_stage: stage, patches: allFieldPatches(draft.fields),
-      });
+      if (routeDraftId === "local") {
+        remote = await api.patchContributionDraft(remote.draftId, {
+          expected_draft_version: remote.draftVersion,
+          operation_id: crypto.randomUUID(),
+          requested_stage: stage,
+          patches: allFieldPatches(draft.fields, remote.fields, remote.draftVersion).map((patch) => ({
+            field: patch.field,
+            value: patch.value,
+            base_value: patch.baseValue,
+            base_version: patch.baseVersion,
+          })),
+        });
+      }
       if (serverCandidatesNeedReview(draft, remote.duplicateCandidates)) {
-        persist({
-          ...draft,
-          fields: { ...draft.fields, duplicates_resolved: false },
+        autosave.current?.edit("duplicates_resolved", false, {}, {
           duplicateCandidates: [...remote.duplicateCandidates],
           duplicateQuery: `${draft.fields.name.trim()}|${draft.fields.locale.trim()}`,
         });
@@ -282,7 +331,13 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       if (remote.duplicateCandidates.length > 0 && draft.fields.duplicates_resolved) {
         remote = await api.patchContributionDraft(remote.draftId, {
           expected_draft_version: remote.draftVersion, operation_id: crypto.randomUUID(),
-          requested_stage: "review", patches: [{ field: "duplicates_resolved", value: true }],
+          requested_stage: "review",
+          patches: [{
+            field: "duplicates_resolved",
+            value: true,
+            base_value: remote.fields.duplicates_resolved,
+            base_version: remote.draftVersion,
+          }],
         });
       }
       const submitted = await api.submitContributionDraft(remote.draftId, {
@@ -311,6 +366,17 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const stageMeta = contributionStageRegistry[stage];
   const fields = draft.fields;
   const blockerFields = new Set(localStageBlockers(draft, stage).map((item) => item.field));
+  const saveLabel = {
+    saved_on_device: copy.savedDevice,
+    sync_scheduled: copy.saveScheduled,
+    syncing: copy.saveSyncing,
+    synced: copy.savedServer,
+    offline: copy.saveOffline,
+    conflict: copy.saveConflict,
+    repair_required: draft.repairReason === "storage_failed"
+      ? copy.saveStorageFailed
+      : copy.saveRepair,
+  }[draft.saveState];
   const described = (name: keyof ContributionFields) => errors.length > 0 && blockerFields.has(name) ? { "aria-invalid": true as const } : {};
 
   function authSubmit(event: FormEvent<HTMLFormElement>) {
@@ -325,8 +391,25 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         <p className="mono">{formatMessage(copy.stageCount, { chapter: copy.chapters[stageMeta.chapter].label, step: String(stageMeta.order).padStart(2, "0") })}</p>
         <h1 id={stageMeta.headingAnchor}>{contributionMessage(language, stageMeta.headingKey)}</h1>
         <p>{contributionMessage(language, stageMeta.descriptionKey)}</p>
-        <span className="contribution-save mono" role="status">● {draft.saveState === "synced" ? copy.savedServer : copy.savedDevice}</span>
+        <span className="contribution-save mono" role="status">● {saveLabel}</span>
+        {draft.saveState === "offline" ? <button type="button" className="contribution-save-retry" onClick={() => void autosave.current?.retry()}>{copy.retrySync}</button> : null}
       </header>
+
+      {draft.conflictFields.length > 0 ? <section className="contribution-conflicts" aria-labelledby="contribution-conflict-title">
+        <h2 id="contribution-conflict-title">{copy.conflictTitle}</h2>
+        <p>{copy.conflictBody}</p>
+        <ul>{draft.conflictFields.map((field) => <li key={field}>
+          <strong className="mono">{field.replaceAll("_", " ")}</strong>
+          <dl>
+            <div><dt>{copy.localValue}</dt><dd>{String(draft.fields[field] ?? "—")}</dd></div>
+            <div><dt>{copy.serverValue}</dt><dd>{String(draft.serverFields?.[field] ?? "—")}</dd></div>
+          </dl>
+          <div>
+            <button type="button" onClick={() => autosave.current?.resolveConflict(field, "local")}>{copy.keepLocal}</button>
+            <button type="button" onClick={() => autosave.current?.resolveConflict(field, "server")}>{copy.useServer}</button>
+          </div>
+        </li>)}</ul>
+      </section> : null}
 
       {errors.length ? <div ref={errorSummary} tabIndex={-1} className="contribution-errors" role="alert" id={stageMeta.validationAnchor}>
         <strong>{errors.length === 1 ? copy.errorsOne : formatMessage(copy.errorsMany, { count: errors.length })}</strong>

@@ -58,6 +58,30 @@
 }
 .contribution-stage-heading > p:nth-of-type(2) { max-width: 43rem; margin: 2rem 0 0; font-size: clamp(1.15rem, 1.7vw, 1.55rem); line-height: 1.2; }
 .contribution-save { display: block; margin-top: 2rem; color: var(--success); }
+.contribution-save-retry {
+  min-height: 2.75rem;
+  margin-top: .75rem;
+  padding: .45rem .75rem;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  color: var(--commons-ink);
+  background: transparent;
+  font-family: var(--font-data), monospace;
+  font-size: .72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.contribution-save-retry:hover { color: var(--rice-paper); background: var(--commons-ink); }
+
+.contribution-conflicts { margin: 2rem 0; padding: 1.25rem; border: 1px solid var(--signal-tomato); background: color-mix(in srgb, var(--signal-tomato) 8%, var(--rice-paper)); }
+.contribution-conflicts > p { max-width: 42rem; }
+.contribution-conflicts ul { display: grid; gap: 1rem; margin: 1.25rem 0 0; padding: 0; list-style: none; }
+.contribution-conflicts li { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid currentColor; }
+.contribution-conflicts dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0; }
+.contribution-conflicts dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.contribution-conflicts li > div { display: flex; flex-wrap: wrap; gap: .75rem; }
+.contribution-conflicts button { min-height: 2.75rem; padding: .5rem .75rem; border: 1px solid currentColor; background: transparent; font-weight: 700; cursor: pointer; }
 
 .contribution-errors { margin: 2rem 0; padding: 1.25rem; color: var(--rice-paper); background: var(--error); }
 .contribution-errors strong { font-family: var(--font-display), sans-serif; font-size: 1.45rem; }

@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.41.0.0] - 2026-08-24
+
+### Added
+
+- Preserve eligible contribution edits on the device immediately, then coalesce changed fields
+  into serialized server autosaves after 750 milliseconds of idle time or five seconds at most.
+- Show truthful device, scheduled, syncing, synced, offline, conflict, and repair states, including
+  an explicit choice between local and server values when two sessions edit the same field.
+
+### Changed
+
+- Carry stable operation IDs and field base versions through interrupted requests so unknown
+  outcomes retry idempotently without resending evidence bytes or the whole contribution draft.
+- Bound autosave storage, operation retention, per-draft and per-account mutation rates, payload
+  telemetry, and server acknowledgement latency with production-like automated gates.
+
+### Fixed
+
+- Merge simultaneous different-field edits across tabs and devices without losing local work,
+  duplicating acknowledged mutations, or allowing stale responses to downgrade newer state.
+- Keep incomplete but safe draft text editable while blocking invalid stage transitions, and turn
+  malformed, expired, or unwritable local queues into visible repair states instead of sending them.
+
 ## [0.40.0.0] - 2026-08-24
 
 ### Added

@@ -72,6 +72,8 @@ class ContributionFieldPatch(BaseModel):
 
     field: ContributionFieldName
     value: ContributionPatchValue
+    base_value: ContributionPatchValue = None
+    base_version: Annotated[int | None, Field(default=None, ge=1)] = None
 
 
 class ContributionDraftCreate(BaseModel):
@@ -107,13 +109,13 @@ class ContributionDraftFields(BaseModel):
     locale: str | None = None
     category: str | None = None
     portion_description: str | None = None
-    portion_amount: Decimal | None = None
+    portion_amount: str | None = None
     portion_unit: Literal["g", "oz", "lb", "serving"] | None = None
-    portion_grams: Decimal | None = None
-    energy_kcal: Decimal | None = None
-    protein_g: Decimal | None = None
-    fat_g: Decimal | None = None
-    carbohydrate_g: Decimal | None = None
+    portion_grams: str | None = None
+    energy_kcal: str | None = None
+    protein_g: str | None = None
+    fat_g: str | None = None
+    carbohydrate_g: str | None = None
     ingredients: str | None = None
     duplicates_resolved: bool = False
     pack_id: str | None = None

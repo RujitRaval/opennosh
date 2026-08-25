@@ -135,8 +135,30 @@ the same not-found response as a missing draft.
 `POST /api/v1/contribution-drafts` accepts an optional device `client_draft_id`. Repeating that
 handoff for the same owner returns the existing draft. `PATCH
 /api/v1/contribution-drafts/{draft_id}` accepts an expected positive `draft_version`, one
-`operation_id`, an optional requested stage, and 1–25 typed field patches. Replaying an operation
-is idempotent. A stale expected version returns conflict instead of overwriting newer work.
+`operation_id`, an optional requested stage, and 1–25 typed field patches. Autosave patches also
+carry each field's base value and base version. Replaying an operation is idempotent. A stale
+expected version may merge only when every patched field still equals its normalized base value;
+a same-field change returns conflict instead of overwriting newer work. Operation records are
+retained for eight days, longer than the seven-day client retry window, and older records are
+pruned per draft. PATCH mutations are rate-limited per draft (120 per minute) and across each owner
+(240 per minute) by default, bounding randomized-draft abuse as well as one hot draft.
+Configure these bounds with `CONTRIBUTION_PATCH_RATE_LIMIT_ATTEMPTS`,
+`CONTRIBUTION_PATCH_RATE_LIMIT_WINDOW_SECONDS`,
+`CONTRIBUTION_PATCH_ACCOUNT_RATE_LIMIT_ATTEMPTS`, and
+`CONTRIBUTION_OPERATION_RETENTION_SECONDS`; operation retention cannot be set below seven days.
+
+Eligible fields are written to a schema-versioned, 64 KiB device draft before the UI announces
+`Saved on this device`. Remote drafts coalesce the newest value per field, wait 750 ms after the
+last edit but no more than five seconds, and keep at most one mutation in flight. An unknown network
+outcome retains the exact operation ID and payload for retry. `Synced` appears only after a
+matching-or-newer capability acknowledgement; offline, conflict, session expiry, storage failure,
+queue expiry, and unknown-schema states keep local work visible without claiming a server save.
+Writer-qualified storage revisions merge simultaneous different-field edits from multiple tabs.
+A same-field conflict retains its original base and cannot retry or submit until that field is
+explicitly edited. Malformed persisted queues become `repair_required` instead of being sent.
+Autosave instrumentation emits numeric counts, payload bytes, timings, ratios, and queue age only;
+it never emits field names or values. The PostgreSQL integration gate measures 30 representative
+PATCH acknowledgements and fails when p95 reaches 500 ms.
 
 `GET /api/v1/contribution-drafts/{draft_id}?requested_stage=...` and every successful mutation
 return one schema-version-1 capability document: workflow and draft versions, review state,

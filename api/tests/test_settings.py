@@ -13,6 +13,10 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.database_healthcheck_timeout_seconds == 2.0
     assert settings.food_search_rate_limit_attempts == 120
     assert settings.food_search_rate_limit_window_seconds == 60
+    assert settings.contribution_patch_rate_limit_attempts == 120
+    assert settings.contribution_patch_rate_limit_window_seconds == 60
+    assert settings.contribution_patch_account_rate_limit_attempts == 240
+    assert settings.contribution_operation_retention_seconds == 691_200
     assert settings.food_search_statement_timeout_ms == 500
     assert settings.food_search_snapshot_build_timeout_ms == 30_000
     assert settings.open_food_facts_enabled is False

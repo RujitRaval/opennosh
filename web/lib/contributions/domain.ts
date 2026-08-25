@@ -53,6 +53,23 @@ export type ContributionFieldName = keyof ContributionFields;
 export type ContributionFieldPatch = {
   field: ContributionFieldName;
   value: ContributionFields[ContributionFieldName];
+  baseValue?: ContributionFields[ContributionFieldName];
+  baseVersion?: number;
+};
+
+export type PendingContributionField = {
+  value: ContributionFields[ContributionFieldName];
+  baseValue: ContributionFields[ContributionFieldName];
+  baseVersion: number;
+  editedAt: string;
+};
+
+export type ContributionSyncOperation = {
+  operationId: string;
+  expectedDraftVersion: number;
+  patches: ContributionFieldPatch[];
+  requestedStage: ContributionStage | null;
+  sentAt: string;
 };
 
 export type DuplicateCandidate = {
@@ -95,11 +112,27 @@ export type ContributionCapability = {
 };
 
 export type LocalContributionDraft = {
-  schemaVersion: "1";
+  schemaVersion: "2";
   clientDraftId: string;
   fields: ContributionFields;
   duplicateCandidates: DuplicateCandidate[];
   duplicateQuery: string | null;
   savedAt: string;
   saveState: ContributionSaveState;
+  serverDraftId: string | null;
+  serverVersion: number | null;
+  serverFields: ContributionFields | null;
+  pendingFields: Partial<Record<ContributionFieldName, PendingContributionField>>;
+  pendingSince: string | null;
+  inFlightOperation: ContributionSyncOperation | null;
+  storageRevision: number;
+  storageWriterId: string;
+  conflictFields: ContributionFieldName[];
+  repairReason:
+    | "queue_expired"
+    | "storage_failed"
+    | "schema_changed"
+    | "session_expired"
+    | "server_rejected"
+    | null;
 };

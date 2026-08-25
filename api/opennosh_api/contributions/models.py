@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+from opennosh_api.orm import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
 
 
 class ContributionDraft(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
