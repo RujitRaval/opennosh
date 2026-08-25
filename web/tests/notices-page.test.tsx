@@ -31,7 +31,11 @@ describe("license and data notices", () => {
   });
 
   it("keeps the notice page globally reachable", () => {
-    render(<TrackerFooter />);
+    render(<TrackerFooter language="en" publicReturnPath="/en/explore" />);
+    expect(screen.getByRole("link", { name: "Return to the commons" })).toHaveAttribute(
+      "href",
+      "/en/explore",
+    );
     expect(screen.getByRole("link", { name: "Licenses & data notices" })).toHaveAttribute(
       "href",
       "/en/notices",

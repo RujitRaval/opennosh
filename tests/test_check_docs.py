@@ -109,6 +109,14 @@ class CheckDocsTests(TestCase):
 
         self.assertTrue(any("NOTICE.md" in issue and "CC0 1.0 Universal" in issue for issue in issues))
 
+    def test_tracker_notice_surface_requires_the_typed_localized_route(self) -> None:
+        requirements = LICENSE_NOTICE_REQUIREMENTS[
+            Path("web/components/tracker/tracker-footer.tsx")
+        ]
+
+        self.assertIn("routes.publicNotices(language)", requirements)
+        self.assertNotIn('href="/en/notices"', requirements)
+
     def test_license_notice_surfaces_report_missing_files(self) -> None:
         with TemporaryDirectory() as directory:
             issues = validate_license_notices(Path(directory))

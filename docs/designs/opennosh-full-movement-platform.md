@@ -1318,6 +1318,7 @@ The tracker migration and public redesign use separate Next.js root layouts and 
 - Navigation within one localized public root retains normal App Router transitions. A language change updates the dynamic root and document language. Crossing between public and tracker intentionally performs a full-document navigation because Next.js uses multiple roots; forms save or confirm local durability before offering that boundary.
 - Public and tracker roots reuse imported neutral helpers but do not wrap one another. A provider needed in both roots declares whether its state survives only within a root or persists through an explicit cookie, server session, URL, or durable local store.
 - Route, resource, and browser tests assert the exact document `lang`, metadata language, root-specific CSS/font requests, direct/deep links, root redirect, language switching, tracker handoff, Back behavior, saved contribution state before a cross-root transition, and feature-flag rollback.
+- The implemented rollback switch is `OPENNOSH_PUBLIC_ROOT_ENABLED`; `off`, `false`, or `0` sends the unlocalized entry directly to canonical `/tracker`. A bounded, HTTP-only `opennosh_public_return_path` cookie records only validated same-origin localized public paths so Tracker can return people to their last commons context without sharing public providers or client state.
 
 ### Global Navigation and Page Hierarchy
 
@@ -2187,7 +2188,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: contribution local draft store, autosave scheduler/reducer, versioned field-patch adapter, offline latest-field queue, save-state announcements, deterministic clock/barrier tests, privacy-safe autosave metrics.
   - Verify: immediate device persistence, 750 ms idle and five-second maximum wait, stage flush, one in-flight mutation, field coalescing, idempotent lost-response repair, bounded offline state, truthful save labels, stale-response suppression, session/schema/conflict recovery, and p95 server acknowledgement under 500 ms all pass without resending evidence or full drafts.
 
-- [ ] **T29 (P1, human: ~1-2 days / Codex: ~0.5-1 day)** - Web root topology - Split localized public and tracker trees into independent Next.js root layouts.
+- [x] **T29 (P1, human: ~1-2 days / Codex: ~0.5-1 day)** - Web root topology - Split localized public and tracker trees into independent Next.js root layouts.
   - Surfaced by: In-host adversarial re-review D44 - a nested localized layout cannot own the document `lang` beneath one neutral top-level root.
   - Files: `web/app/(public)/[language]/layout.tsx`, `web/app/(tracker)/tracker/layout.tsx`, shared neutral shell helpers, root redirect/middleware, metadata/language resolver, route/resource/browser tests.
   - Verify: every public document emits its validated route language; tracker emits the saved supported preference or default; root redirect renders no unlabeled page; public navigation and language changes work; public/tracker transitions preserve durable state through an intentional full-document load; each root requests only its own fonts/styles/providers; rollback and direct links pass.
