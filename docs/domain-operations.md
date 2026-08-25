@@ -40,6 +40,18 @@ https://www.opennosh.org
 
 Public DNS also returned Cloudflare's three Email Routing MX hosts and its SPF policy. A DS record was not yet visible during the same session because DNSSEC activation was still propagating.
 
+## Approved production target
+
+The approved first hosted topology is the repository-owned Render Blueprint in `render.yaml`: one
+public web service, one private API service, and managed PostgreSQL in Render's Ohio region. The
+Cloudflare redirect remains the active public behavior until the Render hostname passes API, web,
+cookie, navigation, and responsive smoke checks. The cutover then removes the redirect and replaces
+only the apex and `www` web records with Render's displayed DNS targets. Email Routing records,
+DNSSEC, registrar protection, and the support forwarding route remain unchanged.
+
 ## Change procedure
 
-When the project gets a dedicated website, replace the redirect-only DNS and rule configuration through a reviewed infrastructure or deployment change. Keep HTTPS, DNSSEC, WHOIS redaction, auto-renew, and inbound support routing enabled. Re-run public HTTP, TLS, MX, SPF, and DS checks after any domain change, and update this record without committing account or contact details.
+During cutover, use the procedure in `docs/operations/render-production.md`. Keep HTTPS, DNSSEC,
+WHOIS redaction, auto-renew, and inbound support routing enabled. Re-run public HTTP, TLS, MX, SPF,
+and DS checks after the domain change, and update this record without committing account or contact
+details.

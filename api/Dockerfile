@@ -17,6 +17,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY api ./api
 COPY schemas ./schemas
 COPY config ./config
+COPY deploy/render_runtime.py ./deploy/render_runtime.py
 RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home --uid 10001 opennosh \

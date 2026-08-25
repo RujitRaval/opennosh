@@ -20,3 +20,20 @@ Key routing rules:
 - Save progress: invoke `/context-save`.
 - Resume context: invoke `/context-restore`.
 - Author a backlog-ready spec or issue: invoke `/spec`.
+
+## Deploy Configuration (configured by /setup-deploy)
+
+- Platform: Render Blueprint
+- Production URL: https://opennosh.org
+- Deploy workflow: Render auto-deploy after GitHub checks pass on `main`
+- Deploy status command: `curl -fsS https://opennosh.org/api/v1/healthz`
+- Merge method: squash
+- Project type: web app and private API
+- Post-deploy health check: https://opennosh.org/api/v1/healthz
+
+### Custom deploy hooks
+
+- Pre-merge: `make test && make web-e2e && make build`
+- Deploy trigger: automatic after `main` checks pass
+- Deploy status: Render Blueprint status, then poll the production health endpoint
+- Health check: `curl -fsS https://opennosh.org/api/v1/healthz`

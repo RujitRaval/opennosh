@@ -21,6 +21,9 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --chown=nextjs:nodejs LICENSE LICENSES.md NOTICE.md ./licenses/
+COPY --chown=nextjs:nodejs deploy/render_web_start.sh ./render-web-start.sh
+
+RUN chmod 0555 ./render-web-start.sh
 
 USER nextjs
 EXPOSE 3000

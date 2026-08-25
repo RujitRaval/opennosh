@@ -36,6 +36,20 @@ docker compose up --build
 
 Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>; it returns `200` when PostgreSQL is reachable and a safe `503` degraded response when the database is unavailable.
 
+## Production deployment
+
+The versioned [`render.yaml`](render.yaml) Blueprint defines the first hosted production topology:
+an always-on public Next.js service, a private FastAPI service, and Render PostgreSQL in Ohio. Render
+generates every application secret, blocks public database ingress, waits for GitHub checks before
+deploying, and runs capacity validation plus Alembic migrations before replacing the API instance.
+The API starts with only the `opennosh_web` database credential; the database-owner and migration
+credentials are removed from its runtime environment.
+
+The canonical health probe is `https://opennosh.org/api/v1/healthz`. Keep Cloudflare's existing
+GitHub redirect in place until the temporary Render hostname passes the complete smoke test, then
+perform the DNS cutover. See [`docs/operations/render-production.md`](docs/operations/render-production.md)
+for provisioning, verification, rollback, and domain steps.
+
 For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
 
 ```bash
