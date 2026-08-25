@@ -44,8 +44,8 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           case "$HEAD_REF" in
-            agent/*) ;;
-            *) echo "Branch must use the agent/<description> convention: $HEAD_REF"; exit 1 ;;
+            agent/*|codex/*) ;;
+            *) echo "Branch must use the agent/<description> or codex/<description> convention: $HEAD_REF"; exit 1 ;;
           esac
           python3 scripts/check_pr_title.py "$PR_TITLE"
       - name: Verify reproducible public font build

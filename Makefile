@@ -5,12 +5,14 @@ install:
 	npm --prefix web ci
 
 lint:
-	uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
+	uv run ruff check api benchmarks deploy/render_runtime.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_render_deployment.py api/tests/test_benchmark*.py
+	sh -n deploy/render_web_start.sh
 	npm --prefix web run lint
 
 typecheck:
 	uv run mypy
 	uv run mypy --strict benchmarks/performance
+	uv run mypy --strict deploy/render_runtime.py
 	npm --prefix web run typecheck
 
 test: contracts-check foodpack-validate benchmark-contract-check database-capacity-check design-system-check

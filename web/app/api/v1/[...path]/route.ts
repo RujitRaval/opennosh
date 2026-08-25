@@ -54,7 +54,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join("/");
   const cacheablePublicSnapshot =
     request.method === "GET" && encodedPath === "public/commons-snapshot";
-  const target = new URL(`/api/v1/${encodedPath}${request.nextUrl.search}`, apiOrigin);
+  const upstreamPath = encodedPath === "healthz" ? "/healthz" : `/api/v1/${encodedPath}`;
+  const target = new URL(`${upstreamPath}${request.nextUrl.search}`, apiOrigin);
   const headers = new Headers();
   for (const name of forwardedRequestHeaders) {
     const value = request.headers.get(name);

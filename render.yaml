@@ -1,0 +1,78 @@
+# Render Blueprint for the first opennosh production deployment.
+# Keep resource names aligned with every fromDatabase/fromService reference.
+previews:
+  generation: "off"
+
+databases:
+  - name: opennosh-db
+    databaseName: opennosh
+    user: opennosh_admin
+    plan: basic-256mb
+    diskSizeGB: 5
+    postgresMajorVersion: "16"
+    region: ohio
+    ipAllowList: []
+    storageAutoscalingEnabled: false
+
+services:
+  - type: pserv
+    name: opennosh-api
+    runtime: docker
+    plan: starter
+    region: ohio
+    repo: https://github.com/RujitRaval/opennosh
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./api/Dockerfile
+    dockerCommand: python deploy/render_runtime.py api
+    preDeployCommand: python deploy/render_runtime.py predeploy
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: RENDER_DATABASE_URL
+        fromDatabase:
+          name: opennosh-db
+          property: connectionString
+      - key: DATABASE_CAPACITY_MANIFEST_PATH
+        value: /app/config/database-capacity.v1.json
+      - key: WEB_DATABASE_PASSWORD
+        generateValue: true
+      - key: MIGRATION_DATABASE_PASSWORD
+        generateValue: true
+      - key: TRUSTED_WEB_PROXY_TOKEN
+        generateValue: true
+      - key: FOOD_SEARCH_CURSOR_SECRET
+        generateValue: true
+      - key: OPEN_FOOD_FACTS_ENABLED
+        value: "false"
+
+  - type: web
+    name: opennosh-web
+    runtime: docker
+    plan: starter
+    region: ohio
+    repo: https://github.com/RujitRaval/opennosh
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./web/Dockerfile
+    dockerCommand: /app/render-web-start.sh
+    autoDeployTrigger: checksPass
+    healthCheckPath: /api/v1/healthz
+    maxShutdownDelaySeconds: 30
+    domains:
+      - opennosh.org
+    envVars:
+      - key: API_HOSTPORT
+        fromService:
+          type: pserv
+          name: opennosh-api
+          property: hostport
+      - key: WEB_PROXY_TOKEN
+        fromService:
+          type: pserv
+          name: opennosh-api
+          envVarKey: TRUSTED_WEB_PROXY_TOKEN
+      - key: OPENNOSH_PUBLIC_ROOT_ENABLED
+        value: "true"

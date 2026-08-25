@@ -41,6 +41,45 @@ describe("same-origin API proxy", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
+  it("maps the same-origin health URL to the API root health endpoint", async () => {
+    process.env.API_URL = "http://api:8000/";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ status: "ok", database: "reachable" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest("http://localhost:3000/api/v1/healthz");
+
+    const response = await GET(request, { params: Promise.resolve({ path: ["healthz"] }) });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("http://api:8000/healthz"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("preserves a degraded database health response for Render", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        { status: "degraded", database: "unreachable" },
+        { status: 503 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest("http://localhost:3000/api/v1/healthz");
+
+    const response = await GET(request, { params: Promise.resolve({ path: ["healthz"] }) });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("http://localhost:8000/healthz"),
+      expect.any(Object),
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      status: "degraded",
+      database: "unreachable",
+    });
+  });
 
   it("preserves conditional caching only for the anonymous commons snapshot", async () => {
     const upstreamHeaders = new Headers({
