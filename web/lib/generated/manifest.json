@@ -2,5 +2,5 @@
   "contract_version": "2.0.0",
   "generator": "@hey-api/openapi-ts",
   "generator_version": "0.97.0",
-  "input_sha256": "98bba63ed658aa0765011d1213fc02998eccb30d95981ac83ea61b38116652e3"
+  "input_sha256": "587d556995aeafe086db3658902ebe990a52cd09c94c35dfac82530e749a3659"
 }

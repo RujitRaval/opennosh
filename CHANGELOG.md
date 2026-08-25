@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.3.0] - 2026-08-25
+
+### Fixed
+
+- Keep Render's managed owner on the public schema and grant the migration role only the schema
+  privileges it needs, avoiding an unsupported role-impersonation requirement during pre-deploy.
+
 ## [0.43.2.0] - 2026-08-25
 
 ### Fixed
