@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "manifest_version": "2026-08-23",
+  "manifest_version": "2026-08-25",
   "deployment_id": "local-default",
-  "postgresql_connection_ceiling": 100,
+  "postgresql_connection_ceiling": 103,
   "reserved_headroom": {
     "migrations": 2,
     "administration": 3,

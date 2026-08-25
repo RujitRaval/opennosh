@@ -12,10 +12,10 @@ The required invariant is:
 sum(role replicas x role pool size) + reserved headroom <= PostgreSQL connection ceiling
 ```
 
-The default local deployment commits 12 application connections and reserves 20 connections for
-migrations, administration, monitoring, recovery, and failover. 68 connections remain
-uncommitted. Every SQLAlchemy application pool sets `max_overflow=0`; no role can borrow reserved
-headroom.
+The default local and Render deployment commits 12 application connections and reserves 20
+connections for migrations, administration, monitoring, recovery, and failover.
+71 connections remain uncommitted. Every SQLAlchemy application pool sets `max_overflow=0`; no role
+can borrow reserved headroom.
 
 ## Startup order
 
