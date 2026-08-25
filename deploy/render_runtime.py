@@ -97,11 +97,11 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
 
             await connection.execute(
                 f"ALTER ROLE {MIGRATION_ROLE} LOGIN PASSWORD {migration_password_literal} "
-                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+                "NOCREATEDB NOCREATEROLE NOREPLICATION"
             )
             await connection.execute(
                 f"ALTER ROLE {WEB_ROLE} LOGIN PASSWORD {web_password_literal} "
-                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+                "NOCREATEDB NOCREATEROLE NOREPLICATION"
             )
             await connection.execute(
                 f"GRANT CONNECT ON DATABASE {database_identifier} TO {MIGRATION_ROLE}, {WEB_ROLE}"
