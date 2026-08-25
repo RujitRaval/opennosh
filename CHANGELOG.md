@@ -2,6 +2,28 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.42.0.0] - 2026-08-24
+
+### Added
+
+- Remember each visitor's last validated localized Commons route so Tracker can return them to
+  their previous public context without sharing providers or client state across roots.
+- Add a rollback switch for the unlocalized entry point and browser coverage for direct links,
+  cross-root navigation, durable contribution state, and Back behavior on desktop and mobile.
+
+### Changed
+
+- Make the localized public website and private Tracker intentional independent document roots,
+  with native full-page handoffs and root-owned language, styles, providers, and navigation.
+- Resolve Tracker's document language from the existing allowlisted preference while safely
+  defaulting invalid or missing values to English.
+
+### Fixed
+
+- Prevent malformed, external, oversized, or unknown paths from becoming Tracker return links.
+- Validate Tracker font isolation through dynamic production route manifests so cookie-aware
+  server rendering cannot bypass the zero-Living-Commons-font budget.
+
 ## [0.41.0.0] - 2026-08-24
 
 ### Added
