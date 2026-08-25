@@ -1,10 +1,10 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 
+import { TrackerHeader } from "@/components/tracker/tracker-header";
+import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { ApiError, api } from "@/lib/api";
-import { routes } from "@/lib/routes";
 import type { AuthenticatedUser, DailyTotals, LogEntry, Target } from "@/lib/types";
 
 import { AddFoodDialog } from "./add-food-dialog";
@@ -208,24 +208,12 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
   return (
     <>
       <a className="skip-link" href="#main-content">Skip to daily log</a>
-      <header className="app-header">
-        <Link className="wordmark" href={routes.tracker.home} aria-label="opennosh daily log">
-          open<span>nosh</span>
-        </Link>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <Link aria-current="page" href={routes.tracker.home}>Daily log</Link>
-          <Link href={routes.tracker.trends}>Trends</Link>
-        </nav>
-        <div className="account-menu">
-          <span className="account-email">{user.email}</span>
-          <button className="text-button" type="button" onClick={() => void logout()}>Sign out</button>
-        </div>
-      </header>
+      <TrackerHeader active="daily" email={user.email} onLogout={() => void logout()} />
 
       <main id="main-content" className="log-shell">
         <section className="day-header" aria-labelledby="day-heading">
           <div>
-            <p className="eyebrow">Daily nutrition log</p>
+            <p className="eyebrow">Daily log / {dayType} day</p>
             <h1 id="day-heading">{readableDay(day)}</h1>
           </div>
           <button className="button button-primary" type="button" onClick={() => setAddOpen(true)}>
@@ -399,7 +387,7 @@ export function DailyLogApp() {
   if (checking) {
     return (
       <main id="main-content" className="boot-screen" role="status">
-        <span className="wordmark">open<span>nosh</span></span>
+        <TrackerWordmark surface="rice-paper" priority />
         <p>Opening your log…</p>
       </main>
     );

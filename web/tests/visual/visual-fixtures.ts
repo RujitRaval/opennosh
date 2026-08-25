@@ -180,6 +180,16 @@ const trackerEntry = {
   },
 };
 
+export async function mockTrackerSignIn(page: Page) {
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/v1/auth/session") {
+      return route.fulfill({ status: 401, json: { detail: "Sign in required" } });
+    }
+    return route.fulfill({ status: 404, json: { detail: `Unhandled sign-in fixture: [object Object]` } });
+  });
+}
+
 export async function mockTrackerApi(page: Page) {
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -213,6 +223,45 @@ export async function mockTrackerApi(page: Page) {
         },
       });
     }
+    if (path === "/api/v1/logs/daily-totals/range") {
+      return route.fulfill({
+        json: {
+          from_date: url.searchParams.get("from"),
+          to_date: url.searchParams.get("to"),
+          timezone: url.searchParams.get("timezone"),
+          items: [
+            { day: "2026-08-19", timezone: "UTC", entry_count: 1, grams: "180", nutrients: { energy_kcal: "229", protein_g: "11.2" } },
+            { day: "2026-08-20", timezone: "UTC", entry_count: 2, grams: "360", nutrients: { energy_kcal: "458", protein_g: "22.4" } },
+            { day: "2026-08-21", timezone: "UTC", entry_count: 1, grams: "220", nutrients: { energy_kcal: "310", protein_g: "16.8" } },
+          ],
+        },
+      });
+    }
+    if (path === "/api/v1/body-metrics/trends") {
+      return route.fulfill({
+        json: {
+          from_date: url.searchParams.get("from"),
+          to_date: url.searchParams.get("to"),
+          items: [
+            { id: "metric-one", recorded_at: "2026-08-19T08:00:00Z", metric_type: "body_weight", value: "80.4", unit: "kg" },
+            { id: "metric-two", recorded_at: "2026-08-22T08:00:00Z", metric_type: "body_weight", value: "79.9", unit: "kg" },
+          ],
+        },
+      });
+    }
+    if (path === "/api/v1/workouts/trends") {
+      return route.fulfill({
+        json: {
+          from_date: url.searchParams.get("from"),
+          to_date: url.searchParams.get("to"),
+          items: [
+            { day: "2026-08-20", exercise_id: "squat", exercise_name: "Back squat", load_unit: "kg", volume: "500" },
+            { day: "2026-08-23", exercise_id: "squat", exercise_name: "Back squat", load_unit: "kg", volume: "620" },
+          ],
+        },
+      });
+    }
+
     if (path === "/api/v1/targets/resolve") {
       return route.fulfill({
         json: {

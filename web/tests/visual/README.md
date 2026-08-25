@@ -1,6 +1,6 @@
 # Visual regression contract
 
-This lane protects the reviewed Living Commons and unchanged Tracker compositions with deterministic
+This lane protects the reviewed Living Commons public and Tracker compositions with deterministic
 Playwright screenshots. It is a pixel gate, not a replacement for semantic, accessibility, focus,
 data-contract, motion-budget, or live design review.
 
@@ -10,18 +10,20 @@ data-contract, motion-budget, or live design review.
 - Browser package: Playwright `1.62.1`, locked by `package-lock.json`
 - Locale and timezone: `en-US`, `UTC`
 - Browser time: `2026-08-24T16:00:00.000Z`
-- Fonts: reproducibly generated subsets from `web/public/fonts/v2/`; capture waits for `document.fonts.ready`
+- Fonts: public captures use reproducible subsets from `web/public/fonts/v2/`; Tracker captures verify
+  the independent zero-font-byte system stack; every capture waits for `document.fonts.ready`
 - Data: committed public, food-record, contribution, and Tracker fixtures with stable identifiers
 - Motion: the decoration kill switch removes incidental motion; focused assertions still prove
   reduced-motion input and accepted-versus-non-live activity semantics
 
 ## Matrix
 
-The 29 committed PNGs cover 320 px reflow, representative mobile, tablet, desktop, and wide desktop;
+The 35 committed PNGs cover 320 px reflow, representative mobile, tablet, desktop, and wide desktop;
 all five public proof states; Explore entry; the trust-first food record; every contribution stage;
 validation and duplicate repair; all six logo colorways; public loading and unavailable boundaries;
-the Tracker daily log and catalogue results; pseudo-localized long text; forced colors; keyboard focus;
-reduced motion; and mobile safe-area actions.
+the Tracker sign-in, daily log, catalogue results, and Trends across desktop and mobile;
+pseudo-localized long text; forced colors; keyboard focus; reduced motion; and mobile
+safe-area actions.
 
 Screenshots use no pixel masks. Only incidental transitions, carets, the unfocused skip link, and the
 test server's development indicator are stabilized. Required content remains present in the DOM and

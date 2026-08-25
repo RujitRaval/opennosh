@@ -6,6 +6,7 @@ import {
   expectNoHorizontalOverflow,
   installFrozenClock,
   mockTrackerApi,
+  mockTrackerSignIn,
   repairContributionDraft,
   seedContribution,
   setCommonsState,
@@ -109,7 +110,7 @@ test("public record unavailable and loading boundaries @desktop", async ({ page 
   await expect(page.locator(".food-record-page")).toHaveScreenshot("public-record-loading.png");
 });
 
-test("unchanged private tracker and catalogue results @desktop", async ({ page }) => {
+test("Living Commons Tracker daily log and catalogue results @desktop @mobile", async ({ page }) => {
   await mockTrackerApi(page);
   await page.goto("/tracker");
   await expect(page.getByRole("heading", { name: /nutrition at a glance/i })).toBeVisible();
@@ -121,6 +122,25 @@ test("unchanged private tracker and catalogue results @desktop", async ({ page }
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("1 food found")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveScreenshot("tracker-catalogue-results.png");
+});
+
+test("Living Commons Tracker sign-in reflows @desktop @mobile", async ({ page }) => {
+  await mockTrackerSignIn(page);
+  await page.goto("/tracker");
+  await expect(page.getByRole("heading", { name: "A clear view of what fuels you." })).toBeVisible();
+  await settleVisualPage(page, "tracker");
+  await expectNoHorizontalOverflow(page);
+  await expect(page).toHaveScreenshot("tracker-sign-in.png", { fullPage: true });
+});
+
+test("Living Commons Tracker trends stay calm and legible @desktop @mobile", async ({ page }) => {
+  await mockTrackerApi(page);
+  await page.goto("/tracker/trends");
+  await expect(page.getByRole("heading", { name: "Trends", exact: true })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(3);
+  await settleVisualPage(page, "tracker");
+  await expectNoHorizontalOverflow(page);
+  await expect(page).toHaveScreenshot("tracker-trends.png", { fullPage: true });
 });
 
 test("reduced motion remains complete @focused", async ({ page, request }) => {
