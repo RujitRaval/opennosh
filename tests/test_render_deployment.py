@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 import yaml
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 
 from deploy.render_runtime import (
     MIGRATION_ROLE,
@@ -25,6 +25,23 @@ from deploy.render_runtime import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _database_url(
+    *,
+    drivername: str = "postgresql",
+    username: str = "owner",
+    password: str | None = "owner-secret",
+    database: str | None = "opennosh",
+) -> str:
+    return URL.create(
+        drivername,
+        username=username,
+        password=password,
+        host="db.internal",
+        port=5432,
+        database=database,
+    ).render_as_string(hide_password=False)
 
 
 class FakeTransaction:
@@ -137,7 +154,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
 
 
 def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() -> None:
-    owner_url = "postgresql://owner:owner-secret@db.internal:5432/opennosh"
+    owner_url = _database_url()
     role_url = role_database_url(owner_url, WEB_ROLE, "web p@ss/word")
     parsed = make_url(role_url)
     assert parsed.drivername == "postgresql+asyncpg"
@@ -166,7 +183,10 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         assert removed not in environment
 
 
-@pytest.mark.parametrize("source_url", ["sqlite:///opennosh", "postgresql://owner@db.internal"])
+@pytest.mark.parametrize(
+    "source_url",
+    ["sqlite:///opennosh", _database_url(password=None, database=None)],
+)
 def test_render_database_url_helpers_reject_invalid_sources(source_url: str) -> None:
     with pytest.raises(ValueError):
         role_database_url(source_url, WEB_ROLE, "web-secret")
@@ -180,7 +200,7 @@ def test_render_database_url_helpers_reject_invalid_sources(source_url: str) -> 
 )
 def test_render_api_environment_fails_closed_when_a_required_secret_is_missing(key: str) -> None:
     environment = {
-        "RENDER_DATABASE_URL": "postgresql://owner:secret@db.internal/opennosh",
+        "RENDER_DATABASE_URL": _database_url(password="secret"),
         "WEB_DATABASE_PASSWORD": "web-secret",
         "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
     }
@@ -195,7 +215,7 @@ def test_render_api_environment_fails_closed_when_a_required_secret_is_missing(k
 )
 def test_render_api_environment_rejects_whitespace_only_secrets(key: str) -> None:
     environment = {
-        "RENDER_DATABASE_URL": "postgresql://owner:secret@db.internal/opennosh",
+        "RENDER_DATABASE_URL": _database_url(password="secret"),
         "WEB_DATABASE_PASSWORD": "web-secret",
         "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
     }
@@ -231,7 +251,7 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
 
     monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
     await ensure_database_roles(
-        "postgresql://owner:owner-secret@db.internal/opennosh",
+        _database_url(),
         "migration'secret",
         "web-secret",
     )
@@ -261,7 +281,7 @@ async def test_render_role_bootstrap_closes_after_a_database_failure(
     monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
     with pytest.raises(RuntimeError, match="database failure"):
         await ensure_database_roles(
-            "postgresql://owner:owner-secret@db.internal/opennosh",
+            _database_url(),
             "migration-secret",
             "web-secret",
         )
@@ -272,7 +292,7 @@ async def test_render_role_bootstrap_closes_after_a_database_failure(
 async def test_render_role_bootstrap_rejects_an_owner_url_without_a_database() -> None:
     with pytest.raises(ValueError, match="must name a database"):
         await ensure_database_roles(
-            "postgresql://owner:owner-secret@db.internal",
+            _database_url(database=None),
             "migration-secret",
             "web-secret",
         )
@@ -289,7 +309,11 @@ async def test_render_runtime_grants_are_applied_and_connection_is_closed(
 
     monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
     await grant_web_runtime_privileges(
-        "postgresql+asyncpg://opennosh_migration:secret@db.internal/opennosh"
+        _database_url(
+            drivername="postgresql+asyncpg",
+            username=MIGRATION_ROLE,
+            password="secret",
+        )
     )
 
     assert any("ALL TABLES" in statement for statement in connection.executed)
@@ -313,7 +337,11 @@ async def test_render_runtime_grants_close_after_a_database_failure(
     monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
     with pytest.raises(RuntimeError, match="grant failure"):
         await grant_web_runtime_privileges(
-            "postgresql+asyncpg://opennosh_migration:secret@db.internal/opennosh"
+            _database_url(
+                drivername="postgresql+asyncpg",
+                username=MIGRATION_ROLE,
+                password="secret",
+            )
         )
     assert connection.closed is True
 
@@ -336,7 +364,7 @@ def test_render_predeploy_does_not_pass_owner_or_raw_secrets_to_children(
     monkeypatch.setattr("deploy.render_runtime.grant_web_runtime_privileges", noop)
     monkeypatch.setattr("deploy.render_runtime.subprocess.run", capture_run)
 
-    owner_url = "postgresql://owner:owner-secret@db.internal:5432/opennosh"
+    owner_url = _database_url()
     run_predeploy(
         {
             "APP_ENVIRONMENT": "production",
@@ -390,7 +418,7 @@ def test_render_predeploy_requires_the_migration_password_before_connecting() ->
     with pytest.raises(ValueError, match="MIGRATION_DATABASE_PASSWORD is required"):
         run_predeploy(
             {
-                "RENDER_DATABASE_URL": "postgresql://owner:secret@db.internal/opennosh",
+                "RENDER_DATABASE_URL": _database_url(password="secret"),
                 "WEB_DATABASE_PASSWORD": "web-secret",
                 "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
             }
@@ -435,9 +463,7 @@ def test_render_predeploy_stops_before_grants_when_a_child_fails(
         run_predeploy(
             {
                 "APP_ENVIRONMENT": "production",
-                "RENDER_DATABASE_URL": (
-                    "postgresql://owner:owner-secret@db.internal:5432/opennosh"
-                ),
+                "RENDER_DATABASE_URL": _database_url(),
                 "WEB_DATABASE_PASSWORD": "web-secret",
                 "MIGRATION_DATABASE_PASSWORD": "migration-secret",
                 "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
@@ -461,9 +487,7 @@ def test_render_api_execs_with_only_the_runtime_environment(
         run_api(
             {
                 "APP_ENVIRONMENT": "production",
-                "RENDER_DATABASE_URL": (
-                    "postgresql://owner:owner-secret@db.internal:5432/opennosh"
-                ),
+                "RENDER_DATABASE_URL": _database_url(),
                 "WEB_DATABASE_PASSWORD": "web-secret",
                 "MIGRATION_DATABASE_PASSWORD": "migration-secret",
                 "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
