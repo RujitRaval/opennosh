@@ -314,6 +314,13 @@ and mobile. The public root resolves saved or browser interface-language prefere
 actions. Child tools remain hidden until their release flags enable them. Tracker stays a separate
 utility with an independent layout and permanent `/tracker` address.
 
+Moving between a localized public page and Tracker performs a full-document navigation so each
+root keeps its own language, styles, fonts, and providers. Tracker offers “Return to the commons”
+using the last validated same-origin public path stored in an HTTP-only cookie; missing, invalid,
+external, or oversized values fall back to the saved-language homepage. For an entry-point rollback,
+set `OPENNOSH_PUBLIC_ROOT_ENABLED=off` (also accepts `false` or `0`) in the web process so `/`
+redirects to `/tracker`; localized public URLs remain directly reachable.
+
 ## Nutrition, body-metric, and strength trends
 
 Authenticated users can open `/tracker/trends` to review 7-, 30-, or 90-day history for nutrition,
