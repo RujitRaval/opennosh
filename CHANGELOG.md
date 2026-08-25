@@ -2,6 +2,14 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.1.0] - 2026-08-25
+
+### Fixed
+
+- Let Render's bounded PostgreSQL owner rotate the migration and runtime role credentials without
+  attempting to change the superuser attribute, which managed database owners are not permitted
+  to alter.
+
 ## [0.43.0.0] - 2026-08-24
 
 ### Added
