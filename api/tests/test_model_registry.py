@@ -1,6 +1,9 @@
+import pytest
+from opennosh_api.models import User
 from opennosh_api.models.registry import (
     REGISTERED_MODELS,
     TABLE_MODEL_OWNERS,
+    _build_table_model_owners,
     metadata,
 )
 
@@ -65,3 +68,16 @@ def test_registry_import_order_is_deterministic() -> None:
         "contribution_drafts",
         "contribution_draft_operations",
     )
+
+
+def test_registry_rejects_duplicate_table_ownership() -> None:
+    with pytest.raises(RuntimeError, match="has multiple model owners"):
+        _build_table_model_owners((User, User))
+
+
+def test_registry_rejects_incomplete_registration() -> None:
+    with pytest.raises(
+        RuntimeError,
+        match="unregistered=\\['contribution_draft_operations'\\], missing_from_metadata=\\[\\]",
+    ):
+        _build_table_model_owners(REGISTERED_MODELS[:-1])
