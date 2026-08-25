@@ -20,6 +20,7 @@ import {
   type InterfaceLanguage,
 } from "@/lib/routes";
 import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
+import { CrossRootLink } from "@/components/shell/cross-root-link";
 
 import { BrandLogo } from "./brand-logo";
 
@@ -121,9 +122,9 @@ export function PublicHeader({
             <option key={option} value={option}>{getCatalog(option).shell.languageCode}</option>
           ))}
         </select>
-        <Link className="tracker-link" href={routes.tracker.home}>
+        <CrossRootLink className="tracker-link" href={routes.tracker.home}>
           {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
-        </Link>
+        </CrossRootLink>
         <Link className="mobile-context-action" href={contextAction.href}>
           {usesTomatoHeader
             ? contextAction.compactLabel
@@ -181,9 +182,9 @@ export function PublicHeader({
               </option>
             ))}
           </select>
-          <Link className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
+          <CrossRootLink className="mobile-tracker" href={routes.tracker.home} onClick={() => closeMenu()}>
             {copy.mobileTracker} <span aria-hidden="true">{"\u2197"}</span>
-          </Link>
+          </CrossRootLink>
         </div>
       </nav>
     </header>

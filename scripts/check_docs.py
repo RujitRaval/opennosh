@@ -57,7 +57,10 @@ LICENSE_NOTICE_REQUIREMENTS = {
         "CC BY-SA 3.0",
         "Private account data",
     ),
-    Path("web/components/tracker/tracker-footer.tsx"): ('href="/en/notices"', "Licenses &amp; data notices"),
+    Path("web/components/tracker/tracker-footer.tsx"): (
+        "routes.publicNotices(language)",
+        "Licenses &amp; data notices",
+    ),
     Path("api/opennosh_api/exports/schemas.py"): (
         'license: Literal["CC0-1.0"]',
         "Contributor credit remains visible as a community norm.",

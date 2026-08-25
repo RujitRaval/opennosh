@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { CrossRootLink } from "@/components/shell/cross-root-link";
 import {
   foodRecordsConflict,
   formatNutrientAmount,
@@ -212,9 +212,9 @@ export function FoodRecord({
             {visibleRecords.length > 1 ? copy.compareVariants : copy.relatedAction} <span aria-hidden="true">↓</span>
           </a>
           <a href={correctionHref}>{copy.correct} <span aria-hidden="true">↗</span></a>
-          <Link className="secondary-record-action" href={routes.tracker.home}>
+          <CrossRootLink className="secondary-record-action" href={routes.tracker.home}>
             {copy.openTracker} <span aria-hidden="true">↗</span>
-          </Link>
+          </CrossRootLink>
         </nav>
       </section>
 

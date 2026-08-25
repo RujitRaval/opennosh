@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { routeCssFiles } from "./production_font_isolation_helpers.mjs";
+
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const manifestFile = path.join(webRoot, ".next/server/next-font-manifest.json");
 const buildManifestFile = path.join(webRoot, "assets/fonts/v2/font-build.v2.json");
@@ -32,37 +34,35 @@ if (leakedNextFontEntries.length > 0) {
   process.exit(1);
 }
 
-const trackerHtmlFiles = [
-  path.join(webRoot, ".next/server/app/tracker.html"),
-  path.join(webRoot, ".next/server/app/tracker/trends.html"),
+const trackerRouteManifests = [
+  path.join(webRoot, ".next/server/app/(tracker)/tracker/page_client-reference-manifest.js"),
+  path.join(webRoot, ".next/server/app/(tracker)/tracker/trends/page_client-reference-manifest.js"),
 ];
-for (const trackerHtml of trackerHtmlFiles) {
-  if (!existsSync(trackerHtml)) {
-    console.error(`Production build is missing ${path.relative(webRoot, trackerHtml)}.`);
+for (const trackerManifest of trackerRouteManifests) {
+  if (!existsSync(trackerManifest)) {
+    console.error(`Production build is missing ${path.relative(webRoot, trackerManifest)}.`);
     process.exit(1);
   }
-  const html = readFileSync(trackerHtml, "utf8");
-  if (allFontHrefs.some((href) => html.includes(href))) {
-    console.error(`${path.relative(webRoot, trackerHtml)} references a public font asset.`);
+  const source = readFileSync(trackerManifest, "utf8");
+  if (allFontHrefs.some((href) => source.includes(href))) {
+    console.error(`${path.relative(webRoot, trackerManifest)} references a public font asset.`);
     process.exit(1);
   }
-  const stylesheetTags = [...html.matchAll(/<link\b[^>]*>/g)]
-    .map((match) => match[0])
-    .filter((tag) => tag.includes('rel="stylesheet"'));
-  for (const tag of stylesheetTags) {
-    const href = tag.match(/\bhref="([^"]+)"/)?.[1];
-    if (!href?.startsWith("/_next/")) continue;
-    const cssFile = path.join(
-      webRoot,
-      ".next",
-      href.slice("/_next/".length).split("?")[0],
-    );
+  let cssFiles;
+  try {
+    cssFiles = routeCssFiles(source, "[project]/app/(tracker)/tracker/");
+  } catch (error) {
+    console.error(`${path.relative(webRoot, trackerManifest)}: ${error.message}`);
+    process.exit(1);
+  }
+  for (const cssPath of cssFiles) {
+    const cssFile = path.join(webRoot, ".next", cssPath);
     if (!existsSync(cssFile)) {
-      console.error(`Production build is missing Tracker stylesheet ${href}.`);
+      console.error(`Production build is missing Tracker stylesheet ${cssPath}.`);
       process.exit(1);
     }
     if (readFileSync(cssFile, "utf8").includes(`/fonts/${buildManifest.assetVersion}/`)) {
-      console.error(`${path.relative(webRoot, trackerHtml)} links a public font stylesheet.`);
+      console.error(`${path.relative(webRoot, trackerManifest)} links a public font stylesheet.`);
       process.exit(1);
     }
   }
@@ -98,5 +98,5 @@ for (const href of deferredHrefs) {
 }
 
 console.log(
-  `Production font isolation validated: ${criticalHrefs.length} public critical preloads, ${deferredHrefs.length} deferred faces, ${trackerHtmlFiles.length} Tracker documents with zero Living Commons font bytes.`,
+  `Production font isolation validated: ${criticalHrefs.length} public critical preloads, ${deferredHrefs.length} deferred faces, ${trackerRouteManifests.length} Tracker routes with zero Living Commons font bytes.`,
 );

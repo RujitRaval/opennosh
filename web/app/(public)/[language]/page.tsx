@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { CrossRootLink } from "@/components/shell/cross-root-link";
+
 import { PublicFooter } from "@/components/public/public-footer";
 import { AcceptedActivity, HeroReleaseProof } from "@/components/public/public-truth-signals";
 import type { PublicCommonsSnapshot } from "@/lib/api/domain/public-commons";
@@ -119,7 +121,7 @@ export function PublicHomeView({
           <a href="https://github.com/RujitRaval/opennosh/blob/main/schemas/food-pack.schema.json"><span className="mono">01</span><strong>{copy.buildItems[0]?.title}</strong><small>{copy.buildItems[0]?.detail}</small><i aria-hidden="true">↗</i></a>
           <a href="https://github.com/RujitRaval/opennosh/tree/main/packs"><span className="mono">02</span><strong>{copy.buildItems[1]?.title}</strong><small>{copy.buildItems[1]?.detail}</small><i aria-hidden="true">↗</i></a>
           <a href="https://github.com/RujitRaval/opennosh"><span className="mono">03</span><strong>{copy.buildItems[2]?.title}</strong><small>{copy.buildItems[2]?.detail}</small><i aria-hidden="true">↗</i></a>
-          <Link href={routes.tracker.home}><span className="mono">04</span><strong>{copy.buildItems[3]?.title}</strong><small>{copy.buildItems[3]?.detail}</small><i aria-hidden="true">↗</i></Link>
+          <CrossRootLink href={routes.tracker.home}><span className="mono">04</span><strong>{copy.buildItems[3]?.title}</strong><small>{copy.buildItems[3]?.detail}</small><i aria-hidden="true">↗</i></CrossRootLink>
         </div>
       </section>
 
