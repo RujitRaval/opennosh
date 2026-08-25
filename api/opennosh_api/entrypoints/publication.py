@@ -1,6 +1,5 @@
-from opennosh_api.capacity import ProcessRole
-from opennosh_api.entrypoints._worker import run_reserved_worker
+from opennosh_api.jobs.worker import run_publication_worker
 
 
 def main() -> int:
-    return run_reserved_worker(ProcessRole.PUBLICATION)
+    return run_publication_worker()

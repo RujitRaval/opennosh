@@ -8,6 +8,7 @@ from opennosh_api.models.registry import (
 )
 
 EXPECTED_TABLE_OWNERS = {
+    "accepted_events": "opennosh_api.publication.models.AcceptedEvent",
     "auth_rate_limits": "opennosh_api.models.auth.AuthRateLimit",
     "auth_sessions": "opennosh_api.models.auth.AuthSession",
     "body_metrics": "opennosh_api.models.tables.BodyMetric",
@@ -15,6 +16,11 @@ EXPECTED_TABLE_OWNERS = {
         "opennosh_api.contributions.models.ContributionDraftOperation"
     ),
     "contribution_drafts": "opennosh_api.contributions.models.ContributionDraft",
+    "publication_durable_acknowledgements": (
+        "opennosh_api.publication.models.DurableAcknowledgement"
+    ),
+    "publication_intents": "opennosh_api.publication.models.PublicationIntent",
+    "publication_steps": "opennosh_api.publication.models.PublicationStep",
     "exercises": "opennosh_api.models.tables.Exercise",
     "food_search_snapshot_items": "opennosh_api.models.tables.FoodSearchSnapshotItem",
     "food_search_snapshots": "opennosh_api.models.tables.FoodSearchSnapshot",
@@ -41,9 +47,7 @@ def test_registry_owns_every_metadata_table_exactly_once() -> None:
     assert owners == EXPECTED_TABLE_OWNERS
     assert set(metadata.tables) == set(EXPECTED_TABLE_OWNERS)
     assert len(REGISTERED_MODELS) == len(EXPECTED_TABLE_OWNERS)
-    assert len({model.__table__.name for model in REGISTERED_MODELS}) == len(
-        REGISTERED_MODELS
-    )
+    assert len({model.__table__.name for model in REGISTERED_MODELS}) == len(REGISTERED_MODELS)
 
 
 def test_registry_import_order_is_deterministic() -> None:
@@ -67,6 +71,10 @@ def test_registry_import_order_is_deterministic() -> None:
         "targets",
         "contribution_drafts",
         "contribution_draft_operations",
+        "publication_intents",
+        "publication_steps",
+        "publication_durable_acknowledgements",
+        "accepted_events",
     )
 
 
@@ -78,6 +86,6 @@ def test_registry_rejects_duplicate_table_ownership() -> None:
 def test_registry_rejects_incomplete_registration() -> None:
     with pytest.raises(
         RuntimeError,
-        match="unregistered=\\['contribution_draft_operations'\\], missing_from_metadata=\\[\\]",
+        match="unregistered=\\['accepted_events'\\], missing_from_metadata=\\[\\]",
     ):
         _build_table_model_owners(REGISTERED_MODELS[:-1])

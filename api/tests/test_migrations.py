@@ -37,6 +37,14 @@ EXPECTED_TABLES = {
     "targets",
     "contribution_drafts",
     "contribution_draft_operations",
+    "opennosh_pgqueuer",
+    "opennosh_pgqueuer_log",
+    "opennosh_pgqueuer_statistics",
+    "opennosh_pgqueuer_schedules",
+    "publication_intents",
+    "publication_steps",
+    "publication_durable_acknowledgements",
+    "accepted_events",
 }
 
 
@@ -461,17 +469,21 @@ async def read_recipe_snapshot_backfill(database_url: str) -> list[dict[str, Any
     try:
         async with engine.connect() as connection:
             rows = (
-                await connection.execute(
-                    text(
-                        """
+                (
+                    await connection.execute(
+                        text(
+                            """
                         SELECT food_source_table, position, food_source_key, food_name,
                                grams::text, computed_nutrients_json
                         FROM recipe_ingredients
                         ORDER BY position
                         """
+                        )
                     )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
             return [dict(row) for row in rows]
     finally:
         await engine.dispose()
@@ -511,9 +523,10 @@ async def read_migrated_targets(database_url: str) -> list[dict[str, Any]]:
     try:
         async with engine.connect() as connection:
             rows = (
-                await connection.execute(
-                    text(
-                        """
+                (
+                    await connection.execute(
+                        text(
+                            """
                         SELECT day_type, kcal::text, active_from::text,
                                active_until::text, below_floor_confirmed,
                                safety_review_required,
@@ -521,9 +534,12 @@ async def read_migrated_targets(database_url: str) -> list[dict[str, Any]]:
                         FROM targets
                         ORDER BY day_type, active_from
                         """
+                        )
                     )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
             return [dict(row) for row in rows]
     finally:
         await engine.dispose()
@@ -749,40 +765,30 @@ def test_recipe_snapshot_migration_preserves_existing_composition() -> None:
     command.downgrade(config, "base")
     try:
         command.upgrade(config, "20260820_0005")
-        expected = asyncio.run(
-            seed_pre_snapshot_recipe_ingredients(INTEGRATION_DATABASE_URL)
-        )
+        expected = asyncio.run(seed_pre_snapshot_recipe_ingredients(INTEGRATION_DATABASE_URL))
         command.upgrade(config, "head")
 
         actual = asyncio.run(read_recipe_snapshot_backfill(INTEGRATION_DATABASE_URL))
         assert {row["position"] for row in actual} == {0, 1, 2, 3}
         for row in actual:
-            assert (row["food_source_key"], row["food_name"]) == expected[
-                row["food_source_table"]
-            ]
+            assert (row["food_source_key"], row["food_name"]) == expected[row["food_source_table"]]
             assert row["grams"] == "150.000"
             snapshot = row["computed_nutrients_json"]
             assert snapshot["basis"] == "computed"
             assert Decimal(snapshot["grams"]) == Decimal("150")
-            assert {
-                code: Decimal(amount) for code, amount in snapshot["nutrients"].items()
-            } == {
+            assert {code: Decimal(amount) for code, amount in snapshot["nutrients"].items()} == {
                 "energy_kcal": Decimal("150"),
                 "protein_g": Decimal("15"),
                 "fat_g": Decimal("0"),
                 "carbohydrate_g": Decimal("22.5"),
             }
         assert (
-            asyncio.run(
-                replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001")
-            )
+            asyncio.run(replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001"))
             == "0.0001"
         )
         command.downgrade(config, "20260820_0005")
         assert (
-            asyncio.run(
-                replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001")
-            )
+            asyncio.run(replace_and_read_recipe_yield(INTEGRATION_DATABASE_URL, "0.0001"))
             == "0.0001"
         )
     finally:
@@ -870,19 +876,13 @@ def test_target_schedule_migration_preserves_and_bounds_legacy_ranges() -> None:
             },
         ]
         asyncio.run(assert_overlapping_target_is_rejected(INTEGRATION_DATABASE_URL))
-        asyncio.run(
-            assert_unconfirmed_below_floor_target_is_rejected(
-                INTEGRATION_DATABASE_URL
-            )
-        )
+        asyncio.run(assert_unconfirmed_below_floor_target_is_rejected(INTEGRATION_DATABASE_URL))
 
         command.downgrade(config, "20260820_0006")
         target_columns = asyncio.run(
             inspect_database(
                 INTEGRATION_DATABASE_URL,
-                lambda inspector: {
-                    column["name"] for column in inspector.get_columns("targets")
-                },
+                lambda inspector: {column["name"] for column in inspector.get_columns("targets")},
             )
         )
         assert "active_until" not in target_columns
@@ -893,9 +893,7 @@ def test_target_schedule_migration_preserves_and_bounds_legacy_ranges() -> None:
         command.downgrade(config, "base")
 
 
-async def seed_legacy_body_metrics(
-    database_url: str, *, invalid_kind: str | None = None
-) -> None:
+async def seed_legacy_body_metrics(database_url: str, *, invalid_kind: str | None = None) -> None:
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
@@ -1053,18 +1051,14 @@ def test_body_metric_migration_preserves_valid_rows_and_enforces_contract() -> N
                 },
             )
         )
-        assert not any(
-            name.startswith("ck_body_metrics_") for name in downgraded_constraint_names
-        )
+        assert not any(name.startswith("ck_body_metrics_") for name in downgraded_constraint_names)
         assert len(asyncio.run(read_body_metrics(INTEGRATION_DATABASE_URL))) == 2
     finally:
         command.downgrade(config, "base")
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
-@pytest.mark.parametrize(
-    "invalid_kind", ["contract", "timestamp", "negative_timestamp"]
-)
+@pytest.mark.parametrize("invalid_kind", ["contract", "timestamp", "negative_timestamp"])
 def test_body_metric_migration_rejects_invalid_legacy_rows(
     invalid_kind: str,
 ) -> None:
@@ -1074,11 +1068,7 @@ def test_body_metric_migration_rejects_invalid_legacy_rows(
     command.downgrade(config, "base")
     try:
         command.upgrade(config, "20260820_0007")
-        asyncio.run(
-            seed_legacy_body_metrics(
-                INTEGRATION_DATABASE_URL, invalid_kind=invalid_kind
-            )
-        )
+        asyncio.run(seed_legacy_body_metrics(INTEGRATION_DATABASE_URL, invalid_kind=invalid_kind))
         with pytest.raises(DBAPIError, match="Cannot migrate invalid legacy body metrics"):
             command.upgrade(config, "head")
     finally:
@@ -1131,15 +1121,12 @@ async def seed_legacy_workout(database_url: str, *, invalid_kind: str | None = N
             if invalid_kind == "load_unit":
                 await connection.execute(
                     text(
-                        "ALTER TABLE workout_sets "
-                        "DROP CONSTRAINT ck_workout_sets_load_unit_allowed"
+                        "ALTER TABLE workout_sets DROP CONSTRAINT ck_workout_sets_load_unit_allowed"
                     )
                 )
             set_index = 500 if invalid_kind == "set_index" else 0
             reps = 100_001 if invalid_kind == "reps" else 5
-            load_value = (
-                None if invalid_kind in {"contract", "rpe_null"} else Decimal("100")
-            )
+            load_value = None if invalid_kind in {"contract", "rpe_null"} else Decimal("100")
             if invalid_kind == "load_value":
                 load_value = Decimal("1000000.001")
             load_unit = {
@@ -1460,8 +1447,7 @@ async def write_invalid_exercise_value(database_url: str, invalid_kind: str) -> 
         "source_url": "UPDATE exercises SET source_url = 'https://?bad'",
         "author_url": "UPDATE exercises SET author_url = 'javascript:alert(1)'",
         "timestamp": (
-            "UPDATE exercises SET source_updated_at = "
-            "TIMESTAMPTZ '9999-12-31 23:59:59.999999+00'"
+            "UPDATE exercises SET source_updated_at = TIMESTAMPTZ '9999-12-31 23:59:59.999999+00'"
         ),
         "muscle_type": "UPDATE exercises SET muscle_groups = '[1]'::jsonb",
         "muscle_markup": "UPDATE exercises SET muscle_groups = '[\"<img>\"]'::jsonb",

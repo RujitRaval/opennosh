@@ -26,6 +26,12 @@ from opennosh_api.models.tables import (
     Workout,
     WorkoutSet,
 )
+from opennosh_api.publication.models import (
+    AcceptedEvent,
+    DurableAcknowledgement,
+    PublicationIntent,
+    PublicationStep,
+)
 
 ModelClass = type[DeclarativeBase]
 
@@ -51,6 +57,10 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     Target,
     ContributionDraft,
     ContributionDraftOperation,
+    PublicationIntent,
+    PublicationStep,
+    DurableAcknowledgement,
+    AcceptedEvent,
 )
 
 
@@ -82,17 +92,17 @@ def _build_table_model_owners(
     return MappingProxyType(owners)
 
 
-TABLE_MODEL_OWNERS: Final[Mapping[str, ModelClass]] = _build_table_model_owners(
-    REGISTERED_MODELS
-)
+TABLE_MODEL_OWNERS: Final[Mapping[str, ModelClass]] = _build_table_model_owners(REGISTERED_MODELS)
 metadata: Final[MetaData] = Base.metadata
 
 __all__ = [
     "AuthRateLimit",
     "AuthSession",
+    "AcceptedEvent",
     "BodyMetric",
     "ContributionDraft",
     "ContributionDraftOperation",
+    "DurableAcknowledgement",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",
@@ -102,6 +112,8 @@ __all__ = [
     "FoodSearchSnapshotItem",
     "LogEntry",
     "REGISTERED_MODELS",
+    "PublicationIntent",
+    "PublicationStep",
     "Recipe",
     "RecipeIngredient",
     "TABLE_MODEL_OWNERS",

@@ -8,11 +8,13 @@ from opennosh_api.models.enums import (
     TargetDayType,
 )
 from opennosh_api.models.registry import (
+    AcceptedEvent,
     AuthRateLimit,
     AuthSession,
     BodyMetric,
     ContributionDraft,
     ContributionDraftOperation,
+    DurableAcknowledgement,
     Exercise,
     FoodCommunity,
     FoodCustom,
@@ -21,6 +23,8 @@ from opennosh_api.models.registry import (
     FoodSearchSnapshot,
     FoodSearchSnapshotItem,
     LogEntry,
+    PublicationIntent,
+    PublicationStep,
     Recipe,
     RecipeIngredient,
     Target,
@@ -30,6 +34,7 @@ from opennosh_api.models.registry import (
 )
 
 __all__ = [
+    "AcceptedEvent",
     "AuthRateLimit",
     "AuthSession",
     "Base",
@@ -38,6 +43,7 @@ __all__ = [
     "BodyMetricUnit",
     "ContributionDraft",
     "ContributionDraftOperation",
+    "DurableAcknowledgement",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",
@@ -49,6 +55,8 @@ __all__ = [
     "LoadUnit",
     "LogEntry",
     "Provenance",
+    "PublicationIntent",
+    "PublicationStep",
     "Recipe",
     "RecipeIngredient",
     "Target",
