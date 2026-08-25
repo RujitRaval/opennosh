@@ -110,7 +110,9 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
                 f"GRANT CREATE ON DATABASE {database_identifier} TO {MIGRATION_ROLE}"
             )
             await connection.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
-            await connection.execute(f"ALTER SCHEMA public OWNER TO {MIGRATION_ROLE}")
+            await connection.execute(
+                f"GRANT USAGE, CREATE ON SCHEMA public TO {MIGRATION_ROLE}"
+            )
             await connection.execute(f"GRANT USAGE ON SCHEMA public TO {WEB_ROLE}")
     finally:
         await connection.close()
