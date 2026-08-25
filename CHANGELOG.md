@@ -2,6 +2,31 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.0.0] - 2026-08-24
+
+### Added
+
+- Make opennosh deployable as one Render Blueprint with an always-on public website, a private API,
+  and managed PostgreSQL in the same Ohio region, with previews disabled to protect the launch
+  budget.
+- Add generated production secrets, database-capacity validation, one-time Alembic migrations,
+  health checks, a Cloudflare-safe cutover runbook, and automated deployment contract tests.
+
+### Changed
+
+- Give migrations and the running API separate PostgreSQL identities so the website can read and
+  write application data without permission to alter the schema or retain database-owner secrets.
+- Route the public /api/v1/healthz check to FastAPI's root health endpoint so Render measures the
+  real API and database state before accepting a deployment.
+
+### Fixed
+
+- Stop deployment before startup when required secrets, the 100-connection capacity contract,
+  role creation, migrations, or runtime grants fail instead of launching a partially configured
+  service.
+- Preserve Cloudflare Email Routing and the existing GitHub redirect until the temporary Render
+  hostname passes desktop, mobile, API, database, TLS, and navigation checks.
+
 ## [0.42.0.0] - 2026-08-24
 
 ### Added
