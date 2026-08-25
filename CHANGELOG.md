@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.43.2.0] - 2026-08-25
+
+### Fixed
+
+- Avoid changing PostgreSQL's replication attribute while rotating Render deployment-role
+  credentials because managed database owners do not hold the replication privilege.
+
 ## [0.43.1.0] - 2026-08-25
 
 ### Fixed
