@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.53.0.0] - 2026-08-26
+
+### Added
+
+- Add a real vertical browser-acceptance lane backed by isolated PostgreSQL, FastAPI, Next.js, publication-worker, evidence-worker, and immutable artifact services with no opennosh API interception.
+- Add a supported test-only coordinator and persistent acceptance adapters that drive the real publication queue, planner, executor, reducer, receipt projection, and public-release activation.
+- Verify the browser-visible release independently through its immutable endpoint, record and provenance digests, and distinct Ed25519 manifest and receipt signatures.
+
+### Changed
+
+- Name and report contract-fixture UI journeys separately from real vertical acceptance so presentation failures and integration failures have distinct owners.
+- Guard the vertical lane against API interception and isolate Playwright browser tests from Vitest discovery.
+- Derive acceptance Compose projects and loopback ports per worktree so concurrent runs cannot collide.
+
+### Security
+
+- Refuse deterministic acceptance signing keys in production, including aliases, and require an explicit test-only fixture opt-in.
+- Isolate destructive acceptance teardown behind a validated per-worktree Compose project and remove inherited API port publication.
+
 ## [0.52.0.0] - 2026-08-26
 
 ### Added

@@ -2104,10 +2104,11 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Verify: generated failpoint matrix and all global trust invariants; no probabilistic synchronization in trust suites.
   - Landed in v0.48.0.0 with 60 registry-derived step/boundary cases, two final-acceptance cases, restorable PostgreSQL-plus-queue checkpoints, and persistent fakes for the active publication and queue ports.
 
-- [ ] **T12 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Browser acceptance - Split mocked UI journeys from real vertical acceptance.
+- [x] **T12 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Browser acceptance - Split mocked UI journeys from real vertical acceptance.
   - Surfaced by: Test D13 - current Playwright tests intercept every API call and cannot prove backend integration.
   - Files: `web/tests/e2e`, Playwright projects, compose acceptance stack, fixture commands.
   - Verify: broad mocked UI-state suite plus one non-intercepted browser-to-receipt-to-reference-client trust path.
+  - Landed in v0.53.0.0 with explicitly named UI-journey and vertical-acceptance Playwright projects, a supported coordinator that enqueues and verifies a real ten-step publication workflow, an isolated PostgreSQL/FastAPI/Next.js stack with real queue workers and a read-only artifact origin, a recursive interception boundary guard, and independent cryptographic reference-client verification of the immutable record, provenance, signed manifest, and signed receipt.
 
 - [ ] **T13 (P1, human: ~3-5 days / Codex: ~1-2 days)** - CI/release - Enforce risk-tiered trust gates without pass-on-retry.
   - Surfaced by: Test D14 - required CI lacks trust coverage gates and can turn a retried flaky browser test green.

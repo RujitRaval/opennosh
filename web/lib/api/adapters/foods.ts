@@ -20,6 +20,11 @@ import type {
 } from "@/lib/types";
 import { toPublishedFoodRecordView, type FoodRecordView } from "@/lib/food-record";
 
+// The vertical reference client validates the generated wire contract through this boundary.
+export type PublicFoodRecordContract = TransportPublicFood;
+export type FoodSearchContract = TransportSearchResponse;
+export type FoodSearchItemContract = TransportSearchItem;
+
 type LegacySearchResponse = Omit<
   TransportSearchResponse,
   "schema_version" | "next_cursor" | "snapshot_id" | "snapshot_expires_at"

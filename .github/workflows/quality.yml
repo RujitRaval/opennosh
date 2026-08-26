@@ -188,8 +188,11 @@ jobs:
       - name: Install Playwright Chromium
         run: npx --prefix web playwright install --with-deps chromium
 
-      - name: Test accessible daily-log journey
-        run: npm --prefix web run test:e2e
+      - name: Validate browser acceptance lane boundaries
+        run: npm --prefix web run check:acceptance-boundaries
+
+      - name: Test mocked UI journeys
+        run: npm --prefix web run test:e2e:ui
 
       - name: Test shipped and pseudo-localized interfaces
         run: npm --prefix web run test:localization
@@ -254,6 +257,60 @@ jobs:
             web/tests/visual/__screenshots__
           if-no-files-found: ignore
           retention-days: 14
+
+  vertical-acceptance:
+    name: Real vertical acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install locked web dependencies
+        run: npm ci --prefix web
+
+      - name: Install Playwright Chromium
+        run: npx --prefix web playwright install --with-deps chromium
+
+      - name: Validate acceptance Compose configuration
+        run: make acceptance-config
+
+      - name: Start the real acceptance stack
+        run: make acceptance-up
+
+      - name: Run non-intercepted vertical trust journey
+        run: make web-e2e-vertical
+
+      - name: Capture vertical acceptance diagnostics
+        if: failure()
+        run: |
+          mkdir -p web/test-results/vertical-acceptance
+          make acceptance-ps > web/test-results/vertical-acceptance/compose-ps.txt || true
+          make acceptance-logs > web/test-results/vertical-acceptance/compose.log 2>&1 || true
+          make acceptance-copy-fixture || true
+
+      - name: Upload vertical acceptance evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vertical-acceptance-evidence
+          path: |
+            web/test-results/vertical-acceptance
+            web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Stop the real acceptance stack
+        if: always()
+        run: make acceptance-down
 
   compose:
     name: Compose application boot

@@ -9,26 +9,32 @@ from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, field_validat
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from opennosh_api.capacity import JobRole, ProcessRole
+from opennosh_api.nonproduction_keys import (
+    NON_PRODUCTION_KEY_IDS,
+    NON_PRODUCTION_PUBLIC_KEYS,
+)
 from opennosh_api.targets.constants import (
     DEFAULT_TARGET_KCAL_FLOOR,
     MAX_KCAL,
     TARGET_QUANTUM,
 )
 
-_DEVELOPMENT_PUBLIC_KEY = "Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
 
-
-def _manifest_key_config_uses_development_key(value: str) -> bool:
+def _manifest_key_config_uses_nonproduction_key(value: str) -> bool:
     entries = (entry.partition(":") for entry in value.split(","))
     return any(
-        key_id == "development" or encoded == _DEVELOPMENT_PUBLIC_KEY
+        key_id in NON_PRODUCTION_KEY_IDS or encoded in NON_PRODUCTION_PUBLIC_KEYS
         for key_id, _, encoded in entries
     )
 
 
-def _receipt_key_config_uses_development_key(value: SecretStr) -> bool:
+def _receipt_key_config_uses_nonproduction_key(value: SecretStr) -> bool:
     payload = json.loads(value.get_secret_value())
-    return "development" in payload or _DEVELOPMENT_PUBLIC_KEY in payload.values()
+    return any(
+        key_id in NON_PRODUCTION_KEY_IDS
+        or (isinstance(encoded, str) and encoded in NON_PRODUCTION_PUBLIC_KEYS)
+        for key_id, encoded in payload.items()
+    )
 
 
 class Settings(BaseSettings):
@@ -357,19 +363,19 @@ class Settings(BaseSettings):
         if (
             self.app_environment == "production"
             and self.public_commons_latest_pointer_path is not None
-            and _manifest_key_config_uses_development_key(self.public_commons_verifying_keys)
+            and _manifest_key_config_uses_nonproduction_key(self.public_commons_verifying_keys)
         ):
             raise ValueError("Production requires approved public commons verifying keys")
         if (
             self.app_environment == "production"
             and self.public_artifact_base_url is not None
-            and _manifest_key_config_uses_development_key(self.public_commons_verifying_keys)
+            and _manifest_key_config_uses_nonproduction_key(self.public_commons_verifying_keys)
         ):
             raise ValueError("Production requires approved public artifact verifying keys")
         if (
             self.app_environment == "production"
             and self.public_artifact_base_url is not None
-            and _receipt_key_config_uses_development_key(self.publication_receipt_verifying_keys)
+            and _receipt_key_config_uses_nonproduction_key(self.publication_receipt_verifying_keys)
         ):
             raise ValueError("Production requires approved publication receipt verifying keys")
         if (

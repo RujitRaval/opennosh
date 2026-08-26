@@ -1,0 +1,184 @@
+services:
+  capacity-preflight:
+    command:
+      - opennosh-capacity-preflight
+      - --manifest
+      - /app/config/database-capacity.acceptance.v1.json
+      - --require-live-database
+      - --require-deployment-topology
+      - --deployed-role
+      - web=1
+      - --deployed-role
+      - publication=1
+      - --deployed-role
+      - evidence=1
+      - --deployed-role
+      - projection=0
+      - --deployed-role
+      - reconciler=0
+      - --deployed-role
+      - scheduler=0
+
+  migrate:
+    environment:
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.acceptance.v1.json
+
+  acceptance-bootstrap:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command:
+      - opennosh-acceptance-fixture
+      - --mode
+      - prepare
+      - --artifact-directory
+      - /fixtures/artifacts
+      - --state-directory
+      - /fixtures/state
+      - --runtime-uid
+      - "10001"
+      - --runtime-gid
+      - "10001"
+    user: "0:0"
+    environment:
+      APP_ENVIRONMENT: test
+      OPENNOSH_ACCEPTANCE_FIXTURES: "1"
+    volumes:
+      - acceptance-artifacts:/fixtures/artifacts
+      - acceptance-state:/fixtures/state
+    restart: "no"
+    networks:
+      - backend
+
+  acceptance-fixture:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command:
+      - opennosh-acceptance-fixture
+      - --mode
+      - run
+      - --artifact-directory
+      - /fixtures/artifacts
+      - --state-directory
+      - /fixtures/state
+      - --capacity-manifest-path
+      - /app/config/database-capacity.acceptance.v1.json
+      - --timeout-seconds
+      - "60"
+    environment:
+      APP_ENVIRONMENT: test
+      OPENNOSH_ACCEPTANCE_FIXTURES: "1"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
+    volumes:
+      - acceptance-artifacts:/fixtures/artifacts
+      - acceptance-state:/fixtures/state
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      publication-worker:
+        condition: service_started
+      evidence-worker:
+        condition: service_started
+    restart: "no"
+    networks:
+      - backend
+
+  artifact-origin:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command:
+      - python
+      - -m
+      - http.server
+      - "8080"
+      - --directory
+      - /fixtures/artifacts
+    user: "10001:10001"
+    volumes:
+      - acceptance-artifacts:/fixtures/artifacts:ro
+    depends_on:
+      acceptance-fixture:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8080/receipts/v1/11111111-1111-4111-8111-111111111111.json")
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    ports:
+      - "127.0.0.1:${ACCEPTANCE_ARTIFACT_PORT:-3101}:8080"
+    networks:
+      - backend
+
+  api:
+    ports: !reset []
+    environment:
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.acceptance.v1.json
+      PUBLIC_ARTIFACT_DIRECTORY: /app/public-artifacts
+      PUBLIC_ARTIFACT_CHECKPOINT_PATH: /app/public-artifact-state/checkpoint.json
+      PUBLIC_COMMONS_VERIFYING_KEYS: acceptance-manifest-v1:DA0jKzf9uc8nFvAVYisKb4L8PmPIHwA_eZLnTRtNH1c
+      PUBLICATION_RECEIPT_VERIFYING_KEYS: "{\"acceptance-receipt-v1\":\"ALKuPFTKPQrs_XfTNdyRlw0W0IHVg_P9dNzVFEw-lq8\"}"
+    volumes:
+      - acceptance-artifacts:/app/public-artifacts:ro
+      - acceptance-state:/app/public-artifact-state
+    depends_on:
+      acceptance-fixture:
+        condition: service_completed_successfully
+
+  publication-worker:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command:
+      - opennosh-acceptance-publication-worker
+    environment:
+      APP_ENVIRONMENT: test
+      OPENNOSH_ACCEPTANCE_FIXTURES: "1"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.acceptance.v1.json
+      ACCEPTANCE_ARTIFACT_DIRECTORY: /fixtures/artifacts
+      ACCEPTANCE_STATE_DIRECTORY: /fixtures/state
+    volumes:
+      - acceptance-artifacts:/fixtures/artifacts
+      - acceptance-state:/fixtures/state
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      acceptance-bootstrap:
+        condition: service_completed_successfully
+    networks:
+      - backend
+
+  evidence-worker:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command:
+      - opennosh-evidence-worker
+    environment:
+      APP_ENVIRONMENT: test
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.acceptance.v1.json
+      EVIDENCE_PRIVATE_SOURCE_DIRECTORY: /home/opennosh/acceptance-evidence-private
+      EVIDENCE_IMMUTABLE_DIRECTORY: /home/opennosh/acceptance-evidence-immutable
+      EVIDENCE_VERIFYING_KEYS: "{}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - backend
+
+  web:
+    environment:
+      PUBLIC_ARTIFACT_READS_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${ACCEPTANCE_WEB_PORT:-3100}:3000"
+
+volumes:
+  acceptance-artifacts:
+  acceptance-state:

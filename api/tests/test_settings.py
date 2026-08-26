@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -116,6 +117,8 @@ def test_production_public_artifacts_reject_development_keys_under_any_alias() -
     }
     approved_receipt = '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"}'
 
+    acceptance_manifest = "DA0jKzf9uc8nFvAVYisKb4L8PmPIHwA_eZLnTRtNH1c"
+    acceptance_receipt = "ALKuPFTKPQrs_XfTNdyRlw0W0IHVg_P9dNzVFEw-lq8"
     with pytest.raises(ValidationError, match="approved public artifact verifying keys"):
         Settings(
             **common,
@@ -142,6 +145,39 @@ def test_production_public_artifacts_reject_development_keys_under_any_alias() -
             publication_receipt_verifying_keys=(
                 '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM",'
                 '"alias":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+            ),
+        )
+
+    with pytest.raises(ValidationError, match="approved public artifact verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=f"alias:{acceptance_manifest}",
+            publication_receipt_verifying_keys=approved_receipt,
+        )
+    with pytest.raises(ValidationError, match="approved public artifact verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "acceptance-manifest-v1:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
+            ),
+            publication_receipt_verifying_keys=approved_receipt,
+        )
+    with pytest.raises(ValidationError, match="approved publication receipt verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
+            ),
+            publication_receipt_verifying_keys=json.dumps({"alias": acceptance_receipt}),
+        )
+    with pytest.raises(ValidationError, match="approved publication receipt verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
+            ),
+            publication_receipt_verifying_keys=json.dumps(
+                {"acceptance-receipt-v1": ("MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM")}
             ),
         )
 

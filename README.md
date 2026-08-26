@@ -394,12 +394,31 @@ container. Generate a unique token of at least 32 characters for production. The
 not published, and the Compose API port is bound to loopback, so remote callers cannot forge the
 private proxy headers.
 
-Run the browser journey after installing Chromium once:
+Browser acceptance has two explicitly named lanes. The fast UI-journey lane uses
+contract-valid fixtures to cover broad presentation states. The vertical-acceptance lane starts
+disposable PostgreSQL, FastAPI, Next.js, publication-worker, evidence-worker, and immutable artifact
+services. Its supported test-only coordinator enqueues a real publication job, waits for all ten
+worker steps plus the durable receipt and accepted event, and only then marks the stack ready. The
+worker produces and activates the versioned release; an independent reference client verifies the
+record and provenance digests plus the distinct Ed25519 manifest and receipt signatures without
+intercepting opennosh API traffic.
+
+Install Chromium once, then run the lanes independently:
 
 ```bash
 npx --prefix web playwright install chromium
-npm --prefix web run test:e2e
+make web-e2e-ui
+
+make acceptance-up
+make web-e2e-vertical
+make acceptance-down
 ```
+
+Always stop the acceptance stack when finished. Its Compose project and loopback ports are derived
+from the worktree path, so concurrent worktrees cannot replace or tear down each other’s services.
+You can override `ACCEPTANCE_PROJECT`, `ACCEPTANCE_WEB_PORT`, and `ACCEPTANCE_ARTIFACT_PORT` when
+needed. Only the web and read-only artifact endpoints are published; the database and artifact
+volumes are disposable. CI reports UI-journey and real vertical failures as separate jobs.
 
 ## Nutrient calculations
 
