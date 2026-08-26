@@ -149,6 +149,10 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
         "name": "opennosh-api",
         "property": "hostport",
     }
+    assert web_variables["PUBLIC_ARTIFACT_READS_ENABLED"] == {
+        "key": "PUBLIC_ARTIFACT_READS_ENABLED",
+        "value": "false",
+    }
     assert "healthCheckPath" not in api
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
@@ -259,9 +263,7 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
     create_statements = [
         statement for statement in connection.executed if "CREATE ROLE" in statement
     ]
-    alter_statements = [
-        statement for statement in connection.executed if "ALTER ROLE" in statement
-    ]
+    alter_statements = [statement for statement in connection.executed if "ALTER ROLE" in statement]
     assert len(create_statements) == (0 if existing_roles else 2)
     assert len(alter_statements) == 2
     assert all("SUPERUSER" not in statement for statement in alter_statements)
@@ -270,8 +272,7 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
     assert any("GRANT CREATE ON DATABASE" in statement for statement in connection.executed)
     assert not any("ALTER SCHEMA public OWNER" in statement for statement in connection.executed)
     assert any(
-        "GRANT USAGE, CREATE ON SCHEMA public" in statement
-        for statement in connection.executed
+        "GRANT USAGE, CREATE ON SCHEMA public" in statement for statement in connection.executed
     )
     assert connection.closed is True
 
@@ -365,9 +366,7 @@ def test_render_predeploy_does_not_pass_owner_or_raw_secrets_to_children(
     async def noop(*_arguments: object) -> None:
         return None
 
-    def capture_run(
-        command: list[str], *, check: bool, env: dict[str, str]
-    ) -> None:
+    def capture_run(command: list[str], *, check: bool, env: dict[str, str]) -> None:
         assert check is True
         child_calls.append((command, env.copy()))
 
@@ -457,9 +456,7 @@ def test_render_predeploy_stops_before_grants_when_a_child_fails(
     async def record_grants(migration_url: str) -> None:
         grant_calls.append(migration_url)
 
-    def fail_selected_child(
-        command: list[str], *, check: bool, env: dict[str, str]
-    ) -> None:
+    def fail_selected_child(command: list[str], *, check: bool, env: dict[str, str]) -> None:
         assert check is True
         assert "owner-secret" not in repr(env)
         commands.append(command[0])
@@ -566,10 +563,7 @@ def test_render_commands_are_copied_into_their_production_images() -> None:
 
     assert "COPY deploy/render_runtime.py ./deploy/render_runtime.py" in api_dockerfile
     assert "COPY --chown=nextjs:nodejs deploy/render_web_start.sh" in web_dockerfile
-    assert (
-        "COPY --from=builder --chown=nextjs:nodejs /app/public ./public"
-        in web_dockerfile
-    )
+    assert "COPY --from=builder --chown=nextjs:nodejs /app/public ./public" in web_dockerfile
     assert "\nUSER opennosh\n" in api_dockerfile
     assert "\nUSER nextjs\n" in web_dockerfile
     assert 'export API_URL="http://${API_HOSTPORT}"' in web_start

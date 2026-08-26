@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.52.0.0] - 2026-08-26
+
+### Added
+
+- Add a database-independent public read plane for exact-version food records, provenance documents, signed release manifests, and bounded pack downloads.
+- Verify canonical release envelopes and independent publication receipts before serving content-addressed artifacts.
+- Preserve a durable verified latest checkpoint with explicit stale age, rollback protection, and equivocation detection.
+
+### Changed
+
+- Let public food pages use immutable release URLs behind an explicit dark-launch switch while preserving the current database-backed production path.
+- Document safe object-store provisioning, activation, outage, tamper, rollback, and pinned-download checks.
+
+### Security
+
+- Enforce HTTPS-only read origins, bounded streaming, strict object keys and media types, digest and length verification, no redirects, and fail-closed artifact handling.
+
 ## [0.51.0.0] - 2026-08-26
 
 ### Added

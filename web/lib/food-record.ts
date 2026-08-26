@@ -37,6 +37,8 @@ export type FoodRecordView = {
   provenance: string | null;
   contributor: string | null;
   uncertainty: string;
+  immutableUrl: string | null;
+  provenanceUrl: string | null;
 };
 
 const nutrientNames: Record<string, string> = {
@@ -189,6 +191,46 @@ export function toFoodRecordView(
     contributor: detail.attribution.contributed_by ?? null,
     uncertainty:
       "Nutrition describes this reference preparation and selected portion. Ingredients and preparation can change the values.",
+    immutableUrl: null,
+    provenanceUrl: null,
+  };
+}
+
+export function toPublishedFoodRecordView(
+  detail: FoodDetail,
+  release: {
+    release_version: string;
+    published_at: string;
+    state: "verified" | "stale";
+    stale_age_seconds: number;
+  },
+  urls: { immutable_url: string; provenance_url: string },
+  foodLocalePreference = "global",
+): FoodRecordView {
+  const record = toFoodRecordView(detail, foodLocalePreference);
+  const staleAge =
+    release.stale_age_seconds < 60
+      ? "less than 1m"
+      : release.stale_age_seconds < 3600
+        ? `${Math.ceil(release.stale_age_seconds / 60)}m`
+        : `${Math.ceil(release.stale_age_seconds / 3600)}h`;
+  return {
+    ...record,
+    immutableUrl: urls.immutable_url,
+    provenanceUrl: urls.provenance_url,
+    trust: {
+      ...record.trust,
+      status:
+        release.state === "stale"
+          ? `Verified release · latest alias is ${staleAge} stale`
+          : record.trust.status,
+      explanation:
+        release.state === "stale"
+          ? "The newest alias could not be refreshed, so opennosh is showing the last cryptographically verified release."
+          : record.trust.explanation,
+      version: release.release_version,
+      lastVerified: release.published_at,
+    },
   };
 }
 

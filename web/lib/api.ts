@@ -28,6 +28,7 @@ import {
   foodCapabilities,
   foodDetail,
   foodSearch,
+  publicFoodDetailResponse,
 } from "./api/adapters/foods";
 import { dailyTotals, dailyTotalsRange, logEntries, logEntry } from "./api/adapters/logs";
 import { bodyMetricList, bodyMetricTrend } from "./api/adapters/metrics";
@@ -139,6 +140,19 @@ export const api = {
       `/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
       { signal },
     ).then(foodDetail),
+  publicFoodDetail: (
+    source: "usda" | "community",
+    sourceId: string,
+    foodLocale: string,
+    signal?: AbortSignal,
+    version?: string,
+  ) =>
+    request<unknown>(
+      `/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}${
+        version ? `?${new URLSearchParams({ version })}` : ""
+      }`,
+      { signal },
+    ).then((value) => publicFoodDetailResponse(value, foodLocale)),
   lookupBarcode: (barcode: string) =>
     request<TransportBarcodeFood>(
       `/api/v1/foods/barcode/${encodeURIComponent(barcode)}`,

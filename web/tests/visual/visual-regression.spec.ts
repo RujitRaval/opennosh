@@ -104,7 +104,7 @@ test("public record unavailable and loading boundaries @desktop", async ({ page 
   await settleVisualPage(page);
   await expect(page.locator(".food-record-page")).toHaveScreenshot("public-record-error.png");
 
-  await page.route("**/api/v1/foods/community/unavailable-food", () => new Promise(() => {}));
+  await page.route("**/api/v1/public/foods/community/unavailable-food", () => new Promise(() => {}));
   await page.getByRole("link", { name: "Try again" }).click();
   await expect(page.locator(".record-skeleton")).toBeVisible();
   await expect(page.locator(".food-record-page")).toHaveScreenshot("public-record-loading.png");

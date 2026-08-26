@@ -6,6 +6,7 @@ import type {
   FoodSearchItem as TransportSearchItem,
   FoodSearchResponse as TransportSearchResponse,
   OpenFoodFactsFood as TransportBarcodeFood,
+  PublicFoodRecordResponse as TransportPublicFood,
 } from "@/lib/generated/client/types.gen";
 import type {
   BarcodeFood,
@@ -17,6 +18,7 @@ import type {
   FoodSearchResponse,
   HouseholdPortion,
 } from "@/lib/types";
+import { toPublishedFoodRecordView, type FoodRecordView } from "@/lib/food-record";
 
 type LegacySearchResponse = Omit<
   TransportSearchResponse,
@@ -104,6 +106,40 @@ export function foodDetail(value: TransportDetail): FoodDetail {
 
 export function foodDetailResponse(value: unknown): FoodDetail {
   return foodDetail(value as TransportDetail);
+}
+
+export function publicFoodDetailResponse(
+  value: unknown,
+  foodLocale = "global",
+): FoodRecordView {
+  const envelope = value as Partial<TransportPublicFood>;
+  if (
+    envelope.schema_version !== "1.0" ||
+    !envelope.record ||
+    !envelope.release ||
+    typeof envelope.release.release_version !== "string" ||
+    typeof envelope.release.published_at !== "string" ||
+    !["verified", "stale"].includes(envelope.release.state ?? "") ||
+    typeof envelope.release.stale_age_seconds !== "number" ||
+    typeof envelope.immutable_url !== "string" ||
+    typeof envelope.provenance_url !== "string"
+  ) {
+    throw new Error("Malformed public food artifact contract");
+  }
+  return toPublishedFoodRecordView(
+    foodDetail(envelope.record),
+    {
+      release_version: envelope.release.release_version,
+      published_at: envelope.release.published_at,
+      state: envelope.release.state as "verified" | "stale",
+      stale_age_seconds: envelope.release.stale_age_seconds,
+    },
+    {
+      immutable_url: envelope.immutable_url,
+      provenance_url: envelope.provenance_url,
+    },
+    foodLocale,
+  );
 }
 
 export function foodCapabilities(value: TransportCapabilities): FoodCapabilities {

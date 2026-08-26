@@ -207,7 +207,9 @@ export function FoodRecord({
         </div>
 
         <nav className="record-actions" data-record-order="5-actions" aria-label={copy.actions}>
-          <a href="#provenance">{copy.provenanceAction} <span aria-hidden="true">↓</span></a>
+          <a href={record.provenanceUrl ?? "#provenance"}>
+            {copy.provenanceAction} <span aria-hidden="true">{record.provenanceUrl ? "↗" : "↓"}</span>
+          </a>
           <a href="#variants">
             {visibleRecords.length > 1 ? copy.compareVariants : copy.relatedAction} <span aria-hidden="true">↓</span>
           </a>
@@ -271,7 +273,7 @@ export function FoodRecord({
         <p className="mono">{copy.reuse}</p>
         <h2 id="reuse-title">{copy.reuseTitle}</h2>
         <p>{formatMessage(copy.reuseBody, { license: record.license })}</p>
-        <a href={`/api/v1/foods/${record.source}/${encodeURIComponent(record.sourceId)}`}>{copy.apiResponse} <span aria-hidden="true">↗</span></a>
+        <a href={record.immutableUrl ?? `/api/v1/foods/${record.source}/${encodeURIComponent(record.sourceId)}`}>{copy.apiResponse} <span aria-hidden="true">↗</span></a>
       </section>
     </>
   );

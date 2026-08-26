@@ -2,6 +2,19 @@ import { expect, test } from "@playwright/test";
 
 import detail from "../fixtures/contracts/foods/v1-detail-community.json";
 
+const publicDetail = {
+  schema_version: "1.0",
+  record: detail,
+  release: {
+    release_version: "0.52.0.0",
+    published_at: "2026-08-25T12:00:00Z",
+    state: "verified",
+    stale_age_seconds: 0,
+  },
+  immutable_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala",
+  provenance_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala/provenance",
+};
+
 test("global, malformed, and repeated locale preferences remain honest", async ({ page }) => {
   await page.goto("/en/explore/foods/community/rajma-masala");
   await expect(page.getByText("Global / no preference")).toBeVisible();
@@ -28,8 +41,8 @@ test("the page does not infer same-food variants from fuzzy search", async ({ pa
 });
 
 test("a server-side primary-record failure exposes retry and recovers cleanly", async ({ page }) => {
-  await page.route("**/api/v1/foods/community/unavailable-food", (route) =>
-    route.fulfill({ status: 200, json: detail }),
+  await page.route("**/api/v1/public/foods/community/unavailable-food", (route) =>
+    route.fulfill({ status: 200, json: publicDetail }),
   );
 
   await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
@@ -39,7 +52,7 @@ test("a server-side primary-record failure exposes retry and recovers cleanly", 
 });
 
 test("a stalled browser retry times out and remains safely retryable", async ({ page }) => {
-  await page.route("**/api/v1/foods/community/unavailable-food", () => new Promise(() => {}));
+  await page.route("**/api/v1/public/foods/community/unavailable-food", () => new Promise(() => {}));
 
   await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
   await page.getByRole("link", { name: "Try again" }).click();
