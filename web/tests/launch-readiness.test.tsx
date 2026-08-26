@@ -6,7 +6,10 @@ import { DailyLogApp } from "@/components/log/daily-log-app";
 import { AccountApp } from "@/components/tracker/account-app";
 import { localCalendarDate, OnboardingPanel } from "@/components/tracker/onboarding-panel";
 import { RecordsApp } from "@/components/tracker/records-app";
+import { RecoveryCodeGate } from "@/components/tracker/recovery-code-gate";
+import { RecoverySetupGate } from "@/components/tracker/recovery-setup-gate";
 import { TrendsApp } from "@/components/trends/trends-app";
+import { sessionState as adaptSessionState } from "@/lib/api/adapters/auth";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -391,6 +394,35 @@ describe("T31 launch readiness", () => {
     fireEvent.change(within(danger).getByLabelText("Confirm password"), { target: { value: "current-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete my account and data" }));
     expect(await screen.findByText("Deletion is resting.")).toHaveAttribute("role", "alert");
+  });
+
+  it("adapts legacy session payloads with safe recovery rollout defaults", () => {
+    expect(adaptSessionState({ id: user.id, email: user.email } as never)).toEqual({
+      authenticated: true,
+      user: expect.objectContaining({ recovery_configured: true }),
+    });
+  });
+
+  it("acknowledges rotated codes and recovers from gate sign-out failures", async () => {
+    const onSaved = vi.fn();
+    const onLogout = vi.fn().mockRejectedValue(new Error("Sign out is resting."));
+    render(<RecoveryCodeGate recoveryCode="one-time-rotated-code" onSaved={onSaved} onLogout={onLogout} />);
+    fireEvent.click(screen.getByLabelText("I saved this code somewhere private."));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to my tracker" }));
+    expect(onSaved).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign out is resting.");
+  });
+
+  it("recovers from recovery-bootstrap generation and sign-out failures", async () => {
+    mocks.rotateRecoveryCode.mockRejectedValueOnce(new Error("Code creation is resting."));
+    const onLogout = vi.fn().mockRejectedValue(new Error("Bootstrap sign out is resting."));
+    render(<RecoverySetupGate onGenerated={vi.fn()} onLogout={onLogout} />);
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "current-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create recovery code" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Code creation is resting.");
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Bootstrap sign out is resting.");
   });
 
 });
