@@ -19,7 +19,7 @@ test("public root redirects into the localized movement site", async ({ page }) 
 });
 
 test("desktop trunk identifies the current hub, page, and next action", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name === "mobile", "Desktop trunk is exercised in a desktop project.");
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop trunk is exercised in a desktop project.");
   await page.goto("/en/explore?food_locale=fr-FR");
 
   const primary = page.getByRole("navigation", { name: "Primary navigation" });
@@ -58,7 +58,7 @@ test("deep public pages expose their full breadcrumb and owning hub", async ({ p
     "page",
   );
 
-  if (testInfo.project.name === "mobile") {
+  if (testInfo.project.name.includes("mobile")) {
     await page.getByRole("button", { name: "Menu" }).click();
     await expect(
       page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Build" }),
@@ -80,7 +80,7 @@ test("unsupported interface languages fail visibly", async ({ page }) => {
 });
 
 test("mobile menu exposes task hubs and utilities with deterministic focus", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "mobile", "Mobile navigation is exercised in the mobile project.");
+  test.skip(!testInfo.project.name.includes("mobile"), "Mobile navigation is exercised in the mobile project.");
   await page.goto("/en/commons");
   const menu = page.getByRole("button", { name: "Menu" });
   await menu.click();

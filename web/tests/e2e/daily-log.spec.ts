@@ -1,6 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import type {
+  FoodSearchContract,
+  FoodSearchItemContract,
+} from "../../lib/api/adapters/foods";
+
 const food = {
   id: "usda:171077",
   source: "usda",
@@ -8,8 +13,20 @@ const food = {
   name: "Chicken breast",
   name_local: null,
   category: "Poultry",
-  attribution: { license: "CC0-1.0", contributed_by: null },
-};
+  attribution: { source: "usda", license: "CC0-1.0", contributed_by: null },
+} satisfies FoodSearchItemContract;
+
+function foodSearch(items: FoodSearchItemContract[]): FoodSearchContract {
+  return {
+    schema_version: "2.0",
+    items,
+    limit: 12,
+    next_cursor: null,
+    snapshot_id: "00000000-0000-4000-8000-000000000001",
+    snapshot_expires_at: "2026-08-20T16:15:00Z",
+    has_more: false,
+  };
+}
 
 const entry = {
   id: "3fd6633d-c6fa-446d-a0e2-89fc3ef69b9d",
@@ -57,7 +74,7 @@ async function mockApi(page: Page) {
       });
     }
     if (path === "/api/v1/foods/search") {
-      return route.fulfill({ json: { items: [food], limit: 12, offset: 0, has_more: false } });
+      return route.fulfill({ json: foodSearch([food]) });
     }
     if (path === "/api/v1/logs" && request.method() === "POST") {
       expect(request.headers()["x-csrf-token"]).toBe("journey-csrf");
@@ -190,12 +207,10 @@ test("ranked search, barcode recovery, and private custom food entry", async ({ 
     if (path === "/api/v1/foods/search") {
       expect(url.searchParams.get("source")).toBe("usda");
       return route.fulfill({
-        json: {
-          items: [food, { ...food, id: "usda:2", source_id: "2", name: "Chicken spread" }],
-          limit: 12,
-          offset: 0,
-          has_more: false,
-        },
+        json: foodSearch([
+          food,
+          { ...food, id: "usda:2", source_id: "2", name: "Chicken spread" },
+        ]),
       });
     }
     if (path === "/api/v1/foods/barcode/3017620422003") {

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "manifest_version": "2026-08-26",
+  "deployment_id": "browser-acceptance",
+  "postgresql_connection_ceiling": 103,
+  "reserved_headroom": {
+    "migrations": 2,
+    "administration": 3,
+    "monitoring": 3,
+    "recovery": 6,
+    "failover": 6
+  },
+  "roles": {
+    "web": {
+      "replicas": 1,
+      "pool_size": 12,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 5000,
+      "worker_concurrency": 32,
+      "max_in_flight_database_sections": 12
+    },
+    "publication": {
+      "replicas": 1,
+      "pool_size": 6,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 10000,
+      "worker_concurrency": 6,
+      "max_in_flight_database_sections": 5
+    },
+    "evidence": {
+      "replicas": 1,
+      "pool_size": 4,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 10000,
+      "worker_concurrency": 4,
+      "max_in_flight_database_sections": 4
+    },
+    "projection": {
+      "replicas": 0,
+      "pool_size": 6,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 15000,
+      "worker_concurrency": 6,
+      "max_in_flight_database_sections": 6
+    },
+    "reconciler": {
+      "replicas": 0,
+      "pool_size": 4,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 10000,
+      "worker_concurrency": 4,
+      "max_in_flight_database_sections": 4
+    },
+    "scheduler": {
+      "replicas": 0,
+      "pool_size": 2,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 1000,
+      "statement_timeout_ms": 5000,
+      "worker_concurrency": 2,
+      "max_in_flight_database_sections": 2
+    }
+  },
+  "jobs": {
+    "migration": {
+      "pool_size": 1,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 5000,
+      "statement_timeout_ms": 120000,
+      "max_in_flight_database_sections": 1
+    },
+    "administration": {
+      "pool_size": 2,
+      "max_overflow": 0,
+      "acquisition_timeout_ms": 5000,
+      "statement_timeout_ms": 120000,
+      "max_in_flight_database_sections": 2
+    }
+  }
+}

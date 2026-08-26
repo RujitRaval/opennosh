@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import signal
 from datetime import timedelta
 from typing import Any
@@ -30,6 +31,7 @@ PUBLICATION_DRAIN_TIMEOUT_SECONDS = 30.0
 PGQUEUER_HEARTBEAT_TIMEOUT_SECONDS = 30.0
 PUBLICATION_FAILURE_RETRY_DELAY = timedelta(seconds=65)
 PUBLICATION_MAX_UNEXPECTED_ATTEMPTS = 5
+logger = logging.getLogger(__name__)
 
 
 def asyncpg_dsn(database_url: str) -> str:
@@ -108,6 +110,10 @@ async def process_publication_wakeup(
             reason="publication recovery after worker cancellation",
         ) from error
     except Exception as error:
+        logger.exception(
+            "Publication wake-up failed unexpectedly",
+            extra={"queue_job_id": int(job.id), "attempts": int(job.attempts)},
+        )
         if int(job.attempts) >= PUBLICATION_MAX_UNEXPECTED_ATTEMPTS:
             raise
         raise RetryRequested(
@@ -164,8 +170,10 @@ async def create_publication_role_driver(
     )
 
 
-async def _run_publication_worker() -> None:
-    driver = await create_publication_role_driver()
+async def _run_publication_worker(
+    adapters: PublicationAdapterRegistry | None = None,
+) -> None:
+    driver = await create_publication_role_driver(adapters=adapters)
     shutdown_requested = asyncio.Event()
     loop = asyncio.get_running_loop()
     for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
@@ -177,6 +185,8 @@ async def _run_publication_worker() -> None:
     )
 
 
-def run_publication_worker() -> int:
-    asyncio.run(_run_publication_worker())
+def run_publication_worker(
+    adapters: PublicationAdapterRegistry | None = None,
+) -> int:
+    asyncio.run(_run_publication_worker(adapters))
     return 0

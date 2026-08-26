@@ -42,6 +42,8 @@ opennosh-projection-worker = "opennosh_api.entrypoints.projection:main"
 opennosh-reconciler = "opennosh_api.entrypoints.reconciler:main"
 opennosh-scheduler = "opennosh_api.entrypoints.scheduler:main"
 opennosh-migrate = "opennosh_api.entrypoints.migration:main"
+opennosh-acceptance-fixture = "opennosh_api.acceptance.entrypoint:main"
+opennosh-acceptance-publication-worker = "opennosh_api.acceptance.publication_worker:main"
 
 [project.urls]
 Homepage = "https://opennosh.org"

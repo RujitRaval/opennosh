@@ -1,4 +1,11 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check forge-policy-check design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check forge-policy-check design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e web-e2e-ui web-e2e-vertical acceptance-config acceptance-up acceptance-down acceptance-ps acceptance-logs acceptance-copy-fixture build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+
+ACCEPTANCE_PATH_HASH ?= $(shell pwd | cksum | cut -d " " -f 1)
+ACCEPTANCE_PROJECT ?= opennosh-acceptance-$(ACCEPTANCE_PATH_HASH)
+ACCEPTANCE_PORT_OFFSET ?= $(shell expr $(ACCEPTANCE_PATH_HASH) % 1000)
+ACCEPTANCE_WEB_PORT ?= $(shell expr 3100 + $(ACCEPTANCE_PORT_OFFSET))
+ACCEPTANCE_ARTIFACT_PORT ?= $(shell expr 4100 + $(ACCEPTANCE_PORT_OFFSET))
+ACCEPTANCE_COMPOSE = ACCEPTANCE_WEB_PORT=$(ACCEPTANCE_WEB_PORT) ACCEPTANCE_ARTIFACT_PORT=$(ACCEPTANCE_ARTIFACT_PORT) docker compose --project-name $(ACCEPTANCE_PROJECT) -f compose.yaml -f compose.acceptance.yaml
 
 install:
 	uv sync --frozen
@@ -74,7 +81,32 @@ visual-regression-check:
 	npm --prefix web run test:visual
 
 web-e2e:
-	npm --prefix web run test:e2e
+	npm --prefix web run test:e2e:ui
+
+web-e2e-ui:
+	npm --prefix web run test:e2e:ui
+
+web-e2e-vertical:
+	npm --prefix web run check:acceptance-boundaries
+	VERTICAL_BASE_URL=http://127.0.0.1:$(ACCEPTANCE_WEB_PORT) VERTICAL_ARTIFACT_ORIGIN_URL=http://127.0.0.1:$(ACCEPTANCE_ARTIFACT_PORT) npm --prefix web run test:e2e:vertical
+
+acceptance-config:
+	$(ACCEPTANCE_COMPOSE) config --quiet
+
+acceptance-up:
+	$(ACCEPTANCE_COMPOSE) up --build --wait db acceptance-bootstrap publication-worker evidence-worker acceptance-fixture artifact-origin api web
+
+acceptance-down:
+	$(ACCEPTANCE_COMPOSE) down --volumes --remove-orphans
+
+acceptance-ps:
+	$(ACCEPTANCE_COMPOSE) ps --all --no-trunc
+
+acceptance-logs:
+	$(ACCEPTANCE_COMPOSE) logs --no-color
+
+acceptance-copy-fixture:
+	$(ACCEPTANCE_COMPOSE) cp api:/app/public-artifact-state/fixture.json web/test-results/vertical-acceptance/fixture.json
 
 build:
 	npm --prefix web run build
