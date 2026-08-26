@@ -726,6 +726,13 @@ were omitted.
 
 ---
 
+## Trust and release gates
+
+`make trust-gates-check` reports the exact pull-request, release, and scheduled inventory: covered
+publication transitions, rescue outcomes, security-policy branches, user roles, runtime budgets,
+evidence retention, and active exceptions. Primary visual and real-vertical failures stay failed;
+diagnostic reruns only collect evidence. See [Testing](docs/testing.md#risk-tiered-trust-gates).
+
 ## Product documents
 
 | File | Purpose | Who reads it |

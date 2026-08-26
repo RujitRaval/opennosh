@@ -13,7 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  confidence:
+    name: required release confidence
+    uses: ./.github/workflows/release-confidence.yml
+
   validate:
+    needs: confidence
     name: validate release packages
     runs-on: ubuntu-latest
     timeout-minutes: 10

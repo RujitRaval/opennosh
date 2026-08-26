@@ -2110,10 +2110,11 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Verify: broad mocked UI-state suite plus one non-intercepted browser-to-receipt-to-reference-client trust path.
   - Landed in v0.53.0.0 with explicitly named UI-journey and vertical-acceptance Playwright projects, a supported coordinator that enqueues and verifies a real ten-step publication workflow, an isolated PostgreSQL/FastAPI/Next.js stack with real queue workers and a read-only artifact origin, a recursive interception boundary guard, and independent cryptographic reference-client verification of the immutable record, provenance, signed manifest, and signed receipt.
 
-- [ ] **T13 (P1, human: ~3-5 days / Codex: ~1-2 days)** - CI/release - Enforce risk-tiered trust gates without pass-on-retry.
+- [x] **T13 (P1, human: ~3-5 days / Codex: ~1-2 days)** - CI/release - Enforce risk-tiered trust gates without pass-on-retry.
   - Surfaced by: Test D14 - required CI lacks trust coverage gates and can turn a retried flaky browser test green.
   - Files: quality/release workflows, coverage configuration, test classifiers, staging drill automation.
   - Verify: pull-request, release, and scheduled gates report exact missing transitions/roles; diagnostic rerun never changes a trust failure.
+  - Landed in v0.54.0.0 with a versioned three-tier gate inventory, exact transition/rescue/policy/role drift reporting, changed-line and repository coverage floors, non-quarantinable trust/security checks, hard first-attempt browser verdicts with separate diagnostics, release confidence before publishing, and weekly real integration, recovery, load, and vertical drills.
 
 - [x] **T14 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Search - Implement signed snapshot-bound keyset cursors.
   - Surfaced by: Performance D15 - numeric offsets are slow and inconsistent across release changes.

@@ -1,0 +1,184 @@
+name: scheduled trust drills
+
+on:
+  schedule:
+    - cron: "17 5 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENNOSH_REQUIRED_ROLES: visitor,contributor,steward,tracker,maintainer,developer
+
+concurrency:
+  group: scheduled-trust-drills
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: scheduled gate inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Report exact transitions roles drills and exceptions
+        run: PYTHONPATH=api:. uv run python scripts/check_trust_gates.py validate
+
+  trust-matrix:
+    name: scheduled trust and integration matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      INTEGRATION_DATABASE_URL: postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: opennosh_test
+          POSTGRES_USER: opennosh
+          POSTGRES_PASSWORD: opennosh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opennosh -d opennosh_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Run forge artifact signer and recovery integrations
+        run: |
+          mkdir -p test-results
+          PYTHONPATH=api:. uv run pytest \
+            api/tests/publication/forge \
+            api/tests/public/test_artifact_read_plane.py \
+            api/tests/publication/test_receipts.py \
+            api/tests/publication/test_reconciliation_integration.py \
+            api/tests/workflow_testkit \
+            --junitxml=test-results/scheduled-trust-matrix.xml
+      - name: Upload scheduled trust evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scheduled-trust-matrix
+          path: test-results/scheduled-trust-matrix.xml
+          if-no-files-found: error
+          retention-days: 30
+
+  recovery-load:
+    name: scheduled recovery and representative load
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      INTEGRATION_DATABASE_URL: postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: opennosh_test
+          POSTGRES_USER: opennosh
+          POSTGRES_PASSWORD: opennosh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opennosh -d opennosh_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Validate recovery rollback and representative load
+        run: |
+          mkdir -p test-results
+          PYTHONPATH=api:. uv run pytest \
+            tests/test_render_deployment.py \
+            api/tests/test_migrations.py \
+            api/tests/foods/test_search_integration.py::test_representative_search_meets_the_explain_plan_budget \
+            api/tests/test_database_capacity_integration.py::test_mixed_load_stays_inside_pool_and_recovers_after_saturation \
+            --junitxml=test-results/scheduled-recovery-load.xml
+      - name: Upload scheduled load evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scheduled-load-evidence
+          path: test-results/scheduled-recovery-load.xml
+          if-no-files-found: ignore
+          retention-days: 30
+
+  vertical:
+    name: scheduled real vertical drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked web dependencies
+        run: npm --prefix web ci
+      - name: Install Playwright Chromium
+        run: npx --prefix web playwright install --with-deps chromium
+      - name: Validate real integration stack
+        run: make acceptance-config
+      - name: Start real integration stack
+        run: make acceptance-up
+      - name: Run real browser to signed receipt drill
+        run: make web-e2e-vertical
+      - name: Capture scheduled vertical diagnostics
+        if: failure()
+        run: |
+          mkdir -p web/test-results/scheduled-vertical
+          make acceptance-ps > web/test-results/scheduled-vertical/compose-ps.txt || true
+          make acceptance-logs > web/test-results/scheduled-vertical/compose.log 2>&1 || true
+          make acceptance-copy-fixture || true
+      - name: Upload scheduled vertical evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scheduled-vertical-evidence
+          path: |
+            web/test-results
+            web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Stop real integration stack
+        if: always()
+        run: make acceptance-down
