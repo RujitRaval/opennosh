@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.55.0.0] - 2026-08-26
+
+### Added
+
+- Complete the private Tracker account lifecycle with registration, resumable setup, one-time self-custodied recovery, password changes, recovery-code rotation, unit preferences, and account deletion.
+- Add private body measurement records, an attributed strength-entry surface held behind an explicit production catalogue gate, and responsive Account and Records routes.
+- Serve database-backed starter food search from four source-visible packs and load the bounded catalogue idempotently during production predeploy.
+- Refresh the README launch walkthrough and add desktop/mobile visual coverage for onboarding, account, and records.
+
+### Changed
+
+- Preserve existing nutrition targets when guided setup is skipped and activate new targets on the browser-local calendar date.
+- Require every registration and recovery entry route to acknowledge its one-time recovery code before normal Tracker use.
+- Keep unavailable signed Commons data and the not-yet-loaded exercise catalogue visibly distinct from live starter records.
+
+### Security
+
+- Serialize recovery-code consumption so concurrent requests cannot reuse one credential, bootstrap recovery for legacy accounts, revoke superseded sessions, and mark plaintext recovery responses as non-cacheable.
+- Keep all new Tracker lifecycle mutations CSRF-protected and require password confirmation for security-sensitive changes and permanent deletion.
+
 ## [0.54.0.0] - 2026-08-26
 
 ### Added
