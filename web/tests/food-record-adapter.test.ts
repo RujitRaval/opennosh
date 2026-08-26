@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { foodDetail, foodDetailResponse } from "@/lib/api/adapters/foods";
+import {
+  foodDetail,
+  foodDetailResponse,
+  publicFoodDetailResponse,
+} from "@/lib/api/adapters/foods";
 import {
   foodRecordsConflict,
   formatPortionMass,
@@ -17,6 +21,50 @@ describe("public food record adapter", () => {
       source: "community",
       source_id: "rajma-masala",
     });
+  });
+
+  it("binds public records to immutable release and provenance URLs", () => {
+    const record = publicFoodDetailResponse(
+      {
+        schema_version: "1.0",
+        record: detailFixture,
+        release: {
+          release_version: "0.52.0.0",
+          published_at: "2026-08-25T12:00:00Z",
+          state: "verified",
+          stale_age_seconds: 0,
+        },
+        immutable_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala",
+        provenance_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala/provenance",
+      },
+      "hi-IN",
+    );
+
+    expect(record.trust).toMatchObject({
+      status: "Published with provenance",
+      version: "2.4.0",
+      lastVerified: null,
+    });
+    expect(record.immutableUrl).toContain("/releases/0.52.0.0/");
+    expect(record.provenanceUrl?.endsWith("/provenance")).toBe(true);
+  });
+
+  it("makes a stale latest alias explicit without weakening its verified bytes", () => {
+    const record = publicFoodDetailResponse({
+      schema_version: "1.0",
+      record: detailFixture,
+      release: {
+        release_version: "0.52.0.0",
+        published_at: "2026-08-25T12:00:00Z",
+        state: "stale",
+        stale_age_seconds: 7200,
+      },
+      immutable_url: "/immutable-record",
+      provenance_url: "/immutable-provenance",
+    });
+
+    expect(record.trust.status).toContain("latest alias is 2h stale");
+    expect(record.trust.explanation).toContain("last cryptographically verified release");
   });
 
   it("keeps identity, trust, source, version, license, portions, and locale preference explicit", () => {

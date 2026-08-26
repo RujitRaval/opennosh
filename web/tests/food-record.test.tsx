@@ -53,6 +53,19 @@ describe("FoodRecord", () => {
       "4-reuse",
     ]);
     expect(screen.getByRole("heading", { name: "What this release can prove" })).toBeVisible();
+    expect(screen.getByRole("link", { name: /View API response/ })).toHaveAttribute(
+      "href",
+      "/api/v1/foods/community/rajma-masala",
+    );
+  });
+
+  it("prefers an immutable API URL when a signed release supplies one", () => {
+    render(<FoodRecord record={{ ...record(), immutableUrl: "/immutable-record" }} />);
+
+    expect(screen.getByRole("link", { name: /View API response/ })).toHaveAttribute(
+      "href",
+      "/immutable-record",
+    );
   });
 
   it("changes portions and US mass display while keeping canonical grams visible", () => {

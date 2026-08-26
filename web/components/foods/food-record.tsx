@@ -271,7 +271,7 @@ export function FoodRecord({
         <p className="mono">{copy.reuse}</p>
         <h2 id="reuse-title">{copy.reuseTitle}</h2>
         <p>{formatMessage(copy.reuseBody, { license: record.license })}</p>
-        <a href={`/api/v1/foods/${record.source}/${encodeURIComponent(record.sourceId)}`}>{copy.apiResponse} <span aria-hidden="true">↗</span></a>
+        <a href={record.immutableUrl ?? `/api/v1/foods/${record.source}/${encodeURIComponent(record.sourceId)}`}>{copy.apiResponse} <span aria-hidden="true">↗</span></a>
       </section>
     </>
   );

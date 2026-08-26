@@ -141,6 +141,39 @@ describe("browser API client", () => {
     expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
 
+  it("uses the artifact-backed public endpoint and preserves a pinned version", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(Response.json({
+      schema_version: "1.0",
+      record: foodDetailFixture,
+      release: {
+        release_version: "0.52.0.0",
+        published_at: "2026-08-25T12:00:00Z",
+        state: "verified",
+        stale_age_seconds: 0,
+      },
+      immutable_url: "/immutable-record",
+      provenance_url: "/immutable-provenance",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    const record = await api.publicFoodDetail(
+      "community",
+      "rajma-masala",
+      "hi-IN",
+      controller.signal,
+      "0.52.0.0",
+    );
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "/api/v1/public/foods/community/rajma-masala?version=0.52.0.0",
+    );
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    expect(record.foodLocalePreference).toBe("hi-IN");
+    expect(record.immutableUrl).toBe("/immutable-record");
+  });
+
   it("prefers the production CSRF cookie and accepts empty success responses", async () => {
     document.cookie = "opennosh_csrf=development-token; Path=/";
     document.cookie = "__Host-opennosh-csrf=production-token; Secure; Path=/";

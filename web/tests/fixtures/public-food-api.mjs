@@ -5,6 +5,18 @@ const port = Number(process.argv[2] ?? "8001");
 const fixture = JSON.parse(
   await readFile(new URL("./contracts/foods/v1-detail-community.json", import.meta.url), "utf8"),
 );
+const publicFoodFixture = {
+  schema_version: "1.0",
+  record: fixture,
+  release: {
+    release_version: "0.52.0.0",
+    published_at: "2026-08-25T12:00:00Z",
+    state: "verified",
+    stale_age_seconds: 0,
+  },
+  immutable_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala",
+  provenance_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala/provenance",
+};
 const commonsFixtures = JSON.parse(
   await readFile(new URL("./contracts/public/commons-states.json", import.meta.url), "utf8"),
 );
@@ -33,16 +45,27 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify(commonsFixtures[commonsState]));
     return;
   }
-  if (url.pathname === "/api/v1/foods/community/rajma-masala") {
-    response.end(JSON.stringify(fixture));
+  if ([
+    "/api/v1/foods/community/rajma-masala",
+    "/api/v1/public/foods/community/rajma-masala",
+  ].includes(url.pathname)) {
+    response.end(JSON.stringify(
+      url.pathname.startsWith("/api/v1/public/") ? publicFoodFixture : fixture,
+    ));
     return;
   }
-  if (url.pathname === "/api/v1/foods/community/missing-food") {
+  if ([
+    "/api/v1/foods/community/missing-food",
+    "/api/v1/public/foods/community/missing-food",
+  ].includes(url.pathname)) {
     response.statusCode = 404;
     response.end(JSON.stringify({ detail: "Food not found" }));
     return;
   }
-  if (url.pathname === "/api/v1/foods/community/unavailable-food") {
+  if ([
+    "/api/v1/foods/community/unavailable-food",
+    "/api/v1/public/foods/community/unavailable-food",
+  ].includes(url.pathname)) {
     response.statusCode = 503;
     response.end(JSON.stringify({ detail: "Temporarily unavailable" }));
     return;

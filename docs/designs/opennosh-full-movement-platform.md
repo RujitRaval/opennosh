@@ -2048,7 +2048,7 @@ Launch T6, T7, and T8 in three parallel worktrees. Land Lane A through T29 befor
 
 Synthesized from the engineering and design plan reviews. Each task derives from a specific accepted decision above. Run with Codex; check off as each first-loop increment ships.
 
-- [ ] **T1 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Public reads - Build the immutable artifact-backed read plane.
+- [x] **T1 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Public reads - Build the immutable artifact-backed read plane.
   - Surfaced by: Architecture D2 - PostgreSQL-backed public reads would fail during the documented write-store outage.
   - Files: `api/opennosh_api/publication`, `api/opennosh_api/public`, `web/app/foods`, object-storage/CDN manifests.
   - Verify: exact-version food, provenance, API payload, manifest, and pack download remain verified with PostgreSQL unavailable.

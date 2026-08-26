@@ -126,6 +126,36 @@ invalidates the `public-commons` cache tag. The callback uses a dedicated scoped
 `PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS` destination allowlist. The five-minute TTL remains the
 bounded fallback when that callback is temporarily unavailable.
 
+## Immutable public artifact contract
+
+`GET /api/v1/public/foods/{source}/{source_id}` resolves `latest/v1.json`; an optional `version`
+query pins one release. Exact immutable routes live under `/api/v1/public/releases/{release}` for
+food JSON, provenance HTML, the signed manifest envelope, and pack downloads. Food responses use
+the schema-version-`1.0` `PublicFoodRecordResponse`, keeping the validated `FoodDetail` beside the
+resolved release version, publication time, `verified` or `stale` state, stale age, and exact
+immutable URLs.
+
+The latest pointer and release manifest are canonical schema-version-`1` Ed25519 envelopes verified
+by `PUBLIC_COMMONS_VERIFYING_KEYS`. The pointer is capped at 16 KiB, expires after no more than 24
+hours, and binds the exact manifest key, size, media type, and SHA-256 digest. The manifest is capped
+at 8 MiB and lists sorted, unique food and pack identities. Every record, provenance, and pack object
+key contains its content digest; reads verify both the declared byte length and digest before any
+bytes are returned.
+
+Each manifest names one canonical signed publication receipt. The receipt is independently verified
+with `PUBLICATION_RECEIPT_VERIFYING_KEYS`; its release version and publication time must match, and
+its signed-release plus copied-artifact proofs must bind the exact manifest digest. Immutable objects
+are written before the receipt and manifest, and `latest/v1.json` moves last. A lower version or a
+different manifest for an already trusted version cannot replace the durable checkpoint. If latest
+is missing, corrupt, expired, rolled back, or equivocated, only the checkpointed verified release
+may be served, with its stale age and Warning 110. There is no fallback to unverified bytes.
+
+Record JSON is capped at 512 KiB, provenance at 2 MiB, receipts at 256 KiB, and pack downloads at 512
+MiB. Provenance responses use a restrictive content-security policy; the HTTPS origin adapter does
+not follow redirects and bounds streamed bytes even when `Content-Length` is missing. These routes
+do not acquire a PostgreSQL session. Search, accounts, drafts, review, and contribution remain on
+the dynamic database-backed APIs and report their own degraded states.
+
 ## Contribution draft contract
 
 The authenticated contribution write model lives under `/api/v1/contribution-drafts`. Create,

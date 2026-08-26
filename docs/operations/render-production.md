@@ -30,10 +30,38 @@ wrapper derives the bounded web-role URL and removes the owner URL, migration pa
 generated secrets from the application process environment. The API service is private; browsers
 reach it only through the authenticated Next.js proxy.
 
-The initial hosted release intentionally leaves the signed Commons artifact paths unset. Public
-snapshot consumers therefore use their explicit unavailable/quiet states until an offline-signed
-release and durable artifact store are provisioned. Never enable a filesystem path with the
-development verification key.
+The initial hosted release intentionally leaves the signed Commons artifact paths and T1 public
+artifact origin unset. Public snapshot consumers therefore use their explicit unavailable/quiet
+states, while food pages stay on the PostgreSQL read path until an offline-signed release and
+durable HTTPS artifact origin are provisioned. `PUBLIC_ARTIFACT_READS_ENABLED=false` is the explicit
+web dark-launch default. Never enable a filesystem path or a development verification key in
+production.
+
+### T1 artifact read-plane activation
+
+Provision an independently durable object-store/CDN origin before enabling the web switch. Upload
+content-addressed record JSON, provenance HTML, and pack bytes first; then the signed release
+manifest and signed publication receipt; replace `latest/v1.json` last. Configure the private API
+with `PUBLIC_ARTIFACT_BASE_URL`, a durable writable `PUBLIC_ARTIFACT_CHECKPOINT_PATH`, approved
+`PUBLIC_COMMONS_VERIFYING_KEYS`, and approved `PUBLICATION_RECEIPT_VERIFYING_KEYS`. The API process
+receives public verification keys only.
+
+Verify the latest and one pinned release while PostgreSQL access is paused:
+
+```text
+GET /api/v1/public/foods/community/{source_id}
+GET /api/v1/public/releases/{release}/foods/community/{source_id}
+GET /api/v1/public/releases/{release}/foods/community/{source_id}/provenance
+GET /api/v1/public/releases/{release}/manifest
+GET /api/v1/public/releases/{release}/packs/{pack_id}/{pack_version}/download
+```
+
+Each exact-version response must be `200`, immutable, and carry the expected release header. Tamper
+with a disposable object in staging and confirm the read fails closed. Make the latest pointer
+unavailable and confirm only the checkpointed verified release is returned with
+`X-OpenNosh-Release-State: stale`, `X-OpenNosh-Stale-Age`, and HTTP Warning 110. Only then set
+`PUBLIC_ARTIFACT_READS_ENABLED=true` on `opennosh-web`. Roll back by setting that flag to `false`;
+do not delete or rewrite immutable artifacts.
 
 ## Pre-cutover verification
 

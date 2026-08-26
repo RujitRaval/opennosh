@@ -30,8 +30,15 @@ from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
 from opennosh_api.problems import RequestIdMiddleware, install_problem_handlers
+from opennosh_api.public.artifacts import (
+    HttpArtifactStore,
+    LocalArtifactStore,
+    PublicArtifactReadService,
+)
+from opennosh_api.public.router import router as public_artifact_router
 from opennosh_api.public_commons.manifests import ManifestKeyRing, PublicCommonsSnapshotService
 from opennosh_api.public_commons.router import router as public_commons_router
+from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.settings import Settings, get_settings
 from opennosh_api.targets.router import router as targets_router
@@ -159,6 +166,24 @@ def create_app(
     application.state.private_export_semaphore = asyncio.Semaphore(
         resolved_settings.private_export_concurrency_limit
     )
+    artifact_store = (
+        HttpArtifactStore(
+            resolved_settings.public_artifact_base_url,
+            timeout_seconds=resolved_settings.public_artifact_timeout_seconds,
+        )
+        if resolved_settings.public_artifact_base_url is not None
+        else LocalArtifactStore(resolved_settings.public_artifact_directory)
+        if resolved_settings.public_artifact_directory is not None
+        else None
+    )
+    application.state.public_artifact_read_service = PublicArtifactReadService(
+        store=artifact_store,
+        manifest_keys=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
+        receipt_keys=PublicationReceiptKeyRing.from_json(
+            resolved_settings.publication_receipt_verifying_keys.get_secret_value()
+        ),
+        checkpoint_path=resolved_settings.public_artifact_checkpoint_path,
+    )
     application.state.public_commons_snapshot_service = PublicCommonsSnapshotService(
         latest_pointer_path=resolved_settings.public_commons_latest_pointer_path,
         release_directory=resolved_settings.public_commons_release_directory,
@@ -173,6 +198,7 @@ def create_app(
     application.include_router(health_router)
     application.include_router(database_metrics_router)
     application.include_router(public_commons_router)
+    application.include_router(public_artifact_router)
     application.include_router(contributions_router)
     application.include_router(auth_router)
     application.include_router(foods_router)

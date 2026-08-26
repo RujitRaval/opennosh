@@ -244,6 +244,20 @@ bounded projection file. Responses include the exact ETag, snapshot byte count, 
 `Server-Timing`, and a five-minute shared-cache revalidation policy. The homepage performs one
 server request and never polls.
 
+### Immutable public food reads
+
+T1 adds a database-independent public read plane for verified food records. Signed release
+manifests bind content-addressed record JSON, provenance HTML, pack downloads, and the exact signed
+publication receipt. Latest reads use a short-lived signed pointer; exact release URLs are immutable.
+A failed refresh can expose only the checkpointed verified release and labels its stale age.
+
+Local/self-hosted development can set `PUBLIC_ARTIFACT_DIRECTORY` and
+`PUBLIC_ARTIFACT_CHECKPOINT_PATH`. Hosted production uses `PUBLIC_ARTIFACT_BASE_URL` for an HTTPS
+object-store/CDN origin, plus approved `PUBLIC_COMMONS_VERIFYING_KEYS` and
+`PUBLICATION_RECEIPT_VERIFYING_KEYS`. Keep `PUBLIC_ARTIFACT_READS_ENABLED=false` on the web service
+until the signed origin has passed the outage, tamper, rollback, and pinned-download checks in
+[`docs/operations/render-production.md`](docs/operations/render-production.md).
+
 ### Contribute a food record
 
 Open `/en/contribute` to begin a proposal without an account. The browser saves the draft on the

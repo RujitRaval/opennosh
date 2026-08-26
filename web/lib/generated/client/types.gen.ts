@@ -2051,6 +2051,48 @@ export type PublicDocumentManifest = {
 };
 
 /**
+ * PublicFoodRecordResponse
+ */
+export type PublicFoodRecordResponse = {
+    /**
+     * Immutable Url
+     */
+    immutable_url: string;
+    /**
+     * Provenance Url
+     */
+    provenance_url: string;
+    record: FoodDetail;
+    release: PublicReleaseMetadata;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+};
+
+/**
+ * PublicReleaseMetadata
+ */
+export type PublicReleaseMetadata = {
+    /**
+     * Published At
+     */
+    published_at: string;
+    /**
+     * Release Version
+     */
+    release_version: string;
+    /**
+     * Stale Age Seconds
+     */
+    stale_age_seconds?: number;
+    /**
+     * State
+     */
+    state: 'verified' | 'stale';
+};
+
+/**
  * PublicReleaseProof
  */
 export type PublicReleaseProof = {
@@ -2349,6 +2391,30 @@ export type SessionResponse = {
      */
     csrf_token: string;
     user: AuthenticatedUser;
+};
+
+/**
+ * SignedEnvelope
+ */
+export type SignedEnvelope = {
+    /**
+     * Key Id
+     */
+    key_id: string;
+    /**
+     * Payload
+     */
+    payload: {
+        [key: string]: unknown;
+    };
+    /**
+     * Schema Version
+     */
+    schema_version?: '1';
+    /**
+     * Signature
+     */
+    signature: string;
 };
 
 /**
@@ -5226,6 +5292,380 @@ export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses = {
 };
 
 export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponse = CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses[keyof CommonsSnapshotApiV1PublicCommonsSnapshotGetResponses];
+
+export type LatestFoodApiV1PublicFoodsSourceSourceIdGetData = {
+    body?: never;
+    path: {
+        source: FoodSource;
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: {
+        /**
+         * Version
+         */
+        version?: string | null;
+    };
+    url: '/api/v1/public/foods/{source}/{source_id}';
+};
+
+export type LatestFoodApiV1PublicFoodsSourceSourceIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type LatestFoodApiV1PublicFoodsSourceSourceIdGetError = LatestFoodApiV1PublicFoodsSourceSourceIdGetErrors[keyof LatestFoodApiV1PublicFoodsSourceSourceIdGetErrors];
+
+export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicFoodRecordResponse;
+};
+
+export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponse = LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses[keyof LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses];
+
+export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Release Version
+         */
+        release_version: string;
+        source: FoodSource;
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/public/releases/{release_version}/foods/{source}/{source_id}';
+};
+
+export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetError = ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetErrors[keyof ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetErrors];
+
+export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicFoodRecordResponse;
+};
+
+export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetResponse = ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetResponses[keyof ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetResponses];
+
+export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetData = {
+    body?: never;
+    path: {
+        /**
+         * Release Version
+         */
+        release_version: string;
+        source: FoodSource;
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/public/releases/{release_version}/foods/{source}/{source_id}/provenance';
+};
+
+export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetError = ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetErrors[keyof ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetErrors];
+
+export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetResponses = {
+    /**
+     * Verified immutable provenance document.
+     */
+    200: string;
+};
+
+export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetResponse = ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetResponses[keyof ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdProvenanceGetResponses];
+
+export type ExactManifestApiV1PublicReleasesReleaseVersionManifestGetData = {
+    body?: never;
+    path: {
+        /**
+         * Release Version
+         */
+        release_version: string;
+    };
+    query?: never;
+    url: '/api/v1/public/releases/{release_version}/manifest';
+};
+
+export type ExactManifestApiV1PublicReleasesReleaseVersionManifestGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ExactManifestApiV1PublicReleasesReleaseVersionManifestGetError = ExactManifestApiV1PublicReleasesReleaseVersionManifestGetErrors[keyof ExactManifestApiV1PublicReleasesReleaseVersionManifestGetErrors];
+
+export type ExactManifestApiV1PublicReleasesReleaseVersionManifestGetResponses = {
+    /**
+     * Canonical signed release manifest envelope.
+     */
+    200: SignedEnvelope;
+};
+
+export type ExactManifestApiV1PublicReleasesReleaseVersionManifestGetResponse = ExactManifestApiV1PublicReleasesReleaseVersionManifestGetResponses[keyof ExactManifestApiV1PublicReleasesReleaseVersionManifestGetResponses];
+
+export type ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetData = {
+    body?: never;
+    path: {
+        /**
+         * Release Version
+         */
+        release_version: string;
+        /**
+         * Pack Id
+         */
+        pack_id: string;
+        /**
+         * Pack Version
+         */
+        pack_version: string;
+    };
+    query?: never;
+    url: '/api/v1/public/releases/{release_version}/packs/{pack_id}/{pack_version}/download';
+};
+
+export type ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetError = ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetErrors[keyof ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetErrors];
+
+export type ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetResponses = {
+    /**
+     * Verified immutable pack download.
+     */
+    200: Blob | File;
+};
+
+export type ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetResponse = ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetResponses[keyof ExactPackDownloadApiV1PublicReleasesReleaseVersionPacksPackIdPackVersionDownloadGetResponses];
 
 export type ListAllApiV1RecipesGetData = {
     body?: never;

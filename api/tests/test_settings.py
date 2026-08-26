@@ -51,6 +51,61 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.session_cookie_secure is False
 
 
+def test_public_artifact_origin_configuration_is_safe() -> None:
+    defaults = Settings(_env_file=None)
+    assert defaults.public_artifact_directory is None
+    assert defaults.public_artifact_base_url is None
+    assert defaults.public_artifact_checkpoint_path is None
+
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(public_artifact_base_url="http://artifacts.example.test", _env_file=None)
+    with pytest.raises(ValidationError, match="durable checkpoint path"):
+        Settings(public_artifact_directory="/artifacts", _env_file=None)
+    with pytest.raises(ValidationError, match="one public artifact adapter"):
+        Settings(
+            public_artifact_directory="/artifacts",
+            public_artifact_base_url="https://artifacts.example.test",
+            _env_file=None,
+        )
+
+
+def test_production_public_artifacts_require_https_origin_and_checkpoint() -> None:
+    production = {
+        "app_environment": "production",
+        "food_search_cursor_signing_keys": ("prod-v1:33333333333333333333333333333333"),
+        "public_commons_verifying_keys": ("production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"),
+        "publication_receipt_verifying_keys": (
+            '{"production":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+        ),
+        "_env_file": None,
+    }
+    with pytest.raises(ValidationError, match="HTTPS object-store origin"):
+        Settings(  # type: ignore[arg-type]
+            **production,
+            public_artifact_directory="/artifacts",
+            public_artifact_checkpoint_path="/state/public-artifacts.json",
+        )
+    with pytest.raises(ValidationError, match="durable checkpoint path"):
+        Settings(
+            **production,  # type: ignore[arg-type]
+            public_artifact_base_url="https://artifacts.opennosh.org",
+        )
+
+    with pytest.raises(ValidationError, match="separate from signed artifacts"):
+        Settings(
+            public_artifact_directory="/artifacts",
+            public_artifact_checkpoint_path="/artifacts/checkpoint.json",
+            _env_file=None,
+        )
+
+    settings = Settings(
+        **production,  # type: ignore[arg-type]
+        public_artifact_base_url="https://artifacts.opennosh.org",
+        public_artifact_checkpoint_path="/state/public-artifacts.json",
+    )
+    assert settings.public_artifact_base_url == "https://artifacts.opennosh.org"
+
+
 def test_production_settings_use_secure_host_only_cookie_names() -> None:
     settings = Settings(
         app_environment="production",
@@ -85,9 +140,7 @@ def test_production_public_commons_requires_a_durable_projection_path() -> None:
         "public_commons_latest_pointer_path": "/artifacts/latest.json",
         "public_commons_release_directory": "/artifacts/releases",
         "public_commons_checkpoint_path": "/state/checkpoint.json",
-        "public_commons_verifying_keys": (
-            "production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
-        ),
+        "public_commons_verifying_keys": ("production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"),
         "_env_file": None,
     }
 

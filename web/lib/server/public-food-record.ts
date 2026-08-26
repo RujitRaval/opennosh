@@ -1,6 +1,9 @@
 import "server-only";
 
-import { foodDetailResponse } from "@/lib/api/adapters/foods";
+import {
+  foodDetailResponse,
+  publicFoodDetailResponse,
+} from "@/lib/api/adapters/foods";
 import { toFoodRecordView } from "@/lib/food-record";
 import type { CatalogueFoodSource } from "@/lib/types";
 
@@ -16,11 +19,15 @@ export async function loadPublicFoodRecord({
   sourceId,
   foodLocale,
   clientAddress,
+  releaseVersion,
+  artifactReadsEnabled,
 }: {
   source: CatalogueFoodSource;
   sourceId: string;
   foodLocale: string;
   clientAddress: string | null;
+  releaseVersion?: string;
+  artifactReadsEnabled?: boolean;
 }) {
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
   const requestHeaders = new Headers({ Accept: "application/json, application/problem+json" });
@@ -31,7 +38,11 @@ export async function loadPublicFoodRecord({
   }
   try {
     const response = await fetch(
-      `${apiOrigin}/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
+      artifactReadsEnabled
+        ? `${apiOrigin}/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}${
+            releaseVersion ? `?${new URLSearchParams({ version: releaseVersion })}` : ""
+          }`
+        : `${apiOrigin}/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
       {
         headers: requestHeaders,
         cache: "no-store",
@@ -45,8 +56,11 @@ export async function loadPublicFoodRecord({
         reference: safeReference(response.headers.get("X-Request-ID")),
       } as const;
     }
-    const detail = foodDetailResponse(await response.json());
-    return { kind: "ready", record: toFoodRecordView(detail, foodLocale) } as const;
+    const payload: unknown = await response.json();
+    const record = artifactReadsEnabled
+      ? publicFoodDetailResponse(payload, foodLocale)
+      : toFoodRecordView(foodDetailResponse(payload), foodLocale);
+    return { kind: "ready", record } as const;
   } catch {
     return { kind: "unavailable", reference: "unavailable" } as const;
   }

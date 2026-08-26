@@ -23,6 +23,8 @@ export function PublicFoodRecord({
   foodLocale,
   initialPortionIndex,
   initialMeasurement,
+  releaseVersion,
+  artifactReadsEnabled,
 }: {
   initialState: PublicFoodRecordState;
   language: InterfaceLanguage;
@@ -31,6 +33,8 @@ export function PublicFoodRecord({
   foodLocale: string;
   initialPortionIndex?: number;
   initialMeasurement?: "metric" | "us";
+  releaseVersion?: string;
+  artifactReadsEnabled?: boolean;
 }) {
   const copy = getCatalog(language).food;
   const [state, setState] = useState<PublicFoodRecordState | { kind: "loading" }>(initialState);
@@ -38,8 +42,19 @@ export function PublicFoodRecord({
   async function retry(): Promise<void> {
     setState({ kind: "loading" });
     try {
-      const detail = await api.foodDetail(source, sourceId, AbortSignal.timeout(5_000));
-      setState({ kind: "ready", record: toFoodRecordView(detail, foodLocale) });
+      const record = artifactReadsEnabled
+        ? await api.publicFoodDetail(
+            source,
+            sourceId,
+            foodLocale,
+            AbortSignal.timeout(5_000),
+            releaseVersion,
+          )
+        : toFoodRecordView(
+            await api.foodDetail(source, sourceId, AbortSignal.timeout(5_000)),
+            foodLocale,
+          );
+      setState({ kind: "ready", record });
     } catch (error) {
       if (error instanceof ApiProblem && error.kind === "not-found") {
         setState({ kind: "not-found" });

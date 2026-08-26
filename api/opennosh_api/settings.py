@@ -39,9 +39,7 @@ class Settings(BaseSettings):
     contribution_patch_rate_limit_attempts: PositiveInt = 120
     contribution_patch_rate_limit_window_seconds: PositiveInt = 60
     contribution_patch_account_rate_limit_attempts: PositiveInt = 240
-    contribution_operation_retention_seconds: PositiveInt = Field(
-        default=691_200, ge=604_800
-    )
+    contribution_operation_retention_seconds: PositiveInt = Field(default=691_200, ge=604_800)
     food_search_rate_limit_attempts: PositiveInt = 120
     food_search_rate_limit_window_seconds: PositiveInt = 60
     food_search_statement_timeout_ms: PositiveInt = 500
@@ -58,12 +56,17 @@ class Settings(BaseSettings):
     public_commons_projection_path: Path | None = None
     public_commons_refresh_seconds: PositiveFloat = 5.0
     public_commons_revalidation_url: str | None = None
-    public_commons_revalidation_token: SecretStr | None = Field(
-        default=None, min_length=32
-    )
+    public_commons_revalidation_token: SecretStr | None = Field(default=None, min_length=32)
     public_commons_revalidation_allowed_hosts: str = "web,localhost,127.0.0.1,::1"
     public_commons_verifying_keys: str = "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
     public_commons_stale_after_seconds: PositiveInt = 300
+    public_artifact_directory: Path | None = None
+    public_artifact_base_url: str | None = None
+    public_artifact_checkpoint_path: Path | None = None
+    public_artifact_timeout_seconds: PositiveFloat = 3.0
+    publication_receipt_verifying_keys: SecretStr = SecretStr(
+        '{"development":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+    )
     open_food_facts_enabled: bool = False
     open_food_facts_base_url: str = "https://world.openfoodfacts.org"
     open_food_facts_timeout_seconds: PositiveFloat = 3.0
@@ -110,6 +113,37 @@ class Settings(BaseSettings):
         ManifestKeyRing.from_config(value)
         return value
 
+    @field_validator("publication_receipt_verifying_keys")
+    @classmethod
+    def validate_publication_receipt_verifying_keys(cls, value: SecretStr) -> SecretStr:
+        from opennosh_api.publication.receipts import PublicationReceiptKeyRing
+
+        PublicationReceiptKeyRing.from_json(value.get_secret_value())
+        return value
+
+    @field_validator("public_artifact_base_url")
+    @classmethod
+    def validate_public_artifact_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.rstrip("/")
+        parsed = urlsplit(normalized)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Public artifact origin must be a safe HTTPS URL") from error
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Public artifact origin must be a safe HTTPS URL")
+        return normalized
+
     @field_validator("evidence_verifying_keys")
     @classmethod
     def validate_evidence_verifying_keys(cls, value: SecretStr) -> SecretStr:
@@ -127,9 +161,7 @@ class Settings(BaseSettings):
         try:
             port = parsed.port
         except ValueError as error:
-            raise ValueError(
-                "Public commons revalidation URL must be a safe HTTP URL"
-            ) from error
+            raise ValueError("Public commons revalidation URL must be a safe HTTP URL") from error
         if (
             parsed.scheme not in {"http", "https"}
             or not parsed.hostname
@@ -145,9 +177,7 @@ class Settings(BaseSettings):
 
     @field_validator("public_commons_revalidation_token", mode="before")
     @classmethod
-    def blank_public_commons_revalidation_token_is_disabled(
-        cls, value: object
-    ) -> object:
+    def blank_public_commons_revalidation_token_is_disabled(cls, value: object) -> object:
         return None if value == "" else value
 
     @field_validator("target_kcal_floor")
@@ -211,9 +241,24 @@ class Settings(BaseSettings):
                     "Evidence private source and immutable destination must be independent"
                 )
             if self.app_environment == "production":
-                raise ValueError(
-                    "Production evidence durability requires a non-filesystem adapter"
-                )
+                raise ValueError("Production evidence durability requires a non-filesystem adapter")
+        if self.public_artifact_directory is not None and self.public_artifact_base_url is not None:
+            raise ValueError("Configure one public artifact adapter, not both")
+        artifact_adapter_configured = (
+            self.public_artifact_directory is not None or self.public_artifact_base_url is not None
+        )
+        if artifact_adapter_configured and self.public_artifact_checkpoint_path is None:
+            raise ValueError("Public artifact reads require a durable checkpoint path")
+        if self.app_environment == "production" and self.public_artifact_directory is not None:
+            raise ValueError("Production public artifacts require an HTTPS object-store origin")
+        if (
+            self.public_artifact_directory is not None
+            and self.public_artifact_checkpoint_path is not None
+            and self.public_artifact_checkpoint_path.resolve(strict=False).is_relative_to(
+                self.public_artifact_directory.resolve(strict=False)
+            )
+        ):
+            raise ValueError("Public artifact checkpoint must be separate from signed artifacts")
         if (self.public_commons_latest_pointer_path is None) != (
             self.public_commons_release_directory is None
         ):
@@ -243,12 +288,8 @@ class Settings(BaseSettings):
             release_directory = self.public_commons_release_directory.resolve(strict=False)
             checkpoint_path = self.public_commons_checkpoint_path.resolve(strict=False)
             projection_path = self.public_commons_projection_path.resolve(strict=False)
-            checkpoint_lock_path = checkpoint_path.with_suffix(
-                f"{checkpoint_path.suffix}.lock"
-            )
-            projection_lock_path = projection_path.with_suffix(
-                f"{projection_path.suffix}.lock"
-            )
+            checkpoint_lock_path = checkpoint_path.with_suffix(f"{checkpoint_path.suffix}.lock")
+            projection_lock_path = projection_path.with_suffix(f"{projection_path.suffix}.lock")
             state_paths = {
                 checkpoint_path,
                 checkpoint_lock_path,
@@ -304,6 +345,20 @@ class Settings(BaseSettings):
             == "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
         ):
             raise ValueError("Production requires approved public commons verifying keys")
+        if (
+            self.app_environment == "production"
+            and self.public_artifact_base_url is not None
+            and self.public_commons_verifying_keys
+            == "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+        ):
+            raise ValueError("Production requires approved public artifact verifying keys")
+        if (
+            self.app_environment == "production"
+            and self.public_artifact_base_url is not None
+            and self.publication_receipt_verifying_keys.get_secret_value()
+            == '{"development":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+        ):
+            raise ValueError("Production requires approved publication receipt verifying keys")
         if (
             self.app_environment == "production"
             and self.trusted_web_proxy_token is not None

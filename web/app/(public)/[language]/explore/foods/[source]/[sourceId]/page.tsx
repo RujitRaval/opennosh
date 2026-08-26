@@ -33,6 +33,7 @@ export default async function FoodRecordPage({
     food_locale?: string | string[];
     portion?: string | string[];
     units?: string | string[];
+    version?: string | string[];
   }>;
 }) {
   const { language, source, sourceId } = await params;
@@ -56,8 +57,14 @@ export default async function FoodRecordPage({
     ? Number(requestedPortion)
     : undefined;
   const requestedUnits = Array.isArray(query.units) ? query.units[0] : query.units;
+  const requestedVersion = Array.isArray(query.version) ? query.version[0] : query.version;
+  const releaseVersion = requestedVersion && /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(requestedVersion)
+    ? requestedVersion
+    : undefined;
   const initialMeasurement = requestedUnits === "us" ? "us" : "metric";
   const recordSource = source as CatalogueFoodSource;
+  const artifactReadsEnabled =
+    process.env.PUBLIC_ARTIFACT_READS_ENABLED === "true";
   const copy = getCatalog(language);
   const requestHeaders = await headers();
   const initialState = await loadPublicFoodRecord({
@@ -65,6 +72,8 @@ export default async function FoodRecordPage({
     sourceId,
     foodLocale,
     clientAddress: requestHeaders.get("x-forwarded-for"),
+    releaseVersion,
+    artifactReadsEnabled,
   });
   if (initialState.kind === "not-found") notFound();
 
@@ -90,6 +99,8 @@ export default async function FoodRecordPage({
         foodLocale={foodLocale}
         initialPortionIndex={initialPortionIndex}
         initialMeasurement={initialMeasurement}
+        releaseVersion={releaseVersion}
+        artifactReadsEnabled={artifactReadsEnabled}
       />
     </main>
   );
