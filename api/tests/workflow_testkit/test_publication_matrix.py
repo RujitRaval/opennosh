@@ -175,6 +175,7 @@ async def _run_generated_crash_matrix(database_url: str) -> None:
             )
             assert queued == distinct_keys
     finally:
+        await reset_trust_tables(database_url)
         await pool.close()
 
 
@@ -211,6 +212,7 @@ async def _run_snapshot_restore_scenario(database_url: str) -> None:
         await _finish_protocol(pool, recreated, restored_message, restored_job_id)
         await assert_publication_trust_invariants(pool, seeded.publication_id, state)
     finally:
+        await reset_trust_tables(database_url)
         await pool.close()
 
 
@@ -278,6 +280,7 @@ async def _run_final_acceptance_crash_boundaries(database_url: str) -> None:
             )
             assert accepted_count == 1
     finally:
+        await reset_trust_tables(database_url)
         await pool.close()
 
 

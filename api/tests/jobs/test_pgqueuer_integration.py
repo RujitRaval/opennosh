@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -10,6 +11,7 @@ from uuid import UUID, uuid4
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
+from opennosh_api.evidence.contracts import EvidenceAcknowledgement
 from opennosh_api.jobs import JobLane, JobMessage, JobRequest
 from opennosh_api.jobs.pgqueuer import (
     PGQUEUER_SETTINGS,
@@ -39,9 +41,16 @@ async def reset_t4_tables(database_url: str) -> None:
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
+            receipt_table = await connection.scalar(
+                text("SELECT to_regclass(:table_name)"),
+                {"table_name": "publication_receipts"},
+            )
+            if receipt_table is not None:
+                await connection.execute(text("TRUNCATE publication_receipts CASCADE"))
             await connection.execute(
                 text(
-                    "TRUNCATE accepted_events, publication_durable_acknowledgements, "
+                    "TRUNCATE accepted_events, "
+                    "publication_durable_acknowledgements, "
                     "publication_steps, publication_intents, opennosh_pgqueuer, "
                     "opennosh_pgqueuer_log, opennosh_pgqueuer_statistics, "
                     "opennosh_pgqueuer_schedules, contribution_drafts, users CASCADE"
@@ -70,6 +79,24 @@ async def create_draft(database_url: str, suffix: str) -> UUID:
                 {"user_id": user_id, "client_draft_id": f"draft-{suffix}"},
             )
             assert isinstance(draft_id, UUID)
+            evidence_table = await connection.scalar(
+                text("SELECT to_regclass(:table_name)"),
+                {"table_name": "evidence_manifests"},
+            )
+            if evidence_table is not None:
+                await connection.execute(
+                    text(
+                        "INSERT INTO evidence_manifests "
+                        "(source_draft_id, source_draft_version, schema_version, "
+                        "evidence_class, manifest_digest, manifest_json, public_state) "
+                        "VALUES (:draft_id, 1, '1.0', 'sanitized_media', "
+                        ":digest, '{}'::jsonb, 'evidence_preserved')"
+                    ),
+                    {
+                        "draft_id": draft_id,
+                        "digest": hashlib.sha256(f"evidence-{suffix}".encode()).hexdigest(),
+                    },
+                )
             return draft_id
     finally:
         await engine.dispose()
@@ -93,6 +120,21 @@ def publication_command(
         required_checks=("schema", "provenance", "license"),
         forge_target="github:RujitRaval/opennosh-data",
         idempotency_key=key,
+        evidence_manifest_digests=("f" * 64,),
+        evidence_acknowledgements=(
+            EvidenceAcknowledgement(
+                evidence_id=draft_id,
+                evidence_class="sanitized_media",
+                manifest_digest="f" * 64,
+                kind="immutable_sanitized_copy",
+                destination="urn:opennosh:durability:evidence",
+                content_digest="7" * 64,
+                external_reference="memory:evidence",
+                verified_at=datetime(2026, 8, 26, tzinfo=UTC),
+                adapter_identity="pgqueuer-test-evidence",
+                adapter_version="1.0",
+            ),
+        ),
     )
 
 

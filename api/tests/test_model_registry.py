@@ -40,6 +40,7 @@ EXPECTED_TABLE_OWNERS = {
     "publication_durable_acknowledgements": (
         "opennosh_api.publication.models.DurableAcknowledgement"
     ),
+    "publication_receipts": "opennosh_api.publication.models.PublicationReceiptRecord",
     "publication_intents": "opennosh_api.publication.models.PublicationIntent",
     "publication_steps": "opennosh_api.publication.models.PublicationStep",
     "exercises": "opennosh_api.models.tables.Exercise",
@@ -104,6 +105,7 @@ def test_registry_import_order_is_deterministic() -> None:
         "publication_intents",
         "publication_steps",
         "publication_durable_acknowledgements",
+        "publication_receipts",
         "accepted_events",
     )
 

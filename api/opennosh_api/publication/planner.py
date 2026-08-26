@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from opennosh_api.publication.receipts import (
+    SignedPublicationReceipt,
+    receipt_draft_from_snapshot,
+)
 from opennosh_api.publication.state import (
     EffectIntent,
     ExternalObservation,
@@ -106,6 +110,25 @@ def _effect_intent(
     step: PublicationStepName,
     destination: str,
 ) -> EffectIntent:
+    context: dict[str, object] = {}
+    if step is PublicationStepName.SIGN_RECEIPT:
+        context["receipt_draft"] = receipt_draft_from_snapshot(snapshot).model_dump(mode="json")
+    elif step in {
+        PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+        PublicationStepName.COPY_RECEIPT,
+    }:
+        signed_acknowledgements = [
+            acknowledgement
+            for acknowledgement in snapshot.acknowledgements
+            if acknowledgement.step is PublicationStepName.SIGN_RECEIPT
+        ]
+        if len(signed_acknowledgements) != 1:
+            raise ValueError("Receipt replication requires one signing acknowledgement")
+        envelope = signed_acknowledgements[0].context.get("signed_receipt")
+        if not isinstance(envelope, dict):
+            raise ValueError("Receipt signing acknowledgement lacks its signed envelope")
+        SignedPublicationReceipt.model_validate(envelope)
+        context["signed_receipt"] = envelope
     return EffectIntent(
         publication_id=snapshot.publication_id,
         workflow_version=snapshot.workflow_version,
@@ -121,6 +144,7 @@ def _effect_intent(
             approved_payload_digest=snapshot.approved_payload_digest,
         ),
         forge_target=snapshot.forge_target,
+        context=context,
     )
 
 

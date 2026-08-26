@@ -5,10 +5,17 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from hypothesis import given
 from hypothesis import strategies as st
+from opennosh_api.evidence.contracts import EvidenceAcknowledgement
 from opennosh_api.publication.adapters import PublicationEffectError
 from opennosh_api.publication.planner import plan_next_action
+from opennosh_api.publication.receipts import (
+    Ed25519ReceiptSigner,
+    receipt_draft_from_snapshot,
+    signed_receipt_digest,
+)
 from opennosh_api.publication.state import (
     DurableAcknowledgementSnapshot,
     EffectIntent,
@@ -32,6 +39,23 @@ NOW = datetime(2026, 8, 25, 12, tzinfo=UTC)
 PUBLICATION_ID = UUID("11111111-1111-4111-8111-111111111111")
 DIGEST = "a" * 64
 FORGE = "https://forge.example/opennosh/packs"
+RECEIPT_SIGNER = Ed25519ReceiptSigner(
+    key_id="test-receipt-2026",
+    publisher_identity="opennosh:test",
+    private_key=Ed25519PrivateKey.from_private_bytes(b"r" * 32),
+)
+EVIDENCE_ACKNOWLEDGEMENT = EvidenceAcknowledgement(
+    evidence_id=UUID("66666666-6666-4666-8666-666666666666"),
+    evidence_class="sanitized_media",
+    manifest_digest="f" * 64,
+    kind="immutable_sanitized_copy",
+    destination="urn:opennosh:durability:evidence",
+    content_digest="7" * 64,
+    external_reference="memory:evidence",
+    verified_at=NOW,
+    adapter_identity="fake-evidence",
+    adapter_version="1.0",
+)
 
 
 def snapshot(
@@ -69,25 +93,88 @@ def snapshot(
                     destination=definition.destination,
                     content_digest=DIGEST,
                     external_reference=(
-                        "b" * 40 if definition.name is PublicationStepName.COMMIT_RECORD else None
+                        "b" * 40
+                        if definition.name is PublicationStepName.COMMIT_RECORD
+                        else f"memory:{definition.name.value}"
+                        if definition.name
+                        in {
+                            PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+                            PublicationStepName.COPY_RECEIPT,
+                        }
+                        else None
                     ),
                     verified_at=NOW,
+                    context={
+                        "adapter_identity": "fake",
+                        "adapter_version": "1",
+                        **(
+                            {"merged_tree_digest": "d" * 64}
+                            if definition.name is PublicationStepName.COMMIT_RECORD
+                            else {}
+                        ),
+                        **(
+                            {"release_version": "2026.08.26"}
+                            if definition.name is PublicationStepName.SIGN_RELEASE
+                            else {}
+                        ),
+                        **(
+                            {"registry_result": "accepted"}
+                            if definition.name is PublicationStepName.CONFIRM_REGISTRY
+                            else {}
+                        ),
+                    },
                 )
             )
-    return PublicationSnapshot(
+    result = PublicationSnapshot(
         publication_id=PUBLICATION_ID,
         workflow_version="1.0",
         workflow_revision=revision,
         state=publication_state,
+        source_draft_id=UUID("33333333-3333-4333-8333-333333333333"),
+        source_draft_version=1,
+        reviewed_decision_id=UUID("44444444-4444-4444-8444-444444444444"),
+        approving_actor_id=UUID("55555555-5555-4555-8555-555555555555"),
         pack_id="commons",
         record_id="lentils",
         approved_payload_digest=DIGEST,
         expected_base_commit="c" * 40,
         required_checks=("schema",),
         forge_target=FORGE,
+        idempotency_key_hash="e" * 64,
+        event_type="publication",
+        prior_receipt_digest=None,
+        evidence_manifest_digests=("f" * 64,),
+        evidence_acknowledgements=(EVIDENCE_ACKNOWLEDGEMENT.model_dump(mode="json"),),
         steps=tuple(steps),
         acknowledgements=tuple(acknowledgements),
     )
+    if current <= 7:
+        return result
+    envelope = RECEIPT_SIGNER.sign(receipt_draft_from_snapshot(result))
+    receipt_digest = signed_receipt_digest(envelope)
+    receipt_steps = {
+        PublicationStepName.SIGN_RECEIPT,
+        PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+        PublicationStepName.COPY_RECEIPT,
+    }
+    bound = tuple(
+        replace(
+            acknowledgement,
+            content_digest=receipt_digest,
+            context={
+                **dict(acknowledgement.context),
+                **(
+                    {"signed_receipt": envelope.model_dump(mode="json")}
+                    if acknowledgement.step is PublicationStepName.SIGN_RECEIPT
+                    else {}
+                ),
+            },
+        )
+        if acknowledgement.step in receipt_steps
+        else acknowledgement
+        for acknowledgement in result.acknowledgements
+    )
+    return replace(result, acknowledgements=bound)
 
 
 def observation(
@@ -187,6 +274,17 @@ def test_terminal_publication_states_are_noops(state: PublicationState) -> None:
         plan_next_action(snapshot(publication_state=state), None, now=NOW),
         NoOpOutcome,
     )
+
+
+def test_receipt_signing_intent_is_identical_across_retry_times() -> None:
+    source = snapshot(current=7, revision=7)
+
+    first = plan_next_action(source, None, now=NOW)
+    retried = plan_next_action(source, None, now=NOW + timedelta(days=1))
+
+    assert isinstance(first, EffectIntent)
+    assert first.step is PublicationStepName.SIGN_RECEIPT
+    assert retried == first
 
 
 def test_all_receipt_gated_steps_transition_to_published() -> None:

@@ -43,6 +43,7 @@ from opennosh_api.publication.models import (
     AcceptedEvent,
     DurableAcknowledgement,
     PublicationIntent,
+    PublicationReceiptRecord,
     PublicationStep,
 )
 
@@ -82,6 +83,7 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
+    PublicationReceiptRecord,
     AcceptedEvent,
 )
 
@@ -144,6 +146,7 @@ __all__ = [
     "LogEntry",
     "REGISTERED_MODELS",
     "PublicationIntent",
+    "PublicationReceiptRecord",
     "PublicationStep",
     "Recipe",
     "RecipeIngredient",

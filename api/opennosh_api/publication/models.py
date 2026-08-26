@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -48,6 +49,37 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "idempotency_key_hash ~ '^[0-9a-f]{64}$'",
             name="idempotency_key_hash_sha256",
         ),
+        CheckConstraint(
+            "event_type IN ('publication', 'correction', 'revocation')",
+            name="event_type_allowed",
+        ),
+        CheckConstraint(
+            "(event_type = 'publication' AND prior_receipt_digest IS NULL) OR "
+            "(event_type IN ('correction', 'revocation') AND "
+            "prior_receipt_digest IS NOT NULL)",
+            name="receipt_lineage_consistent",
+        ),
+        CheckConstraint(
+            "prior_receipt_digest IS NULL OR prior_receipt_digest ~ '^[0-9a-f]{64}$'",
+            name="prior_receipt_digest_sha256",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(evidence_manifest_digests_json) = 'array' AND "
+            "jsonb_array_length(evidence_manifest_digests_json) BETWEEN 1 AND 128",
+            name="evidence_manifest_digests_bounded",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(evidence_acknowledgements_json) = 'array' AND "
+            "jsonb_array_length(evidence_acknowledgements_json) BETWEEN 1 AND 128",
+            name="evidence_acknowledgements_bounded",
+        ),
+        ForeignKeyConstraint(
+            ["prior_receipt_digest"],
+            ["publication_receipts.receipt_digest"],
+            name="fk_pub_intent_prior_receipt",
+            ondelete="RESTRICT",
+            use_alter=True,
+        ),
         UniqueConstraint(
             "source_draft_id",
             "source_draft_version",
@@ -81,6 +113,14 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     forge_target: Mapped[str] = mapped_column(String(512), nullable=False)
     idempotency_key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    event_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="publication"
+    )
+    prior_receipt_digest: Mapped[str | None] = mapped_column(String(64))
+    evidence_manifest_digests_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    evidence_acknowledgements_json: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False
+    )
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -192,6 +232,49 @@ class DurableAcknowledgement(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class PublicationReceiptRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "publication_receipts"
+    __table_args__ = (
+        CheckConstraint("schema_version = '1.0'", name="schema_version_supported"),
+        CheckConstraint("receipt_digest ~ '^[0-9a-f]{64}$'", name="receipt_digest_sha256"),
+        CheckConstraint(
+            "event_type IN ('publication', 'correction', 'revocation')",
+            name="event_type_allowed",
+        ),
+        CheckConstraint(
+            "(event_type = 'publication' AND prior_receipt_digest IS NULL) OR "
+            "(event_type IN ('correction', 'revocation') AND "
+            "prior_receipt_digest IS NOT NULL)",
+            name="lineage_consistent",
+        ),
+        CheckConstraint(
+            "prior_receipt_digest IS NULL OR prior_receipt_digest ~ '^[0-9a-f]{64}$'",
+            name="prior_receipt_digest_sha256",
+        ),
+        Index("ix_publication_receipts_pack_time", "pack_id", "published_at"),
+    )
+
+    publication_intent_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("publication_intents.id", ondelete="RESTRICT"), unique=True
+    )
+    publication_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, unique=True)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    receipt_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    prior_receipt_digest: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("publication_receipts.receipt_digest", ondelete="RESTRICT"),
+    )
+    pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    record_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    envelope_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    signature_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    registry_reference: Mapped[str] = mapped_column(String(1024), nullable=False)
+    artifact_reference: Mapped[str] = mapped_column(String(1024), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reconciled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AcceptedEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "accepted_events"
     __table_args__ = (
@@ -214,8 +297,8 @@ class AcceptedEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         Index("ix_accepted_events_published_type", "published_at", "event_type"),
     )
 
-    publication_intent_id: Mapped[UUID] = mapped_column(
-        ForeignKey("publication_intents.id", ondelete="RESTRICT"), nullable=False, unique=True
+    publication_intent_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("publication_intents.id", ondelete="RESTRICT"), unique=True
     )
     schema_version: Mapped[str] = mapped_column(String(16), nullable=False, server_default="1.0")
     repository: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -223,5 +306,10 @@ class AcceptedEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
     record_id: Mapped[str] = mapped_column(String(160), nullable=False)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    receipt_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    receipt_digest: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("publication_receipts.receipt_digest", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

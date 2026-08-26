@@ -18,7 +18,7 @@ from opennosh_api.publication.state import (
     TransitionOutcome,
     WaitCondition,
 )
-from tests.publication.test_planner import DIGEST, NOW, observation, snapshot
+from tests.publication.test_planner import NOW, observation, snapshot
 
 
 def test_verified_transition_creates_bound_acknowledgement_and_next_revision() -> None:
@@ -70,19 +70,6 @@ def test_different_existing_acknowledgement_quarantines_instead_of_overwriting()
 
 def test_final_transition_requires_matching_receipt_proofs() -> None:
     source = snapshot(current=10)
-    receipt_acks = tuple(
-        replace(acknowledgement, content_digest=DIGEST)
-        if acknowledgement.step
-        in {
-            PublicationStepName.SIGN_RECEIPT,
-            PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
-            PublicationStepName.COPY_RECEIPT,
-        }
-        else acknowledgement
-        for acknowledgement in source.acknowledgements
-    )
-    source = replace(source, acknowledgements=receipt_acks)
-
     reduction = reduce_planner_outcome(
         source,
         TransitionOutcome(publication_state=PublicationState.PUBLISHED),
@@ -91,7 +78,10 @@ def test_final_transition_requires_matching_receipt_proofs() -> None:
 
     assert reduction is not None
     assert reduction.accepted_event is not None
-    assert reduction.accepted_event.receipt_digest == DIGEST
+    signed_acknowledgement = next(
+        item for item in source.acknowledgements if item.step is PublicationStepName.SIGN_RECEIPT
+    )
+    assert reduction.accepted_event.receipt_digest == signed_acknowledgement.content_digest
 
 
 def test_final_transition_rejects_receipt_digest_disagreement() -> None:
