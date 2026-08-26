@@ -42,12 +42,7 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          case "$HEAD_REF" in
-            agent/*|codex/*) ;;
-            *) echo "Branch must use the agent/<description> or codex/<description> convention: $HEAD_REF"; exit 1 ;;
-          esac
-          python3 scripts/check_pr_title.py "$PR_TITLE"
+        run: python3 -m scripts.check_pr_metadata "$HEAD_REF" "$PR_TITLE"
       - name: Verify reproducible public font build
         run: uv run --frozen python scripts/build_public_fonts.py
 
@@ -56,6 +51,9 @@ jobs:
 
       - name: Validate public package identities
         run: python3 scripts/check_packages.py
+
+      - name: Validate governed forge policy
+        run: python3 scripts/check_forge_policy.py
 
       - name: Validate Markdown documents
         run: python3 scripts/check_docs.py
@@ -285,7 +283,7 @@ jobs:
             | grep -qx '1'
 
       - name: Verify the Alembic head
-        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260825_0014'
+        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260826_0015'
 
       - name: Stop Compose services
         if: always()

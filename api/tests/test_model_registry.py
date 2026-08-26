@@ -16,6 +16,20 @@ EXPECTED_TABLE_OWNERS = {
         "opennosh_api.contributions.models.ContributionDraftOperation"
     ),
     "contribution_drafts": "opennosh_api.contributions.models.ContributionDraft",
+    "governance_decisions": "opennosh_api.governance.models.GovernanceDecision",
+    "governance_merge_authorizations": (
+        "opennosh_api.governance.models.GovernanceMergeAuthorization"
+    ),
+    "governance_publication_interventions": (
+        "opennosh_api.governance.models.GovernancePublicationIntervention"
+    ),
+    "governance_publication_pauses": (
+        "opennosh_api.governance.models.GovernancePublicationPause"
+    ),
+    "governance_recusals": "opennosh_api.governance.models.GovernanceRecusal",
+    "governance_role_assignments": (
+        "opennosh_api.governance.models.GovernanceRoleAssignment"
+    ),
     "publication_durable_acknowledgements": (
         "opennosh_api.publication.models.DurableAcknowledgement"
     ),
@@ -71,6 +85,12 @@ def test_registry_import_order_is_deterministic() -> None:
         "targets",
         "contribution_drafts",
         "contribution_draft_operations",
+        "governance_role_assignments",
+        "governance_recusals",
+        "governance_decisions",
+        "governance_merge_authorizations",
+        "governance_publication_pauses",
+        "governance_publication_interventions",
         "publication_intents",
         "publication_steps",
         "publication_durable_acknowledgements",

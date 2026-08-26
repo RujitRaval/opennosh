@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check benchmark-contract-check database-capacity-check forge-policy-check design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
 
 install:
 	uv sync --frozen
@@ -15,7 +15,7 @@ typecheck:
 	uv run mypy --strict deploy/render_runtime.py
 	npm --prefix web run typecheck
 
-test: contracts-check foodpack-validate benchmark-contract-check database-capacity-check design-system-check
+test: contracts-check foodpack-validate benchmark-contract-check database-capacity-check forge-policy-check design-system-check
 	PYTHONPATH=api:. uv run pytest
 	PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
@@ -45,6 +45,9 @@ benchmark-contract-check:
 
 database-capacity-check:
 	PYTHONPATH=api:. uv run python scripts/check_database_capacity.py
+
+forge-policy-check:
+	PYTHONPATH=api:. uv run python scripts/check_forge_policy.py
 
 design-system-check:
 	npm --prefix web run check:design-system

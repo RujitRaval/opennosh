@@ -8,6 +8,14 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.orm import DeclarativeBase
 
 from opennosh_api.contributions.models import ContributionDraft, ContributionDraftOperation
+from opennosh_api.governance.models import (
+    GovernanceDecision,
+    GovernanceMergeAuthorization,
+    GovernancePublicationIntervention,
+    GovernancePublicationPause,
+    GovernanceRecusal,
+    GovernanceRoleAssignment,
+)
 from opennosh_api.models.auth import AuthRateLimit, AuthSession, User
 from opennosh_api.models.base import Base
 from opennosh_api.models.tables import (
@@ -57,6 +65,12 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     Target,
     ContributionDraft,
     ContributionDraftOperation,
+    GovernanceRoleAssignment,
+    GovernanceRecusal,
+    GovernanceDecision,
+    GovernanceMergeAuthorization,
+    GovernancePublicationPause,
+    GovernancePublicationIntervention,
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
@@ -110,6 +124,12 @@ __all__ = [
     "FoodReference",
     "FoodSearchSnapshot",
     "FoodSearchSnapshotItem",
+    "GovernanceDecision",
+    "GovernanceMergeAuthorization",
+    "GovernancePublicationIntervention",
+    "GovernancePublicationPause",
+    "GovernanceRecusal",
+    "GovernanceRoleAssignment",
     "LogEntry",
     "REGISTERED_MODELS",
     "PublicationIntent",

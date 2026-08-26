@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "repository": "RujitRaval/opennosh",
+  "target_branch": "main",
+  "managed_path_prefix": "packs/",
+  "forge_application": {
+    "kind": "github_app",
+    "contents": "write",
+    "pull_requests": "write",
+    "metadata": "read",
+    "administration": "none",
+    "checks": "read"
+  },
+  "governance_attester_application": {
+    "kind": "github_app",
+    "metadata": "read",
+    "checks": "write",
+    "contents": "none",
+    "pull_requests": "none",
+    "administration": "none"
+  },
+  "governance_checks": [
+    "authorization",
+    "evidence",
+    "license",
+    "payload",
+    "provenance",
+    "schema",
+    "self-review"
+  ],
+  "governance_check_sources": {
+    "authorization": "OpenNosh governance attestation and database pre-merge gate",
+    "evidence": "API checks",
+    "license": "API checks",
+    "payload": "OpenNosh governance attestation and post-merge tree proof",
+    "provenance": "API checks",
+    "schema": "API checks",
+    "self-review": "OpenNosh governance attestation and database pre-merge gate"
+  },
+  "ruleset": {
+    "enforcement": "active",
+    "bypass_actors": [],
+    "required_status_checks": [
+      {"context": "API checks", "integration_id": 15368},
+      {"context": "Compose application boot", "integration_id": 15368},
+      {
+        "context": "OpenNosh governance attestation",
+        "integration_id": "$OPENNOSH_GOVERNANCE_ATTESTER_APP_ID"
+      },
+      {"context": "repository checks", "integration_id": 15368},
+      {"context": "visual regression", "integration_id": 15368},
+      {"context": "web checks", "integration_id": 15368}
+    ],
+    "strict_required_status_checks": true,
+    "require_pull_request": true,
+    "allowed_merge_methods": ["squash"],
+    "required_approving_review_count": 0,
+    "require_code_owner_review": false,
+    "block_force_push": true,
+    "block_deletion": true
+  }
+}
