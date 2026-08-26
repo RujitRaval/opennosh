@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import { LoginPanel } from "@/components/log/login-panel";
+import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
 import { TrackerHeader } from "@/components/tracker/tracker-header";
 import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { api } from "@/lib/api";
@@ -20,6 +21,7 @@ export function RecordsApp() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [message, setMessage] = useState<string>();
+  const [recoveryCode, setRecoveryCode] = useState<string>();
 
   useEffect(() => {
     api.sessionState().then((state) => setUser(state.user)).catch((caught) => {
@@ -29,12 +31,26 @@ export function RecordsApp() {
 
   if (checking) return <main className="boot-screen" role="status"><TrackerWordmark surface="rice-paper" priority /><p>Opening records…</p></main>;
   if (!user) return <LoginPanel message={message} onAuthenticate={async (mode, email, password) => {
-    const response = mode === "login" ? await api.login(email, password) : await api.register(email, password);
+    if (mode === "login") {
+      const response = await api.login(email, password);
+      setRecoveryCode(undefined);
+      setUser(response.user);
+      return;
+    }
+    const response = await api.register(email, password);
+    setRecoveryCode(response.recovery_code);
     setUser(response.user);
   }} onRecover={async (email, code, password) => {
     const response = await api.recover(email, code, password);
     setUser(response.user);
   }} />;
+
+  if (!user.onboarding_completed) return <OnboardingPanel
+    user={user}
+    recoveryCode={recoveryCode}
+    onComplete={(updated) => { setRecoveryCode(undefined); setUser(updated); }}
+    onLogout={() => void api.logout().finally(() => setUser(null))}
+  />;
 
   return (
     <>

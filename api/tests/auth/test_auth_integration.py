@@ -520,6 +520,14 @@ def test_session_state_and_resumable_account_settings(auth_client: TestClient) -
     assert body["user"]["onboarding_completed"] is False
     assert body["user"]["preferred_units"] == "metric"
 
+    rotated = auth_client.post(
+        "/api/v1/auth/account/recovery-code",
+        headers={"X-CSRF-Token": body["csrf_token"]},
+        json={"password": "a sufficiently long password"},
+    )
+    assert rotated.status_code == 200
+    assert rotated.json()["recovery_code"] != body["recovery_code"]
+
     updated = auth_client.patch(
         "/api/v1/auth/account/settings",
         headers={"X-CSRF-Token": body["csrf_token"]},

@@ -16,6 +16,7 @@ const localizedFiles = [
   "components/contributions/contribution-journey.tsx",
   "components/contributions/contribution-status.tsx",
   "components/foods/public-food-record.tsx",
+  "components/foods/public-food-search.tsx",
   "components/foods/food-record.tsx",
 ];
 const userFacingAttributes = new Set(["aria-label", "title", "placeholder", "alt"]);

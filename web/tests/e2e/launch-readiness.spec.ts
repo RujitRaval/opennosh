@@ -34,7 +34,7 @@ async function mockLaunchApi(page: Page) {
     }
     if (path === "/api/v1/targets" && request.method() === "PUT") {
       expect(request.headers()["x-csrf-token"]).toBe("launch-csrf");
-      expect(request.postDataJSON().items).toHaveLength(2);
+      expect(request.postDataJSON().items).toHaveLength(0);
       return route.fulfill({ json: { items: [], target_kcal_floor: "1200.00", safety_copy: "Reference only." } });
     }
     if (path === "/api/v1/foods/search") {
@@ -75,7 +75,7 @@ test("public Explore searches real source-visible starter records", async ({ pag
   await mockLaunchApi(page);
   await page.goto("/en/explore");
 
-  await expect(page.getByRole("heading", { name: "Search the starter Commons." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search starter food records." })).toBeVisible();
   await page.getByLabel("Food name").fill("rajma");
   await page.getByRole("button", { name: "Search records" }).click();
 

@@ -30,7 +30,6 @@ import { routes, type InterfaceLanguage } from "@/lib/routes";
 import { fallbackLanguage, formatMessage, pseudoLanguage } from "@/lib/i18n/catalog";
 
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
-type AuthMode = "login" | "register";
 
 // Opens only with the separately approved trusted upload/source adapters and worker replicas.
 const TYPED_EVIDENCE_HANDOFF_ENABLED = false;
@@ -120,7 +119,6 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const [busy, setBusy] = useState(false);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [mobileActionsVisible, setMobileActionsVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -293,7 +291,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
     } finally { setCheckingDuplicates(false); }
   }
 
-  async function submit(auth?: { mode: AuthMode; email: string; password: string }) {
+  async function submit(auth?: { email: string; password: string }) {
     if (!TYPED_EVIDENCE_HANDOFF_ENABLED) {
       showErrors([copy.evidenceHandoffGateBody]);
       return;
@@ -307,8 +305,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       catch (caught) {
         if (!(caught instanceof ApiError) || caught.status !== 401) throw caught;
         if (!auth) { setAuthRequired(true); return; }
-        if (auth.mode === "login") await api.login(auth.email, auth.password);
-        else await api.register(auth.email, auth.password);
+        await api.login(auth.email, auth.password);
       }
       const syncReady = await autosave.current?.settle(stage);
       if (syncReady === false) {
@@ -395,7 +392,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
 
   function authSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void submit({ mode: authMode, email, password });
+    void submit({ email, password });
   }
 
   return <main id="main-content" className="contribution-page">
@@ -500,10 +497,9 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           {authRequired ? <form className="contribution-auth" onSubmit={authSubmit}>
             <p className="mono">{copy.accountLabel}</p><h2>{copy.accountTitle}</h2>
             <p>{copy.accountBody}</p>
-            <div className="auth-mode"><button type="button" aria-pressed={authMode === "login"} onClick={() => setAuthMode("login")}>{copy.signIn}</button><button type="button" aria-pressed={authMode === "register"} onClick={() => setAuthMode("register")}>{copy.createAccount}</button></div>
             <label>{copy.email}<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>{copy.password}<input required minLength={12} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            <button className="contribution-primary" type="submit" disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : authMode === "login" ? copy.signInHandoff : copy.createHandoff}</button>
+            <label>{copy.password}<input required minLength={12} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            <button className="contribution-primary" type="submit" disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : copy.signInHandoff}</button>
           </form> : null}
         </section> : null}
       </div>

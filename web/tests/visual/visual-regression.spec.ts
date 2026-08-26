@@ -6,6 +6,7 @@ import {
   expectNoHorizontalOverflow,
   installFrozenClock,
   mockTrackerApi,
+  mockTrackerOnboarding,
   mockTrackerSignIn,
   repairContributionDraft,
   seedContribution,
@@ -141,6 +142,29 @@ test("Living Commons Tracker trends stay calm and legible @desktop @mobile", asy
   await settleVisualPage(page, "tracker");
   await expectNoHorizontalOverflow(page);
   await expect(page).toHaveScreenshot("tracker-trends.png", { fullPage: true });
+});
+
+test("Tracker onboarding, account, and records are launch-complete @desktop @mobile", async ({ page }) => {
+  await mockTrackerOnboarding(page);
+  await page.goto("/tracker");
+  await expect(page.getByRole("heading", { name: "Make the tracker yours." })).toBeVisible();
+  await settleVisualPage(page, "tracker");
+  await expectNoHorizontalOverflow(page);
+  await expect(page).toHaveScreenshot("tracker-onboarding.png", { fullPage: true });
+
+  await page.unrouteAll();
+  await mockTrackerApi(page);
+  await page.goto("/tracker/account");
+  await expect(page.getByRole("heading", { name: "Your data. Your account." })).toBeVisible();
+  await settleVisualPage(page, "tracker");
+  await expectNoHorizontalOverflow(page);
+  await expect(page).toHaveScreenshot("tracker-account.png", { fullPage: true });
+
+  await page.goto("/tracker/records");
+  await expect(page.getByRole("heading", { name: "Body and strength, in context." })).toBeVisible();
+  await settleVisualPage(page, "tracker");
+  await expectNoHorizontalOverflow(page);
+  await expect(page).toHaveScreenshot("tracker-records.png", { fullPage: true });
 });
 
 test("reduced motion remains complete @focused", async ({ page, request }) => {

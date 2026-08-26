@@ -30,7 +30,7 @@ test("desktop trunk identifies the current hub, page, and next action", async ({
   await expect(page.getByRole("heading", { level: 1, name: "Explore" })).toBeVisible();
   await expect(page.getByRole("link", { name: /See how records work/ })).toHaveAttribute(
     "href",
-    "#principles",
+    "#search",
   );
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveURL(/food_locale=fr-FR/);

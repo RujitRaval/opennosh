@@ -161,6 +161,18 @@ def test_target_schedule_replacement_and_day_type_resolution(
     assert rest.json()["kcal"] == "2100.00"
     assert missing.status_code == 404
     assert missing.headers["cache-control"] == "no-store"
+    optional_existing = target_clients.owner.get(
+        "/api/v1/targets/resolve-optional",
+        params={"day": "2026-09-01", "day_type": "training"},
+    )
+    optional_missing = target_clients.owner.get(
+        "/api/v1/targets/resolve-optional",
+        params={"day": "2026-07-31", "day_type": "training"},
+    )
+    assert optional_existing.status_code == 200
+    assert optional_existing.json()["kcal"] == "2600.00"
+    assert optional_missing.status_code == 200
+    assert optional_missing.json() is None
 
     replaced = _put(target_clients.owner, target_clients.owner_csrf, _schedule(rest_kcal="2200"))
     assert replaced.status_code == 200

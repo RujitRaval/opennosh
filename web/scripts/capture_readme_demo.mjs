@@ -93,7 +93,7 @@ await page.waitForLoadState("networkidle");
 await frame(1, "commons-home");
 
 await page.goto(`${baseURL}/en/explore`);
-await page.getByRole("heading", { name: "Search the starter Commons." }).scrollIntoViewIfNeeded();
+await page.getByRole("heading", { name: "Search starter food records." }).scrollIntoViewIfNeeded();
 await frame(2, "explore-search");
 await page.getByLabel("Food name").fill("rajma");
 await page.getByRole("button", { name: "Search records" }).click();

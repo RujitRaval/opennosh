@@ -13,8 +13,8 @@ type TargetValues = {
 };
 
 const initialTargets: Record<"training" | "rest", TargetValues> = {
-  training: { kcal: "2200", protein: "160", carbs: "240", fat: "70" },
-  rest: { kcal: "2000", protein: "150", carbs: "200", fat: "65" },
+  training: { kcal: "", protein: "", carbs: "", fat: "" },
+  rest: { kcal: "", protein: "", carbs: "", fat: "" },
 };
 
 function today(): string {
@@ -34,6 +34,7 @@ export function OnboardingPanel({
 }) {
   const [units, setUnits] = useState<PreferredUnits>(user.preferred_units);
   const [targets, setTargets] = useState(initialTargets);
+  const [configureTargets, setConfigureTargets] = useState(false);
   const [savedRecovery, setSavedRecovery] = useState(!recoveryCode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,14 +53,14 @@ export function OnboardingPanel({
     setError(null);
     try {
       await api.replaceTargets({
-        items: (["training", "rest"] as const).map((dayType) => ({
+        items: configureTargets ? (["training", "rest"] as const).map((dayType) => ({
           day_type: dayType,
           kcal: targets[dayType].kcal,
           protein_g: targets[dayType].protein,
           carb_g: targets[dayType].carbs,
           fat_g: targets[dayType].fat,
           active_from: today(),
-        })),
+        })) : [],
       });
       const updated = await api.updateAccountSettings({
         preferred_units: units,
@@ -78,7 +79,7 @@ export function OnboardingPanel({
         <p className="eyebrow">Private tracker / First run</p>
         <h1>Make the tracker yours.</h1>
         <p>
-          Choose familiar units and starting targets. You can change all of this later; the
+          Choose familiar units and optional starting targets. You can change all of this later; the
           numbers are reference points, never judgments.
         </p>
       </section>
@@ -114,9 +115,13 @@ export function OnboardingPanel({
 
         <section className="setup-section" aria-labelledby="targets-title">
           <p className="section-kicker">Step 2</p>
-          <h2 id="targets-title">Set starting nutrition targets</h2>
-          <p className="form-help">These optional guide rails can be adjusted from Account at any time.</p>
-          <div className="target-setup-grid">
+          <h2 id="targets-title">Choose whether to add nutrition targets</h2>
+          <p className="form-help">Targets are values you choose for yourself; opennosh does not prescribe them. You can skip this and add them later.</p>
+          <label className="confirmation-row">
+            <input type="checkbox" checked={configureTargets} onChange={(event) => setConfigureTargets(event.target.checked)} />
+            <span>Set my own nutrition targets now.</span>
+          </label>
+          {configureTargets ? <div className="target-setup-grid">
             {(["training", "rest"] as const).map((dayType) => (
               <fieldset key={dayType} className="target-card">
                 <legend>{dayType === "training" ? "Training day" : "Rest day"}</legend>
@@ -136,7 +141,7 @@ export function OnboardingPanel({
                 ))}
               </fieldset>
             ))}
-          </div>
+          </div> : null}
         </section>
 
         {error ? <p className="notice notice-error" role="alert">{error}</p> : null}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { LoginPanel } from "@/components/log/login-panel";
+import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
 import { TrackerHeader } from "@/components/tracker/tracker-header";
 import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { api } from "@/lib/api";
@@ -40,6 +41,17 @@ export function AccountApp() {
     setRecoveryCode(response.recovery_code);
     setUser(response.user);
   }} />;
+
+  if (!user.onboarding_completed) return <OnboardingPanel
+    user={user}
+    recoveryCode={recoveryCode}
+    onComplete={(updated) => {
+      setRecoveryCode(undefined);
+      setUser(updated);
+      router.push("/tracker");
+    }}
+    onLogout={() => void api.logout().finally(() => setUser(null))}
+  />;
 
   async function logout() {
     await api.logout();
