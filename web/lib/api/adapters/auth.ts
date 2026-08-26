@@ -15,7 +15,7 @@ export function authenticatedUser(value: TransportUser): AuthenticatedUser {
   return {
     id: value.id,
     email: value.email,
-    onboarding_completed: value.onboarding_completed ?? false,
+    onboarding_completed: value.onboarding_completed ?? true,
     preferred_units: value.preferred_units ?? "metric",
   };
 }
@@ -33,6 +33,10 @@ export function registrationResponse(value: TransportRegistration): Registration
 }
 
 export function sessionState(value: TransportSessionState): SessionState {
+  const legacy = value as unknown as TransportUser;
+  if (typeof legacy.id === "string" && typeof legacy.email === "string") {
+    return { authenticated: true, user: authenticatedUser(legacy) };
+  }
   return {
     authenticated: value.authenticated,
     user: value.user ? authenticatedUser(value.user) : null,

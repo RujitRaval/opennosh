@@ -82,9 +82,7 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
     connection = await asyncpg.connect(asyncpg_dsn(owner_url))
     try:
         database_identifier = await _quoted(connection, database_name, identifier=True)
-        migration_password_literal = await _quoted(
-            connection, migration_password, identifier=False
-        )
+        migration_password_literal = await _quoted(connection, migration_password, identifier=False)
         web_password_literal = await _quoted(connection, web_password, identifier=False)
         async with connection.transaction():
             for role in (MIGRATION_ROLE, WEB_ROLE):
@@ -110,9 +108,7 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
                 f"GRANT CREATE ON DATABASE {database_identifier} TO {MIGRATION_ROLE}"
             )
             await connection.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
-            await connection.execute(
-                f"GRANT USAGE, CREATE ON SCHEMA public TO {MIGRATION_ROLE}"
-            )
+            await connection.execute(f"GRANT USAGE, CREATE ON SCHEMA public TO {MIGRATION_ROLE}")
             await connection.execute(f"GRANT USAGE ON SCHEMA public TO {WEB_ROLE}")
     finally:
         await connection.close()
@@ -126,12 +122,10 @@ async def grant_web_runtime_privileges(migration_url: str) -> None:
         async with connection.transaction():
             await connection.execute(f"GRANT USAGE ON SCHEMA public TO {WEB_ROLE}")
             await connection.execute(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public "
-                f"TO {WEB_ROLE}"
+                f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {WEB_ROLE}"
             )
             await connection.execute(
-                "GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public "
-                f"TO {WEB_ROLE}"
+                f"GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO {WEB_ROLE}"
             )
             await connection.execute(
                 "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
@@ -183,6 +177,12 @@ def run_predeploy(source: Mapping[str, str]) -> None:
     environment["MIGRATION_DATABASE_URL"] = migration_url
     subprocess.run(["opennosh-migrate"], check=True, env=environment)
     asyncio.run(grant_web_runtime_privileges(migration_url))
+    environment["ADMINISTRATION_DATABASE_URL"] = migration_url
+    subprocess.run(
+        ["opennosh", "foods", "load", "/app/packs", "--json"],
+        check=True,
+        env=environment,
+    )
 
 
 def run_api(source: Mapping[str, str]) -> None:

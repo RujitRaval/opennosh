@@ -53,8 +53,25 @@ export { ApiProblem, ApiProblem as ApiError };
 
 export const api = {
   session: () => request<TransportUser>("/api/v1/auth/session").then(authenticatedUser),
-  sessionState: () =>
-    request<TransportSessionState>("/api/v1/auth/session-state").then(sessionState),
+  sessionState: async () => {
+    try {
+      return await request<TransportSessionState>("/api/v1/auth/session-state").then(sessionState);
+    } catch (caught) {
+      if (caught instanceof ApiProblem && caught.status === 401) {
+        return { authenticated: false, user: null };
+      }
+      if (!(caught instanceof ApiProblem) || caught.kind !== "network") throw caught;
+      try {
+        const user = await request<TransportUser>("/api/v1/auth/session").then(authenticatedUser);
+        return { authenticated: true, user };
+      } catch (fallback) {
+        if (fallback instanceof ApiProblem && fallback.status === 401) {
+          return { authenticated: false, user: null };
+        }
+        throw fallback;
+      }
+    }
+  },
   login: (email: string, password: string) =>
     request<TransportSession>("/api/v1/auth/login", {
       method: "POST",
@@ -158,10 +175,22 @@ export const api = {
     request<TransportTarget>(
       `/api/v1/targets/resolve?${new URLSearchParams({ day, day_type: dayType })}`,
     ).then(target),
-  optionalTarget: (day: string, dayType: "training" | "rest") =>
-    request<TransportTarget | null>(
-      `/api/v1/targets/resolve-optional?${new URLSearchParams({ day, day_type: dayType })}`,
-    ).then((value) => value ? target(value) : null),
+  optionalTarget: async (day: string, dayType: "training" | "rest") => {
+    const query = new URLSearchParams({ day, day_type: dayType });
+    try {
+      return await request<TransportTarget | null>(
+        `/api/v1/targets/resolve-optional?${query}`,
+      ).then((value) => value ? target(value) : null);
+    } catch (caught) {
+      if (!(caught instanceof ApiProblem) || caught.kind !== "network") throw caught;
+      try {
+        return await request<TransportTarget>(`/api/v1/targets/resolve?${query}`).then(target);
+      } catch (fallback) {
+        if (fallback instanceof ApiProblem && fallback.status === 404) return null;
+        throw fallback;
+      }
+    }
+  },
   replaceTargets: (input: {
     items: Array<{
       day_type: "training" | "rest";

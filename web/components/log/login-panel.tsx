@@ -84,7 +84,7 @@ export function LoginPanel({ message, onAuthenticate, onRecover }: LoginPanelPro
           <label htmlFor="password">{mode === "recover" ? "New password" : "Password"}</label>
           <input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} />
           <button className="button button-primary button-full" disabled={submitting}>
-            {submitting ? "Working…" : title}
+            {submitting ? "Working…" : mode === "login" ? "Sign in" : mode === "register" ? "Create account" : "Reset password"}
           </button>
         </form>
         <div className="auth-actions">

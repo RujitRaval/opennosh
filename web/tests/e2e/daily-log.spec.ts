@@ -55,7 +55,7 @@ async function mockApi(page: Page) {
     const url = new URL(request.url());
     const path = url.pathname;
 
-    if (path === "/api/v1/auth/session") {
+    if (path === "/api/v1/auth/session-state") {
       return route.fulfill({
         status: authenticated ? 200 : 401,
         json: authenticated
@@ -109,7 +109,7 @@ async function mockApi(page: Page) {
         },
       });
     }
-    if (path === "/api/v1/targets/resolve") {
+    if (path === "/api/v1/targets/resolve-optional") {
       return route.fulfill({
         json: {
           id: "5ff7c942-62d1-43df-8809-a76303d9a889",
@@ -196,7 +196,7 @@ test("ranked search, barcode recovery, and private custom food entry", async ({ 
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
-    if (path === "/api/v1/auth/session") {
+    if (path === "/api/v1/auth/session-state") {
       return route.fulfill({
         json: { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" },
       });
@@ -300,7 +300,7 @@ test("ranked search, barcode recovery, and private custom food entry", async ({ 
         },
       });
     }
-    if (path === "/api/v1/targets/resolve") {
+    if (path === "/api/v1/targets/resolve-optional") {
       return route.fulfill({ status: 404, json: { detail: "Target not found" } });
     }
     return route.fulfill({ status: 404, json: { detail: `Unhandled ${path}` } });

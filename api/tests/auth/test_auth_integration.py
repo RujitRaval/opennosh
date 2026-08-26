@@ -473,9 +473,7 @@ def test_production_session_cookie_uses_host_prefix_and_secure_defaults() -> Non
             web_database_url=INTEGRATION_DATABASE_URL,
             app_environment="production",
             auth_rate_limit_attempts=20,
-            food_search_cursor_signing_keys=(
-                "prod-v1:33333333333333333333333333333333"
-            ),
+            food_search_cursor_signing_keys=("prod-v1:33333333333333333333333333333333"),
             _env_file=None,
         )
     )
@@ -504,3 +502,119 @@ def test_production_session_cookie_uses_host_prefix_and_secure_defaults() -> Non
     assert "SameSite=strict" in csrf_cookie
     assert "Path=/" in csrf_cookie
     assert "HttpOnly" not in csrf_cookie
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_session_state_and_resumable_account_settings(auth_client: TestClient) -> None:
+    anonymous = auth_client.get("/api/v1/auth/session-state")
+    assert anonymous.status_code == 200
+    assert anonymous.json() == {"authenticated": False, "user": None}
+
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "setup@example.test", "password": "a sufficiently long password"},
+    )
+    assert registered.status_code == 201
+    body = registered.json()
+    assert len(body["recovery_code"]) >= 32
+    assert body["user"]["onboarding_completed"] is False
+    assert body["user"]["preferred_units"] == "metric"
+
+    updated = auth_client.patch(
+        "/api/v1/auth/account/settings",
+        headers={"X-CSRF-Token": body["csrf_token"]},
+        json={"onboarding_completed": True, "preferred_units": "us"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["onboarding_completed"] is True
+    assert updated.json()["preferred_units"] == "us"
+
+    resumed = auth_client.get("/api/v1/auth/session-state")
+    assert resumed.status_code == 200
+    assert resumed.json()["authenticated"] is True
+    assert resumed.json()["user"]["onboarding_completed"] is True
+    assert resumed.json()["user"]["preferred_units"] == "us"
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_password_recovery_rotates_code_and_session(auth_client: TestClient) -> None:
+    original_password = "a sufficiently long password"
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "recover@example.test", "password": original_password},
+    )
+    original_code = registered.json()["recovery_code"]
+
+    recovered = auth_client.post(
+        "/api/v1/auth/recover",
+        json={
+            "email": "recover@example.test",
+            "recovery_code": original_code,
+            "new_password": "a different sufficiently long password",
+        },
+    )
+    assert recovered.status_code == 200
+    assert recovered.json()["recovery_code"] != original_code
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is True
+
+    stale_code = auth_client.post(
+        "/api/v1/auth/recover",
+        json={
+            "email": "recover@example.test",
+            "recovery_code": original_code,
+            "new_password": "yet another sufficiently long password",
+        },
+    )
+    assert stale_code.status_code == 401
+
+    auth_client.cookies.clear()
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={"email": "recover@example.test", "password": original_password},
+        ).status_code
+        == 401
+    )
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "recover@example.test",
+                "password": "a different sufficiently long password",
+            },
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_password_change_and_account_deletion_are_self_service(auth_client: TestClient) -> None:
+    password = "a sufficiently long password"
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "delete@example.test", "password": password},
+    )
+    csrf = registered.json()["csrf_token"]
+
+    changed = auth_client.put(
+        "/api/v1/auth/account/password",
+        headers={"X-CSRF-Token": csrf},
+        json={"current_password": password, "new_password": "a stronger replacement password"},
+    )
+    assert changed.status_code == 204
+
+    deleted = auth_client.request(
+        "DELETE",
+        "/api/v1/auth/account",
+        headers={"X-CSRF-Token": csrf},
+        json={"password": "a stronger replacement password"},
+    )
+    assert deleted.status_code == 204
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is False
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={"email": "delete@example.test", "password": "a stronger replacement password"},
+        ).status_code
+        == 401
+    )

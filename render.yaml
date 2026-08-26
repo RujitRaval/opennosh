@@ -76,5 +76,7 @@ services:
           envVarKey: TRUSTED_WEB_PROXY_TOKEN
       - key: OPENNOSH_PUBLIC_ROOT_ENABLED
         value: "true"
+      - key: OPENNOSH_PUBLIC_NAV_FEATURES
+        value: "explorer-search"
       - key: PUBLIC_ARTIFACT_READS_ENABLED
         value: "false"

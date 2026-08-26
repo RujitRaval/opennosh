@@ -5,10 +5,10 @@ Self-hosted nutrition and strength tracking built around food data the community
 Website: [opennosh.org](https://opennosh.org) — the public Commons and private Tracker are live on
 the production Render deployment.
 
-![Animated opennosh Tracker demo: search for Rajma masala, select 180 grams for lunch, add it, then view updated daily calorie and macro totals.](docs/assets/opennosh-search-log-demo.gif)
+![Animated opennosh launch demo: open the Living Commons, search the 165-record starter collection for Rajma masala, create a private Tracker account, save the one-time recovery code, choose US units and targets, then open the daily log.](docs/assets/opennosh-launch-demo.gif)
 
-_Search an open food record, log a serving in the private Tracker, and see the daily totals update. The animation plays once;
-[view the final daily-total screen](docs/assets/opennosh-daily-total.png)._
+_Search real starter records, see source and license context, then create and set up a recoverable private Tracker account. The animation plays once;
+[view the final ready-to-log screen](docs/assets/opennosh-tracker-ready.png)._
 
 > **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
 

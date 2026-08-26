@@ -406,13 +406,16 @@ def test_render_predeploy_does_not_pass_owner_or_raw_secrets_to_children(
             "scheduler=0",
         ],
         ["opennosh-migrate"],
+        ["opennosh", "foods", "load", "/app/packs", "--json"],
     ]
     capacity_environment = child_calls[0][1]
     migration_environment = child_calls[1][1]
+    food_load_environment = child_calls[2][1]
     assert make_url(capacity_environment["DATABASE_CAPACITY_URL"]).username == MIGRATION_ROLE
     assert "DATABASE_CAPACITY_URL" not in migration_environment
     assert make_url(migration_environment["MIGRATION_DATABASE_URL"]).username == MIGRATION_ROLE
-    for environment in (capacity_environment, migration_environment):
+    assert make_url(food_load_environment["ADMINISTRATION_DATABASE_URL"]).username == MIGRATION_ROLE
+    for environment in (capacity_environment, migration_environment, food_load_environment):
         assert environment["FOOD_SEARCH_CURSOR_SIGNING_KEYS"] == "render-v1:cursor-secret"
         assert "owner-secret" not in repr(environment)
         for raw_secret in (

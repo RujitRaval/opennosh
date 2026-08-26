@@ -123,7 +123,7 @@ export const enCatalog = {
     explorerStatusLabel: "Public explorer status",
     publicExplorer: "Public explorer",
     searchNext: "Search is the next surface.",
-    inDevelopment: "In development",
+    inDevelopment: "Search is live",
     principles: [
       { title: "Anonymous by default", description: "Look up public food knowledge without creating an account." },
       { title: "Context beside numbers", description: "Preparations, portions, locale, and uncertainty stay attached." },
