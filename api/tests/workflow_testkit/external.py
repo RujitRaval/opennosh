@@ -6,12 +6,25 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from types import MappingProxyType
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.publication.adapters import PublicationAdapterRegistry
+from opennosh_api.publication.receipts import (
+    Ed25519ReceiptSigner,
+    PublicationReceiptDraft,
+    SignedPublicationReceipt,
+    signed_receipt_digest,
+)
 from opennosh_api.publication.state import (
     EffectIntent,
     ExternalObservation,
     ObservationStatus,
     PublicationStepName,
+)
+
+_RECEIPT_SIGNER = Ed25519ReceiptSigner(
+    key_id="workflow-testkit-2026",
+    publisher_identity="opennosh:workflow-testkit",
+    private_key=Ed25519PrivateKey.from_private_bytes(b"w" * 32),
 )
 
 
@@ -145,14 +158,46 @@ class PersistentPublicationAdapter:
         self.identity = f"testkit-{system.value}"
 
     async def apply(self, intent: EffectIntent) -> None:
+        content_digest = intent.approved_payload_digest
+        external_reference = (
+            "b" * 40 if intent.step is PublicationStepName.COMMIT_RECORD else None
+        )
+        context: dict[str, object] = {
+            "step": intent.step.value,
+            "destination": intent.destination,
+        }
+        if intent.step is PublicationStepName.COMMIT_RECORD:
+            context["merged_tree_digest"] = "c" * 64
+        elif intent.step is PublicationStepName.SIGN_RELEASE:
+            context["release_version"] = "2026.08.26-testkit"
+        elif intent.step is PublicationStepName.CONFIRM_REGISTRY:
+            context["registry_result"] = "accepted"
+        elif intent.step is PublicationStepName.SIGN_RECEIPT:
+            draft_value = intent.context.get("receipt_draft")
+            if not isinstance(draft_value, dict):
+                raise ValueError("Receipt test effect requires a canonical draft")
+            envelope = _RECEIPT_SIGNER.sign(
+                PublicationReceiptDraft.model_validate(draft_value)
+            )
+            content_digest = signed_receipt_digest(envelope)
+            external_reference = f"key:{envelope.signature_key_id}"
+            context["signed_receipt"] = envelope.model_dump(mode="json")
+        elif intent.step in {
+            PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+            PublicationStepName.COPY_RECEIPT,
+        }:
+            envelope_value = intent.context.get("signed_receipt")
+            if not isinstance(envelope_value, dict):
+                raise ValueError("Receipt test copy requires a signed envelope")
+            envelope = SignedPublicationReceipt.model_validate(envelope_value)
+            content_digest = signed_receipt_digest(envelope)
+            external_reference = f"memory:{intent.step.value}:{intent.publication_id}"
         self.state.apply(
             self.system,
             intent.idempotency_key,
-            content_digest=intent.approved_payload_digest,
-            external_reference=(
-                "b" * 40 if intent.step is PublicationStepName.COMMIT_RECORD else None
-            ),
-            context={"step": intent.step.value, "destination": intent.destination},
+            content_digest=content_digest,
+            external_reference=external_reference,
+            context=context,
         )
 
     async def observe(self, intent: EffectIntent) -> ExternalObservation:

@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.51.0.0] - 2026-08-26
+
+### Added
+
+- Make every accepted publication independently provable with a canonical Ed25519-signed receipt that binds the exact payload, merge result, frozen evidence, publisher identity, and release artifacts.
+- Preserve identical receipt bytes in both the public registry and a separate immutable artifact store, with bounded verification and strict signer authority.
+- Rebuild missing publication records safely from verified receipts after database loss, including ledger steps, evidence acknowledgements, accepted events, and correction or revocation lineage.
+- Add append-only receipt storage, frozen publication evidence, recovery-safe constraints, and an operator runbook for verification and reconciliation.
+
+### Changed
+
+- Make publication retries deterministic so a crash cannot produce different receipt bytes for the same accepted release.
+- Quarantine conflicting or mismatched receipt projections instead of overwriting trusted publication history.
+
+### Security
+
+- Require exact signer, publisher, adapter, destination, lineage, and evidence matches before a receipt can restore public acceptance.
+- Refuse lossy receipt-schema downgrades once signed receipts exist.
+
+
 ## [0.50.0.0] - 2026-08-26
 
 ### Added

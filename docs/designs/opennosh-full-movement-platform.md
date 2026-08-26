@@ -2068,7 +2068,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `api/opennosh_api/jobs`, `api/opennosh_api/publication`, migrations, role entrypoints.
   - Verify: transactional enqueue, duplicate delivery, stale lease, crash recovery, migration compatibility, and adapter replacement contract.
 
-- [ ] **T5 (P1, human: ~3-5 days / Codex: ~1 day)** - Publication/recovery - Make signed publication receipts canonical and reconstructible.
+- [x] **T5 (P1, human: ~3-5 days / Codex: ~1 day)** - Publication/recovery - Make signed publication receipts canonical and reconstructible.
   - Surfaced by: Architecture D6 - PostgreSQL RPO could erase the only accepted-event row after external publication completed.
   - Files: `api/opennosh_api/publication/receipts`, registry adapter, reconciliation, immutable artifact storage.
   - Verify: pre-publication database restore, tamper, duplicate replay, missing destination, late acknowledgement, correction, and revocation.

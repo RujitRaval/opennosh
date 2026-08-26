@@ -139,20 +139,46 @@ class PublicationSnapshot:
     workflow_version: str
     workflow_revision: int
     state: PublicationState
+    source_draft_id: UUID
+    source_draft_version: int
+    reviewed_decision_id: UUID
+    approving_actor_id: UUID
     pack_id: str
     record_id: str
     approved_payload_digest: str
     expected_base_commit: str
     required_checks: tuple[str, ...]
     forge_target: str
+    idempotency_key_hash: str
+    event_type: str
+    prior_receipt_digest: str | None
+    evidence_manifest_digests: tuple[str, ...]
+    evidence_acknowledgements: tuple[Mapping[str, object], ...]
     steps: tuple[PublicationStepSnapshot, ...]
     acknowledgements: tuple[DurableAcknowledgementSnapshot, ...]
 
     def __post_init__(self) -> None:
         if self.workflow_revision < 0:
             raise ValueError("Workflow revision cannot be negative")
+        if self.source_draft_version < 1:
+            raise ValueError("Publication source draft version must be positive")
         if len(self.approved_payload_digest) != 64:
             raise ValueError("Approved payload digest must be SHA-256")
+        if len(self.idempotency_key_hash) != 64:
+            raise ValueError("Publication idempotency hash must be SHA-256")
+        if self.event_type not in {"publication", "correction", "revocation"}:
+            raise ValueError("Publication event type is unsupported")
+        if (self.event_type == "publication") != (self.prior_receipt_digest is None):
+            raise ValueError("Only corrections and revocations link a prior receipt")
+        if self.evidence_manifest_digests != tuple(sorted(set(self.evidence_manifest_digests))):
+            raise ValueError("Evidence manifest digests must be sorted and unique")
+        if not self.evidence_acknowledgements:
+            raise ValueError("Publication snapshot requires durable evidence acknowledgements")
+        object.__setattr__(
+            self,
+            "evidence_acknowledgements",
+            tuple(MappingProxyType(dict(item)) for item in self.evidence_acknowledgements),
+        )
         if not self.steps:
             raise ValueError("Publication snapshot must contain protocol steps")
         ordinals = tuple(step.ordinal for step in self.steps)
@@ -232,6 +258,10 @@ class EffectIntent:
     approved_payload_digest: str
     idempotency_key: str
     forge_target: str
+    context: Mapping[str, object] = field(default_factory=lambda: MappingProxyType({}))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "context", MappingProxyType(dict(self.context)))
 
 
 @dataclass(frozen=True, slots=True)

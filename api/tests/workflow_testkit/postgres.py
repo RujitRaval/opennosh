@@ -5,6 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
+from opennosh_api.evidence.contracts import EvidenceAcknowledgement
 from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, PgQueuerJobQueue
 from opennosh_api.jobs.worker import asyncpg_dsn
 from opennosh_api.publication.service import CreatePublicationIntent, create_publication_intent
@@ -17,6 +18,7 @@ _PUBLICATION_TABLES = (
     "publication_intents",
     "publication_steps",
     "publication_durable_acknowledgements",
+    "publication_receipts",
     "accepted_events",
 )
 _SNAPSHOT_TABLES = (*_PUBLICATION_TABLES, PGQUEUER_SETTINGS.queue_table)
@@ -38,7 +40,8 @@ async def reset_trust_tables(database_url: str) -> None:
     connection = await asyncpg.connect(asyncpg_dsn(database_url))
     try:
         await connection.execute(
-            "TRUNCATE accepted_events, publication_durable_acknowledgements, "
+            "TRUNCATE accepted_events, publication_receipts, "
+            "publication_durable_acknowledgements, "
             "publication_steps, publication_intents, opennosh_pgqueuer, "
             "opennosh_pgqueuer_log, opennosh_pgqueuer_statistics, "
             "opennosh_pgqueuer_schedules, contribution_drafts, users CASCADE"
@@ -74,6 +77,16 @@ async def seed_publication(
                 user_id,
                 f"testkit-{suffix}-{draft_id}",
             )
+            await connection.execute(
+                "INSERT INTO evidence_manifests "
+                "(id, source_draft_id, source_draft_version, schema_version, "
+                "evidence_class, manifest_digest, manifest_json, public_state) "
+                "VALUES ($1, $2, 1, '1.0', 'sanitized_media', $3, "
+                "'{}'::jsonb, 'evidence_preserved')",
+                ids(),
+                draft_id,
+                "f" * 64,
+            )
     finally:
         await connection.close()
 
@@ -93,6 +106,21 @@ async def seed_publication(
             required_checks=("schema", "provenance", "license"),
             forge_target=FORGE_TARGET,
             idempotency_key=f"publication-testkit-{suffix}",
+            evidence_manifest_digests=("f" * 64,),
+            evidence_acknowledgements=(
+                EvidenceAcknowledgement(
+                    evidence_id=draft_id,
+                    evidence_class="sanitized_media",
+                    manifest_digest="f" * 64,
+                    kind="immutable_sanitized_copy",
+                    destination="urn:opennosh:durability:evidence",
+                    content_digest="7" * 64,
+                    external_reference="memory:evidence",
+                    verified_at=now,
+                    adapter_identity="workflow-testkit-evidence",
+                    adapter_version="1.0",
+                ),
+            ),
         )
         async with sessions() as session:
             async with session.begin():

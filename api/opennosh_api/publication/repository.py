@@ -314,6 +314,12 @@ class PostgresPublicationRepository:
                     now,
                 )
                 if reduction.accepted_event is not None:
+                    await self._insert_or_compare_receipt(
+                        connection,
+                        lease.effect.publication_id,
+                        reduction.accepted_event,
+                        reconciled_at=now,
+                    )
                     await self._insert_or_compare_accepted_event(
                         connection,
                         lease.effect.publication_id,
@@ -360,12 +366,19 @@ class PostgresPublicationRepository:
                     SET state = 'published',
                         workflow_revision = $2,
                         published_at = $3,
-                        updated_at = $3
+                        updated_at = $4
                     WHERE id = $1
                     """,
                     publication_id,
                     reduction.next_revision,
+                    proof.published_at,
                     now,
+                )
+                await self._insert_or_compare_receipt(
+                    connection,
+                    publication_id,
+                    proof,
+                    reconciled_at=now,
                 )
                 await self._insert_or_compare_accepted_event(
                     connection,
@@ -428,6 +441,79 @@ class PostgresPublicationRepository:
                 "Durable acknowledgement already exists with different proof"
             )
 
+    async def _insert_or_compare_receipt(
+        self,
+        connection: asyncpg.Connection,
+        publication_id: UUID,
+        proof: AcceptedEventData,
+        *,
+        reconciled_at: datetime,
+    ) -> None:
+        receipt = proof.envelope.get("receipt")
+        if not isinstance(receipt, dict):
+            raise ValueError("Signed receipt projection lacks its receipt body")
+        await connection.execute(
+            """
+            INSERT INTO publication_receipts (
+                publication_intent_id,
+                publication_id,
+                schema_version,
+                receipt_digest,
+                event_type,
+                prior_receipt_digest,
+                pack_id,
+                record_id,
+                envelope_json,
+                signature_key_id,
+                registry_reference,
+                artifact_reference,
+                published_at,
+                reconciled_at
+            )
+            SELECT id, $1, '1.0', $2, $3, $4, pack_id, record_id,
+                   $5::jsonb, $6, $7, $8, $9, $10
+            FROM publication_intents
+            WHERE id = $1
+            ON CONFLICT DO NOTHING
+            """,
+            publication_id,
+            proof.receipt_digest,
+            proof.event_type,
+            proof.prior_receipt_digest,
+            json.dumps(dict(proof.envelope)),
+            str(proof.envelope["signature_key_id"]),
+            proof.registry_reference,
+            proof.artifact_reference,
+            proof.published_at,
+            reconciled_at,
+        )
+        rows = await connection.fetch(
+            """
+            SELECT publication_id, receipt_digest, event_type, prior_receipt_digest,
+                   envelope_json, registry_reference, artifact_reference, published_at
+            FROM publication_receipts
+            WHERE receipt_digest = $1 OR publication_id = $2
+            """,
+            proof.receipt_digest,
+            publication_id,
+        )
+        if len(rows) != 1:
+            raise PublicationAcknowledgementConflictError("Publication receipt identities conflict")
+        existing = rows[0]
+        if (
+            existing["publication_id"] != publication_id
+            or str(existing["receipt_digest"]) != proof.receipt_digest
+            or str(existing["event_type"]) != proof.event_type
+            or existing["prior_receipt_digest"] != proof.prior_receipt_digest
+            or _json_object(existing["envelope_json"]) != dict(proof.envelope)
+            or str(existing["registry_reference"]) != proof.registry_reference
+            or str(existing["artifact_reference"]) != proof.artifact_reference
+            or existing["published_at"] != proof.published_at
+        ):
+            raise PublicationAcknowledgementConflictError(
+                "Publication receipt already exists with different canonical proof"
+            )
+
     async def _insert_or_compare_accepted_event(
         self,
         connection: asyncpg.Connection,
@@ -446,30 +532,53 @@ class PostgresPublicationRepository:
                 receipt_digest,
                 published_at
             )
-            SELECT id, $2, $3, pack_id, record_id, 'record.published', $4, $5
+            SELECT id, $2, $3, pack_id, record_id, $4, $5, $6
             FROM publication_intents
             WHERE id = $1
-            ON CONFLICT (publication_intent_id) DO NOTHING
+            ON CONFLICT DO NOTHING
             """,
             publication_id,
             proof.repository,
             proof.commit_sha,
+            _accepted_event_type(proof.event_type),
             proof.receipt_digest,
             proof.published_at,
         )
-        existing = await connection.fetchrow(
+        rows = await connection.fetch(
             """
-            SELECT repository, commit_sha, receipt_digest, published_at
+            SELECT publication_intent_id, repository, commit_sha, pack_id, record_id,
+                   event_type, receipt_digest, published_at
             FROM accepted_events
-            WHERE publication_intent_id = $1
+            WHERE receipt_digest = $1
+               OR (repository = $2 AND commit_sha = $3
+                   AND pack_id = (
+                       SELECT pack_id FROM publication_intents WHERE id = $4
+                   )
+                   AND record_id = (
+                       SELECT record_id FROM publication_intents WHERE id = $4
+                   ))
             """,
+            proof.receipt_digest,
+            proof.repository,
+            proof.commit_sha,
             publication_id,
         )
-        if existing is None:
-            raise RuntimeError("Accepted event insert was not visible")
+        if len(rows) != 1:
+            raise PublicationAcknowledgementConflictError("Accepted event identities conflict")
+        existing = rows[0]
+        intent = await connection.fetchrow(
+            "SELECT pack_id, record_id FROM publication_intents WHERE id = $1",
+            publication_id,
+        )
+        if intent is None:
+            raise RuntimeError("Publication intent disappeared during accepted-event insert")
         if (
-            str(existing["repository"]) != proof.repository
+            existing["publication_intent_id"] != publication_id
+            or str(existing["repository"]) != proof.repository
             or str(existing["commit_sha"]) != proof.commit_sha
+            or str(existing["pack_id"]) != str(intent["pack_id"])
+            or str(existing["record_id"]) != str(intent["record_id"])
+            or str(existing["event_type"]) != _accepted_event_type(proof.event_type)
             or str(existing["receipt_digest"]) != proof.receipt_digest
             or existing["published_at"] != proof.published_at
         ):
@@ -530,9 +639,12 @@ class PostgresPublicationRepository:
     ) -> PublicationSnapshot:
         intent = await connection.fetchrow(
             """
-            SELECT id, workflow_version, workflow_revision, state, pack_id, record_id,
-                   approved_payload_digest, expected_base_commit, required_checks_json,
-                   forge_target
+            SELECT id, workflow_version, workflow_revision, state,
+                   source_draft_id, source_draft_version, reviewed_decision_id,
+                   approving_actor_id, pack_id, record_id, approved_payload_digest,
+                   expected_base_commit, required_checks_json, forge_target,
+                   idempotency_key_hash, event_type, prior_receipt_digest,
+                   evidence_manifest_digests_json, evidence_acknowledgements_json
             FROM publication_intents
             WHERE id = $1
             """,
@@ -565,6 +677,10 @@ class PostgresPublicationRepository:
             workflow_version=str(intent["workflow_version"]),
             workflow_revision=int(intent["workflow_revision"]),
             state=PublicationState(str(intent["state"])),
+            source_draft_id=intent["source_draft_id"],
+            source_draft_version=int(intent["source_draft_version"]),
+            reviewed_decision_id=intent["reviewed_decision_id"],
+            approving_actor_id=intent["approving_actor_id"],
             pack_id=str(intent["pack_id"]),
             record_id=str(intent["record_id"]),
             approved_payload_digest=str(intent["approved_payload_digest"]),
@@ -573,6 +689,20 @@ class PostgresPublicationRepository:
                 str(value) for value in _json_array(intent["required_checks_json"])
             ),
             forge_target=str(intent["forge_target"]),
+            idempotency_key_hash=str(intent["idempotency_key_hash"]),
+            event_type=str(intent["event_type"]),
+            prior_receipt_digest=(
+                str(intent["prior_receipt_digest"])
+                if intent["prior_receipt_digest"] is not None
+                else None
+            ),
+            evidence_manifest_digests=tuple(
+                str(value) for value in _json_array(intent["evidence_manifest_digests_json"])
+            ),
+            evidence_acknowledgements=tuple(
+                _json_object(value)
+                for value in _json_array(intent["evidence_acknowledgements_json"])
+            ),
             steps=tuple(
                 PublicationStepSnapshot(
                     name=PublicationStepName(str(row["step_name"])),
@@ -645,3 +775,15 @@ def _json_array(value: object) -> list[object]:
     if not isinstance(parsed, list):
         raise ValueError("Publication JSON value must be an array")
     return list(parsed)
+
+
+def _accepted_event_type(receipt_event_type: str) -> str:
+    values = {
+        "publication": "record.published",
+        "correction": "record.corrected",
+        "revocation": "record.revoked",
+    }
+    try:
+        return values[receipt_event_type]
+    except KeyError as error:
+        raise ValueError("Receipt event type is unsupported") from error

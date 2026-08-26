@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.jobs import JobLane, JobMessage
 from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, PgQueuerJobQueue
 from opennosh_api.jobs.worker import asyncpg_dsn
@@ -16,6 +17,12 @@ from opennosh_api.publication.orchestrator import (
     PublicationOrchestrator,
 )
 from opennosh_api.publication.planner import plan_next_action
+from opennosh_api.publication.receipts import (
+    Ed25519ReceiptSigner,
+    PublicationReceiptDraft,
+    SignedPublicationReceipt,
+    signed_receipt_digest,
+)
 from opennosh_api.publication.repository import PostgresPublicationRepository
 from opennosh_api.publication.service import create_publication_intent
 from opennosh_api.publication.state import (
@@ -38,6 +45,11 @@ from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
 NOW = datetime(2026, 8, 25, 12, tzinfo=UTC)
+RECEIPT_SIGNER = Ed25519ReceiptSigner(
+    key_id="repository-test-2026",
+    publisher_identity="opennosh:repository-test",
+    private_key=Ed25519PrivateKey.from_private_bytes(b"p" * 32),
+)
 
 
 class PersistentProtocolAdapter:
@@ -46,24 +58,54 @@ class PersistentProtocolAdapter:
 
     def __init__(self) -> None:
         self.effect_counts: dict[str, int] = {}
+        self.effects: dict[str, tuple[str, str | None, dict[str, object]]] = {}
 
     async def apply(self, intent: EffectIntent) -> None:
         self.effect_counts[intent.idempotency_key] = (
             self.effect_counts.get(intent.idempotency_key, 0) + 1
         )
+        digest = intent.approved_payload_digest
+        reference = "b" * 40 if intent.step is PublicationStepName.COMMIT_RECORD else None
+        context: dict[str, object] = {}
+        if intent.step is PublicationStepName.COMMIT_RECORD:
+            context["merged_tree_digest"] = "c" * 64
+        elif intent.step is PublicationStepName.SIGN_RELEASE:
+            context["release_version"] = "2026.08.26-test"
+        elif intent.step is PublicationStepName.CONFIRM_REGISTRY:
+            context["registry_result"] = "accepted"
+        elif intent.step is PublicationStepName.SIGN_RECEIPT:
+            draft_value = intent.context.get("receipt_draft")
+            if not isinstance(draft_value, dict):
+                raise ValueError("Receipt test effect requires a canonical draft")
+            envelope = RECEIPT_SIGNER.sign(PublicationReceiptDraft.model_validate(draft_value))
+            digest = signed_receipt_digest(envelope)
+            reference = f"key:{envelope.signature_key_id}"
+            context["signed_receipt"] = envelope.model_dump(mode="json")
+        elif intent.step in {
+            PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+            PublicationStepName.COPY_RECEIPT,
+        }:
+            envelope_value = intent.context.get("signed_receipt")
+            if not isinstance(envelope_value, dict):
+                raise ValueError("Receipt copy test requires a signed envelope")
+            envelope = SignedPublicationReceipt.model_validate(envelope_value)
+            digest = signed_receipt_digest(envelope)
+            reference = f"memory:{intent.step.value}:{intent.publication_id}"
+        self.effects[intent.idempotency_key] = (digest, reference, context)
 
     async def observe(self, intent: EffectIntent) -> ExternalObservation:
-        verified = intent.idempotency_key in self.effect_counts
+        effect = self.effects.get(intent.idempotency_key)
         return ExternalObservation(
             step=intent.step,
-            status=ObservationStatus.VERIFIED if verified else ObservationStatus.ABSENT,
+            status=(ObservationStatus.VERIFIED if effect is not None else ObservationStatus.ABSENT),
             observed_at=NOW,
             destination=intent.destination,
             effect_idempotency_key=intent.idempotency_key,
             adapter_identity=self.identity,
             adapter_version=self.version,
-            content_digest="a" * 64 if verified else None,
-            external_reference="b" * 40 if verified else None,
+            content_digest=effect[0] if effect is not None else None,
+            external_reference=effect[1] if effect is not None else None,
+            context=effect[2] if effect is not None else {},
         )
 
 
@@ -192,6 +234,7 @@ async def run_crash_matrix(database_url: str) -> None:
             )
             assert queued == distinct_keys
     finally:
+        await reset_t4_tables(database_url)
         await pool.close()
 
 
@@ -268,6 +311,7 @@ async def run_complete_protocol_and_concurrent_claim(database_url: str) -> None:
             == 1
         )
     finally:
+        await reset_t4_tables(database_url)
         await pool.close()
 
 

@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
 
+from opennosh_api.publication.receipts import (
+    SignedPublicationReceipt,
+    signed_receipt_digest,
+    validate_receipt_binding,
+)
 from opennosh_api.publication.state import (
     DurableAcknowledgementSnapshot,
     EffectIntent,
@@ -29,6 +34,11 @@ class AcceptedEventData:
     commit_sha: str
     receipt_digest: str
     published_at: datetime
+    event_type: str
+    prior_receipt_digest: str | None
+    envelope: Mapping[str, object]
+    registry_reference: str
+    artifact_reference: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +112,7 @@ def reduce_planner_outcome(
         )
     if isinstance(outcome, TransitionOutcome):
         if outcome.step is None:
-            proof = _accepted_event_proof(snapshot, now=now)
+            proof = _accepted_event_proof(snapshot)
             return _reduction(
                 snapshot,
                 publication_state=PublicationState.PUBLISHED,
@@ -217,8 +227,6 @@ def _find_acknowledgement(
 
 def _accepted_event_proof(
     snapshot: PublicationSnapshot,
-    *,
-    now: datetime,
 ) -> AcceptedEventData:
     if any(step.state is not PublicationStepState.VERIFIED for step in snapshot.steps):
         raise ValueError("Publication cannot complete before every protocol step verifies")
@@ -242,11 +250,27 @@ def _accepted_event_proof(
         or any(character not in "0123456789abcdef" for character in commit_hash)
     ):
         raise ValueError("Commit acknowledgement lacks a canonical commit hash")
+    envelope_value = signed_receipt.context.get("signed_receipt")
+    if not isinstance(envelope_value, dict):
+        raise ValueError("Receipt acknowledgement lacks the signed envelope")
+    envelope = SignedPublicationReceipt.model_validate(envelope_value)
+    validate_receipt_binding(envelope, snapshot)
+    if signed_receipt_digest(envelope) != signed_receipt.content_digest:
+        raise ValueError("Signed receipt digest does not match its envelope")
+    if registry_receipt.external_reference is None:
+        raise ValueError("Registry receipt acknowledgement lacks an external reference")
+    if copied_receipt.external_reference is None:
+        raise ValueError("Receipt artifact acknowledgement lacks an external reference")
     return AcceptedEventData(
         repository=commit.destination,
         commit_sha=commit_hash,
         receipt_digest=signed_receipt.content_digest,
-        published_at=now,
+        published_at=envelope.receipt.published_at,
+        event_type=envelope.receipt.event_type.value,
+        prior_receipt_digest=envelope.receipt.prior_receipt_digest,
+        envelope=MappingProxyType(envelope.model_dump(mode="json")),
+        registry_reference=registry_receipt.external_reference,
+        artifact_reference=copied_receipt.external_reference,
     )
 
 

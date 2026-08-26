@@ -34,6 +34,7 @@ EXPECTED_TABLES = {
     "publication_intents",
     "publication_steps",
     "publication_durable_acknowledgements",
+    "publication_receipts",
     "accepted_events",
 }
 

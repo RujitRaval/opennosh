@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.contributions.models import ContributionDraft
+from opennosh_api.evidence.contracts import manifest_digest
 from opennosh_api.evidence.policy import EvidenceDurabilityError
 from opennosh_api.evidence.repository import require_verified_evidence
 from opennosh_api.governance.contracts import (
@@ -126,7 +127,7 @@ async def approve_contribution(
     if pause is not None:
         raise GovernanceDecisionError("publication_paused")
     try:
-        await require_verified_evidence(
+        evidence = await require_verified_evidence(
             session,
             source_draft_id=draft.id,
             source_draft_version=draft.draft_version,
@@ -168,6 +169,8 @@ async def approve_contribution(
             required_checks=command.required_checks,
             forge_target=command.forge_target,
             idempotency_key=f"governance-decision:{decision.id}",
+            evidence_manifest_digests=(manifest_digest(evidence.manifest),),
+            evidence_acknowledgements=evidence.acknowledgements,
         ),
         now=now,
     )
@@ -373,9 +376,7 @@ async def intervene_publication(
     if existing is not None:
         raise GovernanceDecisionError("publication_already_intervened")
     decision = await session.scalar(
-        select(GovernanceDecision).where(
-            GovernanceDecision.id == intent.reviewed_decision_id
-        )
+        select(GovernanceDecision).where(GovernanceDecision.id == intent.reviewed_decision_id)
     )
     if decision is None:
         raise GovernanceDecisionError("governance_decision_not_found")
