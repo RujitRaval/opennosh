@@ -27,7 +27,7 @@
       "acquisition_timeout_ms": 1000,
       "statement_timeout_ms": 10000,
       "worker_concurrency": 6,
-      "max_in_flight_database_sections": 6
+      "max_in_flight_database_sections": 5
     },
     "evidence": {
       "replicas": 0,

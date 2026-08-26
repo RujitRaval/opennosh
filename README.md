@@ -697,7 +697,7 @@ were omitted.
 | `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
 | `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
 | `docs/designs/t22-living-commons-reference-evidence.md` | Refreshed Living Commons reference acceptance map, responsive audit, and source hashes | Designers + release reviewers |
-| `docs/spikes/t4-pgqueuer.md` | Accepted PgQueuer delivery boundary, publication-ledger ownership, spike evidence, and production activation gate | Backend contributors + operators |
+| `docs/spikes/t4-pgqueuer.md` | Accepted PgQueuer delivery boundary, publication-ledger ownership, T10 handler status, migration precondition, and production activation gate | Backend contributors + operators |
 | `web/assets/fonts/v2/README.md` | Reproducible public font sources, subsets, licenses, route-scoped loading, budgets, and integrity hashes | Frontend contributors + release reviewers |
 | `NOTICE.md` and `LICENSES.md` | Combined distribution notice and repository-wide licensing map | Users + distributors |
 | `06-CONTRIBUTOR-MODEL.md` | How the community layer actually works | You |

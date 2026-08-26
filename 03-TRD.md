@@ -61,10 +61,12 @@ contribution_draft_operations
 
 publication_intents
   id, source_draft_id, source_draft_version, reviewed_decision_id,
-  approving_actor_id, approved_payload_digest, state, idempotency_key_hash
+  approving_actor_id, approved_payload_digest, workflow_version,
+  workflow_revision, state, idempotency_key_hash
 publication_steps
-  id, publication_intent_id, step_name, step_version, state, lease_token,
-  lease_expires_at, next_attempt_at, observation_json
+  id, publication_intent_id, step_name, ordinal, destination, step_version,
+  state, queue_job_id, lease_token, lease_owner, lease_expires_at,
+  next_attempt_at, input_digest, observation_json
 publication_durable_acknowledgements
   id, publication_intent_id, acknowledgement_kind, destination,
   content_digest, external_reference, verified_at
@@ -249,7 +251,9 @@ services:
 - Every boot validates the versioned global connection-capacity manifest and live PostgreSQL ceiling before running one migration job. Web and worker processes never run migrations on startup.
 - USDA and community-pack loading remains an explicit operator action after the schema is current.
 - The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
-  ledger. Its production replica count remains zero until the deterministic T10 handler lands; see
+  ledger. T10 installs the deterministic planner, bounded executor, reducer, and wake-up handler,
+  but the production replica count remains zero until the governed forge, evidence, and signed
+  receipt adapters land in T2, T3, and T5; see
   [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md).
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
 - nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.

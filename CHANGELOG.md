@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.47.0.0] - 2026-08-25
+
+### Added
+
+- Implement a deterministic publication planner, bounded effect executor, and pure reducer across
+  the fixed commit, evidence, release, registry, and signed-receipt protocol.
+- Persist destination-scoped idempotency keys, external observations, durable acknowledgements,
+  leases, and revision-specific queue wakeups in the publication ledger.
+- Exercise every orchestration crash boundary against PostgreSQL and prove retries cannot skip
+  protocol steps, duplicate accepted events, or publish without the complete receipt proof.
+
+### Changed
+
+- Run publication work through the existing PgQueuer pool with an explicit five-connection worker
+  ceiling, leaving one connection available for queue coordination.
+- Keep production publication replicas disabled until the governed forge, evidence, and receipt
+  adapters land in T2, T3, and T5.
+
+### Security
+
+- Quarantine conflicting external observations and receipt proofs instead of accepting ambiguous
+  publication state.
+
 ## [0.46.0.0] - 2026-08-25
 
 ### Added

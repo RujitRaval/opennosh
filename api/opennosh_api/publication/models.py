@@ -29,8 +29,11 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         CheckConstraint("schema_version = '1.0'", name="schema_version_supported"),
         CheckConstraint("workflow_version = '1.0'", name="workflow_version_supported"),
         CheckConstraint("source_draft_version > 0", name="source_draft_version_positive"),
+        CheckConstraint("workflow_revision >= 0", name="workflow_revision_non_negative"),
         CheckConstraint(
-            "state IN ('pending', 'running', 'retrying', 'blocked', 'failed', 'published')",
+            "state IN ('pending', 'running', 'retrying', 'blocked', 'failed', 'published', "
+            "'committed', 'signed', 'publish_blocked', 'publish_retrying', "
+            "'quarantined')",
             name="state_allowed",
         ),
         CheckConstraint(
@@ -55,7 +58,7 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "state",
             "next_attempt_at",
             "id",
-            postgresql_where=text("state IN ('pending', 'retrying')"),
+            postgresql_where=text("state IN ('pending', 'retrying', 'publish_retrying')"),
         ),
     )
 
@@ -67,6 +70,7 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     approving_actor_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     schema_version: Mapped[str] = mapped_column(String(16), nullable=False, server_default="1.0")
     workflow_version: Mapped[str] = mapped_column(String(16), nullable=False, server_default="1.0")
+    workflow_revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     state: Mapped[str] = mapped_column(String(32), nullable=False, server_default="pending")
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
     record_id: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -96,6 +100,7 @@ class PublicationStep(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("workflow_version = '1.0'", name="workflow_version_supported"),
         CheckConstraint("step_version > 0", name="step_version_positive"),
+        CheckConstraint("ordinal >= 0", name="ordinal_non_negative"),
         CheckConstraint("attempt_count >= 0", name="attempt_count_non_negative"),
         CheckConstraint(
             "state IN ('pending', 'leased', 'retrying', 'blocked', 'failed', 'verified')",
@@ -104,8 +109,20 @@ class PublicationStep(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         UniqueConstraint(
             "publication_intent_id",
             "step_name",
+            "destination",
             "step_version",
-            name="uq_publication_steps_intent_name_version",
+            name="uq_publication_steps_intent_name_destination_version",
+        ),
+        UniqueConstraint(
+            "publication_intent_id",
+            "ordinal",
+            name="uq_publication_steps_intent_ordinal",
+        ),
+        Index(
+            "uq_publication_steps_one_lease_per_intent",
+            "publication_intent_id",
+            unique=True,
+            postgresql_where=text("state = 'leased'"),
         ),
         Index(
             "ix_publication_steps_claim",
@@ -122,6 +139,8 @@ class PublicationStep(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     workflow_version: Mapped[str] = mapped_column(String(16), nullable=False, server_default="1.0")
     step_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    destination: Mapped[str] = mapped_column(String(512), nullable=False)
     step_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     state: Mapped[str] = mapped_column(String(32), nullable=False, server_default="pending")
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
@@ -204,5 +223,5 @@ class AcceptedEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
     record_id: Mapped[str] = mapped_column(String(160), nullable=False)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    receipt_digest: Mapped[str | None] = mapped_column(String(64))
+    receipt_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -1911,7 +1911,7 @@ Manual entry and OCR describe data-entry methods. They are not evidence classes 
 - Model publication as a versioned durable snapshot processed by three explicit layers: a pure next-action planner, a narrow external-effect executor, and a transactional result reducer.
 - The planner receives the persisted snapshot plus verified external observations and returns exactly one typed outcome: transition, effect intent, wait condition, quarantine, terminal failure, or no-op.
 - Transition and planning code performs no network, filesystem, clock, random, queue, or database operations. All nondeterministic inputs are explicit values.
-- An executor handles one bounded effect intent through one adapter using a deterministic idempotency key derived from publication identity, workflow version, step, and approved payload digest.
+- An executor handles one bounded effect intent through one adapter using a deterministic idempotency key derived from publication identity, workflow version, step, destination, and approved payload digest.
 - After the effect, independently verify the external state. A reducer transaction stores the observation/result, durable acknowledgement, and next workflow version before another effect may begin.
 - Each lease performs at most one external-effect boundary before checkpointing and acknowledging its wake-up job. Lease loss stops execution before planning the next effect.
 - Use exhaustive transition-table tests, property-based invariants, adapter contract tests, and crash injection before and after every executor/reducer boundary.
@@ -2093,7 +2093,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: API entrypoints, settings, container/compose/deployment manifests, startup tests.
   - Verify: role import isolation, lane ownership, least privilege, drain/restart, N/N-1 unknown-job behavior, one migration job.
 
-- [ ] **T10 (P1, human: ~4-6 days / Codex: ~1-2 days)** - Publication - Implement the deterministic planner, effect executor, and reducer.
+- [x] **T10 (P1, human: ~4-6 days / Codex: ~1-2 days)** - Publication - Implement the deterministic planner, effect executor, and reducer.
   - Surfaced by: Code Quality D11 - side effects and state decisions must not collapse into a procedural orchestrator.
   - Files: `api/opennosh_api/publication/state.py`, planner, executor, reducer, adapter protocols.
   - Verify: exhaustive transition table, pure planner, one effect per lease, deterministic idempotency, before/after crash matrix.

@@ -285,7 +285,7 @@ jobs:
             | grep -qx '1'
 
       - name: Verify the Alembic head
-        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260825_0013'
+        run: docker compose exec -T db psql -U opennosh -d opennosh -tAc "SELECT version_num FROM alembic_version" | grep -qx '20260825_0014'
 
       - name: Stop Compose services
         if: always()

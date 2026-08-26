@@ -48,8 +48,18 @@ downgrade.
 
 The publication process uses the T9 capacity manifest for pool size, acquisition timeout,
 statement timeout, worker concurrency, application name, and replica activation. Its
-default production replica count remains zero until T10 installs the deterministic
-publication handler.
+six-connection pool permits at most five concurrent publication database sections so queue
+coordination always retains one connection. T10 installs the deterministic planner, bounded
+effect executor, reducer, and PgQueuer wake-up handler. The default production replica count
+remains zero until T2, T3, and T5 supply the governed forge, evidence, and signed-receipt
+adapters required to complete the protocol.
+
+Migration `20260825_0014` intentionally refuses a database containing any legacy
+`publication_steps` rows because those rows do not carry a canonical T10 destination and ordinal.
+The publication worker has never been activated in the default topology, so the table is expected
+to be empty. Operators upgrading a non-default deployment must verify and resolve any rows under
+the old schema before running Alembic; the migration fails closed instead of inventing effect
+destinations or accepting ambiguous progress.
 
 ## Sources
 
