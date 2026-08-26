@@ -51,8 +51,8 @@ statement timeout, worker concurrency, application name, and replica activation.
 six-connection pool permits at most five concurrent publication database sections so queue
 coordination always retains one connection. T10 installs the deterministic planner, bounded
 effect executor, reducer, and PgQueuer wake-up handler. The default production replica count
-remains zero until T2, T3, and T5 supply the governed forge, evidence, and signed-receipt
-adapters required to complete the protocol.
+remains zero after T2 supplies the governed forge; T3 evidence, T5 signed receipts, and live forge
+App and protected-ruleset configuration are still required to complete and activate the protocol.
 
 Migration `20260825_0014` intentionally refuses a database containing any legacy
 `publication_steps` rows because those rows do not carry a canonical T10 destination and ordinal.

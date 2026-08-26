@@ -42,7 +42,8 @@ default manifest activates the real web role and assigns zero replicas to future
 worker fails closed; enabling a replica before its queue driver is installed also fails instead of
 running an inert process. The publication role now has a real PgQueuer driver and reserves one of
 its six pooled connections for queue coordination by limiting concurrent database sections to five.
-Its replica count remains zero until the governed forge, evidence, and signed-receipt adapters land.
+T2 supplies the governed forge, but the replica count remains zero until the evidence and
+signed-receipt adapters land and the live forge Apps and protected ruleset are configured.
 
 Production deployments must give each activated role its own least-privilege database URL, such as
 `WEB_DATABASE_URL` or `PUBLICATION_DATABASE_URL`. The migration and administration jobs use

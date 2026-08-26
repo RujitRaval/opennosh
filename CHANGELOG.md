@@ -2,6 +2,33 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.49.0.0] - 2026-08-25
+
+### Added
+
+- Record pack-scoped steward roles, recusals, emergency pauses, and immutable approvals together
+  with the exact reviewed file set, payload digest, expected base, checks, and forge target.
+- Turn an approval into one publication intent and queue wake-up atomically, with PostgreSQL tests
+  proving concurrent decisions cannot create duplicate authority or work.
+- Add a least-privilege GitHub App forge adapter that creates deterministic contribution branches,
+  requests a protected squash merge only after fresh authorization, and verifies every merged path
+  and byte against approval.
+- Add audited reject and changes-requested interventions plus authorized two-person emergency-pause
+  recovery, with every intervention stopping the governed merge path.
+- Require a source-pinned, checks-only governance attester App to prove authorization, self-review,
+  and exact open-head payload independently of the forge App before protected merge.
+- Commit a versioned, CI-validated `main` branch protection policy and governed-forge operations
+  runbook without granting the publication application repository-administration access.
+
+### Security
+
+- Recheck steward scope, self-review prohibition, recusal, and pause intervals before forge writes
+  and at merge time; failed checks, closed pull requests, and payload mismatches are quarantined.
+- Require protected pull requests with no bypass actors, six source-pinned gates, no force-push or
+  deletion, and squash-only mechanical completion of the recorded steward decision.
+- Commit exact-head merge authority in a short transaction serialized against withdrawals, release
+  the database before forge I/O, and recover idempotently from lost auto-merge or attestation responses.
+
 ## [0.48.0.0] - 2026-08-25
 
 ### Added

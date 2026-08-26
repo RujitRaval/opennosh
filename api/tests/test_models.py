@@ -22,6 +22,12 @@ EXPECTED_TABLES = {
     "targets",
     "contribution_drafts",
     "contribution_draft_operations",
+    "governance_role_assignments",
+    "governance_recusals",
+    "governance_decisions",
+    "governance_merge_authorizations",
+    "governance_publication_interventions",
+    "governance_publication_pauses",
     "publication_intents",
     "publication_steps",
     "publication_durable_acknowledgements",
@@ -50,6 +56,21 @@ def test_metadata_contains_the_complete_license_separated_schema() -> None:
         "foods_odbl",
         "foods_custom",
     }.issubset(Base.metadata.tables)
+
+
+def test_governance_intervention_audit_fields_are_all_or_none() -> None:
+    role_checks = {
+        constraint.name
+        for constraint in Base.metadata.tables["governance_role_assignments"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    pause_checks = {
+        constraint.name
+        for constraint in Base.metadata.tables["governance_publication_pauses"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert "ck_governance_role_assignments_revocation_audit_complete" in role_checks
+    assert "ck_governance_publication_pauses_resume_audit_complete" in pause_checks
 
 
 def test_redistributable_stores_require_license_provenance() -> None:

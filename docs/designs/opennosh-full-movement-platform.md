@@ -1814,10 +1814,10 @@ Git commit → signed pack release → publication verification
 
 - A scoped steward approval is the only routine human governance authorization for the vertical trust loop.
 - The publication outbox records the approving steward, reviewed payload digest, expected base commit, required checks, forge target, and idempotency key.
-- A narrowly scoped forge application creates the contribution branch and pull request, enables auto-merge, and cannot bypass branch protection or required validation.
+- A narrowly scoped forge application creates the contribution branch and pull request, then idempotently arms protected squash auto-merge while the independently sourced governance attestation is still blocking. The worker observes an existing auto-merge request on recovery. A short per-pack transaction serializes the final authority reload with governance withdrawal and commits immutable authority bound to the exact head and payload; that commit is the merge-authorization linearization point. The database connection is released before the independent attester emits the protected check and GitHub completes the already-armed merge. The application cannot bypass branch protection or required validation.
 - Required checks verify schema, provenance, license, evidence manifest, payload digest, contribution authorization, and self-review prohibition.
 - The pull request merge is a mechanical completion of the steward decision, not a hidden second review queue.
-- A maintainer may pause or reject auto-merge only through an audited intervention that records the reason and returns the contribution to an explicit blocked or changes-requested state.
+- A maintainer may pause or reject protected merge only through an audited intervention that records the reason and returns the contribution to an explicit retrying, blocked, or changes-requested state.
 - The contributor cannot approve their own contribution. Role scope and recusal are rechecked when approval is recorded and again before merge.
 - Publication observes the merged commit, proves its tree matches the approved payload, and only then proceeds to signing and durable publication.
 - Forge adapters implement equivalent protected-check semantics where available. A local-Git adapter requires the same authorization and validation evidence before updating its canonical branch.
@@ -2053,7 +2053,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `api/opennosh_api/publication`, `api/opennosh_api/public`, `web/app/foods`, object-storage/CDN manifests.
   - Verify: exact-version food, provenance, API payload, manifest, and pack download remain verified with PostgreSQL unavailable.
 
-- [ ] **T2 (P1, human: ~3-5 days / Codex: ~1 day)** - Governance/forge - Implement steward-authorized protected automatic merge.
+- [x] **T2 (P1, human: ~3-5 days / Codex: ~1 day)** - Governance/forge - Implement steward-authorized protected automatic merge.
   - Surfaced by: Architecture D3 - approval authority and forge automation needed a non-self-reviewing trust boundary.
   - Files: `api/opennosh_api/governance`, `api/opennosh_api/publication/forge`, protected-branch configuration.
   - Verify: role revocation, recusal, concurrent decision, check failure, emergency pause, and merged-payload verification suites.
