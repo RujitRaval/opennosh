@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.46.0.0] - 2026-08-25
+
+### Added
+
+- Prepare reviewed food proposals for a crash-safe publication pipeline with a typed, replaceable
+  queue boundary and a pinned PgQueuer 1.3.2 delivery adapter.
+- Preserve publication intent, progress, durable acknowledgements, and accepted events in an
+  opennosh-owned ledger, so a completed queue job can never masquerade as published food data.
+
+### Changed
+
+- Write publication intents and deduplicated queue wakeups through one PostgreSQL transaction so a
+  commit preserves both and a rollback preserves neither.
+- Record the tested priority, retry, stale-lease, unknown-job, shutdown, migration, and replacement
+  behavior in [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md) for maintainers.
+
+### Security
+
+- Keep authority decisions, approved records, media, forge state, and secrets out of queue payloads.
+
 ## [0.45.0.0] - 2026-08-25
 
 ### Added

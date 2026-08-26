@@ -22,6 +22,10 @@ EXPECTED_TABLES = {
     "targets",
     "contribution_drafts",
     "contribution_draft_operations",
+    "publication_intents",
+    "publication_steps",
+    "publication_durable_acknowledgements",
+    "accepted_events",
 }
 
 OWNER_TABLES = {

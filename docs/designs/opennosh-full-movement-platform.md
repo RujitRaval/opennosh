@@ -2063,7 +2063,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `api/opennosh_api/evidence`, storage adapters, schemas, evidence worker, contribution UI.
   - Verify: media, dataset, citation, and attestation fixtures; missing source cannot enter a verified pack.
 
-- [ ] **T4 (P1, human: ~4-6 days / Codex: ~2 days)** - Jobs/publication - Spike PgQueuer and add the opennosh publication ledger.
+- [x] **T4 (P1, human: ~4-6 days / Codex: ~2 days)** - Jobs/publication - Spike PgQueuer and add the opennosh publication ledger.
   - Surfaced by: Architecture D5 - queue delivery cannot own publication correctness.
   - Files: `api/opennosh_api/jobs`, `api/opennosh_api/publication`, migrations, role entrypoints.
   - Verify: transactional enqueue, duplicate delivery, stale lease, crash recovery, migration compatibility, and adapter replacement contract.

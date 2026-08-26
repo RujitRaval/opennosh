@@ -28,6 +28,19 @@ capacity_manifest = load_capacity_manifest(settings.database_capacity_manifest_p
 migration_budget = capacity_manifest.jobs[JobRole.MIGRATION]
 
 
+def include_object(
+    object_: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object | None,
+) -> bool:
+    """Keep adapter-owned PgQueuer objects outside ORM schema ownership checks."""
+
+    del object_, reflected, compare_to
+    return not (type_ in {"table", "index"} and (name or "").startswith("opennosh_pgqueuer"))
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=database_url,
@@ -35,6 +48,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -42,7 +56,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -55,9 +74,7 @@ async def run_async_migrations() -> None:
         poolclass=pool.NullPool,
         connect_args={
             "server_settings": {
-                "application_name": (
-                    f"opennosh:{capacity_manifest.deployment_id}:migration"[:63]
-                ),
+                "application_name": (f"opennosh:{capacity_manifest.deployment_id}:migration"[:63]),
                 "statement_timeout": str(migration_budget.statement_timeout_ms),
             }
         },
