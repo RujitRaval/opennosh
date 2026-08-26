@@ -57,6 +57,10 @@ class TrustGateContractTests(unittest.TestCase):
             payload["required_pull_request_reviews"]["required_approving_review_count"],
             0,
         )
+        self.assertNotIn(
+            "bypass_pull_request_allowances",
+            payload["required_pull_request_reviews"],
+        )
         self.assertFalse(payload["allow_force_pushes"])
         self.assertFalse(payload["allow_deletions"])
 

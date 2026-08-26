@@ -30,7 +30,6 @@ def protection_payload(contract: dict[str, Any]) -> dict[str, Any]:
             "require_code_owner_reviews": False,
             "required_approving_review_count": 0,
             "require_last_push_approval": False,
-            "bypass_pull_request_allowances": {"users": [], "teams": [], "apps": []},
         },
         "restrictions": None,
         "required_linear_history": True,
