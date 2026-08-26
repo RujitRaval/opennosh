@@ -59,6 +59,26 @@ contribution_drafts      -- owner-scoped operational proposals; not accepted foo
 contribution_draft_operations
   draft_id, operation_id, resulting_version, created_at
 
+governance_role_assignments
+  id, pack_id, actor_id, role, granted_by_actor_id, grant_reason, granted_at,
+  revoked_by_actor_id, revocation_reason, revoked_at
+governance_recusals
+  id, pack_id, source_draft_id, actor_id, reason, recused_at
+governance_decisions
+  id, source_draft_id, source_draft_version, pack_id, record_id,
+  contributor_actor_id, deciding_actor_id, outcome, reason,
+  approved_payload_digest, approved_changes_json, expected_base_commit,
+  required_checks_json, forge_target, decided_at
+governance_publication_pauses
+  id, pack_id, paused_by_actor_id, pause_reason, paused_at,
+  resumed_by_actor_id, resume_reason, resumed_at
+governance_publication_interventions
+  id, publication_intent_id, source_draft_id, pack_id, actor_id,
+  action, reason, intervened_at
+governance_merge_authorizations
+  id, publication_intent_id, decision_id, pack_id, head_commit,
+  approved_payload_digest, authorized_at
+
 publication_intents
   id, source_draft_id, source_draft_version, reviewed_decision_id,
   approving_actor_id, approved_payload_digest, workflow_version,
@@ -252,8 +272,9 @@ services:
 - USDA and community-pack loading remains an explicit operator action after the schema is current.
 - The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
   ledger. T10 installs the deterministic planner, bounded executor, reducer, and wake-up handler,
-  but the production replica count remains zero until the governed forge, evidence, and signed
-  receipt adapters land in T2, T3, and T5; see
+  and T2 supplies the governed forge. The production replica count remains zero until the T3
+  evidence and T5 signed-receipt adapters land and the live forge Apps and protected ruleset are
+  configured; see
   [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md).
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
 - nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.

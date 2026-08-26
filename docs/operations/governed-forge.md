@@ -9,7 +9,9 @@ again against the merge time.
 The publication worker uses a forge GitHub App with only metadata read, checks read, contents write,
 and pull-request write permissions. It cannot administer the repository, push to `main`, bypass rules,
 or merge with failing checks. It creates a deterministic contribution branch and opens a pull
-request. After every independent CI check passes, the worker reloads steward authority and arms
+request. Governed machine pull requests use `opennosh/contribution/<24-lowercase-hex>` branches and
+`Governed contribution: <pack-id>` titles; the metadata check accepts only those exact forms. After
+every independent CI check passes, the worker reloads steward authority and arms
 protected squash auto-merge while the separately sourced governance attestation is still missing and
 therefore blocking. A retry observes GitHub's current auto-merge request, so a lost success response
 cannot cause a duplicate arm. The worker then runs one short per-pack database transaction: it
@@ -37,6 +39,12 @@ must create both GitHub Apps, install their disjoint bounded permissions, replac
 `$OPENNOSH_GOVERNANCE_ATTESTER_APP_ID` with the attester App's numeric integration ID, apply the
 manifest as the `main` branch ruleset, and verify the live ruleset has no bypass actors. Never give
 the forge App checks-write permission or the attester App contents/pull-request permission.
+Validate the versioned policy locally before applying it:
+
+```bash
+make forge-policy-check
+```
+
 Both installation-token providers mint repository-scoped tokens containing only the numeric
 repository ID for `RujitRaval/opennosh`; approval, binding, and adapter boundaries reject every
 other forge target.

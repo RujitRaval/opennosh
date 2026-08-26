@@ -43,6 +43,8 @@ When extending a workflow:
 4. Preserve database, queue, and fake external state across worker recreation.
 5. Assert the global trust invariants after recovery and duplicate delivery.
 
-The current contract fakes implement the existing `PublicationEffectAdapter` and `JobQueue` ports.
-OCR, evidence, and search fakes follow when T2, T3, and T5 introduce those production protocols; the
-testkit deliberately does not invent test-only interfaces that application code cannot implement.
+The current shared testkit fakes implement the existing `PublicationEffectAdapter` and `JobQueue`
+ports. T2's governed-forge contracts have focused adapter fakes plus real PostgreSQL lifecycle tests
+for approval, intervention, protected checks, attestation, and merged-tree verification. T3 evidence
+and T5 signed-receipt fakes join the shared workflow testkit when those production protocols land;
+the testkit deliberately does not invent test-only interfaces that application code cannot implement.
