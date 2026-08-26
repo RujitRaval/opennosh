@@ -30,6 +30,11 @@ PGQUEUER_SCHEMA_VERSION = "1.0"
 PGQUEUER_PREFIX = "opennosh_"
 PGQUEUER_SETTINGS = DBSettings(prefix=PGQUEUER_PREFIX)
 PUBLICATION_ENTRYPOINT = "opennosh.publication.wake.v1"
+EVIDENCE_ENTRYPOINT = "opennosh.evidence.preserve.v1"
+ENTRYPOINTS = {
+    JobLane.PUBLICATION: PUBLICATION_ENTRYPOINT,
+    JobLane.EVIDENCE: EVIDENCE_ENTRYPOINT,
+}
 
 
 def build_queries(driver: Driver) -> Queries:
@@ -70,15 +75,13 @@ class PgQueuerJobQueue:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def enqueue(self, connection: AsyncConnection, request: JobRequest) -> JobEnqueueResult:
-        if request.message.lane is not JobLane.PUBLICATION:
-            raise ValueError(f"Unsupported PgQueuer lane: {request.message.lane.value}")
         now = self._clock()
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("Queue clock must return a timezone-aware datetime")
         delay = max(request.run_after - now, timedelta())
         queries = await _queries_for_connection(connection)
         (job_id,) = await queries.enqueue(
-            PUBLICATION_ENTRYPOINT,
+            ENTRYPOINTS[request.message.lane],
             encode_message(request.message),
             priority=request.priority,
             execute_after=delay,
@@ -118,8 +121,9 @@ class PgQueuerJobQueue:
                 await queries.has_trigger(PGQUEUER_SETTINGS.trigger),
             )
         )
-        queued = await queries.queued_work([PUBLICATION_ENTRYPOINT])
-        eligible = await queries.eligible_queued_work([PUBLICATION_ENTRYPOINT])
+        entrypoints = list(ENTRYPOINTS.values())
+        queued = await queries.queued_work(entrypoints)
+        eligible = await queries.eligible_queued_work(entrypoints)
         return JobQueueHealth(
             adapter=f"pgqueuer:{PGQUEUER_ADAPTER_VERSION}",
             schema_version=PGQUEUER_SCHEMA_VERSION,

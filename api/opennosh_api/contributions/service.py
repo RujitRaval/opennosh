@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -27,6 +28,17 @@ from opennosh_api.contributions.schemas import (
     ContributionSubmit,
     DuplicateCandidate,
 )
+from opennosh_api.evidence.contracts import (
+    EvidenceClass,
+    EvidenceManifest,
+    MaintainerAttestationManifest,
+    PublicDocumentManifest,
+    SanitizedMediaManifest,
+    VersionedPublicDatasetManifest,
+)
+from opennosh_api.evidence.models import EvidenceManifestRecord
+from opennosh_api.evidence.service import create_manifest_and_enqueue
+from opennosh_api.jobs import JobQueue
 from opennosh_api.models.tables import FoodCommunity, FoodReference
 
 STAGES = tuple(ContributionStage)
@@ -532,15 +544,35 @@ async def patch_draft(
 
 async def submit_draft(
     database: AsyncSession,
+    queue: JobQueue,
     *,
     draft_id: UUID,
     user_id: UUID,
     payload: ContributionSubmit,
+    now: datetime,
 ) -> ContributionCapability:
     draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
     key_hash = hashlib.sha256(str(payload.idempotency_key).encode()).hexdigest()
+    request_hash = hashlib.sha256(
+        json.dumps(
+            payload.model_dump(mode="json"),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
     if draft.submission_key_hash == key_hash and draft.submitted_at is not None:
-        return build_capability(draft, ContributionStage.REVIEW)
+        if draft.submission_request_hash == request_hash:
+            return build_capability(draft, ContributionStage.REVIEW)
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.REVIEW,
+                    code="idempotency_payload_mismatch",
+                    message="This submission key was already used with different evidence.",
+                )
+            ]
+        )
     if draft.review_state != ContributionReviewState.DRAFT.value:
         raise ContributionValidationError(
             [
@@ -574,12 +606,175 @@ async def submit_draft(
         )
     if blockers:
         raise ContributionValidationError(blockers)
+    if payload.evidence_manifest is None:
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    code="evidence_manifest_required",
+                    message="Preserve the complete typed evidence before review begins.",
+                )
+            ]
+        )
+    _validate_evidence_binding(draft, payload.evidence_manifest)
     draft.review_state = ContributionReviewState.IN_REVIEW.value
     draft.submission_id = uuid4()
     draft.submission_key_hash = key_hash
+    draft.submission_request_hash = request_hash
     draft.submitted_at = datetime.now(UTC)
     draft.updated_at = draft.submitted_at
     draft.draft_version += 1
+    await create_manifest_and_enqueue(
+        database,
+        queue,
+        source_draft_id=draft.id,
+        source_draft_version=draft.draft_version,
+        manifest=payload.evidence_manifest,
+        now=now,
+    )
     await database.commit()
     await database.refresh(draft)
     return build_capability(draft, ContributionStage.REVIEW)
+
+
+async def attach_evidence(
+    database: AsyncSession,
+    queue: JobQueue,
+    *,
+    draft_id: UUID,
+    user_id: UUID,
+    expected_draft_version: int,
+    manifest: EvidenceManifest,
+    now: datetime,
+) -> EvidenceManifestRecord:
+    """Bind complete typed evidence to an exact owned draft and enqueue preservation."""
+
+    draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
+    if draft.draft_version != expected_draft_version:
+        raise ContributionConflictError(build_capability(draft, ContributionStage.EVIDENCE))
+    if draft.review_state not in {
+        ContributionReviewState.DRAFT.value,
+        ContributionReviewState.IN_REVIEW.value,
+        ContributionReviewState.CHANGES_REQUESTED.value,
+    }:
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    code="evidence_locked",
+                    message="Evidence cannot be replaced after approval begins.",
+                )
+            ]
+        )
+    _validate_evidence_binding(draft, manifest)
+    record = await create_manifest_and_enqueue(
+        database,
+        queue,
+        source_draft_id=draft.id,
+        source_draft_version=draft.draft_version,
+        manifest=manifest,
+        now=now,
+    )
+    await database.commit()
+    return record
+
+
+def _validate_evidence_binding(
+    draft: ContributionDraft, manifest: EvidenceManifest
+) -> None:
+    selected_fields = ContributionDraftFields.model_validate(draft.fields_json)
+    selected_evidence_type = selected_fields.evidence_type
+    expected_class = None if selected_evidence_type is None else {
+        ContributionEvidenceType.PACKAGING_LABEL: EvidenceClass.SANITIZED_MEDIA,
+        ContributionEvidenceType.GOVERNMENT_DATABASE: EvidenceClass.VERSIONED_PUBLIC_DATASET,
+        ContributionEvidenceType.PUBLIC_DOCUMENT: EvidenceClass.PUBLIC_DOCUMENT,
+        ContributionEvidenceType.MAINTAINER_ATTESTATION: EvidenceClass.MAINTAINER_ATTESTATION,
+    }[selected_evidence_type]
+    if expected_class is None or manifest.evidence_class is not expected_class:
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    field=ContributionFieldName.EVIDENCE_TYPE,
+                    code="evidence_class_mismatch",
+                    message="The typed evidence must match the selected source class.",
+                )
+            ]
+        )
+    manifest_source_uri = (
+        manifest.source_uri
+        if isinstance(manifest, VersionedPublicDatasetManifest)
+        else manifest.canonical_uri
+        if isinstance(manifest, PublicDocumentManifest)
+        else manifest.supporting_reference
+        if isinstance(manifest, MaintainerAttestationManifest)
+        else selected_fields.source_uri
+    )
+    if manifest_source_uri != selected_fields.source_uri:
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    field=ContributionFieldName.SOURCE_URI,
+                    code="evidence_source_mismatch",
+                    message="The typed evidence source must match the reviewed draft source.",
+                )
+            ]
+        )
+    manifest_license = (
+        None if isinstance(manifest, SanitizedMediaManifest) else manifest.license
+    )
+    selected_license = (
+        None
+        if selected_fields.source_license is None
+        else selected_fields.source_license.value
+    )
+    if manifest_license is not None and manifest_license != selected_license:
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.PROVENANCE,
+                    field=ContributionFieldName.SOURCE_LICENSE,
+                    code="evidence_license_mismatch",
+                    message="The typed evidence license must match the reviewed source license.",
+                )
+            ]
+        )
+    if (
+        isinstance(manifest, SanitizedMediaManifest)
+        or (
+            isinstance(manifest, VersionedPublicDatasetManifest)
+            and manifest.archival_permitted
+        )
+        or (
+            isinstance(manifest, PublicDocumentManifest)
+            and manifest.storage_reference is not None
+        )
+    ):
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    code="trusted_ingestion_required",
+                    message=(
+                        "Byte-backed evidence must use the trusted upload and sanitization flow."
+                    ),
+                )
+            ]
+        )
+
+
+async def get_evidence_status(
+    database: AsyncSession,
+    *,
+    draft_id: UUID,
+    user_id: UUID,
+) -> EvidenceManifestRecord | None:
+    draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id)
+    record: EvidenceManifestRecord | None = await database.scalar(
+        select(EvidenceManifestRecord).where(
+            EvidenceManifestRecord.source_draft_id == draft.id,
+            EvidenceManifestRecord.source_draft_version == draft.draft_version,
+        )
+    )
+    return record

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from math import ceil
 from time import perf_counter
 from uuid import uuid4
@@ -191,11 +193,49 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
     )
     assert stale.status_code == 409
 
+    evidence_id = str(uuid4())
+    evidence_manifest = {
+        "schema_version": "1.0",
+        "evidence_id": evidence_id,
+        "evidence_class": "public_document",
+        "canonical_uri": "https://example.test/food-source",
+        "publisher": "Example public source",
+        "license": "contributor-original",
+        "title": "Food source",
+        "observed_at": datetime(2026, 8, 26, 12, tzinfo=UTC).isoformat(),
+        "observed_digest": hashlib.sha256(b"observed source").hexdigest(),
+        "rights_state": "reference_only",
+        "storage_reference": None,
+    }
+    missing_evidence = contribution_clients.owner.post(
+        f"{route}/{draft_id}/submit",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"expected_draft_version": 2, "idempotency_key": str(uuid4())},
+    )
+    assert missing_evidence.status_code == 422
+    mismatched_license = contribution_clients.owner.post(
+        f"{route}/{draft_id}/submit",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={
+            "expected_draft_version": 2,
+            "idempotency_key": str(uuid4()),
+            "evidence_manifest": {
+                **evidence_manifest,
+                "license": "CC-BY-4.0",
+            },
+        },
+    )
+    assert mismatched_license.status_code == 422
     submission_key = str(uuid4())
+    submission_payload = {
+        "expected_draft_version": 2,
+        "idempotency_key": submission_key,
+        "evidence_manifest": evidence_manifest,
+    }
     submitted = contribution_clients.owner.post(
         f"{route}/{draft_id}/submit",
         headers={"X-CSRF-Token": contribution_clients.owner_csrf},
-        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+        json=submission_payload,
     )
     assert submitted.status_code == 200
     assert submitted.headers["cache-control"] == "no-store"
@@ -206,10 +246,58 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
     retried_submit = contribution_clients.owner.post(
         f"{route}/{draft_id}/submit",
         headers={"X-CSRF-Token": contribution_clients.owner_csrf},
-        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+        json=submission_payload,
     )
     assert retried_submit.status_code == 200
     assert retried_submit.json()["receipt"] == submitted.json()["receipt"]
+    mismatched_replay = contribution_clients.owner.post(
+        f"{route}/{draft_id}/submit",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={
+            **submission_payload,
+            "evidence_manifest": {**evidence_manifest, "title": "Different evidence"},
+        },
+    )
+    assert mismatched_replay.status_code == 422
+
+    evidence_payload = {
+        "expected_draft_version": 3,
+        "manifest": evidence_manifest,
+    }
+    attached = contribution_clients.owner.put(
+        f"{route}/{draft_id}/evidence",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json=evidence_payload,
+    )
+    replayed_attachment = contribution_clients.owner.put(
+        f"{route}/{draft_id}/evidence",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json=evidence_payload,
+    )
+    assert attached.status_code == replayed_attachment.status_code == 200
+    assert attached.json() == replayed_attachment.json()
+    assert attached.json()["evidence_id"] == evidence_id
+    assert attached.json()["preservation_pending"] is True
+    assert attached.json()["preservation_failed"] is False
+    assert attached.json()["preservation_failure_code"] is None
+    status_response = contribution_clients.owner.get(
+        f"{route}/{draft_id}/evidence"
+    )
+    assert status_response.status_code == 200
+    assert status_response.json() == attached.json()
+    assert status_response.headers["cache-control"] == "no-store"
+    assert contribution_clients.attacker.put(
+        f"{route}/{draft_id}/evidence",
+        headers={"X-CSRF-Token": contribution_clients.attacker_csrf},
+        json=evidence_payload,
+    ).status_code == 404
+    stale_attachment = dict(evidence_payload)
+    stale_attachment["expected_draft_version"] = 2
+    assert contribution_clients.owner.put(
+        f"{route}/{draft_id}/evidence",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json=stale_attachment,
+    ).status_code == 409
 
     locked = contribution_clients.owner.patch(
         f"{route}/{draft_id}",

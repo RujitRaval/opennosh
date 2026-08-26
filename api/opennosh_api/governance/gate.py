@@ -63,6 +63,7 @@ class PostgresGovernanceGate:
                     "'opennosh.governance-pack:' || $1::text, 0))",
                     pack_id,
                 )
+                await self._require_current_evidence(connection, publication_id)
                 binding = await self._binding_for(connection, publication_id)
                 if binding.approved_changes.digest != expected_payload_digest:
                     raise ValueError("Merge authorization payload digest changed")
@@ -95,6 +96,28 @@ class PostgresGovernanceGate:
                     merge_authorized_head_commit=head_commit,
                     merge_authorized_payload_digest=expected_payload_digest,
                 )
+
+    @staticmethod
+    async def _require_current_evidence(connection: Any, publication_id: UUID) -> None:
+        """Serialize merge authorization with governed evidence removal."""
+
+        row = await connection.fetchrow(
+            """
+            SELECT em.public_state, t.evidence_id AS tombstone_id
+            FROM publication_intents p
+            JOIN evidence_manifests em
+              ON em.source_draft_id = p.source_draft_id
+             AND em.source_draft_version = p.source_draft_version
+            LEFT JOIN evidence_removal_tombstones t ON t.evidence_id = em.id
+            WHERE p.id = $1
+            FOR SHARE OF em
+            """,
+            publication_id,
+        )
+        if row is None:
+            raise ValueError("Merge authorization requires exact-version evidence")
+        if row["tombstone_id"] is not None or row["public_state"] in {None, "tombstoned"}:
+            raise ValueError("Merge authorization requires current durable evidence")
 
     @staticmethod
     async def _binding_for(connection: Any, publication_id: UUID) -> GovernanceBinding:

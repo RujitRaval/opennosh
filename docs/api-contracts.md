@@ -167,7 +167,18 @@ reason, saved time, normalized fields, at most five exact-name duplicate candida
 optional receipt. Unknown or inaccessible stage requests resolve to the nearest safe stage rather
 than authorizing a forged URL.
 
-`POST /api/v1/contribution-drafts/{draft_id}/submit` accepts the expected draft version and an
-idempotency key. The server rechecks duplicates and every stage before moving the draft to
-`in_review`. The receipt says `received_for_review` and includes a submission ID, timestamps,
-public attribution, and stable status path. It never claims approval, acceptance, or publication.
+`POST /api/v1/contribution-drafts/{draft_id}/submit` accepts the expected draft version, an
+idempotency key, and a complete discriminated `evidence_manifest`. The server rechecks duplicates,
+every stage, evidence class, source URI, and source license before atomically binding the exact
+submitted version, creating its preservation wake-up, and moving the draft to `in_review`.
+Missing or untrusted byte-backed evidence fails closed. The idempotency key is bound to the
+canonical request; reusing it with different evidence fails visibly. The receipt says
+`received_for_review` and includes a submission ID, timestamps, public attribution, and stable
+status path. It never claims approval, acceptance, or publication.
+
+`PUT /api/v1/contribution-drafts/{draft_id}/evidence` is the authenticated, CSRF-protected
+idempotent repair path for a complete manifest bound to an exact owned draft version. `GET` on the
+same path returns the evidence ID and class, exact draft version, honest public state, and mutually
+consistent `preservation_pending`, `preservation_failed`, and `preservation_failure_code` fields.
+An exhausted worker retry records a safe terminal code rather than remaining pending forever.
+Missing, incomplete, failed, stale, or tombstoned evidence cannot pass steward approval.

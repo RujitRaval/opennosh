@@ -22,6 +22,7 @@ from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, PgQueuerJobQueue
 from opennosh_api.jobs.worker import asyncpg_dsn
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from api.tests.evidence.factories import seed_verified_reference_evidence
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -89,6 +90,18 @@ async def run_concurrent_approval(database_url: str) -> None:
     engine = create_async_engine(database_url)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     queue = PgQueuerJobQueue(clock=lambda: NOW)
+    async with sessions() as session:
+        async with session.begin():
+            with pytest.raises(GovernanceDecisionError, match="evidence_manifest_missing"):
+                await approve_contribution(session, queue, approval(), now=NOW)
+    async with sessions() as session:
+        async with session.begin():
+            await seed_verified_reference_evidence(
+                session,
+                draft_id=DRAFT,
+                draft_version=1,
+                now=NOW,
+            )
 
     async def decide() -> object:
         try:

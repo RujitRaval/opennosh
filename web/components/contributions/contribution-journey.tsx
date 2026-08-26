@@ -32,6 +32,16 @@ import { fallbackLanguage, formatMessage, pseudoLanguage } from "@/lib/i18n/cata
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
 type AuthMode = "login" | "register";
 
+// Opens only with the separately approved trusted upload/source adapters and worker replicas.
+const TYPED_EVIDENCE_HANDOFF_ENABLED = false;
+
+const evidenceTrustKey = {
+  packaging_label: "packaging",
+  government_database: "government",
+  public_document: "document",
+  maintainer_attestation: "attestation",
+} as const;
+
 const stageFields: Record<ContributionStage, (keyof ContributionFields)[]> = {
   evidence: ["evidence_type", "source_uri", "rights_acknowledged"],
   details: ["name", "name_local", "locale", "category", "portion_description", "portion_amount", "portion_unit", "portion_grams", "energy_kcal", "protein_g", "fat_g", "carbohydrate_g", "ingredients"],
@@ -284,6 +294,10 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   }
 
   async function submit(auth?: { mode: AuthMode; email: string; password: string }) {
+    if (!TYPED_EVIDENCE_HANDOFF_ENABLED) {
+      showErrors([copy.evidenceHandoffGateBody]);
+      return;
+    }
     if (!draft) return;
     const blockers = localStageBlockers(draft, "review");
     if (blockers.length) return showErrors(blockers.map((item) => item.message));
@@ -422,6 +436,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
             {([["packaging_label", copy.evidenceTypes.packaging], ["government_database", copy.evidenceTypes.government], ["public_document", copy.evidenceTypes.document], ["maintainer_attestation", copy.evidenceTypes.attestation]] as const).map(([value, label]) =>
               <label key={value}><input type="radio" name="evidence_type" value={value} checked={fields.evidence_type === value} onChange={() => update("evidence_type", value)} /><span>{label}</span></label>)}
           </div></fieldset>
+          <p className="contribution-evidence-trust" aria-live="polite">
+            <span className="mono">{copy.verifiedState}</span>{" "}
+            {fields.evidence_type
+              ? copy.evidenceTrust[evidenceTrustKey[fields.evidence_type]]
+              : copy.evidenceTrust.unselected}
+          </p>
           <Field name="source_uri" label={copy.sourceUrl} hint={copy.sourceUrlHint}><input id="contribution-source_uri" type="url" inputMode="url" value={fields.source_uri} onChange={(event) => update("source_uri", event.target.value)} {...described("source_uri")} /></Field>
           <label className="contribution-check"><input id="contribution-rights_acknowledged" type="checkbox" checked={fields.rights_acknowledged} onChange={(event) => update("rights_acknowledged", event.target.checked)} /><span>{copy.rights}</span></label>
         </> : null}
@@ -472,6 +492,10 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
             <button type="button" onClick={() => navigate(item.slug)}>{copy.actions.edit}</button>
           </div>)}
           <div className="review-warning"><strong>{copy.reviewWarning}</strong><p>{copy.reviewWarningBody}</p></div>
+          {!TYPED_EVIDENCE_HANDOFF_ENABLED ? <div className="review-warning" role="status">
+            <strong>{copy.evidenceHandoffGateTitle}</strong>
+            <p>{copy.evidenceHandoffGateBody}</p>
+          </div> : null}
           <label className="contribution-check"><input id="contribution-review_acknowledged" type="checkbox" checked={fields.review_acknowledged} onChange={(event) => update("review_acknowledged", event.target.checked)} /><span>{copy.reviewConfirm}</span></label>
           {authRequired ? <form className="contribution-auth" onSubmit={authSubmit}>
             <p className="mono">{copy.accountLabel}</p><h2>{copy.accountTitle}</h2>
@@ -479,18 +503,18 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
             <div className="auth-mode"><button type="button" aria-pressed={authMode === "login"} onClick={() => setAuthMode("login")}>{copy.signIn}</button><button type="button" aria-pressed={authMode === "register"} onClick={() => setAuthMode("register")}>{copy.createAccount}</button></div>
             <label>{copy.email}<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
             <label>{copy.password}<input required minLength={12} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            <button className="contribution-primary" type="submit" disabled={busy}>{busy ? copy.handing : authMode === "login" ? copy.signInHandoff : copy.createHandoff}</button>
+            <button className="contribution-primary" type="submit" disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : authMode === "login" ? copy.signInHandoff : copy.createHandoff}</button>
           </form> : null}
         </section> : null}
       </div>
       <div ref={inlineActions} className="contribution-actions contribution-actions-inline">
         {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
-        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? copy.handing : copy.actions.submit + " →"}</button>}
+        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : TYPED_EVIDENCE_HANDOFF_ENABLED ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
       </div>
     </article>
     <div className={`contribution-actions contribution-actions-mobile${mobileActionsVisible ? " is-visible" : ""}`}>
       {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
-      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy}>{busy ? copy.handing : copy.actions.submit + " →"}</button>}
+      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : TYPED_EVIDENCE_HANDOFF_ENABLED ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
     </div>
   </main>;
 }

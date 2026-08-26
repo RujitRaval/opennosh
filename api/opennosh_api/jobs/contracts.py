@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, Self, runtime_checkable
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 
 class JobLane(StrEnum):
     PUBLICATION = "publication"
+    EVIDENCE = "evidence_processing"
 
 
 class JobTraceContext(BaseModel):
@@ -27,7 +28,7 @@ class JobMessage(BaseModel):
 
     schema_version: Literal["1.0"] = "1.0"
     lane: JobLane
-    job_type: Literal["publication.wake"]
+    job_type: Literal["publication.wake", "evidence.preserve"]
     subject_id: UUID
     idempotency_key: str = Field(min_length=16, max_length=255)
     workflow_revision: int | None = Field(default=None, ge=0)
@@ -39,6 +40,16 @@ class JobMessage(BaseModel):
         if not value.isascii() or any(character.isspace() for character in value):
             raise ValueError("Job idempotency keys must be printable ASCII without spaces")
         return value
+
+    @model_validator(mode="after")
+    def validate_lane_job_pair(self) -> Self:
+        expected = {
+            JobLane.PUBLICATION: "publication.wake",
+            JobLane.EVIDENCE: "evidence.preserve",
+        }
+        if self.job_type != expected[self.lane]:
+            raise ValueError("Job type does not belong to its lane")
+        return self
 
 
 class JobRequest(BaseModel):

@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from opennosh_api.evidence.contracts import EvidenceClass, EvidenceManifest, EvidencePublicState
+
 
 class ContributionStage(StrEnum):
     EVIDENCE = "evidence"
@@ -96,6 +98,26 @@ class ContributionSubmit(BaseModel):
 
     expected_draft_version: Annotated[int, Field(ge=1)]
     idempotency_key: UUID
+    evidence_manifest: EvidenceManifest | None = None
+
+
+class ContributionEvidenceAttach(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_draft_version: Annotated[int, Field(ge=1)]
+    manifest: EvidenceManifest
+
+
+class ContributionEvidenceStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_id: UUID
+    evidence_class: EvidenceClass
+    source_draft_version: Annotated[int, Field(ge=1)]
+    public_state: EvidencePublicState | None
+    preservation_pending: bool
+    preservation_failed: bool
+    preservation_failure_code: str | None
 
 
 class ContributionDraftFields(BaseModel):

@@ -267,10 +267,24 @@ POST  /api/v1/contribution-drafts/{draft_id}/submit
 ```
 
 Create, patch, and submit require the session CSRF token. Patches carry the expected draft version,
-a unique operation ID, and at most 25 field changes; submit carries the expected version and an
-idempotency key. Every response is a capability document containing completed and accessible
+a unique operation ID, and at most 25 field changes; submit carries the expected version, an
+idempotency key, and the complete typed evidence manifest. The submitted version, manifest, and
+preservation wake-up commit atomically; review never begins without that exact evidence. Every
+response is a capability document containing completed and accessible
 stages, blockers, the repaired safe stage, duplicate candidates, and the receipt when submitted.
 See [the contribution contract](docs/api-contracts.md#contribution-draft-contract).
+
+Each source choice maps to an explicit evidence class and public trust label. Steward approval
+fails closed until the exact submitted draft version has a canonical evidence manifest and every
+class-specific durable acknowledgement verifies. Rights-restricted documents remain visibly
+`reference_only`, and maintainer attestations remain visibly `attested`; neither can masquerade as
+preserved primary evidence. Authenticated clients may replay the exact manifest through the
+idempotent evidence attachment endpoint and read its current public state. See the
+[evidence durability contract](docs/evidence-durability.md).
+
+The public browser can prepare and retain a device draft, but review handoff is visibly disabled
+until the separately gated trusted upload/object-storage service and evidence worker are active.
+opennosh does not place browser proposals without complete typed evidence into the review queue.
 
 ### Open Food Facts barcode lookup
 

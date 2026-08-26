@@ -2058,7 +2058,7 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `api/opennosh_api/governance`, `api/opennosh_api/publication/forge`, protected-branch configuration.
   - Verify: role revocation, recusal, concurrent decision, check failure, emergency pause, and merged-payload verification suites.
 
-- [ ] **T3 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Evidence - Implement typed evidence manifests and class-specific durable acknowledgements.
+- [x] **T3 (P1, human: ~3-5 days / Codex: ~1-2 days)** - Evidence - Implement typed evidence manifests and class-specific durable acknowledgements.
   - Surfaced by: Architecture D4 - manual entry and OCR are input methods, not durable evidence classes.
   - Files: `api/opennosh_api/evidence`, storage adapters, schemas, evidence worker, contribution UI.
   - Verify: media, dataset, citation, and attestation fixtures; missing source cannot enter a verified pack.

@@ -9,6 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.contributions.models import ContributionDraft
+from opennosh_api.evidence.policy import EvidenceDurabilityError
+from opennosh_api.evidence.repository import require_verified_evidence
 from opennosh_api.governance.contracts import (
     CANONICAL_FORGE_TARGET,
     PROTECTED_STATUS_CHECKS,
@@ -123,6 +125,14 @@ async def approve_contribution(
     )
     if pause is not None:
         raise GovernanceDecisionError("publication_paused")
+    try:
+        await require_verified_evidence(
+            session,
+            source_draft_id=draft.id,
+            source_draft_version=draft.draft_version,
+        )
+    except EvidenceDurabilityError as error:
+        raise GovernanceDecisionError(error.code) from error
 
     decision = GovernanceDecision(
         id=uuid4(),

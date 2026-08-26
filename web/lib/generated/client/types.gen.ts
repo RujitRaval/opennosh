@@ -559,6 +559,56 @@ export type ContributionDraftPatch = {
 };
 
 /**
+ * ContributionEvidenceAttach
+ */
+export type ContributionEvidenceAttach = {
+    /**
+     * Expected Draft Version
+     */
+    expected_draft_version: number;
+    /**
+     * Manifest
+     */
+    manifest: ({
+        evidence_class: 'sanitized_media';
+    } & SanitizedMediaManifest) | ({
+        evidence_class: 'versioned_public_dataset';
+    } & VersionedPublicDatasetManifest) | ({
+        evidence_class: 'public_document';
+    } & PublicDocumentManifest) | ({
+        evidence_class: 'maintainer_attestation';
+    } & MaintainerAttestationManifest);
+};
+
+/**
+ * ContributionEvidenceStatus
+ */
+export type ContributionEvidenceStatus = {
+    evidence_class: EvidenceClass;
+    /**
+     * Evidence Id
+     */
+    evidence_id: string;
+    /**
+     * Preservation Failed
+     */
+    preservation_failed: boolean;
+    /**
+     * Preservation Failure Code
+     */
+    preservation_failure_code: string | null;
+    /**
+     * Preservation Pending
+     */
+    preservation_pending: boolean;
+    public_state: EvidencePublicState | null;
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+};
+
+/**
  * ContributionEvidenceType
  */
 export type ContributionEvidenceType = 'packaging_label' | 'government_database' | 'public_document' | 'maintainer_attestation';
@@ -636,6 +686,18 @@ export type ContributionStage = 'evidence' | 'details' | 'duplicates' | 'provena
  * ContributionSubmit
  */
 export type ContributionSubmit = {
+    /**
+     * Evidence Manifest
+     */
+    evidence_manifest?: ({
+        evidence_class: 'sanitized_media';
+    } & SanitizedMediaManifest) | ({
+        evidence_class: 'versioned_public_dataset';
+    } & VersionedPublicDatasetManifest) | ({
+        evidence_class: 'public_document';
+    } & PublicDocumentManifest) | ({
+        evidence_class: 'maintainer_attestation';
+    } & MaintainerAttestationManifest) | null;
     /**
      * Expected Draft Version
      */
@@ -796,6 +858,11 @@ export type DailyTotalsResponse = {
 };
 
 /**
+ * DocumentRightsState
+ */
+export type DocumentRightsState = 'archive_permitted' | 'reference_only';
+
+/**
  * DuplicateCandidate
  */
 export type DuplicateCandidate = {
@@ -816,6 +883,16 @@ export type DuplicateCandidate = {
      */
     source_id: string;
 };
+
+/**
+ * EvidenceClass
+ */
+export type EvidenceClass = 'sanitized_media' | 'versioned_public_dataset' | 'public_document' | 'maintainer_attestation';
+
+/**
+ * EvidencePublicState
+ */
+export type EvidencePublicState = 'evidence_preserved' | 'source_verified' | 'reference_preserved' | 'reference_only' | 'attested' | 'tombstoned';
 
 /**
  * ExerciseAttribution
@@ -1500,6 +1577,56 @@ export type LoggedFood = {
 };
 
 /**
+ * MaintainerAttestationManifest
+ */
+export type MaintainerAttestationManifest = {
+    /**
+     * Attested At
+     */
+    attested_at: string;
+    /**
+     * Authority Id
+     */
+    authority_id: string;
+    /**
+     * Evidence Class
+     */
+    evidence_class?: 'maintainer_attestation';
+    /**
+     * Evidence Id
+     */
+    evidence_id: string;
+    /**
+     * License
+     */
+    license: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Scope
+     */
+    scope: string;
+    /**
+     * Signature
+     */
+    signature: string;
+    /**
+     * Signature Key Id
+     */
+    signature_key_id: string;
+    /**
+     * Signed Statement
+     */
+    signed_statement: string;
+    /**
+     * Supporting Reference
+     */
+    supporting_reference: string;
+};
+
+/**
  * MostRecentVerifiedRecord
  */
 export type MostRecentVerifiedRecord = {
@@ -1877,6 +2004,53 @@ export type PublicCommonsSnapshot = {
 };
 
 /**
+ * PublicDocumentManifest
+ */
+export type PublicDocumentManifest = {
+    /**
+     * Canonical Uri
+     */
+    canonical_uri: string;
+    /**
+     * Evidence Class
+     */
+    evidence_class?: 'public_document';
+    /**
+     * Evidence Id
+     */
+    evidence_id: string;
+    /**
+     * License
+     */
+    license: string;
+    /**
+     * Observed At
+     */
+    observed_at: string;
+    /**
+     * Observed Digest
+     */
+    observed_digest: string;
+    /**
+     * Publisher
+     */
+    publisher: string;
+    rights_state: DocumentRightsState;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Storage Reference
+     */
+    storage_reference?: string | null;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
  * PublicReleaseProof
  */
 export type PublicReleaseProof = {
@@ -2123,6 +2297,50 @@ export type RecoveryAction = {
 };
 
 /**
+ * RedactionState
+ */
+export type RedactionState = 'not_required' | 'applied' | 'reviewed';
+
+/**
+ * SanitizedMediaManifest
+ */
+export type SanitizedMediaManifest = {
+    /**
+     * Content Digest
+     */
+    content_digest: string;
+    /**
+     * Evidence Class
+     */
+    evidence_class?: 'sanitized_media';
+    /**
+     * Evidence Id
+     */
+    evidence_id: string;
+    redaction_state: RedactionState;
+    /**
+     * Rights Acknowledged
+     */
+    rights_acknowledged: true;
+    /**
+     * Safe Format
+     */
+    safe_format: 'image/jpeg' | 'image/png' | 'image/webp';
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Source Description
+     */
+    source_description: string;
+    /**
+     * Storage Reference
+     */
+    storage_reference: string;
+};
+
+/**
  * SessionResponse
  */
 export type SessionResponse = {
@@ -2296,6 +2514,68 @@ export type TargetWrite = {
      * Protein G
      */
     protein_g: number | string;
+};
+
+/**
+ * VersionedPublicDatasetManifest
+ */
+export type VersionedPublicDatasetManifest = {
+    /**
+     * Archival Permitted
+     */
+    archival_permitted: boolean;
+    /**
+     * Canonical Record Digest
+     */
+    canonical_record_digest: string;
+    /**
+     * Dataset Id
+     */
+    dataset_id: string;
+    /**
+     * Evidence Class
+     */
+    evidence_class?: 'versioned_public_dataset';
+    /**
+     * Evidence Id
+     */
+    evidence_id: string;
+    /**
+     * License
+     */
+    license: string;
+    /**
+     * Publisher
+     */
+    publisher: string;
+    /**
+     * Record Id
+     */
+    record_id: string;
+    /**
+     * Release Version
+     */
+    release_version: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Signature
+     */
+    signature: string;
+    /**
+     * Signature Key Id
+     */
+    signature_key_id: string;
+    /**
+     * Source Uri
+     */
+    source_uri: string;
+    /**
+     * Storage Reference
+     */
+    storage_reference?: string | null;
 };
 
 /**
@@ -3388,6 +3668,146 @@ export type PatchApiV1ContributionDraftsDraftIdPatchResponses = {
 };
 
 export type PatchApiV1ContributionDraftsDraftIdPatchResponse = PatchApiV1ContributionDraftsDraftIdPatchResponses[keyof PatchApiV1ContributionDraftsDraftIdPatchResponses];
+
+export type ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetData = {
+    body?: never;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence';
+};
+
+export type ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetError = ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetErrors[keyof ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetErrors];
+
+export type ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ContributionEvidenceStatus;
+};
+
+export type ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetResponse = ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetResponses[keyof ReadTypedEvidenceApiV1ContributionDraftsDraftIdEvidenceGetResponses];
+
+export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutData = {
+    body: ContributionEvidenceAttach;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence';
+};
+
+export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutError = AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutErrors[keyof AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutErrors];
+
+export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponses = {
+    /**
+     * Successful Response
+     */
+    200: ContributionEvidenceStatus;
+};
+
+export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponse = AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponses[keyof AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponses];
 
 export type SubmitApiV1ContributionDraftsDraftIdSubmitPostData = {
     body: ContributionSubmit;

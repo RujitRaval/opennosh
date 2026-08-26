@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
-  "generatedAt": "2026-08-25T18:58:54.424Z",
+  "generatedAt": "2026-08-26T13:11:33.692Z",
   "approval": {
-    "reason": "T30 aligns the Tracker with the approved Living Commons identity and adds mobile Trends coverage",
-    "designDecision": "DESIGN.md: Tracker Living Commons identity",
-    "reviewerAcknowledgement": "Rujit Raval approved PR #85 visual baseline updates on 2026-08-25."
+    "reason": "T3 adds visible evidence preservation and review-handoff states to the contribution journey",
+    "designDecision": "T3 typed evidence durability: show source-preservation trust state and gate review handoff until evidence is durable",
+    "reviewerAcknowledgement": "Rujit Raval authorized validation and merge of PR #91 on 2026-08-26; Codex inspected the rendered diffs."
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
@@ -19,11 +19,11 @@
     "desktop-1440/commons-unavailable.png": "cf012166eb6c32e43cdb02678f52c92be40e03d0f3ed744e85e2ac8d630d1cca",
     "desktop-1440/contribution-details.png": "458ad37739ba134cb35e58d35966b6ed9a4c347852c1f7cd27f18f492957aae0",
     "desktop-1440/contribution-duplicates.png": "d1322e8d16b24c5a72dd5f388dd257d21e341a21f4a7152e4dd5c136fd3102bb",
-    "desktop-1440/contribution-evidence.png": "df385080d50ddf4028c5ebbc2bd0371a7c0a3fa4370bc9e61fa7231b4b9aceda",
+    "desktop-1440/contribution-evidence.png": "0810d31a17b3db84e71e2eba9e0fcf113b8e5584246032f14ad2ef01ce970dee",
     "desktop-1440/contribution-provenance.png": "cd8e04283848c693b9254c02be1ec9fad3b949eb22d22871efa120ddaaacb8f1",
     "desktop-1440/contribution-repair.png": "60afa0457e1c03a28d5cec96ef54cd9f0a75ee4a159875d04be24145c72fe4dc",
-    "desktop-1440/contribution-review.png": "cd609088393bbb077f37994c88eddd44f13294ba145e54c05cd4492c2a2dc899",
-    "desktop-1440/contribution-validation.png": "13c7ccfce25733ed8f1be618fa563e1f46356cd518c9f03a4d63b8c334e59c44",
+    "desktop-1440/contribution-review.png": "affd6c90de33318e38fb1c4611d8fefce54f146d05d6057448b86c4dd1e60b3e",
+    "desktop-1440/contribution-validation.png": "6a424f046a11f547f6fddcd5e59515d02d905599cd3a3d12c1d4f02bee9ea6e6",
     "desktop-1440/explore-hub.png": "5e9fce692ed6833d110eef51cb6625e40a67e5d8ee703a6a7d46522745bf8b6a",
     "desktop-1440/food-record-first-viewport.png": "a517a37becf8ee3e5f15d61939d04202a4d705e43c4f466e6c96e0734290a071",
     "desktop-1440/forced-colors-contribution.png": "706c284aee6ec1ef4d5fb31da3915d67924bdf787398ba6667e04b0900b6b5a3",

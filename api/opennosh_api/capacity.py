@@ -104,6 +104,11 @@ class CapacityManifest(BaseModel):
             raise ValueError(f"Role budgets must be complete; missing={missing}, extra={extra}")
         if set(self.jobs) != set(JobRole):
             raise ValueError("Migration and administration job budgets are required")
+        if self.roles[ProcessRole.EVIDENCE].pool_size < 2:
+            raise ValueError(
+                "Evidence role requires at least two connections so queue coordination "
+                "retains one reserved connection"
+            )
         if self.jobs[JobRole.MIGRATION].pool_size > self.reserved_headroom.migrations:
             raise ValueError("Migration pool exceeds reserved migration headroom")
         if self.jobs[JobRole.ADMINISTRATION].pool_size > self.reserved_headroom.administration:
