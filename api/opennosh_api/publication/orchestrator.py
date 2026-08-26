@@ -20,6 +20,7 @@ from opennosh_api.publication.state import (
 class PublicationFailpoint(StrEnum):
     BEFORE_EFFECT = "before_effect"
     AFTER_EFFECT = "after_effect"
+    BEFORE_VERIFICATION = "before_verification"
     AFTER_VERIFICATION = "after_verification"
     BEFORE_REDUCER = "before_reducer"
     AFTER_REDUCER = "after_reducer"
@@ -96,10 +97,14 @@ class PublicationOrchestrator:
         async def after_effect() -> None:
             await self._failpoint(PublicationFailpoint.AFTER_EFFECT)
 
+        async def before_verification() -> None:
+            await self._failpoint(PublicationFailpoint.BEFORE_VERIFICATION)
+
         execution = await self._executor.execute(
             outcome,
             now=self._now(),
             after_effect=after_effect,
+            before_verification=before_verification,
         )
         await self._failpoint(PublicationFailpoint.AFTER_VERIFICATION)
         observed_outcome = plan_next_action(

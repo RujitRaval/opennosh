@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import TypeAlias
 
 from opennosh_api.publication.adapters import (
     MissingPublicationAdapterError,
@@ -16,6 +18,8 @@ from opennosh_api.publication.state import (
     ExternalObservation,
     ObservationStatus,
 )
+
+TimeoutFactory: TypeAlias = Callable[[float | None], AbstractAsyncContextManager[object]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +38,13 @@ class PublicationEffectExecutor:
         adapters: PublicationAdapterRegistry,
         *,
         effect_timeout: timedelta = timedelta(seconds=20),
+        timeout_factory: TimeoutFactory = asyncio.timeout,
     ) -> None:
         if effect_timeout <= timedelta():
             raise ValueError("Publication effect timeout must be positive")
         self._adapters = dict(adapters)
         self._effect_timeout = effect_timeout
+        self._timeout_factory = timeout_factory
 
     async def execute(
         self,
@@ -46,6 +52,7 @@ class PublicationEffectExecutor:
         *,
         now: datetime,
         after_effect: Callable[[], Awaitable[None]] | None = None,
+        before_verification: Callable[[], Awaitable[None]] | None = None,
     ) -> ExecutionResult:
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("Executor time must include a timezone")
@@ -55,12 +62,13 @@ class PublicationEffectExecutor:
                 f"No adapter registered for publication step {intent.step.value}"
             )
         try:
-            async with asyncio.timeout(self._effect_timeout.total_seconds()):
+            async with self._timeout_factory(self._effect_timeout.total_seconds()):
                 return await self._execute_bounded(
                     intent,
                     adapter,
                     now=now,
                     after_effect=after_effect,
+                    before_verification=before_verification,
                 )
         except TimeoutError:
             observation = ExternalObservation(
@@ -88,6 +96,7 @@ class PublicationEffectExecutor:
         *,
         now: datetime,
         after_effect: Callable[[], Awaitable[None]] | None,
+        before_verification: Callable[[], Awaitable[None]] | None,
     ) -> ExecutionResult:
         before = await adapter.observe(intent)
         self._validate_observation(intent, before, adapter.identity, adapter.version)
@@ -113,6 +122,8 @@ class PublicationEffectExecutor:
             effect_error = error
         if after_effect is not None:
             await after_effect()
+        if before_verification is not None:
+            await before_verification()
 
         after = await adapter.observe(intent)
         self._validate_observation(intent, after, adapter.identity, adapter.version)

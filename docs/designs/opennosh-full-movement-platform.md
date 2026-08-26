@@ -2098,10 +2098,11 @@ Synthesized from the engineering and design plan reviews. Each task derives from
   - Files: `api/opennosh_api/publication/state.py`, planner, executor, reducer, adapter protocols.
   - Verify: exhaustive transition table, pure planner, one effect per lease, deterministic idempotency, before/after crash matrix.
 
-- [ ] **T11 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Test infrastructure - Build the deterministic workflow testkit.
+- [x] **T11 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Test infrastructure - Build the deterministic workflow testkit.
   - Surfaced by: Test D12 - no reusable fault-injection harness exists for the multi-boundary trust loop.
   - Files: backend test support, persistent fake adapters, PostgreSQL fixtures, publication scenario generator.
   - Verify: generated failpoint matrix and all global trust invariants; no probabilistic synchronization in trust suites.
+  - Landed in v0.48.0.0 with 60 registry-derived step/boundary cases, two final-acceptance cases, restorable PostgreSQL-plus-queue checkpoints, and persistent fakes for the active publication and queue ports.
 
 - [ ] **T12 (P1, human: ~5-8 days / Codex: ~2-3 days)** - Browser acceptance - Split mocked UI journeys from real vertical acceptance.
   - Surfaced by: Test D13 - current Playwright tests intercept every API call and cannot prove backend integration.

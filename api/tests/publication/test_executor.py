@@ -231,9 +231,30 @@ async def test_typed_effect_error_becomes_durable_observation() -> None:
     assert result.observation.code == "external_conflict"
 
 
+class ImmediateTimeout:
+    async def __aenter__(self) -> None:
+        task = asyncio.current_task()
+        assert task is not None
+        asyncio.get_running_loop().call_soon(task.cancel)
+
+    async def __aexit__(
+        self,
+        error_type: type[BaseException] | None,
+        error: BaseException | None,
+        traceback: object,
+    ) -> bool:
+        if error_type is asyncio.CancelledError:
+            raise TimeoutError("injected timeout") from error
+        return False
+
+
+def immediate_timeout(_: float | None) -> ImmediateTimeout:
+    return ImmediateTimeout()
+
+
 class SlowAdapter(SequenceAdapter):
     async def apply(self, effect: EffectIntent) -> None:
-        await asyncio.sleep(0.02)
+        await asyncio.Event().wait()
 
 
 @pytest.mark.asyncio
@@ -247,6 +268,7 @@ async def test_effect_timeout_becomes_retryable_observation() -> None:
     result = await PublicationEffectExecutor(
         {PublicationStepName.COMMIT_RECORD: adapter},
         effect_timeout=timedelta(milliseconds=1),
+        timeout_factory=immediate_timeout,
     ).execute(intent(), now=NOW)
     assert result.observation.status is ObservationStatus.RETRYABLE_FAILURE
     assert result.observation.code == "effect_timeout"
@@ -277,7 +299,7 @@ async def test_executor_rejects_foreign_adapter_observations(
 
 class SlowInitialObserveAdapter(PersistentFakeAdapter):
     async def observe(self, effect: EffectIntent) -> ExternalObservation:
-        await asyncio.sleep(0.02)
+        await asyncio.Event().wait()
         return await super().observe(effect)
 
 
@@ -289,7 +311,7 @@ class SlowVerificationAdapter(PersistentFakeAdapter):
     async def observe(self, effect: EffectIntent) -> ExternalObservation:
         self.observation_count += 1
         if self.observation_count > 1:
-            await asyncio.sleep(0.02)
+            await asyncio.Event().wait()
         return await super().observe(effect)
 
 
@@ -304,6 +326,7 @@ async def test_whole_cycle_timeout_bounds_observation_stages(
     result = await PublicationEffectExecutor(
         {PublicationStepName.COMMIT_RECORD: adapter},
         effect_timeout=timedelta(milliseconds=1),
+        timeout_factory=immediate_timeout,
     ).execute(intent(), now=NOW)
 
     assert result.observation.status is ObservationStatus.RETRYABLE_FAILURE
@@ -315,11 +338,12 @@ async def test_whole_cycle_timeout_bounds_after_effect_callback() -> None:
     adapter = PersistentFakeAdapter()
 
     async def slow_callback() -> None:
-        await asyncio.sleep(0.02)
+        await asyncio.Event().wait()
 
     result = await PublicationEffectExecutor(
         {PublicationStepName.COMMIT_RECORD: adapter},
         effect_timeout=timedelta(milliseconds=1),
+        timeout_factory=immediate_timeout,
     ).execute(intent(), now=NOW, after_effect=slow_callback)
 
     assert result.observation.status is ObservationStatus.RETRYABLE_FAILURE
