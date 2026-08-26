@@ -4,7 +4,8 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 
 from opennosh_api.foods.schemas import FoodSource
-from opennosh_api.public_commons.manifests import SignedEnvelope
+from opennosh_api.problems.handlers import ProblemException
+from opennosh_api.problems.schemas import ProblemCode
 from opennosh_api.public.artifacts import (
     ArtifactNotFoundError,
     ArtifactUnavailableError,
@@ -12,6 +13,7 @@ from opennosh_api.public.artifacts import (
     PublicFoodRecordResponse,
     PublicReleaseMetadata,
 )
+from opennosh_api.public_commons.manifests import SignedEnvelope
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
 _RELEASE = r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$"
@@ -47,10 +49,11 @@ def _release_headers(
 def _raise_public_error(error: Exception) -> None:
     if isinstance(error, ArtifactNotFoundError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    raise ProblemException(
+        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        code=ProblemCode.SERVICE_UNAVAILABLE,
         detail="No verified public artifact is available.",
-        headers={"Retry-After": "60"},
+        retry_after=60,
     ) from error
 
 
@@ -164,7 +167,10 @@ async def exact_manifest(
     responses={
         status.HTTP_200_OK: {
             "content": {
-                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+                "application/zip": {"schema": {"type": "string", "format": "binary"}},
+                "application/vnd.opennosh.pack+zip": {
+                    "schema": {"type": "string", "format": "binary"}
+                },
             },
             "description": "Verified immutable pack download.",
         }

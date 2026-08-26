@@ -68,6 +68,15 @@ describe("FoodRecord", () => {
     );
   });
 
+  it("links directly to immutable provenance when the release supplies it", () => {
+    render(<FoodRecord record={{ ...record(), provenanceUrl: "/immutable-provenance" }} />);
+
+    expect(screen.getByRole("link", { name: /provenance/i })).toHaveAttribute(
+      "href",
+      "/immutable-provenance",
+    );
+  });
+
   it("changes portions and US mass display while keeping canonical grams visible", () => {
     render(<FoodRecord record={record()} />);
     fireEvent.change(screen.getByLabelText("Selected portion"), { target: { value: "1" } });

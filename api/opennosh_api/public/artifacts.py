@@ -7,6 +7,7 @@ import json
 import os
 import re
 import tempfile
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -24,16 +25,18 @@ from opennosh_api.public_commons.manifests import (
     canonical_json,
 )
 from opennosh_api.publication.receipts import (
+    PublicationReceipt,
     PublicationReceiptKeyRing,
     ReceiptVerificationError,
     parse_signed_receipt,
 )
+from opennosh_api.publication.state import PublicationStepName
 
 MAX_POINTER_BYTES = 16 * 1024
 MAX_MANIFEST_BYTES = 8 * 1024 * 1024
 MAX_RECORD_BYTES = 512 * 1024
 MAX_PROVENANCE_BYTES = 2 * 1024 * 1024
-MAX_PACK_BYTES = 512 * 1024 * 1024
+MAX_PACK_BYTES = 64 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _OBJECT_KEY = re.compile(r"^[a-z0-9][a-z0-9/._-]{0,1023}$")
 _VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$")
@@ -94,12 +97,7 @@ class PublicPackArtifact(BaseModel):
 
     @model_validator(mode="after")
     def require_download_media_type(self) -> PublicPackArtifact:
-        allowed = {
-            "application/zip",
-            "application/gzip",
-            "application/zstd",
-            "application/vnd.opennosh.pack+zip",
-        }
+        allowed = {"application/zip", "application/vnd.opennosh.pack+zip"}
         if self.download.media_type not in allowed:
             raise ValueError("pack artifact media type is not allowed")
         return self
@@ -205,6 +203,8 @@ class ArtifactStore(Protocol):
 
     async def replace_pointer(self, object_key: str, payload: bytes) -> None: ...
 
+    async def aclose(self) -> None: ...
+
 
 class MemoryArtifactStore:
     def __init__(self) -> None:
@@ -229,6 +229,9 @@ class MemoryArtifactStore:
         if len(payload) > MAX_POINTER_BYTES:
             raise ArtifactUnavailableError("latest_pointer_too_large")
         self.objects[object_key] = payload
+
+    async def aclose(self) -> None:
+        return None
 
 
 class LocalArtifactStore:
@@ -290,6 +293,9 @@ class LocalArtifactStore:
             except FileNotFoundError:
                 pass
 
+    async def aclose(self) -> None:
+        return None
+
     def _path(self, object_key: str) -> Path:
         _validate_object_key(object_key)
         path = (self._root / object_key).resolve(strict=False)
@@ -303,33 +309,32 @@ class HttpArtifactStore:
 
     def __init__(self, base_url: str, *, timeout_seconds: float = 3.0) -> None:
         self._base_url = base_url.rstrip("/")
-        self._timeout_seconds = timeout_seconds
+        self._client = httpx.AsyncClient(
+            timeout=timeout_seconds,
+            follow_redirects=False,
+        )
 
     async def read(self, object_key: str, *, max_bytes: int) -> bytes | None:
         _validate_object_key(object_key)
         url = f"{self._base_url}/{quote(object_key, safe='/')}"
         try:
-            async with httpx.AsyncClient(
-                timeout=self._timeout_seconds,
-                follow_redirects=False,
-            ) as client:
-                async with client.stream(
-                    "GET", url, headers={"Accept-Encoding": "identity"}
-                ) as response:
-                    if response.status_code == 404:
-                        return None
-                    response.raise_for_status()
-                    declared = response.headers.get("content-length")
-                    if declared is not None and int(declared) > max_bytes:
+            async with self._client.stream(
+                "GET", url, headers={"Accept-Encoding": "identity"}
+            ) as response:
+                if response.status_code == 404:
+                    return None
+                response.raise_for_status()
+                declared = response.headers.get("content-length")
+                if declared is not None and int(declared) > max_bytes:
+                    raise ArtifactUnavailableError("artifact_too_large")
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in response.aiter_bytes():
+                    size += len(chunk)
+                    if size > max_bytes:
                         raise ArtifactUnavailableError("artifact_too_large")
-                    chunks: list[bytes] = []
-                    size = 0
-                    async for chunk in response.aiter_bytes():
-                        size += len(chunk)
-                        if size > max_bytes:
-                            raise ArtifactUnavailableError("artifact_too_large")
-                        chunks.append(chunk)
-                    return b"".join(chunks)
+                    chunks.append(chunk)
+                return b"".join(chunks)
         except (httpx.HTTPError, ValueError) as error:
             raise ArtifactUnavailableError("artifact_origin_unavailable") from error
 
@@ -340,6 +345,9 @@ class HttpArtifactStore:
     async def replace_pointer(self, object_key: str, payload: bytes) -> None:
         del object_key, payload
         raise ArtifactUnavailableError("artifact_origin_is_read_only")
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
 
 class PublicArtifactReadService:
@@ -356,6 +364,12 @@ class PublicArtifactReadService:
         self._receipt_keys = receipt_keys
         self._checkpoint_path = checkpoint_path
         self._checkpoint_lock = asyncio.Lock()
+        self._pack_semaphore = asyncio.Semaphore(1)
+        self._release_cache: OrderedDict[tuple[str, str], ResolvedRelease] = OrderedDict()
+
+    async def aclose(self) -> None:
+        if self._store is not None:
+            await self._store.aclose()
 
     async def food(
         self,
@@ -424,7 +438,9 @@ class PublicArtifactReadService:
         )
         if item is None:
             raise ArtifactNotFoundError("pack_not_found")
-        return await self._verified_read(item.download, max_bytes=MAX_PACK_BYTES), item, release
+        async with self._pack_semaphore:
+            payload = await self._verified_read(item.download, max_bytes=MAX_PACK_BYTES)
+        return payload, item, release
 
     async def resolve_release(
         self,
@@ -457,9 +473,9 @@ class PublicArtifactReadService:
                 exact=False,
             )
             _validate_pointer_window(pointer, release.manifest)
-            await self._advance_checkpoint(pointer_bytes, pointer)
             if current > pointer.expires_at:
-                return _as_stale(release, current, stale_since=pointer.expires_at)
+                raise ArtifactUnavailableError("latest_pointer_expired")
+            await self._advance_checkpoint(pointer_bytes, pointer)
             return release
         except (ArtifactReadError, ManifestVerificationError, ValueError):
             checkpoint = await self._read_checkpoint()
@@ -486,6 +502,11 @@ class PublicArtifactReadService:
         expected_version: str,
         exact: bool,
     ) -> ResolvedRelease:
+        cache_key = (expected_version, "exact" if exact else descriptor.digest)
+        cached = self._release_cache.get(cache_key)
+        if cached is not None:
+            self._release_cache.move_to_end(cache_key)
+            return cached
         manifest_bytes = await self._required_read(descriptor.object_key, MAX_MANIFEST_BYTES)
         if not exact:
             _verify_descriptor(descriptor, manifest_bytes)
@@ -511,7 +532,7 @@ class PublicArtifactReadService:
             bound.release_version != manifest.release_version
             or bound.published_at != manifest.published_at
             or bound.signed_release_metadata_digest != manifest_digest
-            or manifest_digest not in bound.artifact_snapshot_digests
+            or _copy_release_digest(bound) != manifest_digest
         ):
             raise ArtifactUnavailableError("publication_receipt_binding_invalid")
         metadata = PublicReleaseMetadata(
@@ -520,7 +541,12 @@ class PublicArtifactReadService:
             state="verified",
             stale_age_seconds=0,
         )
-        return ResolvedRelease(manifest, envelope, manifest_bytes, metadata)
+        release = ResolvedRelease(manifest, envelope, manifest_bytes, metadata)
+        self._release_cache[cache_key] = release
+        self._release_cache.move_to_end(cache_key)
+        while len(self._release_cache) > 16:
+            self._release_cache.popitem(last=False)
+        return release
 
     def _parse_pointer(self, payload: bytes) -> tuple[SignedEnvelope, PublicReadLatestPointer]:
         envelope = _parse_envelope(payload, self._manifest_keys)
@@ -573,6 +599,8 @@ class PublicArtifactReadService:
                 except FileNotFoundError:
                     existing = None
                 if existing is not None:
+                    if existing == payload:
+                        return
                     _, previous = self._parse_pointer(existing)
                     previous_version = _version_tuple(previous.release_version)
                     candidate_version = _version_tuple(pointer.release_version)
@@ -644,7 +672,7 @@ async def activate_verified_release(
         parsed_receipt.receipt.release_version != manifest.release_version
         or parsed_receipt.receipt.published_at != manifest.published_at
         or parsed_receipt.receipt.signed_release_metadata_digest != manifest_digest
-        or manifest_digest not in parsed_receipt.receipt.artifact_snapshot_digests
+        or _copy_release_digest(parsed_receipt.receipt) != manifest_digest
     ):
         raise ArtifactUnavailableError("publication_receipt_binding_invalid")
     for key, payload in immutable_objects.items():
@@ -660,6 +688,17 @@ async def activate_verified_release(
         expected_digest=pointer.manifest.digest,
     )
     await store.replace_pointer("latest/v1.json", pointer_bytes)
+
+
+def _copy_release_digest(receipt: PublicationReceipt) -> str | None:
+    return next(
+        (
+            proof.content_digest
+            for proof in receipt.verified_steps
+            if proof.step is PublicationStepName.COPY_RELEASE
+        ),
+        None,
+    )
 
 
 def artifact_descriptor(object_key: str, payload: bytes, media_type: str) -> ArtifactDescriptor:

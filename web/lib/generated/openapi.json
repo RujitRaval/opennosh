@@ -10936,7 +10936,13 @@
         "responses": {
           "200": {
             "content": {
-              "application/octet-stream": {
+              "application/vnd.opennosh.pack+zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "application/zip": {
                 "schema": {
                   "format": "binary",
                   "type": "string"

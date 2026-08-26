@@ -44,7 +44,9 @@ content-addressed record JSON, provenance HTML, and pack bytes first; then the s
 manifest and signed publication receipt; replace `latest/v1.json` last. Configure the private API
 with `PUBLIC_ARTIFACT_BASE_URL`, a durable writable `PUBLIC_ARTIFACT_CHECKPOINT_PATH`, approved
 `PUBLIC_COMMONS_VERIFYING_KEYS`, and approved `PUBLICATION_RECEIPT_VERIFYING_KEYS`. The API process
-receives public verification keys only.
+receives public verification keys only. The checked-in Render Blueprint does not currently attach a
+persistent disk to the private API, so the artifact switch must remain off until a durable checkpoint
+volume is provisioned and its cost is approved.
 
 Verify the latest and one pinned release while PostgreSQL access is paused:
 

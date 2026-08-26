@@ -207,7 +207,9 @@ export function FoodRecord({
         </div>
 
         <nav className="record-actions" data-record-order="5-actions" aria-label={copy.actions}>
-          <a href="#provenance">{copy.provenanceAction} <span aria-hidden="true">↓</span></a>
+          <a href={record.provenanceUrl ?? "#provenance"}>
+            {copy.provenanceAction} <span aria-hidden="true">{record.provenanceUrl ? "↗" : "↓"}</span>
+          </a>
           <a href="#variants">
             {visibleRecords.length > 1 ? copy.compareVariants : copy.relatedAction} <span aria-hidden="true">↓</span>
           </a>

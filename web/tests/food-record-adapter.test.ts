@@ -42,8 +42,8 @@ describe("public food record adapter", () => {
 
     expect(record.trust).toMatchObject({
       status: "Published with provenance",
-      version: "2.4.0",
-      lastVerified: null,
+      version: "0.52.0.0",
+      lastVerified: "2026-08-25T12:00:00Z",
     });
     expect(record.immutableUrl).toContain("/releases/0.52.0.0/");
     expect(record.provenanceUrl?.endsWith("/provenance")).toBe(true);
@@ -65,6 +65,25 @@ describe("public food record adapter", () => {
 
     expect(record.trust.status).toContain("latest alias is 2h stale");
     expect(record.trust.explanation).toContain("last cryptographically verified release");
+    expect(record.trust.version).toBe("0.52.0.0");
+    expect(record.trust.lastVerified).toBe("2026-08-25T12:00:00Z");
+  });
+
+  it("describes sub-minute stale aliases without overstating their age", () => {
+    const record = publicFoodDetailResponse({
+      schema_version: "1.0",
+      record: detailFixture,
+      release: {
+        release_version: "0.52.0.0",
+        published_at: "2026-08-25T12:00:00Z",
+        state: "stale",
+        stale_age_seconds: 0,
+      },
+      immutable_url: "/immutable-record",
+      provenance_url: "/immutable-provenance",
+    });
+
+    expect(record.trust.status).toContain("less than 1m stale");
   });
 
   it("keeps identity, trust, source, version, license, portions, and locale preference explicit", () => {

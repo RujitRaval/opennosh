@@ -150,6 +150,7 @@ def create_app(
                         await materializer_task
                 if open_food_facts_client is not None:
                     await open_food_facts_client.aclose()
+                await application.state.public_artifact_read_service.aclose()
             finally:
                 await engine.dispose()
 

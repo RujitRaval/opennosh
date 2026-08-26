@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import subprocess
+import sys
+import textwrap
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
@@ -322,4 +325,111 @@ def test_public_routes_do_not_acquire_a_database_session(tmp_path: Path) -> None
     assert "default-src 'none'" in provenance.headers["content-security-policy"]
     assert manifest.status_code == 200
     assert pack.content == PACK
+    assert pack.headers["content-type"].startswith("application/zip")
     assert pack.headers["content-disposition"].endswith('north-india-home-foods-2.4.0.zip"')
+
+
+@pytest.mark.asyncio
+async def test_expired_untrusted_latest_pointer_is_not_checkpointed(tmp_path: Path) -> None:
+    service, _ = await _published(tmp_path)
+
+    with pytest.raises(ArtifactUnavailableError, match="latest_release_unavailable"):
+        await service.food(
+            FoodSource.COMMUNITY,
+            "rajma-masala",
+            now=NOW + timedelta(days=2),
+        )
+
+    assert not (tmp_path / "trusted-latest.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_receipt_must_bind_copy_release_step_to_manifest(tmp_path: Path) -> None:
+    service, store = await _published(tmp_path)
+    release = await service.resolve_release(release_version=RELEASE)
+    manifest_digest = hashlib.sha256(release.manifest_bytes).hexdigest()
+    source = snapshot(current=7)
+    acknowledgements = tuple(
+        replace(
+            acknowledgement,
+            content_digest=(
+                "f" * 64
+                if acknowledgement.step is PublicationStepName.COPY_RELEASE
+                else manifest_digest
+                if acknowledgement.step
+                in {PublicationStepName.SIGN_RELEASE, PublicationStepName.COPY_COMMIT}
+                else acknowledgement.content_digest
+            ),
+            context={
+                **dict(acknowledgement.context),
+                **(
+                    {"release_version": RELEASE}
+                    if acknowledgement.step is PublicationStepName.SIGN_RELEASE
+                    else {}
+                ),
+            },
+        )
+        for acknowledgement in source.acknowledgements
+    )
+    invalid_receipt = RECEIPT_SIGNER.sign(
+        receipt_draft_from_snapshot(replace(source, acknowledgements=acknowledgements))
+    )
+    immutable_objects = {
+        artifact.object_key: store.objects[artifact.object_key]
+        for artifact in (
+            release.manifest.foods[0].record,
+            release.manifest.foods[0].provenance,
+            release.manifest.packs[0].download,
+        )
+    }
+
+    with pytest.raises(ArtifactUnavailableError, match="publication_receipt_binding_invalid"):
+        await activate_verified_release(
+            service=service,
+            store=store,
+            immutable_objects=immutable_objects,
+            manifest_bytes=release.manifest_bytes,
+            receipt_bytes=canonical_signed_receipt_bytes(invalid_receipt),
+            pointer_bytes=store.objects["latest/v1.json"],
+        )
+
+
+def test_unconfigured_artifact_route_uses_service_unavailable_problem() -> None:
+    app = create_app(Settings(_env_file=None))
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/v1/public/releases/{RELEASE}/foods/community/rajma-masala")
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "60"
+    assert response.json()["code"] == "service_unavailable"
+
+
+def test_artifact_core_imports_without_fastapi_or_database_drivers() -> None:
+    script = textwrap.dedent(
+        """
+        import builtins
+
+        blocked = {"fastapi", "sqlalchemy", "asyncpg"}
+        original_import = builtins.__import__
+
+        def guarded_import(name, *args, **kwargs):
+            if name.partition(".")[0] in blocked:
+                raise AssertionError(f"blocked dependency imported: {name}")
+            return original_import(name, *args, **kwargs)
+
+        builtins.__import__ = guarded_import
+        from opennosh_api.public.artifacts import MemoryArtifactStore
+        assert MemoryArtifactStore().objects == {}
+        """
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).parents[2],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr

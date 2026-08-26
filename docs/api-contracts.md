@@ -150,7 +150,7 @@ different manifest for an already trusted version cannot replace the durable che
 is missing, corrupt, expired, rolled back, or equivocated, only the checkpointed verified release
 may be served, with its stale age and Warning 110. There is no fallback to unverified bytes.
 
-Record JSON is capped at 512 KiB, provenance at 2 MiB, receipts at 256 KiB, and pack downloads at 512
+Record JSON is capped at 512 KiB, provenance at 2 MiB, receipts at 256 KiB, and ZIP pack downloads at 64
 MiB. Provenance responses use a restrictive content-security policy; the HTTPS origin adapter does
 not follow redirects and bounds streamed bytes even when `Content-Length` is missing. These routes
 do not acquire a PostgreSQL session. Search, accounts, drafts, review, and contribution remain on

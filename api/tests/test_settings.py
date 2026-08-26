@@ -73,9 +73,9 @@ def test_production_public_artifacts_require_https_origin_and_checkpoint() -> No
     production = {
         "app_environment": "production",
         "food_search_cursor_signing_keys": ("prod-v1:33333333333333333333333333333333"),
-        "public_commons_verifying_keys": ("production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"),
+        "public_commons_verifying_keys": ("production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"),
         "publication_receipt_verifying_keys": (
-            '{"production":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+            '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"}'
         ),
         "_env_file": None,
     }
@@ -104,6 +104,46 @@ def test_production_public_artifacts_require_https_origin_and_checkpoint() -> No
         public_artifact_checkpoint_path="/state/public-artifacts.json",
     )
     assert settings.public_artifact_base_url == "https://artifacts.opennosh.org"
+
+
+def test_production_public_artifacts_reject_development_keys_under_any_alias() -> None:
+    common = {
+        "app_environment": "production",
+        "food_search_cursor_signing_keys": "prod-v1:33333333333333333333333333333333",
+        "public_artifact_base_url": "https://artifacts.opennosh.org",
+        "public_artifact_checkpoint_path": "/state/public-artifacts.json",
+        "_env_file": None,
+    }
+    approved_receipt = '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"}'
+
+    with pytest.raises(ValidationError, match="approved public artifact verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM,"
+                "alias:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+            ),
+            publication_receipt_verifying_keys=approved_receipt,
+        )
+    with pytest.raises(ValidationError, match="approved public artifact verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "development:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
+            ),
+            publication_receipt_verifying_keys=approved_receipt,
+        )
+    with pytest.raises(ValidationError, match="approved publication receipt verifying keys"):
+        Settings(
+            **common,
+            public_commons_verifying_keys=(
+                "production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
+            ),
+            publication_receipt_verifying_keys=(
+                '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM",'
+                '"alias":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
+            ),
+        )
 
 
 def test_production_settings_use_secure_host_only_cookie_names() -> None:
@@ -140,7 +180,7 @@ def test_production_public_commons_requires_a_durable_projection_path() -> None:
         "public_commons_latest_pointer_path": "/artifacts/latest.json",
         "public_commons_release_directory": "/artifacts/releases",
         "public_commons_checkpoint_path": "/state/checkpoint.json",
-        "public_commons_verifying_keys": ("production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"),
+        "public_commons_verifying_keys": ("production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"),
         "_env_file": None,
     }
 
@@ -184,7 +224,7 @@ def test_production_public_commons_state_paths_cannot_alias_signed_artifacts(
             public_commons_checkpoint_path=checkpoint_path,
             public_commons_projection_path=projection_path,
             public_commons_verifying_keys=(
-                "production:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
+                "production:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"
             ),
             _env_file=None,
         )

@@ -208,7 +208,12 @@ export function toPublishedFoodRecordView(
   foodLocalePreference = "global",
 ): FoodRecordView {
   const record = toFoodRecordView(detail, foodLocalePreference);
-  const staleHours = Math.max(1, Math.ceil(release.stale_age_seconds / 3600));
+  const staleAge =
+    release.stale_age_seconds < 60
+      ? "less than 1m"
+      : release.stale_age_seconds < 3600
+        ? `${Math.ceil(release.stale_age_seconds / 60)}m`
+        : `${Math.ceil(release.stale_age_seconds / 3600)}h`;
   return {
     ...record,
     immutableUrl: urls.immutable_url,
@@ -217,15 +222,14 @@ export function toPublishedFoodRecordView(
       ...record.trust,
       status:
         release.state === "stale"
-          ? `Verified release · latest alias is ${staleHours}h stale`
+          ? `Verified release · latest alias is ${staleAge} stale`
           : record.trust.status,
       explanation:
         release.state === "stale"
           ? "The newest alias could not be refreshed, so opennosh is showing the last cryptographically verified release."
           : record.trust.explanation,
-      version: record.trust.version,
-      lastVerified:
-        release.state === "stale" ? release.published_at : record.trust.lastVerified,
+      version: release.release_version,
+      lastVerified: release.published_at,
     },
   };
 }

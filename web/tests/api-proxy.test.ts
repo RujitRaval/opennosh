@@ -112,6 +112,33 @@ describe("same-origin API proxy", () => {
     expect(response.headers.get("cache-control")).toContain("s-maxage=300");
   });
 
+  it("preserves signed artifact cache headers and strips session cookies", async () => {
+    const upstreamHeaders = new Headers({
+      "Cache-Control": "public, max-age=31536000, immutable",
+      ETag: "\"sha256-artifact\"",
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response("{}", { headers: upstreamHeaders }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest(
+      "http://localhost:3000/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala",
+      { headers: { Cookie: "opennosh_session=must-not-cross-public-boundary" } },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        path: ["public", "releases", "0.52.0.0", "foods", "community", "rajma-masala"],
+      }),
+    });
+
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("cookie")).toBeNull();
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=31536000, immutable",
+    );
+    expect(response.headers.get("etag")).toBe("\"sha256-artifact\"");
+  });
+
   it("forwards mutation bodies and CSRF headers", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     fetchMock.mockResolvedValue(Response.json({ ok: true }));
