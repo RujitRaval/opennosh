@@ -1,6 +1,5 @@
-from opennosh_api.capacity import ProcessRole
-from opennosh_api.entrypoints._worker import run_reserved_worker
+from opennosh_api.evidence.runtime import run_evidence_worker
 
 
 def main() -> int:
-    return run_reserved_worker(ProcessRole.EVIDENCE)
+    return run_evidence_worker()

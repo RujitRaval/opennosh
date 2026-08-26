@@ -8,6 +8,11 @@ from sqlalchemy import MetaData, Table
 from sqlalchemy.orm import DeclarativeBase
 
 from opennosh_api.contributions.models import ContributionDraft, ContributionDraftOperation
+from opennosh_api.evidence.models import (
+    EvidenceDurableAcknowledgement,
+    EvidenceManifestRecord,
+    EvidenceRemovalTombstone,
+)
 from opennosh_api.governance.models import (
     GovernanceDecision,
     GovernanceMergeAuthorization,
@@ -65,6 +70,9 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     Target,
     ContributionDraft,
     ContributionDraftOperation,
+    EvidenceManifestRecord,
+    EvidenceDurableAcknowledgement,
+    EvidenceRemovalTombstone,
     GovernanceRoleAssignment,
     GovernanceRecusal,
     GovernanceDecision,
@@ -117,6 +125,9 @@ __all__ = [
     "ContributionDraft",
     "ContributionDraftOperation",
     "DurableAcknowledgement",
+    "EvidenceDurableAcknowledgement",
+    "EvidenceManifestRecord",
+    "EvidenceRemovalTombstone",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",

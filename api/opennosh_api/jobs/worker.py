@@ -50,12 +50,14 @@ class PgQueuerRoleDriver:
         pool: Any,
         *,
         worker_concurrency: int,
+        task_name: str = "opennosh-publication-pgqueuer",
     ) -> None:
         if worker_concurrency < 2:
             raise ValueError("PgQueuer worker concurrency must be at least two")
         self._queue = queue
         self._pool = pool
         self._worker_concurrency = worker_concurrency
+        self._task_name = task_name
         self._batch_size = min(10, worker_concurrency // 2)
         self._run_task: asyncio.Task[None] | None = None
 
@@ -66,7 +68,7 @@ class PgQueuerRoleDriver:
                 batch_size=self._batch_size,
                 max_concurrent_tasks=self._worker_concurrency,
             ),
-            name="opennosh-publication-pgqueuer",
+            name=self._task_name,
         )
         await asyncio.sleep(0)
         if self._run_task.done():

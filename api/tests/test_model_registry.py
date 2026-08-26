@@ -16,6 +16,13 @@ EXPECTED_TABLE_OWNERS = {
         "opennosh_api.contributions.models.ContributionDraftOperation"
     ),
     "contribution_drafts": "opennosh_api.contributions.models.ContributionDraft",
+    "evidence_durable_acknowledgements": (
+        "opennosh_api.evidence.models.EvidenceDurableAcknowledgement"
+    ),
+    "evidence_manifests": "opennosh_api.evidence.models.EvidenceManifestRecord",
+    "evidence_removal_tombstones": (
+        "opennosh_api.evidence.models.EvidenceRemovalTombstone"
+    ),
     "governance_decisions": "opennosh_api.governance.models.GovernanceDecision",
     "governance_merge_authorizations": (
         "opennosh_api.governance.models.GovernanceMergeAuthorization"
@@ -85,6 +92,9 @@ def test_registry_import_order_is_deterministic() -> None:
         "targets",
         "contribution_drafts",
         "contribution_draft_operations",
+        "evidence_manifests",
+        "evidence_durable_acknowledgements",
+        "evidence_removal_tombstones",
         "governance_role_assignments",
         "governance_recusals",
         "governance_decisions",

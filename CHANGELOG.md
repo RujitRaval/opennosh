@@ -2,6 +2,32 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.50.0.0] - 2026-08-26
+
+### Added
+
+- Define canonical, class-specific evidence manifests for sanitized media, versioned datasets, public documents, and maintainer attestations, with honest public verification states.
+- Preserve evidence and signed manifests through content-addressed immutable storage, independent digest observation, typed queue wake-ups, and idempotent durable acknowledgements.
+- Add governed evidence tombstones, exact-draft-version approval gates, a dedicated capacity-bounded worker role, additive persistence, and an operator contract.
+- Add authenticated exact-version evidence attachment and status contracts for contribution clients,
+  with atomic manifest binding during contribution submission and an idempotent repair path.
+- Expose bounded terminal preservation failures with safe typed status codes.
+
+### Changed
+
+- Explain each contribution source choice with its exact public trust label instead of a generic upload claim.
+- Keep public review handoff visibly closed until the separately gated trusted evidence service is active, while preserving device drafts.
+- Reject production filesystem evidence settings so hosted deployments cannot accidentally claim RPO-zero durability from ephemeral local storage.
+
+### Security
+
+- Verify dataset and attestation Ed25519 signatures against principal-bound trusted keys before signed trust states can be recorded.
+- Enforce append-only acknowledgement and tombstone rows plus immutable manifest identity in PostgreSQL.
+- Recheck evidence at merge authorization, serialize governed removal against active merge authority, and fail stewardship approval closed when evidence is missing, incomplete, mismatched, stale, or tombstoned.
+- Require evidence before review handoff, bind idempotency to its canonical request, match evidence
+  licenses to reviewed provenance, and reserve a worker connection for queue coordination.
+
+
 ## [0.49.0.0] - 2026-08-25
 
 ### Added

@@ -69,6 +69,24 @@ def test_job_message_rejects_unsafe_idempotency_keys(field: str, value: str) -> 
         JobMessage.model_validate(payload)
 
 
+def test_evidence_job_is_typed_and_lane_bound() -> None:
+    evidence = JobMessage(
+        lane=JobLane.EVIDENCE,
+        job_type="evidence.preserve",
+        subject_id=uuid4(),
+        idempotency_key="evidence-preserve:fixture",
+    )
+
+    assert evidence.lane is JobLane.EVIDENCE
+    with pytest.raises(ValidationError, match="does not belong"):
+        JobMessage(
+            lane=JobLane.EVIDENCE,
+            job_type="publication.wake",
+            subject_id=uuid4(),
+            idempotency_key="evidence-preserve:wrong-lane",
+        )
+
+
 def test_job_request_and_attempt_context_require_aware_times() -> None:
     with pytest.raises(ValidationError, match="timezone"):
         JobRequest(

@@ -68,6 +68,14 @@ def test_unbudgeted_overflow_and_incomplete_roles_are_rejected() -> None:
     with pytest.raises(ValidationError, match="Role budgets must be complete"):
         CapacityManifest.model_validate(incomplete)
 
+    no_reserved_evidence_connection = manifest_payload()
+    no_reserved_evidence_connection["roles"]["evidence"]["pool_size"] = 1
+    no_reserved_evidence_connection["roles"]["evidence"][
+        "max_in_flight_database_sections"
+    ] = 1
+    with pytest.raises(ValidationError, match="at least two connections"):
+        CapacityManifest.model_validate(no_reserved_evidence_connection)
+
 
 def test_inactive_worker_role_fails_closed() -> None:
     manifest = load_capacity_manifest()

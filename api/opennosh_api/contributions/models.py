@@ -55,6 +55,7 @@ class ContributionDraft(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     submission_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), unique=True)
     submission_key_hash: Mapped[str | None] = mapped_column(String(64))
+    submission_request_hash: Mapped[str | None] = mapped_column(String(64))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()

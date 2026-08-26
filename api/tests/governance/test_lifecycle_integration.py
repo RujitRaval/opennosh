@@ -9,6 +9,7 @@ from uuid import uuid4
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
+from opennosh_api.evidence.repository import EvidenceConflictError, tombstone_evidence
 from opennosh_api.governance.contracts import (
     PROTECTED_STATUS_CHECKS,
     ApprovedChangeSet,
@@ -32,6 +33,7 @@ from opennosh_api.jobs.worker import asyncpg_dsn
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from api.tests.evidence.factories import seed_verified_reference_evidence
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
@@ -44,6 +46,7 @@ async def run_lifecycle(database_url: str) -> None:
     second_steward = uuid4()
     draft_id = uuid4()
     authorized_draft_id = uuid4()
+    revoked_draft_id = uuid4()
     pack_id = f"test-{uuid4().hex}"
     connection = await asyncpg.connect(asyncpg_dsn(database_url))
     try:
@@ -61,13 +64,16 @@ async def run_lifecycle(database_url: str) -> None:
             "INSERT INTO contribution_drafts "
             "(id, user_id, client_draft_id, review_state, fields_json) "
             "VALUES ($1, $2, $3, 'in_review', jsonb_build_object('pack_id', $4::text)), "
-            "($5, $2, $6, 'in_review', jsonb_build_object('pack_id', $4::text))",
+            "($5, $2, $6, 'in_review', jsonb_build_object('pack_id', $4::text)), "
+            "($7, $2, $8, 'in_review', jsonb_build_object('pack_id', $4::text))",
             draft_id,
             contributor,
             f"lifecycle-{draft_id}",
             pack_id,
             authorized_draft_id,
             f"lifecycle-{authorized_draft_id}",
+            revoked_draft_id,
+            f"lifecycle-{revoked_draft_id}",
         )
         await connection.execute(
             "INSERT INTO governance_role_assignments "
@@ -85,6 +91,16 @@ async def run_lifecycle(database_url: str) -> None:
     engine = create_async_engine(database_url)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     queue = PgQueuerJobQueue(clock=lambda: NOW)
+    async with sessions() as session:
+        async with session.begin():
+            evidence = {}
+            for source_draft_id in (draft_id, authorized_draft_id, revoked_draft_id):
+                evidence[source_draft_id] = await seed_verified_reference_evidence(
+                    session,
+                    draft_id=source_draft_id,
+                    draft_version=1,
+                    now=NOW,
+                )
     command = ApproveContribution(
         source_draft_id=draft_id,
         deciding_actor_id=steward,
@@ -165,10 +181,37 @@ async def run_lifecycle(database_url: str) -> None:
                     ),
                     now=NOW,
                 )
+                _, revoked_intent = await approve_contribution(
+                    session,
+                    queue,
+                    replace(
+                        command,
+                        source_draft_id=revoked_draft_id,
+                        record_id="revoked-lentils",
+                    ),
+                    now=NOW,
+                )
+
+        async with sessions() as session:
+            async with session.begin():
+                await tombstone_evidence(
+                    session,
+                    evidence_id=evidence[revoked_draft_id].evidence_id,
+                    removed_by_actor_id=steward,
+                    reason="Source rights were withdrawn before merge.",
+                    now=NOW,
+                )
 
         pool = await asyncpg.create_pool(asyncpg_dsn(database_url), min_size=1, max_size=1)
         assert pool is not None
         try:
+            with pytest.raises(ValueError, match="current durable evidence"):
+                await PostgresGovernanceGate(pool).authorize_merge(
+                    revoked_intent.id,
+                    head_commit="c" * 40,
+                    expected_payload_digest=command.approved_changes.digest,
+                    now=NOW,
+                )
             authorized = await PostgresGovernanceGate(pool).authorize_merge(
                 authorized_intent.id,
                 head_commit="d" * 40,
@@ -185,6 +228,17 @@ async def run_lifecycle(database_url: str) -> None:
             assert recovered.merge_authorized_head_commit == "d" * 40
         finally:
             await pool.close()
+
+        async with sessions() as session:
+            async with session.begin():
+                with pytest.raises(EvidenceConflictError, match="merge authorization is active"):
+                    await tombstone_evidence(
+                        session,
+                        evidence_id=evidence[authorized_draft_id].evidence_id,
+                        removed_by_actor_id=steward,
+                        reason="Removal must wait for the authorized publication.",
+                        now=NOW,
+                    )
 
         async with sessions() as session:
             async with session.begin():

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     web_database_url: str | None = None
     publication_database_url: str | None = None
     evidence_database_url: str | None = None
+    evidence_private_source_directory: Path | None = None
+    evidence_immutable_directory: Path | None = None
+    evidence_verifying_keys: SecretStr = SecretStr("{}")
     projection_database_url: str | None = None
     reconciler_database_url: str | None = None
     scheduler_database_url: str | None = None
@@ -107,6 +110,14 @@ class Settings(BaseSettings):
         ManifestKeyRing.from_config(value)
         return value
 
+    @field_validator("evidence_verifying_keys")
+    @classmethod
+    def validate_evidence_verifying_keys(cls, value: SecretStr) -> SecretStr:
+        from opennosh_api.evidence.signing import EvidenceVerificationKeyRing
+
+        EvidenceVerificationKeyRing.from_config(value.get_secret_value())
+        return value
+
     @field_validator("public_commons_revalidation_url")
     @classmethod
     def validate_public_commons_revalidation_url(cls, value: str | None) -> str | None:
@@ -183,6 +194,26 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if (self.evidence_private_source_directory is None) != (
+            self.evidence_immutable_directory is None
+        ):
+            raise ValueError(
+                "Evidence private source and immutable destination must be configured together"
+            )
+        if (
+            self.evidence_private_source_directory is not None
+            and self.evidence_immutable_directory is not None
+        ):
+            source_directory = self.evidence_private_source_directory.resolve(strict=False)
+            immutable_directory = self.evidence_immutable_directory.resolve(strict=False)
+            if source_directory == immutable_directory:
+                raise ValueError(
+                    "Evidence private source and immutable destination must be independent"
+                )
+            if self.app_environment == "production":
+                raise ValueError(
+                    "Production evidence durability requires a non-filesystem adapter"
+                )
         if (self.public_commons_latest_pointer_path is None) != (
             self.public_commons_release_directory is None
         ):

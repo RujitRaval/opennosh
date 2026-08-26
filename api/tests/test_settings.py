@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from opennosh_api.capacity import JobRole, ProcessRole
@@ -291,3 +292,32 @@ def test_production_roles_require_specific_least_privilege_database_urls() -> No
     assert configured.process_database_url(ProcessRole.WEB).startswith(
         "postgresql+asyncpg://web-role@"
     )
+
+
+def test_local_evidence_directories_are_paired_independent_and_non_production(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValidationError, match="configured together"):
+        Settings(evidence_private_source_directory=tmp_path / "source", _env_file=None)
+    with pytest.raises(ValidationError, match="must be independent"):
+        Settings(
+            evidence_private_source_directory=tmp_path / "same",
+            evidence_immutable_directory=tmp_path / "same",
+            _env_file=None,
+        )
+    configured = Settings(
+        evidence_private_source_directory=tmp_path / "source",
+        evidence_immutable_directory=tmp_path / "immutable",
+        _env_file=None,
+    )
+    assert configured.evidence_private_source_directory == tmp_path / "source"
+    with pytest.raises(ValidationError, match="valid JSON"):
+        Settings(evidence_verifying_keys="not-json", _env_file=None)
+    with pytest.raises(ValidationError, match="non-filesystem adapter"):
+        Settings(
+            app_environment="production",
+            evidence_private_source_directory=tmp_path / "source",
+            evidence_immutable_directory=tmp_path / "immutable",
+            food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+            _env_file=None,
+        )
