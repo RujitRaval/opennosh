@@ -8,8 +8,8 @@ test("record answers nutrition with its trust context visible and correctly orde
   await expect(page.getByText("Published with provenance")).toBeVisible();
   await expect(page.getByText(/Hindi.*\(hi-IN\)/)).toBeVisible();
   await expect(page.getByText("CC0-1.0").first()).toBeVisible();
-  await expect(page.getByText("2.4.0").first()).toBeVisible();
-  await expect(page.getByText(/Not supplied by this release/).first()).toBeVisible();
+  await expect(page.getByText("0.52.0.0").first()).toBeVisible();
+  await expect(page.getByText("2026-08-25T12:00:00Z").first()).toBeVisible();
   await expect(page.getByText(/Recipe analysis checked against two household preparations/).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /See provenance/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /Check related records/ })).toBeVisible();
