@@ -2101,3 +2101,267 @@ select {
     border: 1px solid CanvasText;
   }
 }
+
+/* T31 launch-readiness flows */
+.auth-actions {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.form-help {
+  color: var(--muted);
+}
+
+.setup-shell,
+.settings-shell,
+.records-shell {
+  width: min(100% - 2rem, 72rem);
+  min-height: calc(100vh - 8rem);
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 5rem) 0;
+}
+
+.setup-intro,
+.settings-hero {
+  max-width: 48rem;
+  margin-bottom: clamp(2rem, 5vw, 4rem);
+}
+
+.setup-intro h1,
+.settings-hero h1 {
+  max-width: 13ch;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.7rem, 7vw, 5.6rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+}
+
+.setup-intro > p:last-child,
+.settings-hero > p:last-child {
+  max-width: 44rem;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+.setup-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.setup-section,
+.settings-card,
+.record-card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  box-shadow: var(--shadow);
+}
+
+.setup-section h2,
+.settings-card h2,
+.record-card h2 {
+  margin: 0 0 0.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.recovery-card {
+  color: var(--ink);
+  background: var(--lime);
+  border-color: var(--ink);
+  box-shadow: 0.5rem 0.5rem 0 var(--ink);
+}
+
+.recovery-code {
+  display: block;
+  overflow-wrap: anywhere;
+  margin: 1.25rem 0;
+  padding: 1rem;
+  color: white;
+  background: var(--ink);
+  border-radius: 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  user-select: all;
+}
+
+.confirmation-row,
+.choice-card,
+.exercise-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.choice-grid,
+.target-setup-grid,
+.settings-grid,
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.choice-card {
+  padding: 1rem;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 0.6rem;
+}
+
+.choice-card.is-selected {
+  border-color: var(--leaf);
+  box-shadow: inset 0 0 0 1px var(--leaf);
+}
+
+.choice-card span:last-child {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.target-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+}
+
+.target-card legend {
+  padding: 0 0.4rem;
+  font-weight: 800;
+}
+
+.target-card label {
+  display: grid;
+  grid-template-columns: 1fr minmax(8rem, 0.7fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.unit-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.unit-input input {
+  min-width: 0;
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.settings-grid,
+.records-grid {
+  align-items: start;
+}
+
+.settings-card,
+.record-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.settings-card > *,
+.record-card > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.settings-card select,
+.settings-card input,
+.record-card select,
+.record-card input,
+.inline-search input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 0.45rem;
+  font: inherit;
+}
+
+.compact-form {
+  gap: 0.5rem;
+}
+
+.danger-card {
+  border-color: var(--error);
+}
+
+.inline-search {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.inline-search > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.exercise-results {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 19rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+}
+
+.exercise-choice {
+  padding: 0.7rem;
+  border-radius: 0.4rem;
+}
+
+.exercise-choice.is-selected {
+  background: var(--surface-soft);
+}
+
+.exercise-choice small {
+  display: block;
+  color: var(--muted);
+}
+
+.selected-record {
+  color: var(--muted);
+}
+
+.account-menu a {
+  color: inherit;
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.account-menu a[aria-current="page"] {
+  color: var(--lime);
+}
+
+@media (max-width: 48rem) {
+  .choice-grid,
+  .target-setup-grid,
+  .settings-grid,
+  .records-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .target-card label {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}

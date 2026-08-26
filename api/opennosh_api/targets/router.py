@@ -62,6 +62,23 @@ async def replace_all(
         ) from error
 
 
+@router.get("/resolve-optional", response_model=TargetResponse | None)
+async def resolve_optional(
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    day: Annotated[date, Query()],
+    day_type: Annotated[TargetDayType, Query()],
+) -> TargetResponse | None:
+    return await resolve_target(
+        database,
+        day=day,
+        day_type=day_type,
+        current=current,
+        target_kcal_floor=settings.target_kcal_floor,
+    )
+
+
 @router.get("/resolve", response_model=TargetResponse)
 async def resolve(
     current: Annotated[CurrentSession, Depends(get_current_session)],

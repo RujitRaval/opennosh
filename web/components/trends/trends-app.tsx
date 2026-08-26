@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LoginPanel } from "@/components/log/login-panel";
 import { TrackerHeader } from "@/components/tracker/tracker-header";
+import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
 import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { ApiError, api } from "@/lib/api";
 import type { AuthenticatedUser, BodyMetric, WorkoutTrendPoint } from "@/lib/types";
@@ -204,16 +205,15 @@ function Trends({
 
 export function TrendsApp() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [recoveryCode, setRecoveryCode] = useState<string>();
   const [checking, setChecking] = useState(true);
   const [authMessage, setAuthMessage] = useState<string>();
 
   useEffect(() => {
-    api.session()
-      .then(setUser)
+    api.sessionState()
+      .then((state) => setUser(state.user))
       .catch((caught) => {
-        if (!(caught instanceof ApiError) || caught.status !== 401) {
-          setAuthMessage(caught instanceof Error ? caught.message : "Your session could not be checked.");
-        }
+        setAuthMessage(caught instanceof Error ? caught.message : "Your session could not be checked.");
       })
       .finally(() => setChecking(false));
   }, []);
@@ -221,9 +221,34 @@ export function TrendsApp() {
   if (checking) return <main id="main-content" className="boot-screen" role="status"><TrackerWordmark surface="rice-paper" priority /><p>Opening trends…</p></main>;
   if (!user) {
     return <LoginPanel message={authMessage} onAuthenticate={async (mode, email, password) => {
-      const response = mode === "login" ? await api.login(email, password) : await api.register(email, password);
+      if (mode === "login") {
+        const response = await api.login(email, password);
+        setAuthMessage(undefined);
+        setRecoveryCode(undefined);
+        setUser(response.user);
+        return;
+      }
+      const response = await api.register(email, password);
       setAuthMessage(undefined);
+      setRecoveryCode(response.recovery_code);
       setUser(response.user);
+    }} onRecover={async (email, code, password) => {
+      const response = await api.recover(email, code, password);
+      setAuthMessage("Password reset. Save the new recovery code before continuing.");
+      setRecoveryCode(response.recovery_code);
+      setUser(response.user);
+    }} />;
+  }
+  if (!user.onboarding_completed) {
+    return <OnboardingPanel user={user} recoveryCode={recoveryCode} onComplete={(updated) => {
+      setRecoveryCode(undefined);
+      setUser(updated);
+    }} onLogout={() => {
+      void api.logout().finally(() => {
+        setRecoveryCode(undefined);
+        setUser(null);
+        setAuthMessage("You’re signed out.");
+      });
     }} />;
   }
   return <Trends user={user} onExpired={() => { setUser(null); setAuthMessage("Your session ended. Sign in again to continue."); }} onLogout={() => { setUser(null); setAuthMessage("You’re signed out."); }} />;

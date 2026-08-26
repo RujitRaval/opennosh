@@ -51,6 +51,30 @@ async def get_current_session(
     return CurrentSession(user=row[1], session=row[0])
 
 
+async def get_optional_session(
+    request: Request,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> CurrentSession | None:
+    raw_token = request.cookies.get(settings.session_cookie_name)
+    if raw_token is None:
+        return None
+
+    statement = (
+        select(AuthSession, User)
+        .join(User, User.id == AuthSession.user_id)
+        .where(
+            AuthSession.token_hash == hash_token(raw_token),
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > datetime.now(UTC),
+        )
+    )
+    row = (await database.execute(statement)).one_or_none()
+    if row is None:
+        return None
+    return CurrentSession(user=row[1], session=row[0])
+
+
 async def require_csrf(
     request: Request,
     current: Annotated[CurrentSession, Depends(get_current_session)],

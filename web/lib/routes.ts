@@ -117,6 +117,8 @@ export const routes = {
   ) => `/${language}/contribute/${encodeURIComponent(draftId)}/status`,
   tracker: {
     home: "/tracker",
+    records: "/tracker/records",
     trends: "/tracker/trends",
+    account: "/tracker/account",
   },
 } as const;

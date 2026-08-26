@@ -1,10 +1,21 @@
+export type PreferredUnits = "metric" | "us";
+
 export type AuthenticatedUser = {
   id: string;
   email: string;
+  onboarding_completed: boolean;
+  preferred_units: PreferredUnits;
 };
 export type SessionResponse = {
   user: AuthenticatedUser;
   csrf_token: string;
+};
+export type RegistrationResponse = SessionResponse & {
+  recovery_code: string;
+};
+export type SessionState = {
+  authenticated: boolean;
+  user: AuthenticatedUser | null;
 };
 
 export type FoodSource = "usda" | "community" | "openfoodfacts" | "custom";
