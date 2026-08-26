@@ -2,6 +2,19 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.48.0.0] - 2026-08-25
+
+### Added
+
+- Give maintainers a reusable deterministic workflow testkit with injected clocks, identifiers, scheduler decisions, scripted adapter outcomes, persistent external state, and a contract-faithful queue fake.
+- Generate 60 crash/retry cases from the ten-step publication registry plus two final accepted-event boundaries, recreating workers and proving every global trust invariant after recovery.
+- Capture and restore one consistent PostgreSQL publication checkpoint together with its typed queue wake-ups, so restored tests exercise the same revisioned work a real worker receives.
+
+### Changed
+
+- Expose an explicit pre-verification failpoint, injectable intent IDs, and an injectable timeout scope while preserving secure production defaults.
+- Replace probabilistic publication-test sleeps with deterministic cancellation, lease expiry, duplicate delivery, and queue replay.
+
 ## [0.47.0.0] - 2026-08-25
 
 ### Added

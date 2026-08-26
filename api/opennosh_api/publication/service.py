@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -59,13 +60,14 @@ async def create_publication_intent(
     command: CreatePublicationIntent,
     *,
     now: datetime,
+    id_generator: Callable[[], UUID] = uuid4,
 ) -> PublicationIntent:
     """Persist the reviewed intent and queue wake-up in the caller's transaction."""
 
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("Publication time must include a timezone")
 
-    intent_id = uuid4()
+    intent_id = id_generator()
     key_hash = _idempotency_hash(command.idempotency_key)
     values = {
         "id": intent_id,
