@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RecordsPage() {
-  return <RecordsApp />;
+  return <RecordsApp strengthEntryEnabled={process.env.OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED === "true"} />;
 }

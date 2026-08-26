@@ -4,6 +4,7 @@ import asyncio
 import os
 from collections.abc import Iterator
 
+import httpx
 import pytest
 from alembic import command
 from fastapi import HTTPException, Request
@@ -121,6 +122,28 @@ async def _concurrent_rate_limit_statuses(database_url: str) -> list[int]:
         return await asyncio.gather(attempt(), attempt(), attempt())
     finally:
         await engine.dispose()
+
+
+async def _concurrent_recovery_statuses(
+    database_url: str, *, email: str, recovery_code: str
+) -> list[int]:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            app_environment="test",
+            auth_rate_limit_attempts=20,
+            _env_file=None,
+        )
+    )
+    payloads = (
+        {"email": email, "recovery_code": recovery_code, "new_password": "first concurrent replacement"},
+        {"email": email, "recovery_code": recovery_code, "new_password": "second concurrent replacement"},
+    )
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            responses = await asyncio.gather(*(client.post("/api/v1/auth/recover", json=payload) for payload in payloads))
+    return sorted(response.status_code for response in responses)
 
 
 @pytest.fixture
@@ -593,6 +616,22 @@ def test_password_recovery_rotates_code_and_session(auth_client: TestClient) -> 
         ).status_code
         == 200
     )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_concurrent_password_recovery_consumes_the_code_once(auth_client: TestClient) -> None:
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "concurrent-recover@example.test", "password": "a sufficiently long password"},
+    )
+    statuses = asyncio.run(
+        _concurrent_recovery_statuses(
+            INTEGRATION_DATABASE_URL,
+            email="concurrent-recover@example.test",
+            recovery_code=registered.json()["recovery_code"],
+        )
+    )
+    assert statuses == [200, 401]
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")

@@ -19,6 +19,7 @@ const user = {
   id: "4c683fc5-548a-4772-a090-b26ea0951d50",
   email: "alex@example.com",
   onboarding_completed: false,
+  recovery_configured: true,
   preferred_units: "us",
 };
 const food = {

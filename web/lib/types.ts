@@ -4,6 +4,7 @@ export type AuthenticatedUser = {
   id: string;
   email: string;
   onboarding_completed: boolean;
+  recovery_configured: boolean;
   preferred_units: PreferredUnits;
 };
 export type SessionResponse = {

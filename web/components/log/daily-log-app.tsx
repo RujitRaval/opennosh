@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 
 import { TrackerHeader } from "@/components/tracker/tracker-header";
 import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
+import { RecoveryCodeGate } from "@/components/tracker/recovery-code-gate";
+import { RecoverySetupGate } from "@/components/tracker/recovery-setup-gate";
 import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { ApiError, api } from "@/lib/api";
 import type { AuthenticatedUser, DailyTotals, LogEntry, Target } from "@/lib/types";
@@ -417,6 +419,32 @@ export function DailyLogApp() {
     );
   }
 
+  if (!user.recovery_configured) {
+    return <RecoverySetupGate onGenerated={(code) => {
+      setUser({ ...user, recovery_configured: true });
+      setRecoveryCode(code);
+    }} onLogout={async () => {
+      await api.logout();
+      setUser(null);
+      setAuthMessage("You’re signed out.");
+    }} />;
+  }
+
+  if (recoveryCode && user.onboarding_completed) {
+    return (
+      <RecoveryCodeGate
+        recoveryCode={recoveryCode}
+        onSaved={() => setRecoveryCode(undefined)}
+        onLogout={async () => {
+          await api.logout();
+          setRecoveryCode(undefined);
+          setUser(null);
+          setAuthMessage("You’re signed out.");
+        }}
+      />
+    );
+  }
+
   if (!user.onboarding_completed) {
     return (
       <OnboardingPanel
@@ -426,12 +454,11 @@ export function DailyLogApp() {
           setRecoveryCode(undefined);
           setUser(updated);
         }}
-        onLogout={() => {
-          void api.logout().finally(() => {
-            setRecoveryCode(undefined);
-            setUser(null);
-            setAuthMessage("You’re signed out.");
-          });
+        onLogout={async () => {
+          await api.logout();
+          setRecoveryCode(undefined);
+          setUser(null);
+          setAuthMessage("You’re signed out.");
         }}
       />
     );

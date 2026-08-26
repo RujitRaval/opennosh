@@ -20,6 +20,8 @@ export function PublicFoodSearch({ language }: { language: InterfaceLanguage }) 
     event.preventDefault();
     setBusy(true);
     setError(undefined);
+    setItems([]);
+    setSearched(false);
     try {
       const result = await api.searchFoods(query, language, "community");
       setItems(result.items);

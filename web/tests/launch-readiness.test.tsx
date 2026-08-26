@@ -2,9 +2,11 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PublicFoodSearch } from "@/components/foods/public-food-search";
+import { DailyLogApp } from "@/components/log/daily-log-app";
 import { AccountApp } from "@/components/tracker/account-app";
-import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
+import { localCalendarDate, OnboardingPanel } from "@/components/tracker/onboarding-panel";
 import { RecordsApp } from "@/components/tracker/records-app";
+import { TrendsApp } from "@/components/trends/trends-app";
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -31,6 +33,7 @@ const user = {
   id: "4c683fc5-548a-4772-a090-b26ea0951d50",
   email: "launch@example.com",
   onboarding_completed: false,
+  recovery_configured: true,
   preferred_units: "us" as const,
 };
 const completeUser = { ...user, onboarding_completed: true };
@@ -78,16 +81,29 @@ describe("T31 launch readiness", () => {
     ]));
     expect(mocks.updateAccountSettings).toHaveBeenCalledWith({ preferred_units: "metric", onboarding_completed: true });
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ onboarding_completed: true, preferred_units: "metric" })));
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(onLogout).toHaveBeenCalledOnce();
   });
 
-  it("surfaces onboarding save errors and lets returning users proceed without a recovery code", async () => {
+  it("preserves existing targets when setup is skipped", async () => {
+    const onComplete = vi.fn();
+    render(<OnboardingPanel user={user} onComplete={onComplete} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open my tracker" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+    expect(mocks.replaceTargets).not.toHaveBeenCalled();
+  });
+
+  it("surfaces configured-target save errors", async () => {
     mocks.replaceTargets.mockRejectedValueOnce(new Error("Targets are unavailable."));
     render(<OnboardingPanel user={user} onComplete={vi.fn()} onLogout={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Set my own nutrition targets now."));
+    screen.getAllByRole("spinbutton").forEach((input) => fireEvent.change(input, { target: { value: "100" } }));
     fireEvent.click(screen.getByRole("button", { name: "Open my tracker" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Targets are unavailable.");
     expect(screen.getByRole("button", { name: "Open my tracker" })).toBeEnabled();
+  });
+
+  it("uses the browser-local calendar day for target activation", () => {
+    const browserDate = { getFullYear: () => 2026, getMonth: () => 7, getDate: () => 26 } as Date;
+    expect(localCalendarDate(browserDate)).toBe("2026-08-26");
   });
 
   it("shows real public result provenance, empty results, and failures", async () => {
@@ -108,6 +124,12 @@ describe("T31 launch readiness", () => {
     const link = await screen.findByRole("link", { name: /Rajma masala/ });
     expect(link).toHaveAttribute("href", "/en/explore/foods/community/rajma");
     expect(link).toHaveTextContent("CC0-1.0 · indian-staples-north");
+
+    mocks.searchFoods.mockRejectedValueOnce(new Error("Replacement search is resting."));
+    fireEvent.change(screen.getByLabelText("Food name"), { target: { value: "tofu" } });
+    fireEvent.submit(screen.getByRole("search"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Replacement search is resting.");
+    expect(screen.queryByRole("link", { name: /Rajma masala/ })).not.toBeInTheDocument();
     unmount();
 
     mocks.searchFoods.mockResolvedValueOnce({ items: [] });
@@ -125,7 +147,7 @@ describe("T31 launch readiness", () => {
   });
 
   it("records US body measurements and a source-visible strength set", async () => {
-    render(<RecordsApp />);
+    render(<RecordsApp strengthEntryEnabled />);
     expect(await screen.findByRole("heading", { name: "Body and strength, in context." })).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("Value (lb)"), { target: { value: "176.4" } });
@@ -162,8 +184,10 @@ describe("T31 launch readiness", () => {
 
     fireEvent.change(screen.getByLabelText("Confirm password", { selector: "#recovery-password" }), { target: { value: "current-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate new code" }));
-    expect(await screen.findByText("replacement-recovery-code")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "I saved it" }));
+    expect(await screen.findByRole("heading", { name: "Save your new recovery code." })).toBeVisible();
+    expect(screen.getByRole("status", { name: "Recovery code" })).toHaveTextContent("replacement-recovery-code");
+    fireEvent.click(screen.getByLabelText("I saved this code somewhere private."));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to my tracker" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Reopen guided setup" }));
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/tracker"));
@@ -228,6 +252,10 @@ describe("T31 launch readiness", () => {
     fireEvent.change(screen.getByLabelText("Recovery code"), { target: { value: "saved-recovery-code-that-is-long-enough" } });
     fireEvent.change(screen.getByLabelText("New password"), { target: { value: "a-new-private-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
+    expect(await screen.findByRole("heading", { name: "Save your new recovery code." })).toBeVisible();
+    expect(screen.getByRole("status", { name: "Recovery code" })).toHaveTextContent("rotated-code");
+    fireEvent.click(screen.getByLabelText("I saved this code somewhere private."));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to my tracker" }));
     expect(await screen.findByRole("heading", { name: "Body and strength, in context." })).toBeVisible();
   });
 
@@ -261,6 +289,10 @@ describe("T31 launch readiness", () => {
     fireEvent.change(screen.getByLabelText("Recovery code"), { target: { value: "saved-recovery-code-that-is-long-enough" } });
     fireEvent.change(screen.getByLabelText("New password"), { target: { value: "a-new-private-password" } });
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
+    expect(await screen.findByRole("heading", { name: "Save your new recovery code." })).toBeVisible();
+    expect(screen.getByRole("status", { name: "Recovery code" })).toHaveTextContent("account-rotated-code");
+    fireEvent.click(screen.getByLabelText("I saved this code somewhere private."));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to my tracker" }));
     expect(await screen.findByRole("heading", { name: "Your data. Your account." })).toBeVisible();
   });
 
@@ -294,6 +326,71 @@ describe("T31 launch readiness", () => {
     render(<RecordsApp />);
     expect(await screen.findByText("Records service is resting.")).toHaveAttribute("role", "status");
     expect(screen.getByRole("heading", { name: "Sign in to your log" })).toBeVisible();
+  });
+  it("forces legacy accounts to create and acknowledge recovery protection", async () => {
+    mocks.sessionState.mockResolvedValueOnce({ authenticated: true, user: { ...completeUser, recovery_configured: false } });
+    render(<AccountApp />);
+    expect(await screen.findByRole("heading", { name: "Add account recovery before continuing." })).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "current-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create recovery code" }));
+    expect(await screen.findByRole("heading", { name: "Save your new recovery code." })).toBeVisible();
+    fireEvent.click(screen.getByLabelText("I saved this code somewhere private."));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to my tracker" }));
+    expect(await screen.findByRole("heading", { name: "Your data. Your account." })).toBeVisible();
+  });
+
+  it("gates rotated recovery codes on Daily and Trends entry routes", async () => {
+    for (const App of [DailyLogApp, TrendsApp]) {
+      mocks.sessionState.mockResolvedValueOnce({ authenticated: false, user: null });
+      mocks.recover.mockResolvedValueOnce({ user: completeUser, recovery_code: "route-rotated-code" });
+      const view = render(<App />);
+      await screen.findByRole("heading", { name: "Sign in to your log" });
+      fireEvent.click(screen.getByRole("button", { name: "Forgot your password?" }));
+      fireEvent.change(screen.getByLabelText("Email address"), { target: { value: user.email } });
+      fireEvent.change(screen.getByLabelText("Recovery code"), { target: { value: "saved-recovery-code-that-is-long-enough" } });
+      fireEvent.change(screen.getByLabelText("New password"), { target: { value: "a-new-private-password" } });
+      fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
+      expect(await screen.findByRole("heading", { name: "Save your new recovery code." })).toBeVisible();
+      expect(screen.getByRole("status", { name: "Recovery code" })).toHaveTextContent("route-rotated-code");
+      view.unmount();
+    }
+  });
+
+  it("honestly gates strength entry until attributed exercises are loaded", async () => {
+    render(<RecordsApp />);
+    expect(await screen.findByRole("heading", { name: "Exercise catalogue is not live yet" })).toBeVisible();
+    expect(screen.queryByLabelText("Find exercise")).not.toBeInTheDocument();
+  });
+
+  it("surfaces Records and Account action failures without unhandled dead ends", async () => {
+    mocks.createBodyMetric.mockRejectedValueOnce(new Error("Body save is resting."));
+    mocks.searchExercises.mockRejectedValueOnce(new Error("Exercise search is resting."));
+    const records = render(<RecordsApp strengthEntryEnabled />);
+    await screen.findByRole("heading", { name: "Body and strength, in context." });
+    fireEvent.change(screen.getByLabelText("Value (lb)"), { target: { value: "176" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save body record" }));
+    expect(await screen.findByText("Body save is resting.")).toHaveAttribute("role", "alert");
+    fireEvent.change(screen.getByLabelText("Find exercise"), { target: { value: "squat" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    expect(await screen.findByText("Exercise search is resting.")).toHaveAttribute("role", "alert");
+    records.unmount();
+
+    mocks.updateAccountSettings.mockRejectedValueOnce(new Error("Units are resting."));
+    mocks.rotateRecoveryCode.mockRejectedValueOnce(new Error("Recovery is resting."));
+    mocks.deleteAccount.mockRejectedValueOnce(new Error("Deletion is resting."));
+    render(<AccountApp />);
+    await screen.findByRole("heading", { name: "Your data. Your account." });
+    fireEvent.change(screen.getByLabelText("Preferred units"), { target: { value: "metric" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save units" }));
+    expect(await screen.findByText("Units are resting.")).toHaveAttribute("role", "alert");
+    fireEvent.change(screen.getByLabelText("Confirm password", { selector: "#recovery-password" }), { target: { value: "current-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate new code" }));
+    expect(await screen.findByText("Recovery is resting.")).toHaveAttribute("role", "alert");
+    fireEvent.change(screen.getByLabelText("Type DELETE"), { target: { value: "DELETE" } });
+    const danger = screen.getByRole("heading", { name: "Delete account" }).closest("section")!;
+    fireEvent.change(within(danger).getByLabelText("Confirm password"), { target: { value: "current-password" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my account and data" }));
+    expect(await screen.findByText("Deletion is resting.")).toHaveAttribute("role", "alert");
   });
 
 });

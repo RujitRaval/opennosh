@@ -16,6 +16,7 @@ export function authenticatedUser(value: TransportUser): AuthenticatedUser {
     id: value.id,
     email: value.email,
     onboarding_completed: value.onboarding_completed ?? true,
+    recovery_configured: value.recovery_configured ?? true,
     preferred_units: value.preferred_units ?? "metric",
   };
 }

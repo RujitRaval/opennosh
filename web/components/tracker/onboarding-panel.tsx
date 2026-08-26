@@ -17,8 +17,11 @@ const initialTargets: Record<"training" | "rest", TargetValues> = {
   rest: { kcal: "", protein: "", carbs: "", fat: "" },
 };
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+export function localCalendarDate(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function OnboardingPanel({
@@ -52,15 +55,15 @@ export function OnboardingPanel({
     setSaving(true);
     setError(null);
     try {
-      await api.replaceTargets({
-        items: configureTargets ? (["training", "rest"] as const).map((dayType) => ({
+      if (configureTargets) await api.replaceTargets({
+        items: (["training", "rest"] as const).map((dayType) => ({
           day_type: dayType,
           kcal: targets[dayType].kcal,
           protein_g: targets[dayType].protein,
           carb_g: targets[dayType].carbs,
           fat_g: targets[dayType].fat,
-          active_from: today(),
-        })) : [],
+          active_from: localCalendarDate(),
+        })),
       });
       const updated = await api.updateAccountSettings({
         preferred_units: units,
@@ -149,7 +152,15 @@ export function OnboardingPanel({
           <button className="button button-primary" type="submit" disabled={saving || !savedRecovery}>
             {saving ? "Saving your setup…" : "Open my tracker"}
           </button>
-          <button className="text-button" type="button" onClick={onLogout}>Sign out</button>
+          <button className="text-button" type="button" disabled={saving} onClick={async () => {
+            setSaving(true);
+            setError(null);
+            try { await onLogout(); }
+            catch (caught) {
+              setError(caught instanceof Error ? caught.message : "You could not be signed out.");
+              setSaving(false);
+            }
+          }}>{saving ? "Working…" : "Sign out"}</button>
         </div>
       </form>
     </main>

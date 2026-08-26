@@ -178,6 +178,11 @@
             ],
             "title": "Preferred Units",
             "type": "string"
+          },
+          "recovery_configured": {
+            "default": false,
+            "title": "Recovery Configured",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5532,7 +5537,7 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.54.0.0",
+    "version": "0.55.0.0",
     "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",

@@ -112,6 +112,7 @@ def _authenticated_user(user: User) -> AuthenticatedUser:
         id=user.id,
         email=user.email,
         onboarding_completed=settings.get("onboarding_completed") is True,
+        recovery_configured=user.recovery_token_hash is not None,
         preferred_units=preferred_units if preferred_units in {"metric", "us"} else "metric",
     )
 
@@ -259,7 +260,9 @@ async def recover_account(
         key=payload.email,
         settings=settings,
     )
-    user = await database.scalar(select(User).where(User.email == payload.email))
+    user = await database.scalar(
+        select(User).where(User.email == payload.email).with_for_update()
+    )
     supplied_hash = hash_token(payload.recovery_code)
     if (
         user is None
@@ -320,6 +323,7 @@ async def change_password(
 @router.post("/account/recovery-code", response_model=RecoveryCodeResponse)
 async def rotate_recovery_code(
     payload: PasswordConfirmation,
+    response: Response,
     current: Annotated[CurrentSession, Depends(require_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> RecoveryCodeResponse:
@@ -328,6 +332,7 @@ async def rotate_recovery_code(
     recovery_code = generate_token()
     current.user.recovery_token_hash = hash_token(recovery_code)
     await database.commit()
+    response.headers["Cache-Control"] = "no-store"
     return RecoveryCodeResponse(recovery_code=recovery_code)
 
 

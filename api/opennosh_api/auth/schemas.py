@@ -30,6 +30,7 @@ class AuthenticatedUser(BaseModel):
     id: UUID
     email: str
     onboarding_completed: bool = False
+    recovery_configured: bool = False
     preferred_units: Literal["metric", "us"] = "metric"
 
 

@@ -106,6 +106,10 @@ export type AuthenticatedUser = {
      * Preferred Units
      */
     preferred_units?: 'metric' | 'us';
+    /**
+     * Recovery Configured
+     */
+    recovery_configured?: boolean;
 };
 
 /**
