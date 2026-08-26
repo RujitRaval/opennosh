@@ -59,7 +59,7 @@ GET /api/v1/public/releases/{release}/packs/{pack_id}/{pack_version}/download
 Each exact-version response must be `200`, immutable, and carry the expected release header. Tamper
 with a disposable object in staging and confirm the read fails closed. Make the latest pointer
 unavailable and confirm only the checkpointed verified release is returned with
-`X-OpenNosh-Release-State: stale`, `X-OpenNosh-Stale-Age`, and HTTP Warning 110. Only then set
+`x-opennosh-release-state: stale`, `x-opennosh-stale-age`, and HTTP Warning 110. Only then set
 `PUBLIC_ARTIFACT_READS_ENABLED=true` on `opennosh-web`. Roll back by setting that flag to `false`;
 do not delete or rewrite immutable artifacts.
 
