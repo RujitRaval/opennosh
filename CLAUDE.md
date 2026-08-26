@@ -12,26 +12,24 @@
 
 ## Testing
 
-Run:
+Run the canonical repository gates:
 
 ```bash
-uv sync --frozen
-npm --prefix web ci
-uv run ruff check api benchmarks scripts/check_benchmark_contract.py tests/test_benchmark*.py api/tests/test_benchmark*.py
-uv run mypy
-uv run mypy --strict benchmarks/performance
-PYTHONPATH=api:. uv run pytest
-npm --prefix web run lint
-npm --prefix web run typecheck
-npm --prefix web test
-npm --prefix web run test:e2e
-npm --prefix web run build
-docker compose config --quiet
-PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
-python3 scripts/check_docs.py
+make install
+make lint
+make typecheck
+make test
+make web-e2e
+make build
+make compose-config
 make package-check
 make contracts-check
+make trust-gates-check
+npm --prefix web run test:coverage
 ```
+
+Use `docs/testing.md` for PostgreSQL integration setup, changed-line API coverage reproduction,
+release confidence, scheduled drills, and main-branch protection checks.
 
 ## Skill routing
 

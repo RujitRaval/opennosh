@@ -1,0 +1,93 @@
+{
+  "schema_version": "1",
+  "owner": "@RujitRaval",
+  "tiers": {
+    "pull_request": {
+      "workflow": ".github/workflows/quality.yml",
+      "triggers": ["pull_request", "push"],
+      "required_jobs": ["classify", "repository", "api", "trust-protocol", "web", "visual", "vertical-acceptance", "compose"],
+      "required_roles": ["visitor", "tracker"],
+      "maximum_runtime_minutes": 25,
+      "artifact_retention_days": 14
+    },
+    "release": {
+      "workflow": ".github/workflows/release-confidence.yml",
+      "triggers": ["workflow_call", "workflow_dispatch"],
+      "required_jobs": ["contracts-packages", "browser-matrix", "recovery", "self-host"],
+      "required_roles": ["visitor", "contributor", "steward", "tracker", "maintainer", "developer"],
+      "maximum_runtime_minutes": 45,
+      "artifact_retention_days": 30
+    },
+    "scheduled": {
+      "workflow": ".github/workflows/scheduled-trust-drills.yml",
+      "triggers": ["schedule", "workflow_dispatch"],
+      "required_jobs": ["inventory", "trust-matrix", "recovery-load", "vertical"],
+      "required_roles": ["visitor", "contributor", "steward", "tracker", "maintainer", "developer"],
+      "maximum_runtime_minutes": 60,
+      "artifact_retention_days": 30
+    }
+  },
+  "classifiers": {
+    "trust_protocol": [".github/workflows/**", "api/opennosh_api/evidence/**", "api/opennosh_api/governance/**", "api/opennosh_api/jobs/**", "api/opennosh_api/publication/**", "api/tests/workflow_testkit/**", "config/forge-policy.v1.json", "config/trust-gate*.json", "scripts/check_trust_gates.py"],
+    "security_policy": [".github/workflows/**", "api/opennosh_api/auth/**", "api/opennosh_api/settings.py", "api/opennosh_api/publication/forge/**", "config/forge-policy.v1.json"],
+    "production": ["api/opennosh_api/**", "web/app/**", "web/components/**", "web/lib/**"]
+  },
+  "coverage": {
+    "python_changed_line_percent": 90,
+    "python_repository_line_percent": 71.5,
+    "web_repository": {"lines": 80.5, "branches": 76.9, "functions": 78.7, "statements": 77.9},
+    "transition_matrix": {
+      "steps": ["commit_record", "copy_commit", "copy_evidence", "sign_release", "publish_release", "copy_release", "confirm_registry", "sign_receipt", "publish_receipt_registry", "copy_receipt"],
+      "failpoints": ["before_effect", "after_effect", "before_verification", "after_verification", "before_reducer", "after_reducer"],
+      "test": "api/tests/workflow_testkit/test_publication_matrix.py::test_generated_publication_crash_matrix_preserves_global_invariants"
+    },
+    "rescue_outcomes": {
+      "values": ["absent", "verified", "retryable_failure", "conflict", "terminal_failure"],
+      "test": "api/tests/publication/test_planner.py::test_exhaustive_observation_transition_table"
+    },
+    "policy_branches": [
+      {"id": "concurrent_steward_decision", "test": "api/tests/governance/test_approval_integration.py::test_concurrent_steward_decisions_create_exactly_one_publication"},
+      {"id": "recusal", "test": "api/tests/governance/test_interventions.py::test_recusal_is_a_scoped_immutable_record"},
+      {"id": "role_revocation", "test": "api/tests/governance/test_interventions.py::test_audited_intervention_invalidates_the_bound_authority"},
+      {"id": "emergency_pause", "test": "api/tests/publication/forge/test_adapter.py::test_emergency_pause_retries_and_can_resume_without_terminal_block"},
+      {"id": "required_check_failure", "test": "api/tests/publication/forge/test_adapter.py::test_failed_required_check_blocks_merge"},
+      {"id": "merged_payload_mismatch", "test": "api/tests/publication/forge/test_adapter.py::test_merged_payload_mismatch_is_quarantined"},
+      {"id": "authority_changed_before_merge", "test": "api/tests/publication/forge/test_adapter.py::test_authority_is_reloaded_immediately_before_protected_merge"},
+      {"id": "authority_changed_after_auto_merge_arm", "test": "api/tests/publication/forge/test_adapter.py::test_authority_withdrawn_after_auto_merge_arm_never_receives_attestation"},
+      {"id": "lost_attestation_response", "test": "api/tests/publication/forge/test_adapter.py::test_lost_attestation_response_preserves_committed_merge_authority"},
+      {"id": "missing_governance_binding", "test": "api/tests/publication/forge/test_adapter.py::test_missing_governance_binding_is_a_durable_conflict"}
+    ]
+  },
+  "release_drills": {
+    "package_install": "make package-check",
+    "role_composition": "api/tests/test_runtime_roles.py",
+    "upgrade": "api/tests/test_migrations.py",
+    "rollback": "tests/test_render_deployment.py",
+    "receipt_reconstruction": "api/tests/publication/test_reconciliation_integration.py",
+    "self_host": "docker compose config --quiet"
+  },
+  "scheduled_drills": {
+    "forge": "api/tests/publication/forge",
+    "artifact_storage": "api/tests/public/test_artifact_read_plane.py",
+    "signer_registry": "api/tests/publication/test_receipts.py",
+    "backup_restore": "api/tests/workflow_testkit/test_publication_matrix.py",
+    "paired_outages": "api/tests/publication/test_reconciliation_integration.py",
+    "representative_load": "api/tests/foods/test_search_integration.py::test_representative_search_meets_the_explain_plan_budget + api/tests/test_database_capacity_integration.py::test_mixed_load_stays_inside_pool_and_recovers_after_saturation",
+    "ocr": "not-supported-in-first-vertical"
+  },
+  "non_retry_gates": [
+    {"workflow": ".github/workflows/quality.yml", "job": "visual", "primary_step": "Compare deterministic screenshots", "diagnostic_steps": ["Render diagnostic baseline candidate"]},
+    {"workflow": ".github/workflows/quality.yml", "job": "vertical-acceptance", "primary_step": "Run non-intercepted vertical trust journey", "diagnostic_steps": ["Capture vertical acceptance diagnostics"]}
+  ],
+  "branch_protection": {
+    "branch": "main",
+    "strict": true,
+    "required_check_app_id": 15368,
+    "required_check_jobs": ["classify", "repository", "api", "trust-protocol", "web", "visual", "vertical-acceptance", "compose"]
+  },
+  "quarantine": {
+    "exceptions_file": "config/trust-gate-exceptions.v1.json",
+    "required_fields": ["gate", "issue", "owner", "reason", "expires_on"],
+    "forbidden_gates": ["trust_protocol", "security_policy"]
+  }
+}

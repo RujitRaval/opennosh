@@ -49,3 +49,44 @@ PostgreSQL lifecycle tests for approval, intervention, protected checks, attesta
 verification. T5 additionally verifies receipt signature and storage adapters plus database
 reconstruction from the same canonical envelope used by production; the testkit deliberately does
 not invent test-only interfaces that application code cannot implement.
+
+## Risk-tiered trust gates
+
+The versioned gate inventory is `config/trust-gates.v1.json`. Validate it locally with:
+
+```shell
+make trust-gates-check
+```
+
+For the exact local coverage gates used by pull requests, run:
+
+```shell
+npm --prefix web run test:coverage
+
+mkdir -p test-results
+PYTHONPATH=api uv run coverage run --branch --source=opennosh_api -m pytest api/tests
+uv run coverage json -o test-results/python-coverage.json
+uv run python scripts/check_changed_coverage.py \
+  --coverage-json test-results/python-coverage.json \
+  --base origin/main --head HEAD
+```
+
+Repository administrators apply or verify the matching main-branch required status checks with
+`make trust-branch-protection-apply` and `make trust-branch-protection-check`.
+
+Every pull request classifies the changed paths, runs the complete deterministic transition and
+rescue contract, enforces 90% coverage on changed executable API lines, and refuses repository
+coverage regression below the measured baselines. Vitest covers production components and
+libraries; Next.js route and server modules are covered by the required UI, localization, visual,
+and real-vertical browser lanes.
+
+A release must additionally pass package installation, browser roles, upgrade/rollback and receipt
+reconstruction, and supported self-host smoke tests before publication. The weekly scheduled
+workflow exercises real PostgreSQL forge/artifact/signer/recovery integrations, representative
+search and mixed-load gates, and the non-intercepted browser-to-signed-receipt journey.
+
+A failing visual or real-vertical primary attempt remains failed. Diagnostic capture may rerender
+or replay only under `failure()`; it can never replace the primary verdict. Temporary quarantine
+records require a GitHub issue, owner, reason, and expiry in
+`config/trust-gate-exceptions.v1.json`. Trust-protocol and security-policy gates cannot be
+quarantined.

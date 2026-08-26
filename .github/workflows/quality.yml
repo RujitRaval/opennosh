@@ -10,12 +10,49 @@ on:
 permissions:
   contents: read
 
+env:
+  OPENNOSH_REQUIRED_ROLES: visitor,tracker
+
 concurrency:
   group: quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: risk classification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      trust_protocol: ${{ steps.classify.outputs.trust_protocol }}
+      security_policy: ${{ steps.classify.outputs.security_policy }}
+      production: ${{ steps.classify.outputs.production }}
+      documentation_only: ${{ steps.classify.outputs.documentation_only }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Classify changed risk
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          PYTHONPATH=api:. uv run --frozen python scripts/check_trust_gates.py classify \
+            --base "$BASE_SHA" --head "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+
   repository:
+    needs: classify
     name: repository checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -36,6 +73,12 @@ jobs:
         with:
           version: "0.11.8"
           enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Validate risk-tiered trust gates
+        run: PYTHONPATH=api:. uv run --frozen python scripts/check_trust_gates.py validate
 
       - name: Enforce pull-request metadata
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -65,9 +108,10 @@ jobs:
         run: git diff --check HEAD^
 
   api:
+    needs: classify
     name: API checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       INTEGRATION_DATABASE_URL: postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh_test
     services:
@@ -106,7 +150,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint API and performance contract
-        run: uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py api/tests/test_benchmark*.py
+        run: uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 
       - name: Type-check API and performance contract
         run: |
@@ -128,8 +172,29 @@ jobs:
       - name: Validate global database capacity contract
         run: PYTHONPATH=api:. uv run python scripts/check_database_capacity.py
 
-      - name: Test API
-        run: uv run pytest api/tests
+      - name: Test API with branch coverage
+        run: |
+          mkdir -p test-results
+          PYTHONPATH=api uv run coverage run --branch --source=opennosh_api -m pytest api/tests
+          uv run coverage json -o test-results/python-coverage.json
+
+      - name: Enforce API coverage floors
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          uv run python scripts/check_changed_coverage.py \
+            --coverage-json test-results/python-coverage.json \
+            --base "$BASE_SHA" --head "$GITHUB_SHA"
+
+      - name: Upload API coverage evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-coverage
+          path: test-results/python-coverage.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Build and inspect Python distribution
         run: |
@@ -138,7 +203,63 @@ jobs:
           uv run python scripts/check_installed_python_distribution.py \
             "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
 
+  trust-protocol:
+    name: trust protocol coverage
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      INTEGRATION_DATABASE_URL: postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: opennosh_test
+          POSTGRES_USER: opennosh
+          POSTGRES_PASSWORD: opennosh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opennosh -d opennosh_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.11"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: "0.11.8"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen
+      - name: Validate exact transitions roles and rescue outcomes
+        run: PYTHONPATH=api:. uv run python scripts/check_trust_gates.py validate
+      - name: Prove stable trust semantics on every pull request
+        run: |
+          PYTHONPATH=api:. uv run pytest \
+            api/tests/workflow_testkit/test_contracts.py \
+            api/tests/publication/test_planner.py \
+            api/tests/governance/test_interventions.py
+
+      - name: Prove the complete deterministic transition matrix
+        if: needs.classify.outputs.trust_protocol == 'true' || github.event_name == 'push'
+        run: PYTHONPATH=api:. uv run pytest api/tests/workflow_testkit/test_publication_matrix.py
+
+      - name: Prove every governed security-policy branch
+        if: needs.classify.outputs.security_policy == 'true' || github.event_name == 'push'
+        run: |
+          PYTHONPATH=api:. uv run pytest \
+            api/tests/governance/test_approval_integration.py \
+            api/tests/publication/forge/test_adapter.py
+
   web:
+    needs: classify
     name: web checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -175,8 +296,8 @@ jobs:
       - name: Type-check web app
         run: npm --prefix web run typecheck
 
-      - name: Test web app
-        run: npm --prefix web test
+      - name: Test web app with coverage floors
+        run: npm --prefix web run test:coverage
 
       - name: Test npm bootstrap package
         working-directory: packages/npm
@@ -213,8 +334,10 @@ jobs:
           name: public-motion-performance
           path: web/test-results/motion-*.json
           if-no-files-found: error
+          retention-days: 14
 
   visual:
+    needs: classify
     name: visual regression
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -233,17 +356,15 @@ jobs:
         run: npm --prefix web run check:visual-baselines
 
       - name: Compare deterministic screenshots
+        run: npm --prefix web run test:visual
+
+      - name: Render diagnostic baseline candidate
+        if: failure()
+        continue-on-error: true
         run: |
-          set +e
-          npm --prefix web run test:visual
-          visual_status=$?
-          set -e
-          if [ "$visual_status" -ne 0 ]; then
-            mkdir -p web/test-results/visual-diffs
-            cp -R web/test-results/visual/. web/test-results/visual-diffs/
-            npm --prefix web run test:visual -- --update-snapshots
-          fi
-          npm --prefix web run check:visual-baselines
+          mkdir -p web/test-results/visual-diffs
+          cp -R web/test-results/visual/. web/test-results/visual-diffs/ 2>/dev/null || true
+          npm --prefix web run test:visual -- --update-snapshots
 
       - name: Upload rendered visual diffs
         if: always()
@@ -259,6 +380,7 @@ jobs:
           retention-days: 14
 
   vertical-acceptance:
+    needs: classify
     name: Real vertical acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -313,6 +435,7 @@ jobs:
         run: make acceptance-down
 
   compose:
+    needs: classify
     name: Compose application boot
     runs-on: ubuntu-latest
     timeout-minutes: 15

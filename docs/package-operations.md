@@ -25,6 +25,11 @@ make package-check
 
 ## Publication controls
 
+Before either registry validation or publication starts,
+`.github/workflows/release-confidence.yml` must pass its package/install, browser-role,
+upgrade/rollback and receipt-reconstruction, and supported self-host checks. A failing confidence
+job blocks both PyPI and npm publication.
+
 `.github/workflows/publish-packages.yml` is the only long-term publishing path. It:
 
 - accepts published releases or a manual run from `main`;

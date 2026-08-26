@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.54.0.0] - 2026-08-26
+
+### Added
+
+- Add versioned pull-request, release, and scheduled trust-gate inventories with exact transition, rescue-outcome, security-policy, role, runtime, retention, and ownership reporting.
+- Add changed-line Python coverage enforcement, measured web and API non-regression floors, deterministic gate classifiers, and expiring issue-bound quarantine records.
+- Add full release package/browser/recovery/self-host confidence and scheduled forge, artifact, signer, recovery, representative-load, and real-vertical drills.
+
+### Changed
+
+- Preserve the original visual and vertical acceptance verdict on first failure while collecting rerun diagnostics separately.
+- Require release confidence to pass before PyPI or npm publication.
+
+### Security
+
+- Prevent trust-protocol and security-policy gates from being quarantined.
+- Fail CI when a workflow omits an expected transition, rescue outcome, policy branch, role, required job, diagnostic condition, or runtime/retention contract.
+
 ## [0.53.0.0] - 2026-08-26
 
 ### Added
