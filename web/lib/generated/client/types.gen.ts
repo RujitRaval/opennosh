@@ -6707,6 +6707,79 @@ export type ResolveApiV1TargetsResolveGetResponses = {
 
 export type ResolveApiV1TargetsResolveGetResponse = ResolveApiV1TargetsResolveGetResponses[keyof ResolveApiV1TargetsResolveGetResponses];
 
+export type ResolveOptionalApiV1TargetsResolveOptionalGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Day
+         */
+        day: string;
+        day_type: TargetDayType;
+    };
+    url: '/api/v1/targets/resolve-optional';
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetError = ResolveOptionalApiV1TargetsResolveOptionalGetErrors[keyof ResolveOptionalApiV1TargetsResolveOptionalGetErrors];
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetResponses = {
+    /**
+     * Response Resolve Optional Api V1 Targets Resolve Optional Get
+     *
+     * Successful Response
+     */
+    200: TargetResponse | null;
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetResponse = ResolveOptionalApiV1TargetsResolveOptionalGetResponses[keyof ResolveOptionalApiV1TargetsResolveOptionalGetResponses];
+
 export type ListAllApiV1WorkoutsGetData = {
     body?: never;
     path?: never;
