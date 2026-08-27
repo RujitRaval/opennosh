@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.56.0.0] - 2026-08-26
+
+### Added
+
+- Build a deterministic, offline-signed starter Commons release from all four checked-in packs, with 165 records, provenance pages, reproducible archives, signed manifests, publication receipts, and a bounded latest pointer.
+- Publish immutable release objects to Cloudflare R2 before the mutable pointer, verify every upload from the public origin, and warm every exact route through the deployed API.
+- Attach a 1 GB Render disk for the durable anti-rollback checkpoint and verified artifact cache, including complete-origin-outage recovery across API restarts.
+
+### Changed
+
+- Require production artifact reads to use distinct durable checkpoint and verified-cache paths.
+- Document the bounded activation ceremony, expected cost, deployment tradeoffs, cache warming, failure drills, and one-switch rollback.
+
+### Security
+
+- Reject repository-resident, symlinked, permission-loose, reused, or known non-production signing keys.
+- Fail closed on immutable publication conflicts, corrupt verified-cache entries, rollback, equivocation, invalid signatures, and incomplete uploads.
+- Keep public artifact reads dark until the signed release, R2 origin, Render state, and live failure drills are verified.
+
 ## [0.55.0.0] - 2026-08-26
 
 ### Added
