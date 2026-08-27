@@ -27,7 +27,6 @@ services:
     dockerCommand: python deploy/render_runtime.py api
     preDeployCommand: python deploy/render_runtime.py predeploy
     autoDeployTrigger: checksPass
-    maxShutdownDelaySeconds: 30
     disk:
       name: opennosh-public-artifact-state
       mountPath: /var/lib/opennosh/public-artifacts
