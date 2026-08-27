@@ -139,6 +139,14 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
     assert blueprint["previews"] == {"generation": "off"}
 
 
+def test_disk_backed_api_uses_render_supported_shutdown_settings() -> None:
+    services = _blueprint()["services"]
+    api = next(service for service in services if service["name"] == "opennosh-api")
+
+    assert "disk" in api
+    assert "maxShutdownDelaySeconds" not in api
+
+
 def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     services = _blueprint()["services"]
     assert isinstance(services, list)

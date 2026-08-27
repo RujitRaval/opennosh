@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.58.0.1] - 2026-08-27
+
+### Fixed
+
+- Allow the production Render Blueprint to sync the new publication worker by omitting the unsupported shutdown-delay override from the disk-backed API service.
+
 ## [0.58.0.0] - 2026-08-27
 
 ### Added
