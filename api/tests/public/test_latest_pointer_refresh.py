@@ -569,3 +569,65 @@ async def test_refresh_rejects_a_manifest_that_no_longer_matches_latest() -> Non
     with pytest.raises(LatestPointerRefreshError, match="direct R2 immutable release"):
         await service.refresh(now=NOW + timedelta(hours=20))
     assert writer.calls == []
+
+
+@pytest.mark.parametrize(
+    ("refresh_after_seconds", "origin_timeout_seconds", "message"),
+    [
+        (0, 2, "Latest pointer timing"),
+        (72_000, 0, "Public origin timeout"),
+    ],
+)
+def test_refresh_service_rejects_invalid_timing_configuration(
+    refresh_after_seconds: int,
+    origin_timeout_seconds: float,
+    message: str,
+) -> None:
+    store, _ = _signed_release()
+    writer = MemoryPointerWriter(store.objects)
+
+    with pytest.raises(ValueError, match=message):
+        LatestPointerRefreshService(
+            origin=store,
+            writer=writer,
+            bucket="opennosh-public-commons",
+            manifest_keys=MANIFEST_KEYS,
+            receipt_keys=RECEIPT_KEYS,
+            signing_key_id="manifest-online",
+            signing_key=ONLINE_KEY,
+            refresh_after_seconds=refresh_after_seconds,
+            pointer_lifetime_seconds=82_800,
+            origin_timeout_seconds=origin_timeout_seconds,
+        )
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_a_missing_public_pointer_before_r2_reads() -> None:
+    store, _ = _signed_release()
+    del store.objects[LATEST_POINTER_OBJECT_KEY]
+    writer = MemoryPointerWriter(store.objects)
+
+    with pytest.raises(LatestPointerRefreshError, match="current latest pointer is missing"):
+        await _service(store, writer).refresh(now=NOW)
+
+    assert writer.read_calls == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_worker_clock_skew_before_write() -> None:
+    store, _ = _signed_release()
+    writer = MemoryPointerWriter(store.objects)
+
+    with pytest.raises(LatestPointerRefreshError, match="worker clock is behind"):
+        await _service(store, writer).refresh(now=NOW - timedelta(seconds=1))
+
+    assert writer.calls == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_loop_rejects_nonpositive_cadence() -> None:
+    store, _ = _signed_release()
+    service = _service(store, MemoryPointerWriter(store.objects))
+
+    with pytest.raises(ValueError, match="interval must be positive"):
+        await run_latest_pointer_refresh_loop(service, asyncio.Event(), interval_seconds=0)
