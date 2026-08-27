@@ -1,5 +1,6 @@
 import type {
   AuthenticatedUser as TransportUser,
+  BodyMetricResponse as TransportMetric,
   BodyMetricListResponse as TransportMetricList,
   BodyMetricTrendResponse as TransportMetricTrend,
   ContributionCapability as TransportContributionCapability,
@@ -11,16 +12,26 @@ import type {
   DailyTotalsResponse as TransportTotals,
   FoodCapabilities as TransportCapabilities,
   FoodDetail as TransportFoodDetail,
+  ExerciseSearchResponse as TransportExerciseSearch,
   FoodSearchResponse as TransportFoodSearch,
   LogEntryListResponse as TransportLogList,
   LogEntryResponse as TransportLogEntry,
   OpenFoodFactsFood as TransportBarcodeFood,
+  RecoveryCodeResponse as TransportRecoveryCode,
+  RegistrationResponse as TransportRegistration,
   SessionResponse as TransportSession,
+  SessionState as TransportSessionState,
   TargetResponse as TransportTarget,
   WorkoutListResponse as TransportWorkoutList,
+  WorkoutResponse as TransportWorkout,
   WorkoutTrendResponse as TransportWorkoutTrend,
 } from "./generated/client/types.gen";
-import { authenticatedUser, sessionResponse } from "./api/adapters/auth";
+import {
+  authenticatedUser,
+  registrationResponse,
+  sessionResponse,
+  sessionState,
+} from "./api/adapters/auth";
 import { contributionCapability } from "./api/adapters/contributions";
 import {
   barcodeFood,
@@ -42,16 +53,62 @@ export { ApiProblem, ApiProblem as ApiError };
 
 export const api = {
   session: () => request<TransportUser>("/api/v1/auth/session").then(authenticatedUser),
+  sessionState: async () => {
+    try {
+      return await request<TransportSessionState>("/api/v1/auth/session-state").then(sessionState);
+    } catch (caught) {
+      if (caught instanceof ApiProblem && caught.status === 401) {
+        return { authenticated: false, user: null };
+      }
+      if (!(caught instanceof ApiProblem) || caught.kind !== "network") throw caught;
+      try {
+        const user = await request<TransportUser>("/api/v1/auth/session").then(authenticatedUser);
+        return { authenticated: true, user };
+      } catch (fallback) {
+        if (fallback instanceof ApiProblem && fallback.status === 401) {
+          return { authenticated: false, user: null };
+        }
+        throw fallback;
+      }
+    }
+  },
   login: (email: string, password: string) =>
     request<TransportSession>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }).then(sessionResponse),
   register: (email: string, password: string) =>
-    request<TransportSession>("/api/v1/auth/register", {
+    request<TransportRegistration>("/api/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    }).then(sessionResponse),
+    }).then(registrationResponse),
+  recover: (email: string, recoveryCode: string, newPassword: string) =>
+    request<TransportRegistration>("/api/v1/auth/recover", {
+      method: "POST",
+      body: JSON.stringify({ email, recovery_code: recoveryCode, new_password: newPassword }),
+    }).then(registrationResponse),
+  updateAccountSettings: (input: {
+    onboarding_completed?: boolean;
+    preferred_units?: "metric" | "us";
+  }) => request<TransportUser>("/api/v1/auth/account/settings", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  }).then(authenticatedUser),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>("/api/v1/auth/account/password", {
+      method: "PUT",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
+  rotateRecoveryCode: (password: string) =>
+    request<TransportRecoveryCode>("/api/v1/auth/account/recovery-code", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+  deleteAccount: (password: string) =>
+    request<void>("/api/v1/auth/account", {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    }),
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
   createContributionDraft: (input: ContributionDraftCreate = {}) =>
     request<TransportContributionCapability>("/api/v1/contribution-drafts", {
@@ -118,6 +175,61 @@ export const api = {
     request<TransportTarget>(
       `/api/v1/targets/resolve?${new URLSearchParams({ day, day_type: dayType })}`,
     ).then(target),
+  optionalTarget: async (day: string, dayType: "training" | "rest") => {
+    const query = new URLSearchParams({ day, day_type: dayType });
+    try {
+      return await request<TransportTarget | null>(
+        `/api/v1/targets/resolve-optional?${query}`,
+      ).then((value) => value ? target(value) : null);
+    } catch (caught) {
+      if (!(caught instanceof ApiProblem) || caught.kind !== "network") throw caught;
+      try {
+        return await request<TransportTarget>(`/api/v1/targets/resolve?${query}`).then(target);
+      } catch (fallback) {
+        if (fallback instanceof ApiProblem && fallback.status === 404) return null;
+        throw fallback;
+      }
+    }
+  },
+  replaceTargets: (input: {
+    items: Array<{
+      day_type: "training" | "rest";
+      kcal: string;
+      protein_g: string;
+      carb_g: string;
+      fat_g: string;
+      active_from: string;
+      confirm_below_floor?: boolean;
+    }>;
+  }) => request<unknown>("/api/v1/targets", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  }),
+  createBodyMetric: (input: {
+    recorded_at: string;
+    metric_type: string;
+    value: string;
+    unit: string;
+  }) => request<TransportMetric>("/api/v1/body-metrics", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }),
+  searchExercises: (query: string) => request<TransportExerciseSearch>(
+    `/api/v1/exercises/search?${new URLSearchParams({ q: query, limit: "8" })}`,
+  ),
+  createWorkout: (input: {
+    performed_at: string;
+    notes?: string;
+    sets: Array<{
+      exercise_id: string;
+      reps: number;
+      load_value?: string;
+      load_unit: string;
+    }>;
+  }) => request<TransportWorkout>("/api/v1/workouts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }),
   foodCapabilities: () =>
     request<TransportCapabilities>("/api/v1/foods/capabilities").then(foodCapabilities),
   searchFoods: (

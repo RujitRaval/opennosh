@@ -183,10 +183,31 @@ const trackerEntry = {
 export async function mockTrackerSignIn(page: Page) {
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === "/api/v1/auth/session") {
+    if (path === "/api/v1/auth/session-state") {
       return route.fulfill({ status: 401, json: { detail: "Sign in required" } });
     }
     return route.fulfill({ status: 404, json: { detail: `Unhandled sign-in fixture: [object Object]` } });
+  });
+}
+
+export async function mockTrackerOnboarding(page: Page) {
+  await page.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/v1/auth/session-state") {
+      return route.fulfill({
+        json: {
+          authenticated: true,
+          user: {
+            id: "4c683fc5-548a-4772-a090-b26ea0951d50",
+            email: "alex@example.com",
+            onboarding_completed: false,
+            recovery_configured: true,
+            preferred_units: "us",
+          },
+        },
+      });
+    }
+    return route.fulfill({ status: 404, json: { detail: "Unhandled onboarding fixture" } });
   });
 }
 
@@ -195,9 +216,18 @@ export async function mockTrackerApi(page: Page) {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
-    if (path === "/api/v1/auth/session") {
+    if (path === "/api/v1/auth/session-state") {
       return route.fulfill({
-        json: { id: "4c683fc5-548a-4772-a090-b26ea0951d50", email: "alex@example.com" },
+        json: {
+          authenticated: true,
+          user: {
+            id: "4c683fc5-548a-4772-a090-b26ea0951d50",
+            email: "alex@example.com",
+            onboarding_completed: true,
+            recovery_configured: true,
+            preferred_units: "metric",
+          },
+        },
       });
     }
     if (path === "/api/v1/logs/daily-totals") {
@@ -262,7 +292,7 @@ export async function mockTrackerApi(page: Page) {
       });
     }
 
-    if (path === "/api/v1/targets/resolve") {
+    if (path === "/api/v1/targets/resolve-optional") {
       return route.fulfill({
         json: {
           id: "5ff7c942-62d1-43df-8809-a76303d9a889",

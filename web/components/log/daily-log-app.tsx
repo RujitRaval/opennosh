@@ -3,6 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TrackerHeader } from "@/components/tracker/tracker-header";
+import { OnboardingPanel } from "@/components/tracker/onboarding-panel";
+import { RecoveryCodeGate } from "@/components/tracker/recovery-code-gate";
+import { RecoverySetupGate } from "@/components/tracker/recovery-setup-gate";
 import { TrackerWordmark } from "@/components/tracker/tracker-wordmark";
 import { ApiError, api } from "@/lib/api";
 import type { AuthenticatedUser, DailyTotals, LogEntry, Target } from "@/lib/types";
@@ -131,10 +134,7 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
       const [logResponse, totalResponse, targetResponse] = await Promise.all([
         api.logs(requestedDay, timezone),
         api.totals(requestedDay, timezone),
-        api.target(requestedDay, requestedDayType).catch((caught) => {
-          if (caught instanceof ApiError && caught.status === 404) return null;
-          throw caught;
-        }),
+        api.optionalTarget(requestedDay, requestedDayType),
       ]);
       if (sequence !== loadSequence.current) return;
       setEntries(logResponse.items);
@@ -370,16 +370,15 @@ function DailyLog({ user, onExpired, onLogout }: { user: AuthenticatedUser; onEx
 
 export function DailyLogApp() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [recoveryCode, setRecoveryCode] = useState<string>();
   const [checking, setChecking] = useState(true);
   const [authMessage, setAuthMessage] = useState<string | undefined>();
 
   useEffect(() => {
-    api.session()
-      .then(setUser)
+    api.sessionState()
+      .then((state) => setUser(state.user))
       .catch((caught) => {
-        if (!(caught instanceof ApiError) || caught.status !== 401) {
-          setAuthMessage(caught instanceof Error ? caught.message : "Your session could not be checked.");
-        }
+        setAuthMessage(caught instanceof Error ? caught.message : "Your session could not be checked.");
       })
       .finally(() => setChecking(false));
   }, []);
@@ -398,11 +397,68 @@ export function DailyLogApp() {
       <LoginPanel
         message={authMessage}
         onAuthenticate={async (mode, email, password) => {
-          const response = mode === "login"
-            ? await api.login(email, password)
-            : await api.register(email, password);
+          if (mode === "login") {
+            const response = await api.login(email, password);
+            setAuthMessage(undefined);
+            setRecoveryCode(undefined);
+            setUser(response.user);
+            return;
+          }
+          const response = await api.register(email, password);
           setAuthMessage(undefined);
+          setRecoveryCode(response.recovery_code);
           setUser(response.user);
+        }}
+        onRecover={async (email, code, password) => {
+          const response = await api.recover(email, code, password);
+          setAuthMessage("Password reset. Save the new recovery code before continuing.");
+          setRecoveryCode(response.recovery_code);
+          setUser(response.user);
+        }}
+      />
+    );
+  }
+
+  if (!user.recovery_configured) {
+    return <RecoverySetupGate onGenerated={(code) => {
+      setUser({ ...user, recovery_configured: true });
+      setRecoveryCode(code);
+    }} onLogout={async () => {
+      await api.logout();
+      setUser(null);
+      setAuthMessage("You’re signed out.");
+    }} />;
+  }
+
+  if (recoveryCode && user.onboarding_completed) {
+    return (
+      <RecoveryCodeGate
+        recoveryCode={recoveryCode}
+        onSaved={() => setRecoveryCode(undefined)}
+        onLogout={async () => {
+          await api.logout();
+          setRecoveryCode(undefined);
+          setUser(null);
+          setAuthMessage("You’re signed out.");
+        }}
+      />
+    );
+  }
+
+  if (!user.onboarding_completed) {
+    return (
+      <OnboardingPanel
+        user={user}
+        recoveryCode={recoveryCode}
+        onComplete={(updated) => {
+          setRecoveryCode(undefined);
+          setUser(updated);
+        }}
+        onLogout={async () => {
+          await api.logout();
+          setRecoveryCode(undefined);
+          setUser(null);
+          setAuthMessage("You’re signed out.");
         }}
       />
     );

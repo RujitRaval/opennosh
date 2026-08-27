@@ -5,7 +5,7 @@ test("changes trend ranges and keeps strength load units separate", async ({ pag
   const requestedRanges: string[] = [];
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === "/api/v1/auth/session") {
+    if (url.pathname === "/api/v1/auth/session-state") {
       return route.fulfill({ json: { id: "user", email: "alex@example.com" } });
     }
     if (url.pathname === "/api/v1/logs/daily-totals/range") {

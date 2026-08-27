@@ -17,6 +17,7 @@ class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    recovery_token_hash: Mapped[str | None] = mapped_column(String(64))
     settings_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )

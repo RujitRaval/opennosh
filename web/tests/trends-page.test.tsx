@@ -140,7 +140,7 @@ describe("trends page", () => {
     render(<TrendsPage />);
 
     await screen.findByRole("heading", { name: "Trends" });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     const urls = fetchMock.mock.calls.map(([input]) => new URL(String(input), "http://opennosh.test"));
     expect(urls.find((url) => url.pathname === "/api/v1/logs/daily-totals/range")?.searchParams.get("to")).toBe("2026-08-20");
     expect(urls.find((url) => url.pathname === "/api/v1/body-metrics/trends")?.searchParams.get("to")).toBe("2026-08-21");

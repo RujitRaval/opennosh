@@ -123,7 +123,7 @@ export const enCatalog = {
     explorerStatusLabel: "Public explorer status",
     publicExplorer: "Public explorer",
     searchNext: "Search is the next surface.",
-    inDevelopment: "In development",
+    inDevelopment: "Search is live",
     principles: [
       { title: "Anonymous by default", description: "Look up public food knowledge without creating an account." },
       { title: "Context beside numbers", description: "Preparations, portions, locale, and uncertainty stay attached." },
@@ -156,6 +156,19 @@ export const enCatalog = {
     closingTitle: "Open the",
     closingTitleSecond: "record.",
     joinGitHub: "Join on GitHub",
+  },
+  search: {
+    liveLabel: "Starter catalog / live",
+    title: "Search starter food records.",
+    description: "165 validated community records are available in the database-backed starter catalog. Signed Commons publication remains a separate verified release.",
+    foodName: "Food name",
+    placeholder: "Try dal, paneer, tofu…",
+    searching: "Searching…",
+    submit: "Search records",
+    errorFallback: "Search could not be completed.",
+    empty: "No matching starter record yet. You can help add one through Contribute.",
+    categoryFallback: "Community food",
+    packFallback: "community",
   },
   truth: {
     verifiedRelease: "Verified commons release",

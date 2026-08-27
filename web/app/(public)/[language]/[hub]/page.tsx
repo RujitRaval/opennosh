@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PublicFoodSearch } from "@/components/foods/public-food-search";
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
 import { PublicFooter } from "@/components/public/public-footer";
 import {
@@ -85,6 +86,10 @@ export default async function PublicHubPage({
           </Link>
         )}
       </section>
+
+      {hub === "explore" && currentHub.children.some((child) => child.id === "search")
+        ? <PublicFoodSearch language={language} />
+        : null}
 
       <section id="principles" className="hub-principles" aria-labelledby="principles-title">
         <p id="principles-title" className="mono">{copy.navigation.guides}</p>

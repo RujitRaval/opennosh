@@ -22,7 +22,8 @@ reviewed pull request and renewed cost review.
 4. Let Render generate the database-role passwords, proxy token, and cursor-signing secret. Never
    copy their values into Git, chat, shell history, or this runbook.
 5. Wait for `opennosh-api` pre-deploy to create the `opennosh_migration` and `opennosh_web` roles,
-   verify the 100-connection ceiling, run Alembic once, and refresh runtime grants.
+   verify the 100-connection ceiling, run Alembic once, refresh runtime grants, and idempotently
+   load the four bundled community starter packs through the migration credential.
 6. Verify `opennosh-web` through its temporary `onrender.com` hostname before changing Cloudflare.
 
 The owner database URL exists only in the Render wrapper environment. Before the API starts, the
@@ -36,6 +37,13 @@ states, while food pages stay on the PostgreSQL read path until an offline-signe
 durable HTTPS artifact origin are provisioned. `PUBLIC_ARTIFACT_READS_ENABLED=false` is the explicit
 web dark-launch default. Never enable a filesystem path or a development verification key in
 production.
+
+The web service enables `OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search`, so `/en/explore` searches
+the live PostgreSQL starter catalogue and shows each result's pack, source, contributor, and license.
+This operational search is not a signed Commons release. Keep `PUBLIC_ARTIFACT_READS_ENABLED=false`
+until the separately verified immutable-artifact activation below is complete. Strength entry is
+also held closed with `OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED=false` until the attributed exercise
+catalogue has been loaded and checked.
 
 ### T1 artifact read-plane activation
 
@@ -79,8 +87,9 @@ GET /en/contribute           -> 200
 ```
 
 Also complete the desktop and mobile browser smoke: public-to-Tracker full-page handoff, Tracker
-return link, language selection, contribution local preservation, sign-up/sign-in error handling,
-and no critical console errors. Do not cut over DNS if any check fails.
+return link, language selection, contribution local preservation, starter-food search, sign-up and
+sign-in error handling, one-time recovery-code acknowledgement, optional guided setup, Account and
+Records routes, and no critical console errors. Do not cut over DNS if any check fails.
 
 ## Cloudflare cutover
 

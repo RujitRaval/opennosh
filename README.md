@@ -5,10 +5,10 @@ Self-hosted nutrition and strength tracking built around food data the community
 Website: [opennosh.org](https://opennosh.org) — the public Commons and private Tracker are live on
 the production Render deployment.
 
-![Animated opennosh Tracker demo: search for Rajma masala, select 180 grams for lunch, add it, then view updated daily calorie and macro totals.](docs/assets/opennosh-search-log-demo.gif)
+![Animated opennosh launch demo: open the Living Commons, search the 165-record starter collection for Rajma masala, create a private Tracker account, save the one-time recovery code, choose US units and targets, then open the daily log.](docs/assets/opennosh-launch-demo.gif)
 
-_Search an open food record, log a serving in the private Tracker, and see the daily totals update. The animation plays once;
-[view the final daily-total screen](docs/assets/opennosh-daily-total.png)._
+_Search real starter records, see source and license context, then create and set up a recoverable private Tracker account. The animation plays once;
+[view the final ready-to-log screen](docs/assets/opennosh-tracker-ready.png)._
 
 > **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
 
@@ -339,14 +339,34 @@ other unusable upstream responses return 502.
 
 The API provides local account registration, login, session inspection, and logout under `/api/v1/auth`. Passwords are hashed with Argon2id and opaque sessions are stored in PostgreSQL; no third-party identity provider is required.
 
+Registration returns a one-time recovery code that the Tracker requires the user to save before
+continuing. opennosh does not email or retain a revealable copy of that code. `POST
+/api/v1/auth/recover` accepts the account email, current recovery code, and a new password; a
+successful recovery invalidates prior sessions, rotates the recovery code, signs the browser in,
+and shows the replacement code once. Authenticated Account settings can change Metric or US
+customary units, change the password, rotate the recovery code after password confirmation, reopen
+guided setup, or permanently delete the account and its private Tracker data. Public contribution
+history remains part of the Commons record.
+
+`GET /api/v1/auth/session-state` is the browser-safe startup probe: it returns `200` with either the
+current user or an explicit signed-out state. The authenticated lifecycle mutations are `PUT
+/api/v1/auth/account/password`, `POST /api/v1/auth/account/recovery-code`, `PATCH
+/api/v1/auth/account/settings`, and `DELETE /api/v1/auth/account`. Recovery and registration
+responses containing plaintext recovery codes use `Cache-Control: no-store`.
+
 Set `APP_ENVIRONMENT=production` in production. This enables Secure, host-only session and CSRF cookies. Browser clients must copy the `opennosh_csrf` cookie (or `__Host-opennosh-csrf` in production) into the `X-CSRF-Token` header for authenticated state-changing requests. API handlers must use the session-derived helpers in `opennosh_api.auth.tenant`; request bodies and query parameters must never select a `user_id`.
 
 ## Daily nutrition log
 
 The tracker at `http://localhost:3000/tracker` provides the responsive primary journey: create an
-account or sign in, choose a date and training/rest target, search the ranked local catalogue,
-filter USDA or community results, and log a food by grams or a named household portion under any
-meal name.
+account or sign in, save the one-time recovery code, choose Metric or US customary units, optionally
+set user-chosen training/rest nutrition targets, search the ranked local catalogue, filter USDA or
+community results, and log a food by grams or a named household portion under any meal name.
+Guided setup can be skipped without changing an existing target schedule and reopened later from
+`/tracker/account`. That Account route also manages units, password, recovery-code rotation, and
+permanent deletion. `/tracker/records` records private body measurements immediately; strength
+entry stays visibly unavailable in production until an attributed exercise catalogue is loaded and
+`OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED` is deliberately enabled.
 When Open Food Facts is enabled, the same dialog adds barcode lookup; it always offers owner-private
 custom-food entry with calories, macros, and optional household portions. Source and contributor
 credit stays visible during selection. Loading, empty, API-error, and expired-session screens all

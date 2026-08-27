@@ -112,6 +112,8 @@ export function buildPublicNavigation(
       ? { label: hub.action, compactLabel: hub.compactAction, href: routes.contributionStart(language) }
       : id === "commons"
         ? { label: hub.action, compactLabel: hub.compactAction, href: routes.publicNotices(language) }
+        : id === "explore"
+          ? { label: hub.action, compactLabel: hub.compactAction, href: enabled.has("explorer-search") ? "#search" : "#principles" }
         : id === "build"
           ? {
               label: hub.action,
@@ -119,7 +121,7 @@ export function buildPublicNavigation(
               href: "https://github.com/RujitRaval/opennosh",
               external: true,
             }
-          : { label: hub.action, compactLabel: hub.compactAction, href: "#principles" };
+          : { label: hub.action, compactLabel: hub.compactAction, href: "#search" };
 
     return {
       id,

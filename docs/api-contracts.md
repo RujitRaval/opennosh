@@ -49,6 +49,31 @@ maps a v1 offset response into null cursor metadata while v2 exposes `next_curso
 `snapshot_id`, and `snapshot_expires_at`. Keep N and N-1 fixtures when a contract is versioned
 so rolling API and website deployments remain compatible.
 
+## Account lifecycle contract
+
+`POST /api/v1/auth/register` creates a session and returns a one-time `recovery_code` beside the
+authenticated user and CSRF token. The browser must require explicit acknowledgement before normal
+Tracker use; the server does not retain a revealable copy. `POST /api/v1/auth/recover` accepts the
+email, current recovery code, and a new password, then rotates the code, revokes existing sessions,
+creates a replacement session, and returns the new code once. Both plaintext-code responses use
+`Cache-Control: no-store`.
+
+`GET /api/v1/auth/session-state` returns `200` for both signed-in and signed-out browsers. Its
+`authenticated` flag and nullable `user` avoid using an expected `401` as startup control flow.
+Authenticated user responses include `onboarding_completed`, `recovery_configured`, and
+`preferred_units` (`metric` or `us`).
+
+Account mutations require the session CSRF token. `PUT /api/v1/auth/account/password` confirms the
+current password and revokes other sessions; `POST /api/v1/auth/account/recovery-code` confirms the
+password and invalidates the previous code; `PATCH /api/v1/auth/account/settings` changes only the
+provided onboarding or unit preference; and `DELETE /api/v1/auth/account` confirms the password and
+permanently removes the account and owner-private Tracker rows. Public contribution history is a
+separate Commons record and is not rewritten by private account deletion.
+
+`GET /api/v1/targets/resolve-optional` has the same owner, date, day-type, and safety semantics as
+`/targets/resolve`, but returns `200` with JSON `null` when no schedule applies. Tracker startup uses
+this form so an ordinary account without targets does not create a failed browser request.
+
 ## Food-search cursor contract
 
 The first page omits `cursor`. A response with `has_more: true` includes an opaque signed

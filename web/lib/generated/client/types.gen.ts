@@ -73,6 +73,20 @@ export type AccountExport = {
 };
 
 /**
+ * AccountSettingsUpdate
+ */
+export type AccountSettingsUpdate = {
+    /**
+     * Onboarding Completed
+     */
+    onboarding_completed?: boolean | null;
+    /**
+     * Preferred Units
+     */
+    preferred_units?: 'metric' | 'us' | null;
+};
+
+/**
  * AuthenticatedUser
  */
 export type AuthenticatedUser = {
@@ -84,6 +98,18 @@ export type AuthenticatedUser = {
      * Id
      */
     id: string;
+    /**
+     * Onboarding Completed
+     */
+    onboarding_completed?: boolean;
+    /**
+     * Preferred Units
+     */
+    preferred_units?: 'metric' | 'us';
+    /**
+     * Recovery Configured
+     */
+    recovery_configured?: boolean;
 };
 
 /**
@@ -1870,6 +1896,48 @@ export type OpenFoodFactsFood = {
 };
 
 /**
+ * PasswordChange
+ */
+export type PasswordChange = {
+    /**
+     * Current Password
+     */
+    current_password: string;
+    /**
+     * New Password
+     */
+    new_password: string;
+};
+
+/**
+ * PasswordConfirmation
+ */
+export type PasswordConfirmation = {
+    /**
+     * Password
+     */
+    password: string;
+};
+
+/**
+ * PasswordRecovery
+ */
+export type PasswordRecovery = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * New Password
+     */
+    new_password: string;
+    /**
+     * Recovery Code
+     */
+    recovery_code: string;
+};
+
+/**
  * PrivateDataExport
  */
 export type PrivateDataExport = {
@@ -2339,9 +2407,34 @@ export type RecoveryAction = {
 };
 
 /**
+ * RecoveryCodeResponse
+ */
+export type RecoveryCodeResponse = {
+    /**
+     * Recovery Code
+     */
+    recovery_code: string;
+};
+
+/**
  * RedactionState
  */
 export type RedactionState = 'not_required' | 'applied' | 'reviewed';
+
+/**
+ * RegistrationResponse
+ */
+export type RegistrationResponse = {
+    /**
+     * Csrf Token
+     */
+    csrf_token: string;
+    /**
+     * Recovery Code
+     */
+    recovery_code: string;
+    user: AuthenticatedUser;
+};
 
 /**
  * SanitizedMediaManifest
@@ -2391,6 +2484,17 @@ export type SessionResponse = {
      */
     csrf_token: string;
     user: AuthenticatedUser;
+};
+
+/**
+ * SessionState
+ */
+export type SessionState = {
+    /**
+     * Authenticated
+     */
+    authenticated: boolean;
+    user?: AuthenticatedUser | null;
 };
 
 /**
@@ -2974,6 +3078,266 @@ export type WorkoutVolumeResponse = {
     volume: string | null;
 };
 
+export type DeleteAccountApiV1AuthAccountDeleteData = {
+    body: PasswordConfirmation;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/account';
+};
+
+export type DeleteAccountApiV1AuthAccountDeleteErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type DeleteAccountApiV1AuthAccountDeleteError = DeleteAccountApiV1AuthAccountDeleteErrors[keyof DeleteAccountApiV1AuthAccountDeleteErrors];
+
+export type DeleteAccountApiV1AuthAccountDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteAccountApiV1AuthAccountDeleteResponse = DeleteAccountApiV1AuthAccountDeleteResponses[keyof DeleteAccountApiV1AuthAccountDeleteResponses];
+
+export type ChangePasswordApiV1AuthAccountPasswordPutData = {
+    body: PasswordChange;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/account/password';
+};
+
+export type ChangePasswordApiV1AuthAccountPasswordPutErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ChangePasswordApiV1AuthAccountPasswordPutError = ChangePasswordApiV1AuthAccountPasswordPutErrors[keyof ChangePasswordApiV1AuthAccountPasswordPutErrors];
+
+export type ChangePasswordApiV1AuthAccountPasswordPutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ChangePasswordApiV1AuthAccountPasswordPutResponse = ChangePasswordApiV1AuthAccountPasswordPutResponses[keyof ChangePasswordApiV1AuthAccountPasswordPutResponses];
+
+export type RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostData = {
+    body: PasswordConfirmation;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/account/recovery-code';
+};
+
+export type RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostError = RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostErrors[keyof RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostErrors];
+
+export type RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: RecoveryCodeResponse;
+};
+
+export type RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostResponse = RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostResponses[keyof RotateRecoveryCodeApiV1AuthAccountRecoveryCodePostResponses];
+
+export type UpdateAccountSettingsApiV1AuthAccountSettingsPatchData = {
+    body: AccountSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/account/settings';
+};
+
+export type UpdateAccountSettingsApiV1AuthAccountSettingsPatchErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type UpdateAccountSettingsApiV1AuthAccountSettingsPatchError = UpdateAccountSettingsApiV1AuthAccountSettingsPatchErrors[keyof UpdateAccountSettingsApiV1AuthAccountSettingsPatchErrors];
+
+export type UpdateAccountSettingsApiV1AuthAccountSettingsPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: AuthenticatedUser;
+};
+
+export type UpdateAccountSettingsApiV1AuthAccountSettingsPatchResponse = UpdateAccountSettingsApiV1AuthAccountSettingsPatchResponses[keyof UpdateAccountSettingsApiV1AuthAccountSettingsPatchResponses];
+
 export type LoginApiV1AuthLoginPostData = {
     body: Credentials;
     path?: never;
@@ -3104,6 +3468,71 @@ export type LogoutApiV1AuthLogoutPostResponses = {
 
 export type LogoutApiV1AuthLogoutPostResponse = LogoutApiV1AuthLogoutPostResponses[keyof LogoutApiV1AuthLogoutPostResponses];
 
+export type RecoverAccountApiV1AuthRecoverPostData = {
+    body: PasswordRecovery;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/recover';
+};
+
+export type RecoverAccountApiV1AuthRecoverPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type RecoverAccountApiV1AuthRecoverPostError = RecoverAccountApiV1AuthRecoverPostErrors[keyof RecoverAccountApiV1AuthRecoverPostErrors];
+
+export type RecoverAccountApiV1AuthRecoverPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: RegistrationResponse;
+};
+
+export type RecoverAccountApiV1AuthRecoverPostResponse = RecoverAccountApiV1AuthRecoverPostResponses[keyof RecoverAccountApiV1AuthRecoverPostResponses];
+
 export type RegisterApiV1AuthRegisterPostData = {
     body: Credentials;
     path?: never;
@@ -3164,7 +3593,7 @@ export type RegisterApiV1AuthRegisterPostResponses = {
     /**
      * Successful Response
      */
-    201: SessionResponse;
+    201: RegistrationResponse;
 };
 
 export type RegisterApiV1AuthRegisterPostResponse = RegisterApiV1AuthRegisterPostResponses[keyof RegisterApiV1AuthRegisterPostResponses];
@@ -3233,6 +3662,71 @@ export type ReadSessionApiV1AuthSessionGetResponses = {
 };
 
 export type ReadSessionApiV1AuthSessionGetResponse = ReadSessionApiV1AuthSessionGetResponses[keyof ReadSessionApiV1AuthSessionGetResponses];
+
+export type ReadSessionStateApiV1AuthSessionStateGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/session-state';
+};
+
+export type ReadSessionStateApiV1AuthSessionStateGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReadSessionStateApiV1AuthSessionStateGetError = ReadSessionStateApiV1AuthSessionStateGetErrors[keyof ReadSessionStateApiV1AuthSessionStateGetErrors];
+
+export type ReadSessionStateApiV1AuthSessionStateGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: SessionState;
+};
+
+export type ReadSessionStateApiV1AuthSessionStateGetResponse = ReadSessionStateApiV1AuthSessionStateGetResponses[keyof ReadSessionStateApiV1AuthSessionStateGetResponses];
 
 export type ListAllApiV1BodyMetricsGetData = {
     body?: never;
@@ -6216,6 +6710,79 @@ export type ResolveApiV1TargetsResolveGetResponses = {
 };
 
 export type ResolveApiV1TargetsResolveGetResponse = ResolveApiV1TargetsResolveGetResponses[keyof ResolveApiV1TargetsResolveGetResponses];
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Day
+         */
+        day: string;
+        day_type: TargetDayType;
+    };
+    url: '/api/v1/targets/resolve-optional';
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetError = ResolveOptionalApiV1TargetsResolveOptionalGetErrors[keyof ResolveOptionalApiV1TargetsResolveOptionalGetErrors];
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetResponses = {
+    /**
+     * Response Resolve Optional Api V1 Targets Resolve Optional Get
+     *
+     * Successful Response
+     */
+    200: TargetResponse | null;
+};
+
+export type ResolveOptionalApiV1TargetsResolveOptionalGetResponse = ResolveOptionalApiV1TargetsResolveOptionalGetResponses[keyof ResolveOptionalApiV1TargetsResolveOptionalGetResponses];
 
 export type ListAllApiV1WorkoutsGetData = {
     body?: never;

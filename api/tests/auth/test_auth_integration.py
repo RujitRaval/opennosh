@@ -3,12 +3,16 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Iterator
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from alembic import command
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from opennosh_api.auth.client_address import client_address
+from opennosh_api.auth.dependencies import get_optional_session
 from opennosh_api.auth.rate_limit import enforce_auth_rate_limit
 from opennosh_api.auth.schemas import Credentials
 from opennosh_api.auth.tokens import hash_token
@@ -121,6 +125,38 @@ async def _concurrent_rate_limit_statuses(database_url: str) -> list[int]:
         return await asyncio.gather(attempt(), attempt(), attempt())
     finally:
         await engine.dispose()
+
+
+async def _concurrent_recovery_statuses(
+    database_url: str, *, email: str, recovery_code: str
+) -> list[int]:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            app_environment="test",
+            auth_rate_limit_attempts=20,
+            _env_file=None,
+        )
+    )
+    payloads = (
+        {
+            "email": email,
+            "recovery_code": recovery_code,
+            "new_password": "first concurrent replacement",
+        },
+        {
+            "email": email,
+            "recovery_code": recovery_code,
+            "new_password": "second concurrent replacement",
+        },
+    )
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            responses = await asyncio.gather(
+                *(client.post("/api/v1/auth/recover", json=payload) for payload in payloads)
+            )
+    return sorted(response.status_code for response in responses)
 
 
 @pytest.fixture
@@ -280,6 +316,33 @@ def test_client_address_only_trusts_authenticated_proxy_headers() -> None:
     assert client_address(spoofed, settings) == "203.0.113.5"
     assert client_address(trusted, settings) == "2001:db8::10"
     assert client_address(invalid_address, settings) == "172.20.0.4"
+
+
+def test_optional_session_rejects_unknown_cookie_and_returns_valid_row() -> None:
+    settings = Settings(app_environment="test", _env_file=None)
+    request = Request(
+        {
+            "type": "http",
+            "headers": [
+                (
+                    b"cookie",
+                    f"{settings.session_cookie_name}=session-token".encode(),
+                )
+            ],
+        }
+    )
+    user = SimpleNamespace(id="user-id")
+    session = SimpleNamespace(id="session-id")
+    result = MagicMock()
+    result.one_or_none.side_effect = [None, (session, user)]
+    database = AsyncMock()
+    database.execute.return_value = result
+
+    assert asyncio.run(get_optional_session(request, database, settings)) is None
+    current = asyncio.run(get_optional_session(request, database, settings))
+    assert current is not None
+    assert current.user is user
+    assert current.session is session
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -473,9 +536,7 @@ def test_production_session_cookie_uses_host_prefix_and_secure_defaults() -> Non
             web_database_url=INTEGRATION_DATABASE_URL,
             app_environment="production",
             auth_rate_limit_attempts=20,
-            food_search_cursor_signing_keys=(
-                "prod-v1:33333333333333333333333333333333"
-            ),
+            food_search_cursor_signing_keys=("prod-v1:33333333333333333333333333333333"),
             _env_file=None,
         )
     )
@@ -504,3 +565,188 @@ def test_production_session_cookie_uses_host_prefix_and_secure_defaults() -> Non
     assert "SameSite=strict" in csrf_cookie
     assert "Path=/" in csrf_cookie
     assert "HttpOnly" not in csrf_cookie
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_session_state_and_resumable_account_settings(auth_client: TestClient) -> None:
+    anonymous = auth_client.get("/api/v1/auth/session-state")
+    assert anonymous.status_code == 200
+    assert anonymous.json() == {"authenticated": False, "user": None}
+
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "setup@example.test", "password": "a sufficiently long password"},
+    )
+    assert registered.status_code == 201
+    body = registered.json()
+    assert len(body["recovery_code"]) >= 32
+    assert body["user"]["onboarding_completed"] is False
+    assert body["user"]["preferred_units"] == "metric"
+
+    rotated = auth_client.post(
+        "/api/v1/auth/account/recovery-code",
+        headers={"X-CSRF-Token": body["csrf_token"]},
+        json={"password": "a sufficiently long password"},
+    )
+    assert rotated.status_code == 200
+    assert rotated.json()["recovery_code"] != body["recovery_code"]
+
+    updated = auth_client.patch(
+        "/api/v1/auth/account/settings",
+        headers={"X-CSRF-Token": body["csrf_token"]},
+        json={"onboarding_completed": True, "preferred_units": "us"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["onboarding_completed"] is True
+    assert updated.json()["preferred_units"] == "us"
+
+    resumed = auth_client.get("/api/v1/auth/session-state")
+    assert resumed.status_code == 200
+    assert resumed.json()["authenticated"] is True
+    assert resumed.json()["user"]["onboarding_completed"] is True
+    assert resumed.json()["user"]["preferred_units"] == "us"
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_password_recovery_rotates_code_and_session(auth_client: TestClient) -> None:
+    original_password = "a sufficiently long password"
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "recover@example.test", "password": original_password},
+    )
+    original_code = registered.json()["recovery_code"]
+
+    recovered = auth_client.post(
+        "/api/v1/auth/recover",
+        json={
+            "email": "recover@example.test",
+            "recovery_code": original_code,
+            "new_password": "a different sufficiently long password",
+        },
+    )
+    assert recovered.status_code == 200
+    assert recovered.json()["recovery_code"] != original_code
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is True
+
+    stale_code = auth_client.post(
+        "/api/v1/auth/recover",
+        json={
+            "email": "recover@example.test",
+            "recovery_code": original_code,
+            "new_password": "yet another sufficiently long password",
+        },
+    )
+    assert stale_code.status_code == 401
+
+    auth_client.cookies.clear()
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={"email": "recover@example.test", "password": original_password},
+        ).status_code
+        == 401
+    )
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "recover@example.test",
+                "password": "a different sufficiently long password",
+            },
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_concurrent_password_recovery_consumes_the_code_once(auth_client: TestClient) -> None:
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "concurrent-recover@example.test",
+            "password": "a sufficiently long password",
+        },
+    )
+    statuses = asyncio.run(
+        _concurrent_recovery_statuses(
+            INTEGRATION_DATABASE_URL,
+            email="concurrent-recover@example.test",
+            recovery_code=registered.json()["recovery_code"],
+        )
+    )
+    assert statuses == [200, 401]
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_password_change_and_account_deletion_are_self_service(auth_client: TestClient) -> None:
+    password = "a sufficiently long password"
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "delete@example.test", "password": password},
+    )
+    csrf = registered.json()["csrf_token"]
+
+    changed = auth_client.put(
+        "/api/v1/auth/account/password",
+        headers={"X-CSRF-Token": csrf},
+        json={"current_password": password, "new_password": "a stronger replacement password"},
+    )
+    assert changed.status_code == 204
+
+    deleted = auth_client.request(
+        "DELETE",
+        "/api/v1/auth/account",
+        headers={"X-CSRF-Token": csrf},
+        json={"password": "a stronger replacement password"},
+    )
+    assert deleted.status_code == 204
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is False
+    assert (
+        auth_client.post(
+            "/api/v1/auth/login",
+            json={"email": "delete@example.test", "password": "a stronger replacement password"},
+        ).status_code
+        == 401
+    )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_account_security_actions_reject_wrong_password(auth_client: TestClient) -> None:
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "security-actions@example.test",
+            "password": "a sufficiently long password",
+        },
+    )
+    csrf = registered.json()["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+
+    responses = (
+        auth_client.put(
+            "/api/v1/auth/account/password",
+            headers=headers,
+            json={
+                "current_password": "the wrong password",
+                "new_password": "a stronger replacement password",
+            },
+        ),
+        auth_client.post(
+            "/api/v1/auth/account/recovery-code",
+            headers=headers,
+            json={"password": "the wrong password"},
+        ),
+        auth_client.request(
+            "DELETE",
+            "/api/v1/auth/account",
+            headers=headers,
+            json={"password": "the wrong password"},
+        ),
+    )
+
+    for response in responses:
+        assert response.status_code == 401
+        body = response.json()
+        assert body["code"] == "authentication_required"
+        assert body["detail"] == "Invalid email or password"
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is True

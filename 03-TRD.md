@@ -26,7 +26,7 @@ Licence separation from `04-DATA-LICENSING.md` is enforced in the schema. Do not
 
 ```
 users
-  id, email, password_hash, created_at, settings_json
+  id, email, password_hash, recovery_token_hash, created_at, settings_json
 
 auth_sessions
   id, user_id, token_hash, csrf_token_hash, expires_at, revoked_at, created_at
@@ -189,8 +189,11 @@ OpenAPI artifact, compatibility policy, generated TypeScript boundary, and regen
 are documented in `docs/api-contracts.md`.
 
 ```
-POST   /auth/register | /auth/login | /auth/logout
-GET    /auth/session
+POST   /auth/register | /auth/login | /auth/logout | /auth/recover
+GET    /auth/session | /auth/session-state
+PUT    /auth/account/password
+POST   /auth/account/recovery-code
+PATCH  /auth/account/settings        DELETE /auth/account
 POST   /contribution-drafts
 GET    /contribution-drafts/{id}?requested_stage=
 PATCH  /contribution-drafts/{id}
@@ -211,6 +214,7 @@ GET    /logs/daily-totals?day=&timezone=
 GET    /logs/daily-totals/range?from=&to=&timezone=
 GET    /targets                         PUT /targets
 GET    /targets/resolve?day=&day_type=
+GET    /targets/resolve-optional?day=&day_type=
 POST   /body-metrics       GET  /body-metrics?from=&to=       DELETE /body-metrics/{id}
 GET    /body-metrics/trends?from=&to=
 GET    /workouts?from=&to=&limit=&offset=       POST /workouts
@@ -269,7 +273,9 @@ services:
 ```
 
 - Every boot validates the versioned global connection-capacity manifest and live PostgreSQL ceiling before running one migration job. Web and worker processes never run migrations on startup.
-- USDA and community-pack loading remains an explicit operator action after the schema is current.
+- Compose and native USDA/community imports remain explicit operator actions after the schema is
+  current. The hosted Render predeploy idempotently loads the four bundled community starter packs
+  after migrations and runtime grants, before the replacement API instance starts.
 - The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
   ledger. T10 installs the deterministic planner, bounded executor, reducer, and wake-up handler,
   and T2 supplies the governed forge. The production replica count remains zero until the T3
