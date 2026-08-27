@@ -57,6 +57,7 @@ def test_public_artifact_origin_configuration_is_safe() -> None:
     assert defaults.public_artifact_directory is None
     assert defaults.public_artifact_base_url is None
     assert defaults.public_artifact_checkpoint_path is None
+    assert defaults.public_artifact_cache_directory is None
 
     with pytest.raises(ValidationError, match="safe HTTPS URL"):
         Settings(public_artifact_base_url="http://artifacts.example.test", _env_file=None)
@@ -92,6 +93,13 @@ def test_production_public_artifacts_require_https_origin_and_checkpoint() -> No
             public_artifact_base_url="https://artifacts.opennosh.org",
         )
 
+    with pytest.raises(ValidationError, match="durable verified cache"):
+        Settings(
+            **production,  # type: ignore[arg-type]
+            public_artifact_base_url="https://artifacts.opennosh.org",
+            public_artifact_checkpoint_path="/state/public-artifacts.json",
+        )
+
     with pytest.raises(ValidationError, match="separate from signed artifacts"):
         Settings(
             public_artifact_directory="/artifacts",
@@ -103,6 +111,7 @@ def test_production_public_artifacts_require_https_origin_and_checkpoint() -> No
         **production,  # type: ignore[arg-type]
         public_artifact_base_url="https://artifacts.opennosh.org",
         public_artifact_checkpoint_path="/state/public-artifacts.json",
+        public_artifact_cache_directory="/state/public-artifact-cache",
     )
     assert settings.public_artifact_base_url == "https://artifacts.opennosh.org"
 
@@ -113,6 +122,7 @@ def test_production_public_artifacts_reject_development_keys_under_any_alias() -
         "food_search_cursor_signing_keys": "prod-v1:33333333333333333333333333333333",
         "public_artifact_base_url": "https://artifacts.opennosh.org",
         "public_artifact_checkpoint_path": "/state/public-artifacts.json",
+        "public_artifact_cache_directory": "/state/public-artifact-cache",
         "_env_file": None,
     }
     approved_receipt = '{"production":"MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM"}'

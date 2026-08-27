@@ -28,6 +28,10 @@ services:
     preDeployCommand: python deploy/render_runtime.py predeploy
     autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 30
+    disk:
+      name: opennosh-public-artifact-state
+      mountPath: /var/lib/opennosh/public-artifacts
+      sizeGB: 1
     envVars:
       - key: APP_ENVIRONMENT
         value: production
@@ -47,6 +51,10 @@ services:
         generateValue: true
       - key: OPEN_FOOD_FACTS_ENABLED
         value: "false"
+      - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
+        value: /var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json
+      - key: PUBLIC_ARTIFACT_CACHE_DIRECTORY
+        value: /var/lib/opennosh/public-artifacts/cache
 
   - type: web
     name: opennosh-web

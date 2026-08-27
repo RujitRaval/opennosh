@@ -355,11 +355,13 @@ class PublicArtifactReadService:
         self,
         *,
         store: ArtifactStore | None,
+        cache_store: LocalArtifactStore | None = None,
         manifest_keys: ManifestKeyRing,
         receipt_keys: PublicationReceiptKeyRing,
         checkpoint_path: Path | None = None,
     ) -> None:
         self._store = store
+        self._cache_store = cache_store
         self._manifest_keys = manifest_keys
         self._receipt_keys = receipt_keys
         self._checkpoint_path = checkpoint_path
@@ -370,6 +372,8 @@ class PublicArtifactReadService:
     async def aclose(self) -> None:
         if self._store is not None:
             await self._store.aclose()
+        if self._cache_store is not None:
+            await self._cache_store.aclose()
 
     async def food(
         self,
@@ -507,7 +511,9 @@ class PublicArtifactReadService:
         if cached is not None:
             self._release_cache.move_to_end(cache_key)
             return cached
-        manifest_bytes = await self._required_read(descriptor.object_key, MAX_MANIFEST_BYTES)
+        manifest_bytes = await self._required_read(
+            descriptor.object_key, MAX_MANIFEST_BYTES, allow_cache=True
+        )
         if not exact:
             _verify_descriptor(descriptor, manifest_bytes)
         envelope = _parse_envelope(manifest_bytes, self._manifest_keys)
@@ -521,7 +527,9 @@ class PublicArtifactReadService:
         if canonical_manifest != manifest_bytes:
             raise ArtifactUnavailableError("release_manifest_not_canonical")
         manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
-        receipt_bytes = await self._required_read(manifest.publication_receipt_key, 256 * 1024)
+        receipt_bytes = await self._required_read(
+            manifest.publication_receipt_key, 256 * 1024, allow_cache=True
+        )
         try:
             receipt = parse_signed_receipt(receipt_bytes)
             self._receipt_keys.verify(receipt)
@@ -535,6 +543,16 @@ class PublicArtifactReadService:
             or _copy_release_digest(bound) != manifest_digest
         ):
             raise ArtifactUnavailableError("publication_receipt_binding_invalid")
+        await self._cache_verified(
+            descriptor.object_key,
+            manifest_bytes,
+            expected_digest=manifest_digest,
+        )
+        await self._cache_verified(
+            manifest.publication_receipt_key,
+            receipt_bytes,
+            expected_digest=hashlib.sha256(receipt_bytes).hexdigest(),
+        )
         metadata = PublicReleaseMetadata(
             release_version=manifest.release_version,
             published_at=manifest.published_at,
@@ -560,17 +578,51 @@ class PublicArtifactReadService:
     async def _verified_read(self, descriptor: ArtifactDescriptor, *, max_bytes: int) -> bytes:
         if descriptor.size_bytes > max_bytes:
             raise ArtifactUnavailableError("artifact_too_large")
-        payload = await self._required_read(descriptor.object_key, max_bytes)
+        payload = await self._required_read(descriptor.object_key, max_bytes, allow_cache=True)
         _verify_descriptor(descriptor, payload)
+        await self._cache_verified(
+            descriptor.object_key,
+            payload,
+            expected_digest=descriptor.digest,
+        )
         return payload
 
-    async def _required_read(self, object_key: str, max_bytes: int) -> bytes:
+    async def _required_read(
+        self,
+        object_key: str,
+        max_bytes: int,
+        *,
+        allow_cache: bool = False,
+    ) -> bytes:
         if self._store is None:
             raise ArtifactUnavailableError("artifact_store_unconfigured")
-        payload = await self._store.read(object_key, max_bytes=max_bytes)
+        try:
+            payload = await self._store.read(object_key, max_bytes=max_bytes)
+        except ArtifactUnavailableError:
+            payload = None
+        if payload is None and allow_cache and self._cache_store is not None:
+            payload = await self._cache_store.read(object_key, max_bytes=max_bytes)
         if payload is None:
             raise ArtifactUnavailableError("artifact_missing")
         return payload
+
+    async def _cache_verified(
+        self,
+        object_key: str,
+        payload: bytes,
+        *,
+        expected_digest: str,
+    ) -> None:
+        if self._cache_store is None:
+            return
+        try:
+            await self._cache_store.put_immutable(
+                object_key,
+                payload,
+                expected_digest=expected_digest,
+            )
+        except ArtifactConflictError as error:
+            raise ArtifactUnavailableError("verified_cache_conflict") from error
 
     async def _advance_checkpoint(
         self,
