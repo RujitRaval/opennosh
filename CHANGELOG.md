@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.57.0.1] - 2026-08-27
+
+### Fixed
+
+- Keep deterministic browser-acceptance releases valid after their 23-hour test pointer expires by verifying them against the fixture clock instead of wall time.
+
 ## [0.57.0.0] - 2026-08-27
 
 ### Added
