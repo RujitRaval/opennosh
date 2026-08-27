@@ -20,10 +20,14 @@ from opennosh_api.jobs.pgqueuer import (
     build_queries,
     decode_message,
 )
-from opennosh_api.publication.adapters import PublicationAdapterRegistry
+from opennosh_api.publication.adapters import (
+    PublicationAdapterRegistry,
+    PublicationEffectAdapter,
+)
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.repository import PostgresPublicationRepository
+from opennosh_api.publication.state import PublicationStepName
 from opennosh_api.runtime import supervise_role
 from opennosh_api.settings import Settings, get_settings
 
@@ -122,11 +126,48 @@ async def process_publication_wakeup(
         ) from error
 
 
+def validate_production_adapter_registry(
+    adapters: PublicationAdapterRegistry | None,
+) -> PublicationAdapterRegistry:
+    """Reject incomplete or ambiguous production effect wiring before queue claims."""
+
+    if adapters is None:
+        raise RuntimeError("Production publication worker requires canonical adapters")
+    expected = set(PublicationStepName)
+    actual = set(adapters)
+    missing = sorted(step.value for step in expected - actual)
+    extra = sorted(str(step) for step in actual - expected)
+    if missing or extra:
+        details = []
+        if missing:
+            details.append(f"missing={','.join(missing)}")
+        if extra:
+            details.append(f"extra={','.join(extra)}")
+        raise RuntimeError(
+            "Production publication adapter registry is invalid: " + "; ".join(details)
+        )
+    for step in PublicationStepName:
+        adapter = adapters[step]
+        if not isinstance(adapter, PublicationEffectAdapter):
+            raise RuntimeError(f"Publication adapter {step.value} violates the adapter contract")
+        if (
+            not isinstance(adapter.identity, str)
+            or not adapter.identity.strip()
+            or not isinstance(adapter.version, str)
+            or not adapter.version.strip()
+        ):
+            raise RuntimeError(f"Publication adapter {step.value} requires identity and version")
+    return adapters
+
+
 async def create_publication_role_driver(
     settings: Settings | None = None,
     adapters: PublicationAdapterRegistry | None = None,
 ) -> PgQueuerRoleDriver:
     configured = settings or get_settings()
+    resolved_adapters = adapters or {}
+    if configured.app_environment == "production":
+        resolved_adapters = validate_production_adapter_registry(adapters)
     manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
     budget = manifest.active_role_budget(ProcessRole.PUBLICATION)
     pool = await asyncpg.create_pool(
@@ -151,7 +192,7 @@ async def create_publication_role_driver(
     )
     orchestrator = PublicationOrchestrator(
         PostgresPublicationRepository(pool),
-        PublicationEffectExecutor(adapters or {}),
+        PublicationEffectExecutor(resolved_adapters),
         owner=f"publication:{queue.qm.queue_manager_id}",
     )
 

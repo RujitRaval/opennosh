@@ -39,6 +39,7 @@ def _receipt_key_config_uses_nonproduction_key(value: SecretStr) -> bool:
 
 class Settings(BaseSettings):
     app_environment: Literal["development", "test", "production"] = "development"
+    process_role: ProcessRole | JobRole | None = None
     database_url: str = "postgresql+asyncpg://opennosh:opennosh@localhost:5432/opennosh"
     web_database_url: str | None = None
     publication_database_url: str | None = None
@@ -378,6 +379,7 @@ class Settings(BaseSettings):
             raise ValueError("Search snapshot retention must cover refresh and cursor lifetimes")
         if (
             self.app_environment == "production"
+            and self.process_role in {None, ProcessRole.WEB}
             and self.food_search_cursor_signing_keys.get_secret_value()
             == "v1:opennosh-development-search-cursor-key-2026"
         ):
