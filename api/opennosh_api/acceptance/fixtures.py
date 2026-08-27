@@ -167,7 +167,11 @@ async def materialize_browser_acceptance_fixture(
             receipt_bytes=receipt_bytes,
             pointer_bytes=pointer_bytes,
         )
-        verified = await service.food(ACCEPTANCE_SOURCE, ACCEPTANCE_SOURCE_ID)
+        verified = await service.food(
+            ACCEPTANCE_SOURCE,
+            ACCEPTANCE_SOURCE_ID,
+            now=published_at,
+        )
     finally:
         await service.aclose()
 
