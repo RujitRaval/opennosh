@@ -1,4 +1,4 @@
-"""Render-only bootstrap for least-privilege database roles and API startup."""
+"""Render-only bootstrap for least-privilege database roles and process startup."""
 
 from __future__ import annotations
 
@@ -13,6 +13,62 @@ from sqlalchemy.engine import make_url
 
 MIGRATION_ROLE = "opennosh_migration"
 WEB_ROLE = "opennosh_web"
+PUBLICATION_ROLE = "opennosh_publication"
+
+PUBLICATION_TABLE_PRIVILEGES = {
+    "accepted_events": "SELECT, INSERT",
+    "publication_durable_acknowledgements": "SELECT, INSERT",
+    "publication_intents": "SELECT, UPDATE",
+    "publication_receipts": "SELECT, INSERT",
+    "publication_steps": "SELECT, INSERT, UPDATE",
+    "opennosh_pgqueuer": "SELECT, INSERT, UPDATE, DELETE",
+    "opennosh_pgqueuer_log": "SELECT, INSERT, UPDATE",
+    "opennosh_pgqueuer_schedules": "SELECT, INSERT, UPDATE, DELETE",
+    "opennosh_pgqueuer_statistics": "SELECT, INSERT, UPDATE",
+}
+PUBLICATION_SEQUENCES = (
+    "opennosh_pgqueuer_id_seq",
+    "opennosh_pgqueuer_log_id_seq",
+    "opennosh_pgqueuer_schedules_id_seq",
+    "opennosh_pgqueuer_statistics_id_seq",
+)
+RAW_DATABASE_SECRETS = (
+    "RENDER_DATABASE_URL",
+    "MIGRATION_DATABASE_PASSWORD",
+    "WEB_DATABASE_PASSWORD",
+    "PUBLICATION_DATABASE_PASSWORD",
+)
+PROCESS_RUNTIME_ENVIRONMENT_KEYS = (
+    "PATH",
+    "PYTHONPATH",
+    "PYTHONUNBUFFERED",
+    "PYTHONDONTWRITEBYTECODE",
+    "LANG",
+    "LC_ALL",
+    "TZ",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+)
+PUBLICATION_ENVIRONMENT_KEYS = (
+    *PROCESS_RUNTIME_ENVIRONMENT_KEYS,
+    "APP_ENVIRONMENT",
+    "DATABASE_CAPACITY_MANIFEST_PATH",
+    "PUBLICATION_CLAIMS_ENABLED",
+    "LATEST_REFRESH_ENABLED",
+)
+
+ROLE_DATABASE_URLS = (
+    "DATABASE_URL",
+    "WEB_DATABASE_URL",
+    "PUBLICATION_DATABASE_URL",
+    "EVIDENCE_DATABASE_URL",
+    "PROJECTION_DATABASE_URL",
+    "RECONCILER_DATABASE_URL",
+    "SCHEDULER_DATABASE_URL",
+    "MIGRATION_DATABASE_URL",
+    "ADMINISTRATION_DATABASE_URL",
+    "DATABASE_CAPACITY_URL",
+)
 
 
 def _required(environment: Mapping[str, str], key: str) -> str:
@@ -44,23 +100,46 @@ def asyncpg_dsn(source_url: str) -> str:
     return parsed.set(drivername="postgresql").render_as_string(hide_password=False)
 
 
+def _strip_database_credentials(
+    environment: dict[str, str],
+    *,
+    preserve_url: str,
+) -> None:
+    for secret in (*RAW_DATABASE_SECRETS, *ROLE_DATABASE_URLS):
+        if secret != preserve_url:
+            environment.pop(secret, None)
+
+
 def api_environment(source: Mapping[str, str]) -> dict[str, str]:
-    """Build the API environment without retaining Render's owner credential."""
+    """Build the API environment without retaining owner or sibling-role credentials."""
 
     environment = dict(source)
     owner_url = _required(environment, "RENDER_DATABASE_URL")
     web_password = _required(environment, "WEB_DATABASE_PASSWORD")
     cursor_secret = _required(environment, "FOOD_SEARCH_CURSOR_SECRET")
+    environment["PROCESS_ROLE"] = "web"
     environment["WEB_DATABASE_URL"] = role_database_url(owner_url, WEB_ROLE, web_password)
     environment["FOOD_SEARCH_CURSOR_SIGNING_KEYS"] = f"render-v1:{cursor_secret}"
 
-    for secret in (
-        "RENDER_DATABASE_URL",
-        "MIGRATION_DATABASE_PASSWORD",
-        "WEB_DATABASE_PASSWORD",
-        "FOOD_SEARCH_CURSOR_SECRET",
-    ):
-        environment.pop(secret, None)
+    _strip_database_credentials(environment, preserve_url="WEB_DATABASE_URL")
+    environment.pop("FOOD_SEARCH_CURSOR_SECRET", None)
+    return environment
+
+
+def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
+    """Build the worker environment without retaining owner or sibling-role credentials."""
+
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+    environment = {
+        key: value for key in PUBLICATION_ENVIRONMENT_KEYS if (value := source.get(key)) is not None
+    }
+    environment["PROCESS_ROLE"] = "publication"
+    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        PUBLICATION_ROLE,
+        publication_password,
+    )
     return environment
 
 
@@ -72,8 +151,13 @@ async def _quoted(connection: asyncpg.Connection, value: str, *, identifier: boo
     return quoted
 
 
-async def ensure_database_roles(owner_url: str, migration_password: str, web_password: str) -> None:
-    """Create or rotate the two production roles using Render's database owner."""
+async def ensure_database_roles(
+    owner_url: str,
+    migration_password: str,
+    web_password: str,
+    publication_password: str | None = None,
+) -> None:
+    """Create or rotate bounded production roles using Render's database owner."""
 
     database_name = make_url(owner_url).database
     if database_name is None:
@@ -84,8 +168,17 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
         database_identifier = await _quoted(connection, database_name, identifier=True)
         migration_password_literal = await _quoted(connection, migration_password, identifier=False)
         web_password_literal = await _quoted(connection, web_password, identifier=False)
+        role_passwords = [
+            (MIGRATION_ROLE, migration_password_literal),
+            (WEB_ROLE, web_password_literal),
+        ]
+        if publication_password is not None:
+            publication_password_literal = await _quoted(
+                connection, publication_password, identifier=False
+            )
+            role_passwords.append((PUBLICATION_ROLE, publication_password_literal))
         async with connection.transaction():
-            for role in (MIGRATION_ROLE, WEB_ROLE):
+            for role, _password_literal in role_passwords:
                 role_identifier = await _quoted(connection, role, identifier=True)
                 exists = await connection.fetchval(
                     "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", role
@@ -93,16 +186,14 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
                 if not exists:
                     await connection.execute(f"CREATE ROLE {role_identifier} LOGIN")
 
+            for role, password_literal in role_passwords:
+                await connection.execute(
+                    f"ALTER ROLE {role} LOGIN PASSWORD {password_literal} "
+                    "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
+                )
+            connected_roles = ", ".join(role for role, _password in role_passwords)
             await connection.execute(
-                f"ALTER ROLE {MIGRATION_ROLE} LOGIN PASSWORD {migration_password_literal} "
-                "NOCREATEDB NOCREATEROLE"
-            )
-            await connection.execute(
-                f"ALTER ROLE {WEB_ROLE} LOGIN PASSWORD {web_password_literal} "
-                "NOCREATEDB NOCREATEROLE"
-            )
-            await connection.execute(
-                f"GRANT CONNECT ON DATABASE {database_identifier} TO {MIGRATION_ROLE}, {WEB_ROLE}"
+                f"GRANT CONNECT ON DATABASE {database_identifier} TO {connected_roles}"
             )
             await connection.execute(
                 f"GRANT CREATE ON DATABASE {database_identifier} TO {MIGRATION_ROLE}"
@@ -110,6 +201,8 @@ async def ensure_database_roles(owner_url: str, migration_password: str, web_pas
             await connection.execute("REVOKE CREATE ON SCHEMA public FROM PUBLIC")
             await connection.execute(f"GRANT USAGE, CREATE ON SCHEMA public TO {MIGRATION_ROLE}")
             await connection.execute(f"GRANT USAGE ON SCHEMA public TO {WEB_ROLE}")
+            if publication_password is not None:
+                await connection.execute(f"GRANT USAGE ON SCHEMA public TO {PUBLICATION_ROLE}")
     finally:
         await connection.close()
 
@@ -140,13 +233,42 @@ async def grant_web_runtime_privileges(migration_url: str) -> None:
         await connection.close()
 
 
+async def grant_publication_runtime_privileges(migration_url: str) -> None:
+    """Grant the worker only its reviewed ledger and queue database objects."""
+
+    connection = await asyncpg.connect(asyncpg_dsn(migration_url))
+    try:
+        async with connection.transaction():
+            await connection.execute(f"GRANT USAGE ON SCHEMA public TO {PUBLICATION_ROLE}")
+            for table, privileges in PUBLICATION_TABLE_PRIVILEGES.items():
+                await connection.execute(
+                    f"GRANT {privileges} ON TABLE {table} TO {PUBLICATION_ROLE}"
+                )
+            for sequence in PUBLICATION_SEQUENCES:
+                await connection.execute(
+                    f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {sequence} TO {PUBLICATION_ROLE}"
+                )
+    finally:
+        await connection.close()
+
+
 def run_predeploy(source: Mapping[str, str]) -> None:
     owner_url = _required(source, "RENDER_DATABASE_URL")
     migration_password = _required(source, "MIGRATION_DATABASE_PASSWORD")
     web_password = _required(source, "WEB_DATABASE_PASSWORD")
+    publication_password = source.get("PUBLICATION_DATABASE_PASSWORD")
+    if publication_password is not None:
+        publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
     migration_url = role_database_url(owner_url, MIGRATION_ROLE, migration_password)
 
-    asyncio.run(ensure_database_roles(owner_url, migration_password, web_password))
+    asyncio.run(
+        ensure_database_roles(
+            owner_url,
+            migration_password,
+            web_password,
+            publication_password,
+        )
+    )
 
     environment = api_environment(source)
     environment["DATABASE_CAPACITY_URL"] = migration_url
@@ -177,6 +299,8 @@ def run_predeploy(source: Mapping[str, str]) -> None:
     environment["MIGRATION_DATABASE_URL"] = migration_url
     subprocess.run(["opennosh-migrate"], check=True, env=environment)
     asyncio.run(grant_web_runtime_privileges(migration_url))
+    if publication_password is not None:
+        asyncio.run(grant_publication_runtime_privileges(migration_url))
     environment["ADMINISTRATION_DATABASE_URL"] = migration_url
     subprocess.run(
         ["opennosh", "foods", "load", "/app/packs", "--json"],
@@ -189,14 +313,24 @@ def run_api(source: Mapping[str, str]) -> None:
     os.execvpe("opennosh-web", ["opennosh-web"], api_environment(source))
 
 
+def run_publication(source: Mapping[str, str]) -> None:
+    os.execvpe(
+        "opennosh-publication-worker",
+        ["opennosh-publication-worker"],
+        publication_environment(source),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("api", "predeploy"))
+    parser.add_argument("mode", choices=("api", "predeploy", "publication"))
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
         run_predeploy(os.environ)
-    else:
+    elif arguments.mode == "api":
         run_api(os.environ)
+    else:
+        run_publication(os.environ)
     return 0
 
 

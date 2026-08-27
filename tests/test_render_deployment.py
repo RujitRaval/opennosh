@@ -12,16 +12,22 @@ from sqlalchemy.engine import URL, make_url
 
 from deploy.render_runtime import (
     MIGRATION_ROLE,
+    PUBLICATION_ROLE,
+    PUBLICATION_SEQUENCES,
+    PUBLICATION_TABLE_PRIVILEGES,
     WEB_ROLE,
     _quoted,
     api_environment,
     asyncpg_dsn,
     ensure_database_roles,
+    grant_publication_runtime_privileges,
     grant_web_runtime_privileges,
     main,
+    publication_environment,
     role_database_url,
     run_api,
     run_predeploy,
+    run_publication,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -186,16 +192,60 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
             "WEB_DATABASE_PASSWORD": "web p@ss/word",
             "MIGRATION_DATABASE_PASSWORD": "migration-secret",
             "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+            "PUBLICATION_DATABASE_URL": "postgresql+asyncpg://sibling:secret@db/opennosh",
+            "ADMINISTRATION_DATABASE_URL": "postgresql+asyncpg://admin:secret@db/opennosh",
         }
     )
     assert environment["APP_ENVIRONMENT"] == "production"
+    assert environment["PROCESS_ROLE"] == "web"
     assert make_url(environment["WEB_DATABASE_URL"]).username == WEB_ROLE
     assert environment["FOOD_SEARCH_CURSOR_SIGNING_KEYS"] == "render-v1:cursor-secret"
     for removed in (
         "RENDER_DATABASE_URL",
         "WEB_DATABASE_PASSWORD",
         "MIGRATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_PASSWORD",
         "FOOD_SEARCH_CURSOR_SECRET",
+        "PUBLICATION_DATABASE_URL",
+        "ADMINISTRATION_DATABASE_URL",
+    ):
+        assert removed not in environment
+
+
+def test_render_publication_environment_uses_only_the_worker_database_identity() -> None:
+    environment = publication_environment(
+        {
+            "APP_ENVIRONMENT": "production",
+            "RENDER_DATABASE_URL": _database_url(),
+            "WEB_DATABASE_PASSWORD": "web-secret",
+            "MIGRATION_DATABASE_PASSWORD": "migration-secret",
+            "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+            "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+            "PUBLICATION_CLAIMS_ENABLED": "false",
+            "PATH": "/usr/local/bin:/usr/bin",
+            "TRUSTED_WEB_PROXY_TOKEN": "web-only-secret",
+            "UNRELATED_GENERATED_SECRET": "must-not-survive",
+            "WEB_DATABASE_URL": "postgresql+asyncpg://sibling:secret@db/opennosh",
+            "MIGRATION_DATABASE_URL": "postgresql+asyncpg://migration:secret@db/opennosh",
+        }
+    )
+
+    assert environment["APP_ENVIRONMENT"] == "production"
+    assert environment["PROCESS_ROLE"] == "publication"
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert environment["PATH"] == "/usr/local/bin:/usr/bin"
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert "owner-secret" not in repr(environment)
+    for removed in (
+        "RENDER_DATABASE_URL",
+        "WEB_DATABASE_PASSWORD",
+        "MIGRATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "FOOD_SEARCH_CURSOR_SECRET",
+        "WEB_DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "TRUSTED_WEB_PROXY_TOKEN",
+        "UNRELATED_GENERATED_SECRET",
     ):
         assert removed not in environment
 
@@ -279,8 +329,8 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
     alter_statements = [statement for statement in connection.executed if "ALTER ROLE" in statement]
     assert len(create_statements) == (0 if existing_roles else 2)
     assert len(alter_statements) == 2
-    assert all("SUPERUSER" not in statement for statement in alter_statements)
-    assert all("REPLICATION" not in statement for statement in alter_statements)
+    assert all("NOSUPERUSER" in statement for statement in alter_statements)
+    assert all("NOREPLICATION" in statement for statement in alter_statements)
     assert all("NOCREATEDB NOCREATEROLE" in statement for statement in alter_statements)
     assert any("GRANT CREATE ON DATABASE" in statement for statement in connection.executed)
     assert not any("ALTER SCHEMA public OWNER" in statement for statement in connection.executed)
@@ -288,6 +338,50 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
         "GRANT USAGE, CREATE ON SCHEMA public" in statement for statement in connection.executed
     )
     assert connection.closed is True
+
+
+@pytest.mark.asyncio
+async def test_render_publication_role_is_optional_bounded_and_rotated() -> None:
+    connection = FakeConnection()
+
+    async def connect(_dsn: str) -> FakeConnection:
+        return connection
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
+        await ensure_database_roles(
+            _database_url(),
+            "migration-secret",
+            "web-secret",
+            "publication-secret",
+        )
+
+    create_statements = [
+        statement for statement in connection.executed if "CREATE ROLE" in statement
+    ]
+    alter_statements = [statement for statement in connection.executed if "ALTER ROLE" in statement]
+    assert len(create_statements) == 3
+    assert len(alter_statements) == 3
+    publication_alter = next(
+        statement for statement in alter_statements if PUBLICATION_ROLE in statement
+    )
+    for denied_capability in (
+        "NOSUPERUSER",
+        "NOCREATEDB",
+        "NOCREATEROLE",
+        "NOINHERIT",
+        "NOREPLICATION",
+        "NOBYPASSRLS",
+    ):
+        assert denied_capability in publication_alter
+    assert any(
+        f"GRANT USAGE ON SCHEMA public TO {PUBLICATION_ROLE}" in statement
+        for statement in connection.executed
+    )
+    assert not any(
+        "GRANT CREATE ON DATABASE" in statement and PUBLICATION_ROLE in statement
+        for statement in connection.executed
+    )
 
 
 @pytest.mark.asyncio
@@ -343,6 +437,35 @@ async def test_render_runtime_grants_are_applied_and_connection_is_closed(
 
     assert any("ALL TABLES" in statement for statement in connection.executed)
     assert any("DEFAULT PRIVILEGES" in statement for statement in connection.executed)
+    assert connection.closed is True
+
+
+@pytest.mark.asyncio
+async def test_publication_runtime_grants_only_reviewed_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection()
+
+    async def connect(_dsn: str) -> FakeConnection:
+        return connection
+
+    monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
+    await grant_publication_runtime_privileges(
+        _database_url(
+            drivername="postgresql+asyncpg",
+            username=MIGRATION_ROLE,
+            password="secret",
+        )
+    )
+
+    assert not any("ALL TABLES" in statement for statement in connection.executed)
+    for table, privileges in PUBLICATION_TABLE_PRIVILEGES.items():
+        assert f"GRANT {privileges} ON TABLE {table} TO {PUBLICATION_ROLE}" in connection.executed
+    for sequence in PUBLICATION_SEQUENCES:
+        assert (
+            f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {sequence} TO {PUBLICATION_ROLE}"
+            in connection.executed
+        )
     assert connection.closed is True
 
 
@@ -524,7 +647,37 @@ def test_render_api_execs_with_only_the_runtime_environment(
     assert "owner-secret" not in repr(captured["environment"])
 
 
-@pytest.mark.parametrize("mode", ["api", "predeploy"])
+def test_render_publication_execs_with_only_the_worker_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def capture_exec(file: str, arguments: list[str], environment: dict[str, str]) -> None:
+        captured.update(file=file, arguments=arguments, environment=environment)
+        raise RuntimeError("exec intercepted")
+
+    monkeypatch.setattr("deploy.render_runtime.os.execvpe", capture_exec)
+    with pytest.raises(RuntimeError, match="exec intercepted"):
+        run_publication(
+            {
+                "APP_ENVIRONMENT": "production",
+                "RENDER_DATABASE_URL": _database_url(),
+                "WEB_DATABASE_PASSWORD": "web-secret",
+                "MIGRATION_DATABASE_PASSWORD": "migration-secret",
+                "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+                "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+            }
+        )
+
+    assert captured["file"] == "opennosh-publication-worker"
+    assert captured["arguments"] == ["opennosh-publication-worker"]
+    assert (
+        make_url(captured["environment"]["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    )
+    assert "owner-secret" not in repr(captured["environment"])
+
+
+@pytest.mark.parametrize("mode", ["api", "predeploy", "publication"])
 def test_render_cli_dispatches_the_selected_mode(
     monkeypatch: pytest.MonkeyPatch,
     mode: str,
@@ -535,6 +688,10 @@ def test_render_cli_dispatches_the_selected_mode(
     monkeypatch.setattr(
         "deploy.render_runtime.run_predeploy",
         lambda _environment: calls.append("predeploy"),
+    )
+    monkeypatch.setattr(
+        "deploy.render_runtime.run_publication",
+        lambda _environment: calls.append("publication"),
     )
 
     assert main() == 0

@@ -12,6 +12,7 @@ def test_settings_have_safe_development_defaults() -> None:
     settings = Settings(_env_file=None)
 
     assert settings.database_url.endswith("@localhost:5432/opennosh")
+    assert settings.process_role is None
     assert settings.database_healthcheck_timeout_seconds == 2.0
     assert settings.food_search_rate_limit_attempts == 120
     assert settings.food_search_rate_limit_window_seconds == 60
@@ -427,6 +428,19 @@ def test_open_food_facts_settings_reject_unsafe_values() -> None:
         Settings(open_food_facts_user_agent_contact="contact\nInjected: header", _env_file=None)
     with pytest.raises(ValidationError):
         Settings(open_food_facts_user_agent_contact="Maintainer 🚀", _env_file=None)
+
+
+def test_production_worker_roles_do_not_require_the_web_cursor_key() -> None:
+    publication = Settings(
+        app_environment="production",
+        process_role=ProcessRole.PUBLICATION,
+        publication_database_url="postgresql+asyncpg://publication-role@database/opennosh",
+        _env_file=None,
+    )
+
+    assert publication.process_database_url(ProcessRole.PUBLICATION).startswith(
+        "postgresql+asyncpg://publication-role@"
+    )
 
 
 def test_production_roles_require_specific_least_privilege_database_urls() -> None:

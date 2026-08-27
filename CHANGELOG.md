@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.57.0.0] - 2026-08-27
+
+### Added
+
+- Add the code-only foundation for a dedicated Render publication process and least-privilege `opennosh_publication` PostgreSQL identity.
+- Grant the inactive publication runtime only its reviewed publication-ledger, opennosh queue, and identity-sequence objects.
+
+### Changed
+
+- Make production settings process-role-aware so worker processes do not require unrelated web-only secrets.
+- Keep the live Render topology and capacity allocation unchanged at zero publication replicas until the governed adapters and provider identities are ready.
+
+### Security
+
+- Fail production publication startup before opening a database pool unless every canonical adapter is present, identified, versioned, and contract-compatible.
+- Build the publication environment from an explicit allowlist so owner, migration, web, cursor, proxy, sibling-role, and unknown generated secrets cannot cross into the worker.
+
 ## [0.56.0.2] - 2026-08-27
 
 ### Fixed
