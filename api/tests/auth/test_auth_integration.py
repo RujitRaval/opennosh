@@ -136,13 +136,23 @@ async def _concurrent_recovery_statuses(
         )
     )
     payloads = (
-        {"email": email, "recovery_code": recovery_code, "new_password": "first concurrent replacement"},
-        {"email": email, "recovery_code": recovery_code, "new_password": "second concurrent replacement"},
+        {
+            "email": email,
+            "recovery_code": recovery_code,
+            "new_password": "first concurrent replacement",
+        },
+        {
+            "email": email,
+            "recovery_code": recovery_code,
+            "new_password": "second concurrent replacement",
+        },
     )
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            responses = await asyncio.gather(*(client.post("/api/v1/auth/recover", json=payload) for payload in payloads))
+            responses = await asyncio.gather(
+                *(client.post("/api/v1/auth/recover", json=payload) for payload in payloads)
+            )
     return sorted(response.status_code for response in responses)
 
 
@@ -622,7 +632,10 @@ def test_password_recovery_rotates_code_and_session(auth_client: TestClient) -> 
 def test_concurrent_password_recovery_consumes_the_code_once(auth_client: TestClient) -> None:
     registered = auth_client.post(
         "/api/v1/auth/register",
-        json={"email": "concurrent-recover@example.test", "password": "a sufficiently long password"},
+        json={
+            "email": "concurrent-recover@example.test",
+            "password": "a sufficiently long password",
+        },
     )
     statuses = asyncio.run(
         _concurrent_recovery_statuses(
