@@ -209,8 +209,17 @@ async def ensure_database_roles(
             for role, password_literal in role_passwords:
                 await connection.execute(
                     f"ALTER ROLE {role} LOGIN PASSWORD {password_literal} "
-                    "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
+                    "NOCREATEDB NOCREATEROLE NOINHERIT"
                 )
+                bounded = await connection.fetchval(
+                    "SELECT NOT ("
+                    "rolsuper OR rolcreatedb OR rolcreaterole OR rolinherit "
+                    "OR rolreplication OR rolbypassrls"
+                    ") FROM pg_roles WHERE rolname = $1",
+                    role,
+                )
+                if bounded is not True:
+                    raise RuntimeError(f"Database role {role} is not bounded")
             connected_roles = ", ".join(role for role, _password in role_passwords)
             await connection.execute(
                 f"GRANT CONNECT ON DATABASE {database_identifier} TO {connected_roles}"
