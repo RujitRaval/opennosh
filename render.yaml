@@ -67,7 +67,7 @@ services:
     dockerfilePath: ./web/Dockerfile
     dockerCommand: /app/render-web-start.sh
     autoDeployTrigger: checksPass
-    healthCheckPath: /api/v1/healthz
+    healthCheckPath: /healthz
     maxShutdownDelaySeconds: 30
     domains:
       - opennosh.org

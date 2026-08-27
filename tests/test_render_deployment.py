@@ -116,7 +116,7 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
     assert api["region"] == web["region"] == "ohio"
     assert api["autoDeployTrigger"] == web["autoDeployTrigger"] == "checksPass"
     assert web["domains"] == ["opennosh.org"]
-    assert web["healthCheckPath"] == "/api/v1/healthz"
+    assert web["healthCheckPath"] == "/healthz"
     assert api["disk"] == {
         "name": "opennosh-public-artifact-state",
         "mountPath": "/var/lib/opennosh/public-artifacts",

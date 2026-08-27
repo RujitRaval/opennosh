@@ -185,6 +185,7 @@ Using Render's temporary hostname, verify all of the following:
 GET /                         -> redirect to /en
 GET /en                      -> 200 public Commons
 GET /tracker                 -> 200 Tracker
+GET /healthz                 -> 200 web-process liveness, independent of PostgreSQL
 GET /api/v1/healthz          -> 200 and healthy database state
 GET /en/explore              -> 200
 GET /en/contribute           -> 200
