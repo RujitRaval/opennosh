@@ -46,9 +46,11 @@ deploying, and runs capacity validation plus Alembic migrations before replacing
 The API starts with only the `opennosh_web` database credential; the database-owner and migration
 credentials are removed from its runtime environment.
 
-The canonical health probe is `https://opennosh.org/api/v1/healthz`. The Cloudflare cutover is
-complete: the apex serves Render and `www` permanently redirects to the apex, while DNSSEC and
-inbound Email Routing remain enabled. See
+Render probes `https://opennosh.org/healthz` for shallow web-process liveness so verified Commons
+reads stay available during PostgreSQL outages. The database-aware readiness and post-deploy probe
+remains `https://opennosh.org/api/v1/healthz`. The Cloudflare cutover is complete: the apex serves
+Render and `www` permanently redirects to the apex, while DNSSEC and inbound Email Routing remain
+enabled. See
 [`docs/operations/render-production.md`](docs/operations/render-production.md) for provisioning,
 verification, rollback, and domain steps.
 
