@@ -3,9 +3,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import subprocess
+import threading
+import time
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -13,9 +17,11 @@ from opennosh_api.public.bootstrap import StarterReleaseInventory, StarterReleas
 from opennosh_api.public.r2 import (
     R2ImmutableConflictError,
     R2PublicationError,
+    S3R2ObjectWriter,
     WranglerR2ObjectWriter,
     publish_starter_release_to_r2,
 )
+from opennosh_api.public.refresh import MAX_R2_OPERATIONS_PER_REFRESH
 
 
 class FakeWriter:
@@ -356,3 +362,330 @@ async def test_r2_publication_rejects_same_size_local_digest_tamper(tmp_path: Pa
             )
     finally:
         await client.aclose()
+
+
+class FakeS3Client:
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], bytes] = {}
+        self.put_calls: list[dict[str, object]] = []
+
+    def put_object(self, **arguments: object) -> None:
+        self.put_calls.append(arguments)
+        bucket = str(arguments["Bucket"])
+        key = str(arguments["Key"])
+        body = arguments["Body"]
+        assert isinstance(body, bytes)
+        self.objects[(bucket, key)] = body
+
+    def get_object(self, **arguments: object) -> dict[str, object]:
+        payload = self.objects[(str(arguments["Bucket"]), str(arguments["Key"]))]
+        return {
+            "ContentLength": len(payload),
+            "ETag": f'"{hashlib.md5(payload, usedforsecurity=False).hexdigest()}"',
+            "Body": BytesIO(payload),
+        }
+
+
+class StaticResponseS3Client(FakeS3Client):
+    def __init__(self, response: dict[str, object]) -> None:
+        super().__init__()
+        self.response = response
+
+    def get_object(self, **arguments: object) -> dict[str, object]:
+        del arguments
+        return self.response
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_uses_bounded_bytes_and_reviewed_object_metadata() -> None:
+    client = FakeS3Client()
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=client,
+    )
+    payload = b'{"latest":1}'
+
+    await writer.put_bytes(
+        bucket="opennosh-public-commons",
+        object_key="latest/v1.json",
+        payload=payload,
+        media_type="application/vnd.opennosh.latest+json",
+        cache_control="public, max-age=0, must-revalidate",
+    )
+    readback, etag = await writer.read_revision(
+        bucket="opennosh-public-commons",
+        object_key="latest/v1.json",
+        max_bytes=1024,
+    )
+
+    assert readback == payload
+    assert etag == f'"{hashlib.md5(payload, usedforsecurity=False).hexdigest()}"'
+    assert client.put_calls == [
+        {
+            "Bucket": "opennosh-public-commons",
+            "Key": "latest/v1.json",
+            "Body": payload,
+            "ContentType": "application/vnd.opennosh.latest+json",
+            "CacheControl": "public, max-age=0, must-revalidate",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_uploads_a_file_through_the_bytes_contract(tmp_path: Path) -> None:
+    client = FakeS3Client()
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=client,
+    )
+    source = tmp_path / "latest.json"
+    source.write_bytes(b'{"latest":1}')
+
+    await writer.put(
+        bucket="opennosh-public-commons",
+        object_key="latest/v1.json",
+        source=source,
+        media_type="application/vnd.opennosh.latest+json",
+        cache_control="public, max-age=0, must-revalidate",
+    )
+
+    assert client.objects[("opennosh-public-commons", "latest/v1.json")] == b'{"latest":1}'
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_propagates_client_failures_from_daemon_operation() -> None:
+    class FailingClient(FakeS3Client):
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+            raise OSError("simulated R2 failure")
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=FailingClient(),
+    )
+
+    with pytest.raises(OSError, match="simulated R2 failure"):
+        await writer.put_bytes(
+            bucket="opennosh-public-commons",
+            object_key="latest/v1.json",
+            payload=b"pointer",
+            media_type="application/json",
+            cache_control="must-revalidate",
+        )
+
+
+def test_s3_r2_writer_bounds_network_time_within_render_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def capture_client(*_arguments: object, **arguments: object) -> FakeS3Client:
+        captured.update(arguments)
+        return FakeS3Client()
+
+    monkeypatch.setattr("opennosh_api.public.r2.boto3.client", capture_client)
+    S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+    )
+
+    config = cast(Any, captured["config"])
+    assert config.connect_timeout == 1
+    assert config.read_timeout == 1.5
+    assert config.retries["total_max_attempts"] == 1
+    worst_case_network_seconds = (
+        MAX_R2_OPERATIONS_PER_REFRESH * (config.connect_timeout + config.read_timeout) + 2
+    )
+    assert worst_case_network_seconds == 19.5
+    assert worst_case_network_seconds < 30
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_enforces_absolute_put_deadline() -> None:
+    release = threading.Event()
+
+    class StalledPutClient(FakeS3Client):
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+            release.wait()
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=StalledPutClient(),
+        operation_timeout_seconds=0.01,
+    )
+    started = time.monotonic()
+    try:
+        with pytest.raises(R2PublicationError, match="absolute deadline"):
+            await writer.put_bytes(
+                bucket="opennosh-public-commons",
+                object_key="latest/v1.json",
+                payload=b"pointer",
+                media_type="application/json",
+                cache_control="must-revalidate",
+            )
+    finally:
+        release.set()
+    assert time.monotonic() - started < 0.5
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_enforces_one_deadline_across_headers_and_body() -> None:
+    release = threading.Event()
+
+    class StalledBody:
+        def read(self, _size: int) -> bytes:
+            release.wait()
+            return b"pointer"
+
+        def close(self) -> None:
+            return None
+
+    class StalledBodyClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            return {"ContentLength": 7, "ETag": '"revision"', "Body": StalledBody()}
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=StalledBodyClient(),
+        operation_timeout_seconds=0.01,
+    )
+    started = time.monotonic()
+    try:
+        with pytest.raises(R2PublicationError, match="absolute deadline"):
+            await writer.read_revision(
+                bucket="opennosh-public-commons",
+                object_key="latest/v1.json",
+                max_bytes=1024,
+            )
+    finally:
+        release.set()
+    assert time.monotonic() - started < 0.5
+
+
+def test_s3_r2_writer_rejects_invalid_identity_without_constructing_a_client() -> None:
+    with pytest.raises(ValueError, match="account ID"):
+        S3R2ObjectWriter(
+            account_id="not-an-account",
+            access_key_id="access-key",
+            secret_access_key="secret-key",
+        )
+
+
+@pytest.mark.parametrize(
+    ("access_key_id", "secret_access_key", "timeout_seconds", "message"),
+    [
+        ("access key", "secret-key", 2.5, "access key ID"),
+        ("access-key", " ", 2.5, "secret access key"),
+        ("access-key", "secret-key", 0, "operation timeout"),
+    ],
+)
+def test_s3_r2_writer_rejects_invalid_credentials_and_deadline(
+    access_key_id: str,
+    secret_access_key: str,
+    timeout_seconds: float,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        S3R2ObjectWriter(
+            account_id="a" * 32,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            client=FakeS3Client(),
+            operation_timeout_seconds=timeout_seconds,
+        )
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_sends_the_current_revision_as_if_match() -> None:
+    client = FakeS3Client()
+    current = b"current"
+    client.objects[("opennosh-public-commons", "latest/v1.json")] = current
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=client,
+    )
+    _, etag = await writer.read_revision(
+        bucket="opennosh-public-commons",
+        object_key="latest/v1.json",
+        max_bytes=1024,
+    )
+
+    await writer.put_bytes(
+        bucket="opennosh-public-commons",
+        object_key="latest/v1.json",
+        payload=b"replacement",
+        media_type="application/vnd.opennosh.latest+json",
+        cache_control="public, max-age=0, must-revalidate",
+        if_match=etag,
+    )
+
+    assert client.put_calls[-1]["IfMatch"] == etag
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_enforces_read_bounds() -> None:
+    client = FakeS3Client()
+    client.objects[("opennosh-public-commons", "latest/v1.json")] = b"oversized"
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=client,
+    )
+
+    with pytest.raises(R2PublicationError, match="bounded read size"):
+        await writer.read_bytes(
+            bucket="opennosh-public-commons",
+            object_key="latest/v1.json",
+            max_bytes=4,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("response", "message"),
+    [
+        ({"ContentLength": 0, "Body": BytesIO()}, "revision ETag"),
+        ({"ContentLength": 0, "ETag": '"revision"'}, "readable body"),
+        (
+            {
+                "ContentLength": 4,
+                "ETag": '"revision"',
+                "Body": SimpleNamespace(read=lambda _size: "text", close=lambda: None),
+            },
+            "bounded read size",
+        ),
+    ],
+)
+async def test_s3_r2_writer_rejects_incomplete_or_nonbyte_responses(
+    response: dict[str, object],
+    message: str,
+) -> None:
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=StaticResponseS3Client(response),
+    )
+
+    with pytest.raises(R2PublicationError, match=message):
+        await writer.read_revision(
+            bucket="opennosh-public-commons",
+            object_key="latest/v1.json",
+            max_bytes=1024,
+        )

@@ -114,13 +114,21 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
     }
 
     api = _resource(services, "opennosh-api")
+    publication = _resource(services, "opennosh-publication")
     web = _resource(services, "opennosh-web")
-    assert {service["name"] for service in services} == {"opennosh-api", "opennosh-web"}
+    assert {service["name"] for service in services} == {
+        "opennosh-api",
+        "opennosh-publication",
+        "opennosh-web",
+    }
     assert api["type"] == "pserv"
+    assert publication["type"] == "worker"
     assert web["type"] == "web"
-    assert api["plan"] == web["plan"] == "starter"
-    assert api["region"] == web["region"] == "ohio"
-    assert api["autoDeployTrigger"] == web["autoDeployTrigger"] == "checksPass"
+    assert api["plan"] == publication["plan"] == web["plan"] == "starter"
+    assert api["region"] == publication["region"] == web["region"] == "ohio"
+    assert publication["autoDeployTrigger"] == "checksPass"
+    assert publication["dockerCommand"] == "python deploy/render_runtime.py publication"
+    assert "healthCheckPath" not in publication
     assert web["domains"] == ["opennosh.org"]
     assert web["healthCheckPath"] == "/healthz"
     assert api["disk"] == {
@@ -142,6 +150,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     for key in (
         "WEB_DATABASE_PASSWORD",
         "MIGRATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_PASSWORD",
         "TRUSTED_WEB_PROXY_TOKEN",
         "FOOD_SEARCH_CURSOR_SECRET",
     ):
@@ -174,6 +183,34 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     }
     assert "healthCheckPath" not in api
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
+
+
+def test_render_blueprint_links_only_refresh_credentials_to_the_worker() -> None:
+    services = _blueprint()["services"]
+    assert isinstance(services, list)
+    publication = _resource(services, "opennosh-publication")
+    entries = publication["envVars"]
+    groups = {entry["fromGroup"] for entry in entries if "fromGroup" in entry}
+    variables = {entry["key"]: entry for entry in entries if "key" in entry}
+
+    assert groups == {
+        "opennosh-online-manifest-signer",
+        "opennosh-r2-writer",
+    }
+    assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
+    assert variables["LATEST_REFRESH_ENABLED"]["value"] == "true"
+    assert variables["PUBLIC_ARTIFACT_BASE_URL"]["value"] == (
+        "https://commons-artifacts.opennosh.org"
+    )
+    assert variables["PUBLIC_ARTIFACT_TIMEOUT_SECONDS"]["value"] == "2"
+    for excluded in (
+        "RENDER_DATABASE_URL",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_URL",
+        "TRUSTED_WEB_PROXY_TOKEN",
+        "FOOD_SEARCH_CURSOR_SECRET",
+    ):
+        assert excluded not in variables
 
 
 def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() -> None:
@@ -212,7 +249,7 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         assert removed not in environment
 
 
-def test_render_publication_environment_uses_only_the_worker_database_identity() -> None:
+def test_render_claiming_environment_uses_only_the_worker_database_identity() -> None:
     environment = publication_environment(
         {
             "APP_ENVIRONMENT": "production",
@@ -221,7 +258,8 @@ def test_render_publication_environment_uses_only_the_worker_database_identity()
             "MIGRATION_DATABASE_PASSWORD": "migration-secret",
             "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
             "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
-            "PUBLICATION_CLAIMS_ENABLED": "false",
+            "PUBLICATION_CLAIMS_ENABLED": "true",
+            "LATEST_REFRESH_ENABLED": "false",
             "PATH": "/usr/local/bin:/usr/bin",
             "TRUSTED_WEB_PROXY_TOKEN": "web-only-secret",
             "UNRELATED_GENERATED_SECRET": "must-not-survive",
@@ -232,7 +270,7 @@ def test_render_publication_environment_uses_only_the_worker_database_identity()
 
     assert environment["APP_ENVIRONMENT"] == "production"
     assert environment["PROCESS_ROLE"] == "publication"
-    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "true"
     assert environment["PATH"] == "/usr/local/bin:/usr/bin"
     assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
     assert "owner-secret" not in repr(environment)
@@ -248,6 +286,38 @@ def test_render_publication_environment_uses_only_the_worker_database_identity()
         "UNRELATED_GENERATED_SECRET",
     ):
         assert removed not in environment
+
+
+def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> None:
+    environment = publication_environment(
+        {
+            "APP_ENVIRONMENT": "production",
+            "PUBLICATION_CLAIMS_ENABLED": "false",
+            "LATEST_REFRESH_ENABLED": "true",
+            "PUBLIC_ARTIFACT_BASE_URL": "https://commons-artifacts.opennosh.org",
+            "ONLINE_MANIFEST_SIGNING_KEY_ID": "manifest-online",
+            "ONLINE_MANIFEST_SIGNING_KEY": "signing-secret",
+            "R2_ACCOUNT_ID": "a" * 32,
+            "R2_BUCKET": "opennosh-public-commons",
+            "R2_ACCESS_KEY_ID": "access-key",
+            "R2_SECRET_ACCESS_KEY": "r2-secret",
+            "RENDER_DATABASE_URL": _database_url(),
+            "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+            "TRUSTED_WEB_PROXY_TOKEN": "web-only-secret",
+        }
+    )
+
+    assert environment["PROCESS_ROLE"] == "publication"
+    assert environment["LATEST_REFRESH_ENABLED"] == "true"
+    assert environment["ONLINE_MANIFEST_SIGNING_KEY"] == "signing-secret"
+    assert environment["R2_SECRET_ACCESS_KEY"] == "r2-secret"
+    for excluded in (
+        "RENDER_DATABASE_URL",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_URL",
+        "TRUSTED_WEB_PROXY_TOKEN",
+    ):
+        assert excluded not in environment
 
 
 @pytest.mark.parametrize(
@@ -531,7 +601,7 @@ def test_render_predeploy_does_not_pass_owner_or_raw_secrets_to_children(
             "--deployed-role",
             "web=1",
             "--deployed-role",
-            "publication=0",
+            "publication=1",
             "--deployed-role",
             "evidence=0",
             "--deployed-role",
@@ -661,6 +731,8 @@ def test_render_publication_execs_with_only_the_worker_environment(
         run_publication(
             {
                 "APP_ENVIRONMENT": "production",
+                "PUBLICATION_CLAIMS_ENABLED": "false",
+                "LATEST_REFRESH_ENABLED": "true",
                 "RENDER_DATABASE_URL": _database_url(),
                 "WEB_DATABASE_PASSWORD": "web-secret",
                 "MIGRATION_DATABASE_PASSWORD": "migration-secret",
@@ -671,10 +743,12 @@ def test_render_publication_execs_with_only_the_worker_environment(
 
     assert captured["file"] == "opennosh-publication-worker"
     assert captured["arguments"] == ["opennosh-publication-worker"]
-    assert (
-        make_url(captured["environment"]["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
-    )
-    assert "owner-secret" not in repr(captured["environment"])
+    environment = captured["environment"]
+    assert environment["PROCESS_ROLE"] == "publication"
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert environment["LATEST_REFRESH_ENABLED"] == "true"
+    assert "PUBLICATION_DATABASE_URL" not in environment
+    assert "owner-secret" not in repr(environment)
 
 
 @pytest.mark.parametrize("mode", ["api", "predeploy", "publication"])

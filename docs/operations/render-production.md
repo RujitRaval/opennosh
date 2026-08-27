@@ -2,16 +2,21 @@
 
 ## Topology and cost boundary
 
-`render.yaml` is the production source of truth. It creates three Ohio services/resources:
+`render.yaml` is the production source of truth. It creates four Ohio services/resources:
 
 - `opennosh-web`: Starter public Docker web service;
 - `opennosh-api`: Starter private Docker service;
+- `opennosh-publication`: Starter private background worker; and
 - `opennosh-db`: Basic-256mb PostgreSQL 16 with 5 GB storage and no public ingress.
 
 T32 also attaches one 1 GB `opennosh-public-artifact-state` disk to `opennosh-api` for the
-anti-rollback checkpoint and verified release cache. The approved launch budget is approximately
-USD 20.25 per month before unusual bandwidth or build usage. Preview environments are disabled so
-pull requests cannot create additional paid resources. Changing a plan, region, disk size, replica
+anti-rollback checkpoint and verified release cache. T33.3 adds the approved USD 7 per month
+publication worker, bringing the expected baseline to approximately USD 27.25 per month before
+unusual bandwidth or build usage. The worker deliberately reuses the API Docker image; its boto3
+R2 client brings a roughly 16 MB compressed botocore wheel into both images in exchange for one
+build path and identical runtime packaging. Revisit that trade only if image transfer or startup
+budgets regress. Preview environments are disabled so pull requests cannot create additional paid
+resources. Changing a plan, region, disk size, replica
 count, preview policy, or database exposure requires a reviewed pull request and renewed cost
 review. The disk intentionally trades zero-downtime API deploys and horizontal API scaling for the
 smallest independent durable checkpoint in this bounded release.
@@ -20,7 +25,7 @@ smallest independent durable checkpoint in this bounded release.
 
 1. Merge the reviewed Blueprint change only after repository CI passes.
 2. In Render, create a Blueprint from `https://github.com/RujitRaval/opennosh` and `render.yaml`.
-3. Confirm exactly the three resources above, the `ohio` region, one instance per service, the approved
+3. Confirm exactly the four resources above, the `ohio` region, one instance per service, the approved
    plans, and one 1 GB API disk before accepting the charge.
 4. Let Render generate the database-role passwords, proxy token, and cursor-signing secret. Never
    copy their values into Git, chat, shell history, or this runbook.
@@ -176,6 +181,103 @@ search-to-record journey plus pinned provenance and pack download, and monitor A
 Rollback is one web-only change: set `PUBLIC_ARTIFACT_READS_ENABLED=false` and redeploy
 `opennosh-web`. Do not delete, rewrite, or roll back immutable R2 objects or the API checkpoint.
 Investigate before any new release or pointer is published.
+
+### T33.3 online latest-pointer renewal
+
+T33.3 keeps the already verified release and every immutable artifact unchanged. One isolated
+background worker validates the complete current release, signs a replacement `latest/v1.json`
+after 20 hours, writes only that mutable pointer, and requires an exact R2 read-back. The write
+uses the verified current R2 ETag as an `If-Match` precondition, so stale origins and concurrent
+publishers cannot replace a newer pointer. The pointer lifetime is 23 hours and the worker checks
+immediately at startup and then hourly. Immutable manifests and receipts are verified directly
+through authenticated R2 reads, bypassing the cacheable public origin. Seven single-attempt R2
+operations have a 2.5-second absolute elapsed deadline, and the sole public-origin pointer read has
+an absolute 2-second deadline. SDK work runs on isolated daemon operations so a stuck SDK thread
+cannot hold process shutdown open. Their 19.5-second network budget fits
+inside Render's 30-second shutdown window. Any validation,
+signing, upload, or read-back failure terminates the worker so Render restarts it and exposes the
+failure. Contribution claims, forge access, governance attestation, and database access remain
+disabled until later T33 slices.
+
+#### 1. Create an independent online signing identity
+
+Generate a new Ed25519 seed for the online manifest signer. It must not reuse either offline private
+key, a development key, or a reserved key ID. Store the unpadded base64url 32-byte seed only in the
+Render secret group `opennosh-online-manifest-signer`. That group contains exactly:
+
+```text
+ONLINE_MANIFEST_SIGNING_KEY_ID=<reviewed-online-key-id>
+ONLINE_MANIFEST_SIGNING_KEY=<secret-seed>
+PUBLIC_COMMONS_VERIFYING_KEYS=<offline-id>:<offline-public-key>,<online-id>:<online-public-key>
+PUBLICATION_RECEIPT_VERIFYING_KEYS={"<receipt-id>":"<offline-receipt-public-key>"}
+```
+
+Add the online public key, but never its private seed, to the API's existing
+`PUBLIC_COMMONS_VERIFYING_KEYS` value before activating renewal. Keep the offline manifest and
+receipt keys in their encrypted operator-controlled storage; online renewal does not replace the
+offline release ceremony.
+
+#### 2. Create a bucket-scoped R2 writer
+
+Create a Cloudflare R2 API token limited to object read and write access for only
+`opennosh-public-commons`. Store it in the Render secret group `opennosh-r2-writer`, containing
+exactly:
+
+```text
+R2_ACCOUNT_ID=<account-id>
+R2_BUCKET=opennosh-public-commons
+R2_ACCESS_KEY_ID=<access-key-id>
+R2_SECRET_ACCESS_KEY=<secret-access-key>
+```
+
+Link both new groups only to `opennosh-publication`. The API and web services must receive neither
+private signing material nor R2 write credentials. Keep `opennosh-publication-forge` and
+`opennosh-governance-attester` unlinked during T33.3.
+
+#### 3. Activate and prove refresh-only behavior
+
+Apply the reviewed Blueprint only after both secret groups exist, the API trusts the online public
+key, and repository checks pass. Confirm the worker starts with
+`PUBLICATION_CLAIMS_ENABLED=false` and `LATEST_REFRESH_ENABLED=true`. Its sanitized runtime
+environment must not contain a database URL, database passwords, forge credentials, governance
+credentials, or sibling-service secrets.
+
+Capture `latest/v1.json` before and after the first eligible renewal. Verify its Ed25519 signature
+and confirm all of the following:
+
+```text
+release_version        unchanged
+manifest key/digest    unchanged
+manifest size/type     unchanged
+issued_at              advanced
+expires_at             advanced by the configured 23-hour lifetime
+```
+
+Re-fetch the manifest, receipt, one record, one provenance page, and one pack through the live API.
+They must resolve to the same immutable release and remain independently verified. Check the
+worker logs for one successful read-back and no repeated publication loop.
+
+#### 4. Failure handling and rollback
+
+An invalid current pointer, changed manifest, untrusted online key, or unavailable origin stops
+renewal before a write. A failure after R2 accepts the pointer, including a missing or mismatched
+read-back, stops the worker without claiming success; inspect and verify the live pointer before
+restarting. Restore the credential or origin and let Render restart the worker; never overwrite or
+delete immutable objects.
+
+To stop automation, disable or scale the publication worker to zero. Because the current pointer
+will then expire within 23 hours, schedule a reviewed offline pointer ceremony before stopping it
+for longer than that window. Disabling renewal does not authorize rolling back the checkpoint,
+rewriting R2 history, or enabling contribution publication.
+
+#### 5. Rotate the online manifest key
+
+Add the replacement public key to both the worker and API verifier rings before changing the online
+signing key ID or seed. Deploy and verify that trust-only change first, then update the worker's
+signing identity and confirm one new pointer is accepted by the live API. Retain the prior public key
+for at least 24 hours and until the live pointer and durable checkpoint both use the replacement key.
+Remove only the retired public key in a later reviewed deployment. Online receipt-key rotation and
+offline root-key rotation are separate ceremonies and remain outside T33.3.
 
 ## Pre-cutover verification
 

@@ -146,13 +146,16 @@ class PublicReadLatestPointer(BaseModel):
     schema_version: Literal["1"] = "1"
     release_version: Annotated[str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$")]
     manifest: ArtifactDescriptor
+    issued_at: datetime | None = None
     expires_at: datetime
 
-    @field_validator("expires_at")
+    @field_validator("issued_at", "expires_at")
     @classmethod
-    def require_aware_expiry(cls, value: datetime) -> datetime:
+    def require_aware_pointer_time(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
         if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("expires_at must include a timezone")
+            raise ValueError("pointer timestamps must include a timezone")
         return value.astimezone(UTC)
 
     @model_validator(mode="after")
@@ -359,12 +362,16 @@ class PublicArtifactReadService:
         manifest_keys: ManifestKeyRing,
         receipt_keys: PublicationReceiptKeyRing,
         checkpoint_path: Path | None = None,
+        max_cached_releases: int = 16,
     ) -> None:
         self._store = store
         self._cache_store = cache_store
         self._manifest_keys = manifest_keys
         self._receipt_keys = receipt_keys
+        if not 0 <= max_cached_releases <= 16:
+            raise ValueError("Release cache size must be between zero and 16")
         self._checkpoint_path = checkpoint_path
+        self._max_cached_releases = max_cached_releases
         self._checkpoint_lock = asyncio.Lock()
         self._pack_semaphore = asyncio.Semaphore(1)
         self._release_cache: OrderedDict[tuple[str, str], ResolvedRelease] = OrderedDict()
@@ -507,7 +514,9 @@ class PublicArtifactReadService:
         exact: bool,
     ) -> ResolvedRelease:
         cache_key = (expected_version, "exact" if exact else descriptor.digest)
-        cached = self._release_cache.get(cache_key)
+        cached = (
+            self._release_cache.get(cache_key) if self._max_cached_releases > 0 else None
+        )
         if cached is not None:
             self._release_cache.move_to_end(cache_key)
             return cached
@@ -560,10 +569,11 @@ class PublicArtifactReadService:
             stale_age_seconds=0,
         )
         release = ResolvedRelease(manifest, envelope, manifest_bytes, metadata)
-        self._release_cache[cache_key] = release
-        self._release_cache.move_to_end(cache_key)
-        while len(self._release_cache) > 16:
-            self._release_cache.popitem(last=False)
+        if self._max_cached_releases > 0:
+            self._release_cache[cache_key] = release
+            self._release_cache.move_to_end(cache_key)
+            while len(self._release_cache) > self._max_cached_releases:
+                self._release_cache.popitem(last=False)
         return release
 
     def _parse_pointer(self, payload: bytes) -> tuple[SignedEnvelope, PublicReadLatestPointer]:
@@ -663,6 +673,12 @@ class PublicArtifactReadService:
                         and previous.manifest.digest != pointer.manifest.digest
                     ):
                         raise ArtifactUnavailableError("latest_release_equivocation")
+                    if (
+                        candidate_version == previous_version
+                        and previous.manifest.digest == pointer.manifest.digest
+                        and pointer.expires_at < previous.expires_at
+                    ):
+                        raise ArtifactUnavailableError("latest_pointer_expiry_rollback")
                 _atomic_write(self._checkpoint_path, payload)
             finally:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
@@ -799,8 +815,9 @@ def _version_tuple(value: str) -> tuple[int, int, int, int]:
 def _validate_pointer_window(
     pointer: PublicReadLatestPointer, manifest: PublicReadReleaseManifest
 ) -> None:
+    issued_at = pointer.issued_at or manifest.published_at
     if not (
-        manifest.published_at < pointer.expires_at <= manifest.published_at + timedelta(hours=24)
+        manifest.published_at <= issued_at < pointer.expires_at <= issued_at + timedelta(hours=24)
     ):
         raise ArtifactUnavailableError("latest_pointer_lifetime_invalid")
 

@@ -22,8 +22,8 @@ def validate_benchmark_alignment(root: Path, manifest: CapacityManifest) -> None
         profile for profile in contract["profiles"] if profile["id"] == "launch-reference"
     )
     active_roles = {role for role, budget in manifest.roles.items() if budget.replicas > 0}
-    if active_roles != {ProcessRole.WEB}:
-        raise ValueError("The T15 harness must cover every active role; expected only the web role")
+    if active_roles != {ProcessRole.WEB, ProcessRole.PUBLICATION}:
+        raise ValueError("Production must activate exactly the web and bounded publication roles")
     web = manifest.roles[ProcessRole.WEB]
     if int(launch["concurrency"]) > web.worker_concurrency:
         raise ValueError("Launch benchmark concurrency exceeds the web role concurrency budget")

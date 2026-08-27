@@ -50,7 +50,7 @@ def test_worker_entrypoint_import_does_not_import_web_application(module: str) -
 
 def test_disabled_worker_entrypoint_refuses_to_start() -> None:
     with pytest.raises(ValueError, match="no replica allocation"):
-        _worker.run_reserved_worker(ProcessRole.PUBLICATION)
+        _worker.run_reserved_worker(ProcessRole.EVIDENCE)
 
 
 def test_enabled_worker_without_driver_refuses_to_claim_lanes(
@@ -58,7 +58,7 @@ def test_enabled_worker_without_driver_refuses_to_claim_lanes(
 ) -> None:
     source = Path(__file__).resolve().parents[2] / "config/database-capacity.v1.json"
     payload = json.loads(source.read_text(encoding="utf-8"))
-    payload["roles"]["publication"]["replicas"] = 1
+    payload["roles"]["evidence"]["replicas"] = 1
     manifest_path = tmp_path / "capacity.json"
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setattr(
@@ -68,7 +68,7 @@ def test_enabled_worker_without_driver_refuses_to_claim_lanes(
     )
 
     with pytest.raises(RuntimeError, match="no installed queue driver"):
-        _worker.run_reserved_worker(ProcessRole.PUBLICATION)
+        _worker.run_reserved_worker(ProcessRole.EVIDENCE)
 
 
 def test_web_entrypoint_uses_the_isolated_web_application(

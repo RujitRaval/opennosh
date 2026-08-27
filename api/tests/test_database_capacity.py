@@ -43,8 +43,8 @@ def test_canonical_manifest_reserves_recovery_capacity() -> None:
     report = preflight_report(manifest)
 
     assert manifest.roles[ProcessRole.WEB].allocated_connections == 12
-    assert report["total_committed_connections"] == 32
-    assert report["uncommitted_connections"] == 71
+    assert report["total_committed_connections"] == 38
+    assert report["uncommitted_connections"] == 65
     assert manifest.reserved_headroom.recovery == 6
     assert manifest.reserved_headroom.failover == 6
 
@@ -81,7 +81,7 @@ def test_inactive_worker_role_fails_closed() -> None:
     manifest = load_capacity_manifest()
 
     with pytest.raises(ValueError, match="no replica allocation"):
-        manifest.active_role_budget(ProcessRole.PUBLICATION)
+        manifest.active_role_budget(ProcessRole.EVIDENCE)
 
 
 def test_preflight_command_returns_nonzero_for_invalid_manifest(
@@ -99,7 +99,7 @@ def test_deployment_topology_must_match_every_manifest_replica() -> None:
     deployed = parse_deployed_role_counts(
         [
             "web=1",
-            "publication=0",
+            "publication=1",
             "evidence=0",
             "projection=0",
             "reconciler=0",

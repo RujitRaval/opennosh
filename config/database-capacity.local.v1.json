@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
-  "manifest_version": "2026-08-27",
-  "deployment_id": "render-production",
+  "manifest_version": "2026-08-25",
+  "deployment_id": "local-default",
   "postgresql_connection_ceiling": 103,
   "reserved_headroom": {
     "migrations": 2,
@@ -21,7 +21,7 @@
       "max_in_flight_database_sections": 12
     },
     "publication": {
-      "replicas": 1,
+      "replicas": 0,
       "pool_size": 6,
       "max_overflow": 0,
       "acquisition_timeout_ms": 1000,

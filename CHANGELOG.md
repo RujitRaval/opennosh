@@ -2,6 +2,25 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.58.0.0] - 2026-08-27
+
+### Added
+
+- Keep the verified public Commons reachable by renewing only its signed latest pointer on an hourly refresh-only worker, without rebuilding or replacing immutable releases.
+- Add the isolated Render publication worker, bucket-scoped Cloudflare R2 adapter, online Ed25519 signer, and complete provisioning, monitoring, rotation, rollback, and offline-fallback runbook.
+
+### Changed
+
+- Give each latest pointer its own signed issue time while preserving compatibility with the existing offline pointer.
+- Separate local and production database-capacity manifests so the live refresh worker is represented without granting the local worker database claims.
+- Raise the documented production baseline by $7 per month when the new Render Starter worker is activated, from $20.25 to $27.25.
+
+### Security
+
+- Reverify the current pointer, manifest, and publication receipt directly from R2 before every renewal, require a conditional If-Match write, and reverify the immutable release after exact readback.
+- Require decoded online, offline, and receipt signing keys to be independent; keep R2 and signing secrets out of API, web, database, Forge, and attester environments.
+- Bound every R2 operation and public-origin read with hard elapsed deadlines so a stalled SDK call cannot exceed Render's shutdown window.
+
 ## [0.57.0.1] - 2026-08-27
 
 ### Fixed

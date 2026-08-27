@@ -376,6 +376,46 @@ async def test_activation_rejects_manifest_size_mismatch_before_latest_moves(
 
 
 @pytest.mark.asyncio
+async def test_same_release_pointer_expiry_cannot_roll_back_checkpoint(tmp_path: Path) -> None:
+    service, store = await _published(tmp_path)
+    release = await service.resolve_release(release_version=RELEASE)
+    descriptor = artifact_descriptor(
+        f"releases/v1/release-{RELEASE}.json",
+        release.manifest_bytes,
+        "application/vnd.opennosh.release+json",
+    )
+    renewed = PublicReadLatestPointer(
+        release_version=RELEASE,
+        manifest=descriptor,
+        issued_at=NOW + timedelta(minutes=1),
+        expires_at=NOW + timedelta(hours=23),
+    )
+    store.objects["latest/v1.json"] = _sign(renewed.model_dump(mode="json"))
+    await service.food(
+        FoodSource.COMMUNITY,
+        "rajma-masala",
+        now=NOW + timedelta(minutes=2),
+    )
+    checkpoint = (tmp_path / "trusted-latest.json").read_bytes()
+
+    rollback = renewed.model_copy(
+        update={
+            "issued_at": NOW + timedelta(minutes=2),
+            "expires_at": NOW + timedelta(hours=22),
+        }
+    )
+    store.objects["latest/v1.json"] = _sign(rollback.model_dump(mode="json"))
+    result = await service.food(
+        FoodSource.COMMUNITY,
+        "rajma-masala",
+        now=NOW + timedelta(minutes=3),
+    )
+
+    assert result.release.state == "stale"
+    assert (tmp_path / "trusted-latest.json").read_bytes() == checkpoint
+
+
+@pytest.mark.asyncio
 async def test_tampered_record_is_never_exposed(tmp_path: Path) -> None:
     service, store = await _published(tmp_path)
     release = await service.resolve_release(release_version=RELEASE)

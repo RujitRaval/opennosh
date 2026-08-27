@@ -12,10 +12,13 @@ The required invariant is:
 sum(role replicas x role pool size) + reserved headroom <= PostgreSQL connection ceiling
 ```
 
-The default local and Render deployment commits 12 application connections and reserves 20
-connections for migrations, administration, monitoring, recovery, and failover.
-71 connections remain uncommitted. Every SQLAlchemy application pool sets `max_overflow=0`; no role
-can borrow reserved headroom.
+The Render deployment reserves 18 application connections: 12 for web and six for the single
+publication worker. With 20 connections reserved for migrations, administration, monitoring,
+recovery, and failover, 65 connections remain in production. The T33.3 worker starts in
+refresh-only mode and opens no database pool, but its future claim capacity is reserved before the
+replica is created. Local Compose uses `database-capacity.local.v1.json`, commits only the 12 web
+connections, and 71 remain locally. Every SQLAlchemy application pool sets `max_overflow=0`; no
+role can borrow reserved headroom.
 
 ## Startup order
 
@@ -37,13 +40,12 @@ make database-capacity-check
 ## Role boundaries
 
 The packaged application exposes independent commands for web, publication, evidence, projection,
-reconciliation, and scheduling. Each role declares only its owned queue lanes and adapters. The
-default manifest activates the real web role and assigns zero replicas to future workers. A disabled
-worker fails closed; enabling a replica before its queue driver is installed also fails instead of
-running an inert process. The publication role now has a real PgQueuer driver and reserves one of
-its six pooled connections for queue coordination by limiting concurrent database sections to five.
-T2 supplies the governed forge, but the replica count remains zero until the evidence and
-signed-receipt adapters land and the live forge Apps and protected ruleset are configured.
+reconciliation, and scheduling. Each role declares only its owned queue lanes and adapters. Local
+Compose activates web only. Render activates web plus one publication process. In T33.3 that
+publication process is structurally refresh-only: it receives no database URL, constructs no
+PgQueuer driver, and cannot claim contribution work. The six-connection publication budget remains
+reserved for the later T33.4 claims activation. A missing mode or dependency fails before the
+process starts instead of running an inert or partially privileged worker.
 
 Production deployments must give each activated role its own least-privilege database URL, such as
 `WEB_DATABASE_URL` or `PUBLICATION_DATABASE_URL`. The migration and administration jobs use
