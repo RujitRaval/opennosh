@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.56.0.1] - 2026-08-27
+
+### Fixed
+
+- Keep the signed public Commons available during PostgreSQL outages by separating shallow web-process liveness from database readiness.
+- Protect the production health-check boundary with automated tests and document both operator endpoints.
+
 ## [0.56.0.0] - 2026-08-26
 
 ### Added
