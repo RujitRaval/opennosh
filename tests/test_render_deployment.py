@@ -59,8 +59,15 @@ class FakeTransaction:
 
 
 class FakeConnection:
-    def __init__(self, *, existing_roles: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        existing_roles: set[str] | None = None,
+        unbounded_roles: set[str] | None = None,
+    ) -> None:
         self.existing_roles = existing_roles or set()
+        self.unbounded_roles = unbounded_roles or set()
+        self.bounded_checks: list[str] = []
         self.executed: list[str] = []
         self.closed = False
 
@@ -72,6 +79,10 @@ class FakeConnection:
             return f'"{arguments[0]}"'
         if "quote_literal" in query:
             return "'" + str(arguments[0]).replace("'", "''") + "'"
+        if "SELECT NOT" in query and "pg_roles" in query:
+            role = str(arguments[0])
+            self.bounded_checks.append(role)
+            return role not in self.unbounded_roles
         if "pg_roles" in query:
             return arguments[0] in self.existing_roles
         raise AssertionError(f"Unexpected query: {query}")
@@ -407,9 +418,11 @@ async def test_render_role_bootstrap_is_idempotent_and_always_closes(
     alter_statements = [statement for statement in connection.executed if "ALTER ROLE" in statement]
     assert len(create_statements) == (0 if existing_roles else 2)
     assert len(alter_statements) == 2
-    assert all("NOSUPERUSER" in statement for statement in alter_statements)
-    assert all("NOREPLICATION" in statement for statement in alter_statements)
-    assert all("NOCREATEDB NOCREATEROLE" in statement for statement in alter_statements)
+    assert all("SUPERUSER" not in statement for statement in alter_statements)
+    assert all("REPLICATION" not in statement for statement in alter_statements)
+    assert all("BYPASSRLS" not in statement for statement in alter_statements)
+    assert all("NOCREATEDB NOCREATEROLE NOINHERIT" in statement for statement in alter_statements)
+    assert set(connection.bounded_checks) == {MIGRATION_ROLE, WEB_ROLE}
     assert any("GRANT CREATE ON DATABASE" in statement for statement in connection.executed)
     assert not any("ALTER SCHEMA public OWNER" in statement for statement in connection.executed)
     assert any(
@@ -443,15 +456,11 @@ async def test_render_publication_role_is_optional_bounded_and_rotated() -> None
     publication_alter = next(
         statement for statement in alter_statements if PUBLICATION_ROLE in statement
     )
-    for denied_capability in (
-        "NOSUPERUSER",
-        "NOCREATEDB",
-        "NOCREATEROLE",
-        "NOINHERIT",
-        "NOREPLICATION",
-        "NOBYPASSRLS",
-    ):
+    for denied_capability in ("NOCREATEDB", "NOCREATEROLE", "NOINHERIT"):
         assert denied_capability in publication_alter
+    for superuser_only_capability in ("SUPERUSER", "REPLICATION", "BYPASSRLS"):
+        assert superuser_only_capability not in publication_alter
+    assert set(connection.bounded_checks) == {MIGRATION_ROLE, WEB_ROLE, PUBLICATION_ROLE}
     assert any(
         f"GRANT USAGE ON SCHEMA public TO {PUBLICATION_ROLE}" in statement
         for statement in connection.executed
@@ -477,6 +486,25 @@ async def test_render_role_bootstrap_closes_after_a_database_failure(
 
     monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
     with pytest.raises(RuntimeError, match="database failure"):
+        await ensure_database_roles(
+            _database_url(),
+            "migration-secret",
+            "web-secret",
+        )
+    assert connection.closed is True
+
+
+@pytest.mark.asyncio
+async def test_render_role_bootstrap_fails_closed_for_an_unbounded_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection(unbounded_roles={WEB_ROLE})
+
+    async def connect(_dsn: str) -> FakeConnection:
+        return connection
+
+    monkeypatch.setattr("deploy.render_runtime.asyncpg.connect", connect)
+    with pytest.raises(RuntimeError, match=f"Database role {WEB_ROLE} is not bounded"):
         await ensure_database_roles(
             _database_url(),
             "migration-secret",

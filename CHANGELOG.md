@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.58.0.2] - 2026-08-27
+
+### Fixed
+
+- Restore production API pre-deploys under Render's bounded PostgreSQL owner by avoiding superuser-only role alterations while independently verifying that every application role remains non-privileged.
+
 ## [0.58.0.1] - 2026-08-27
 
 ### Fixed
