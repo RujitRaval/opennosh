@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Iterator
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
@@ -10,6 +12,7 @@ from alembic import command
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from opennosh_api.auth.client_address import client_address
+from opennosh_api.auth.dependencies import get_optional_session
 from opennosh_api.auth.rate_limit import enforce_auth_rate_limit
 from opennosh_api.auth.schemas import Credentials
 from opennosh_api.auth.tokens import hash_token
@@ -313,6 +316,33 @@ def test_client_address_only_trusts_authenticated_proxy_headers() -> None:
     assert client_address(spoofed, settings) == "203.0.113.5"
     assert client_address(trusted, settings) == "2001:db8::10"
     assert client_address(invalid_address, settings) == "172.20.0.4"
+
+
+def test_optional_session_rejects_unknown_cookie_and_returns_valid_row() -> None:
+    settings = Settings(app_environment="test", _env_file=None)
+    request = Request(
+        {
+            "type": "http",
+            "headers": [
+                (
+                    b"cookie",
+                    f"{settings.session_cookie_name}=session-token".encode(),
+                )
+            ],
+        }
+    )
+    user = SimpleNamespace(id="user-id")
+    session = SimpleNamespace(id="session-id")
+    result = MagicMock()
+    result.one_or_none.side_effect = [None, (session, user)]
+    database = AsyncMock()
+    database.execute.return_value = result
+
+    assert asyncio.run(get_optional_session(request, database, settings)) is None
+    current = asyncio.run(get_optional_session(request, database, settings))
+    assert current is not None
+    assert current.user is user
+    assert current.session is session
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -678,3 +708,45 @@ def test_password_change_and_account_deletion_are_self_service(auth_client: Test
         ).status_code
         == 401
     )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_account_security_actions_reject_wrong_password(auth_client: TestClient) -> None:
+    registered = auth_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "security-actions@example.test",
+            "password": "a sufficiently long password",
+        },
+    )
+    csrf = registered.json()["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+
+    responses = (
+        auth_client.put(
+            "/api/v1/auth/account/password",
+            headers=headers,
+            json={
+                "current_password": "the wrong password",
+                "new_password": "a stronger replacement password",
+            },
+        ),
+        auth_client.post(
+            "/api/v1/auth/account/recovery-code",
+            headers=headers,
+            json={"password": "the wrong password"},
+        ),
+        auth_client.request(
+            "DELETE",
+            "/api/v1/auth/account",
+            headers=headers,
+            json={"password": "the wrong password"},
+        ),
+    )
+
+    for response in responses:
+        assert response.status_code == 401
+        body = response.json()
+        assert body["code"] == "authentication_required"
+        assert body["detail"] == "Invalid email or password"
+    assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is True
