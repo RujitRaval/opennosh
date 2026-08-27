@@ -45,6 +45,8 @@ services:
         generateValue: true
       - key: MIGRATION_DATABASE_PASSWORD
         generateValue: true
+      - key: PUBLICATION_DATABASE_PASSWORD
+        generateValue: true
       - key: TRUSTED_WEB_PROXY_TOKEN
         generateValue: true
       - key: FOOD_SEARCH_CURSOR_SECRET
@@ -55,6 +57,40 @@ services:
         value: /var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json
       - key: PUBLIC_ARTIFACT_CACHE_DIRECTORY
         value: /var/lib/opennosh/public-artifacts/cache
+
+  - type: worker
+    name: opennosh-publication
+    runtime: docker
+    plan: starter
+    region: ohio
+    repo: https://github.com/RujitRaval/opennosh
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./api/Dockerfile
+    dockerCommand: python deploy/render_runtime.py publication
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: DATABASE_CAPACITY_MANIFEST_PATH
+        value: /app/config/database-capacity.v1.json
+      - key: PUBLICATION_CLAIMS_ENABLED
+        value: "false"
+      - key: LATEST_REFRESH_ENABLED
+        value: "true"
+      - key: LATEST_REFRESH_INTERVAL_SECONDS
+        value: "3600"
+      - key: LATEST_REFRESH_AFTER_SECONDS
+        value: "72000"
+      - key: LATEST_POINTER_LIFETIME_SECONDS
+        value: "82800"
+      - key: PUBLIC_ARTIFACT_BASE_URL
+        value: https://commons-artifacts.opennosh.org
+      - key: PUBLIC_ARTIFACT_TIMEOUT_SECONDS
+        value: "2"
+      - fromGroup: opennosh-online-manifest-signer
+      - fromGroup: opennosh-r2-writer
 
   - type: web
     name: opennosh-web

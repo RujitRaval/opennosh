@@ -55,6 +55,19 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "DATABASE_CAPACITY_MANIFEST_PATH",
     "PUBLICATION_CLAIMS_ENABLED",
     "LATEST_REFRESH_ENABLED",
+    "LATEST_REFRESH_INTERVAL_SECONDS",
+    "LATEST_REFRESH_AFTER_SECONDS",
+    "LATEST_POINTER_LIFETIME_SECONDS",
+    "PUBLIC_ARTIFACT_BASE_URL",
+    "PUBLIC_ARTIFACT_TIMEOUT_SECONDS",
+    "PUBLIC_COMMONS_VERIFYING_KEYS",
+    "PUBLICATION_RECEIPT_VERIFYING_KEYS",
+    "ONLINE_MANIFEST_SIGNING_KEY_ID",
+    "ONLINE_MANIFEST_SIGNING_KEY",
+    "R2_ACCOUNT_ID",
+    "R2_BUCKET",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
 )
 
 ROLE_DATABASE_URLS = (
@@ -127,19 +140,26 @@ def api_environment(source: Mapping[str, str]) -> dict[str, str]:
 
 
 def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
-    """Build the worker environment without retaining owner or sibling-role credentials."""
+    """Build a mode-bounded worker environment without retaining sibling credentials."""
 
-    owner_url = _required(source, "RENDER_DATABASE_URL")
-    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
     environment = {
         key: value for key in PUBLICATION_ENVIRONMENT_KEYS if (value := source.get(key)) is not None
     }
+    claims_enabled = environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true"
+    refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
+    if claims_enabled and refresh_enabled:
+        raise ValueError("Combined publication claims and latest refresh activate in T33.4")
+    if not claims_enabled and not refresh_enabled:
+        raise ValueError("Publication worker requires an enabled runtime mode")
     environment["PROCESS_ROLE"] = "publication"
-    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
-        owner_url,
-        PUBLICATION_ROLE,
-        publication_password,
-    )
+    if claims_enabled:
+        owner_url = _required(source, "RENDER_DATABASE_URL")
+        publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+        environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+            owner_url,
+            PUBLICATION_ROLE,
+            publication_password,
+        )
     return environment
 
 
@@ -282,7 +302,7 @@ def run_predeploy(source: Mapping[str, str]) -> None:
             "--deployed-role",
             "web=1",
             "--deployed-role",
-            "publication=0",
+            "publication=1",
             "--deployed-role",
             "evidence=0",
             "--deployed-role",

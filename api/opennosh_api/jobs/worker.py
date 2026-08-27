@@ -20,12 +20,21 @@ from opennosh_api.jobs.pgqueuer import (
     build_queries,
     decode_message,
 )
+from opennosh_api.public.artifacts import HttpArtifactStore
+from opennosh_api.public.r2 import S3R2ObjectWriter
+from opennosh_api.public.refresh import (
+    LatestPointerRefreshService,
+    run_latest_pointer_refresh_loop,
+)
+from opennosh_api.public.signing import load_production_signing_key
+from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.adapters import (
     PublicationAdapterRegistry,
     PublicationEffectAdapter,
 )
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
+from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.publication.repository import PostgresPublicationRepository
 from opennosh_api.publication.state import PublicationStepName
 from opennosh_api.runtime import supervise_role
@@ -211,14 +220,70 @@ async def create_publication_role_driver(
     )
 
 
+def create_latest_pointer_refresh_service(settings: Settings) -> LatestPointerRefreshService:
+    """Construct every refresh dependency before the first R2 write."""
+
+    if not settings.latest_refresh_enabled or settings.publication_claims_enabled:
+        raise RuntimeError("Refresh-only construction requires claims disabled and refresh enabled")
+    if (
+        settings.public_artifact_base_url is None
+        or settings.online_manifest_signing_key_id is None
+        or settings.online_manifest_signing_key is None
+        or settings.r2_account_id is None
+        or settings.r2_bucket is None
+        or settings.r2_access_key_id is None
+        or settings.r2_secret_access_key is None
+    ):
+        raise RuntimeError("Refresh-only publication settings are incomplete")
+    signing_key = load_production_signing_key(
+        settings.online_manifest_signing_key,
+        key_id=settings.online_manifest_signing_key_id,
+    )
+    return LatestPointerRefreshService(
+        origin=HttpArtifactStore(
+            settings.public_artifact_base_url,
+            timeout_seconds=settings.public_artifact_timeout_seconds,
+        ),
+        writer=S3R2ObjectWriter(
+            account_id=settings.r2_account_id,
+            access_key_id=settings.r2_access_key_id.get_secret_value(),
+            secret_access_key=settings.r2_secret_access_key.get_secret_value(),
+        ),
+        bucket=settings.r2_bucket,
+        manifest_keys=ManifestKeyRing.from_config(settings.public_commons_verifying_keys),
+        receipt_keys=PublicationReceiptKeyRing.from_json(
+            settings.publication_receipt_verifying_keys.get_secret_value()
+        ),
+        signing_key_id=settings.online_manifest_signing_key_id,
+        signing_key=signing_key,
+        refresh_after_seconds=settings.latest_refresh_after_seconds,
+        pointer_lifetime_seconds=settings.latest_pointer_lifetime_seconds,
+        origin_timeout_seconds=settings.public_artifact_timeout_seconds,
+    )
+
+
 async def _run_publication_worker(
     adapters: PublicationAdapterRegistry | None = None,
+    *,
+    settings: Settings | None = None,
+    refresh_service: LatestPointerRefreshService | None = None,
 ) -> None:
-    driver = await create_publication_role_driver(adapters=adapters)
+    configured = settings or get_settings()
+    if configured.latest_refresh_enabled and configured.publication_claims_enabled:
+        raise RuntimeError("Combined publication claims and latest refresh activate in T33.4")
     shutdown_requested = asyncio.Event()
     loop = asyncio.get_running_loop()
     for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(shutdown_signal, shutdown_requested.set)
+    if configured.latest_refresh_enabled:
+        service = refresh_service or create_latest_pointer_refresh_service(configured)
+        await run_latest_pointer_refresh_loop(
+            service,
+            shutdown_requested,
+            interval_seconds=configured.latest_refresh_interval_seconds,
+        )
+        return
+    driver = await create_publication_role_driver(settings=configured, adapters=adapters)
     await supervise_role(
         driver,
         shutdown_requested,

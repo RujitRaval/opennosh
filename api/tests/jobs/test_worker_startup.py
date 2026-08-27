@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import pytest
 from opennosh_api.jobs.worker import (
+    _run_publication_worker,
     create_publication_role_driver,
     validate_production_adapter_registry,
 )
@@ -73,3 +74,66 @@ async def test_production_worker_rejects_missing_adapters_before_opening_a_pool(
 
     with pytest.raises(RuntimeError, match="requires canonical adapters"):
         await create_publication_role_driver(cast(Any, settings))
+
+
+@pytest.mark.asyncio
+async def test_refresh_only_worker_never_constructs_the_queue_driver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=True,
+        publication_claims_enabled=False,
+        latest_refresh_interval_seconds=3600.0,
+    )
+    service = cast(Any, object())
+    calls: list[tuple[object, object, float]] = []
+
+    async def forbidden_queue_driver(**_arguments: object) -> None:
+        raise AssertionError("refresh-only mode constructed the publication queue")
+
+    async def capture_refresh_loop(
+        supplied_service: object,
+        shutdown: object,
+        *,
+        interval_seconds: float,
+    ) -> None:
+        calls.append((supplied_service, shutdown, interval_seconds))
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        forbidden_queue_driver,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_latest_pointer_refresh_loop",
+        capture_refresh_loop,
+    )
+
+    await _run_publication_worker(
+        settings=cast(Any, settings),
+        refresh_service=service,
+    )
+
+    assert len(calls) == 1
+    assert calls[0][0] is service
+    assert calls[0][2] == 3600.0
+
+
+@pytest.mark.asyncio
+async def test_combined_claims_and_refresh_fail_before_runtime_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=True,
+        publication_claims_enabled=True,
+    )
+
+    async def forbidden_queue_driver(**_arguments: object) -> None:
+        raise AssertionError("combined mode reached queue construction")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        forbidden_queue_driver,
+    )
+
+    with pytest.raises(RuntimeError, match="T33.4"):
+        await _run_publication_worker(settings=cast(Any, settings))

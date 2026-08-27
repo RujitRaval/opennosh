@@ -1,4 +1,5 @@
 import json
+import re
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +27,9 @@ def _manifest_key_config_uses_nonproduction_key(value: str) -> bool:
         key_id in NON_PRODUCTION_KEY_IDS or encoded in NON_PRODUCTION_PUBLIC_KEYS
         for key_id, _, encoded in entries
     )
+
+
+_R2_BUCKET = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$")
 
 
 def _receipt_key_config_uses_nonproduction_key(value: SecretStr) -> bool:
@@ -88,6 +92,17 @@ class Settings(BaseSettings):
     public_artifact_checkpoint_path: Path | None = None
     public_artifact_cache_directory: Path | None = None
     public_artifact_timeout_seconds: PositiveFloat = 3.0
+    publication_claims_enabled: bool = False
+    latest_refresh_enabled: bool = False
+    latest_refresh_interval_seconds: PositiveFloat = 3_600.0
+    latest_refresh_after_seconds: PositiveInt = 72_000
+    latest_pointer_lifetime_seconds: PositiveInt = 82_800
+    online_manifest_signing_key_id: str | None = None
+    online_manifest_signing_key: SecretStr | None = None
+    r2_account_id: str | None = None
+    r2_bucket: str | None = None
+    r2_access_key_id: SecretStr | None = None
+    r2_secret_access_key: SecretStr | None = None
     publication_receipt_verifying_keys: SecretStr = SecretStr(
         '{"development":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
     )
@@ -167,6 +182,13 @@ class Settings(BaseSettings):
         ):
             raise ValueError("Public artifact origin must be a safe HTTPS URL")
         return normalized
+
+    @field_validator("r2_bucket")
+    @classmethod
+    def validate_r2_bucket(cls, value: str | None) -> str | None:
+        if value is not None and not _R2_BUCKET.fullmatch(value):
+            raise ValueError("R2 bucket name must match Cloudflare naming requirements")
+        return value
 
     @field_validator("evidence_verifying_keys")
     @classmethod
@@ -248,6 +270,92 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        publication_secret_values = (
+            self.online_manifest_signing_key_id,
+            self.online_manifest_signing_key,
+            self.r2_account_id,
+            self.r2_bucket,
+            self.r2_access_key_id,
+            self.r2_secret_access_key,
+        )
+        has_publication_secrets = any(value is not None for value in publication_secret_values)
+        if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
+            if not self.publication_claims_enabled and not self.latest_refresh_enabled:
+                raise ValueError("Production publication workers require an enabled runtime mode")
+        elif self.app_environment == "production" and (
+            self.publication_claims_enabled
+            or self.latest_refresh_enabled
+            or has_publication_secrets
+        ):
+            raise ValueError(
+                "Publication credentials and modes are restricted to the publication worker"
+            )
+        if self.latest_refresh_enabled:
+            required_refresh_values = {
+                "PUBLIC_ARTIFACT_BASE_URL": self.public_artifact_base_url,
+                "ONLINE_MANIFEST_SIGNING_KEY_ID": self.online_manifest_signing_key_id,
+                "ONLINE_MANIFEST_SIGNING_KEY": self.online_manifest_signing_key,
+                "R2_ACCOUNT_ID": self.r2_account_id,
+                "R2_BUCKET": self.r2_bucket,
+                "R2_ACCESS_KEY_ID": self.r2_access_key_id,
+                "R2_SECRET_ACCESS_KEY": self.r2_secret_access_key,
+            }
+            missing = sorted(key for key, value in required_refresh_values.items() if value is None)
+            if missing:
+                raise ValueError(
+                    "Latest pointer refresh configuration is incomplete: " + ",".join(missing)
+                )
+            if not (
+                self.latest_refresh_interval_seconds
+                <= self.latest_pointer_lifetime_seconds - self.latest_refresh_after_seconds
+                and self.latest_refresh_after_seconds
+                < self.latest_pointer_lifetime_seconds
+                <= 86_400
+            ):
+                raise ValueError(
+                    "Latest pointer refresh timing cannot guarantee pre-expiry renewal"
+                )
+            assert self.online_manifest_signing_key is not None
+            assert self.online_manifest_signing_key_id is not None
+            from opennosh_api.public.signing import (
+                decode_public_key_text,
+                load_production_signing_key,
+                public_key_text,
+            )
+
+            online_key = load_production_signing_key(
+                self.online_manifest_signing_key,
+                key_id=self.online_manifest_signing_key_id,
+            )
+            online_public_key = public_key_text(online_key)
+            manifest_entries = tuple(
+                entry.partition(":") for entry in self.public_commons_verifying_keys.split(",")
+            )
+            trusted_entry = (self.online_manifest_signing_key_id, ":", online_public_key)
+            if trusted_entry not in manifest_entries:
+                raise ValueError(
+                    "Online manifest signing key must be present in the verifying key ring"
+                )
+            online_public_key_bytes = decode_public_key_text(online_public_key)
+            independent_manifest_keys = tuple(
+                decode_public_key_text(encoded)
+                for key_id, _, encoded in manifest_entries
+                if key_id != self.online_manifest_signing_key_id
+            )
+            receipt_public_keys = tuple(
+                decode_public_key_text(encoded)
+                for encoded in json.loads(
+                    self.publication_receipt_verifying_keys.get_secret_value()
+                ).values()
+            )
+            if (
+                not independent_manifest_keys
+                or online_public_key_bytes in independent_manifest_keys
+                or online_public_key_bytes in receipt_public_keys
+            ):
+                raise ValueError(
+                    "Online manifest signing key must be independent from offline and receipt keys"
+                )
         if (self.evidence_private_source_directory is None) != (
             self.evidence_immutable_directory is None
         ):
@@ -271,13 +379,19 @@ class Settings(BaseSettings):
         artifact_adapter_configured = (
             self.public_artifact_directory is not None or self.public_artifact_base_url is not None
         )
-        if artifact_adapter_configured and self.public_artifact_checkpoint_path is None:
+        artifact_reader_state_required = self.process_role in {None, ProcessRole.WEB}
+        if (
+            artifact_adapter_configured
+            and artifact_reader_state_required
+            and self.public_artifact_checkpoint_path is None
+        ):
             raise ValueError("Public artifact reads require a durable checkpoint path")
         if self.app_environment == "production" and self.public_artifact_directory is not None:
             raise ValueError("Production public artifacts require an HTTPS object-store origin")
         if (
             self.app_environment == "production"
             and self.public_artifact_base_url is not None
+            and artifact_reader_state_required
             and self.public_artifact_cache_directory is None
         ):
             raise ValueError("Production public artifact reads require a durable verified cache")

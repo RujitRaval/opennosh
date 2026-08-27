@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
 import hashlib
 import hmac
 import html
@@ -13,15 +11,13 @@ import os
 import re
 import stat
 import zipfile
-from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from opennosh_api.evidence.contracts import (
     EvidenceAcknowledgement,
@@ -31,7 +27,6 @@ from opennosh_api.evidence.contracts import (
 from opennosh_api.foodpacks.loader import CommunityFoodRecord, prepare_food_pack
 from opennosh_api.foodpacks.validation import discover_pack_directories
 from opennosh_api.foods.schemas import FoodAttribution, FoodDetail, FoodSource
-from opennosh_api.nonproduction_keys import NON_PRODUCTION_KEY_IDS, NON_PRODUCTION_PUBLIC_KEYS
 from opennosh_api.nutrition import HouseholdPortion
 from opennosh_api.public.artifacts import (
     ArtifactDescriptor,
@@ -43,7 +38,12 @@ from opennosh_api.public.artifacts import (
     PublicReadReleaseManifest,
     artifact_descriptor,
 )
-from opennosh_api.public_commons.manifests import ManifestKeyRing, SignedEnvelope, canonical_json
+from opennosh_api.public.signing import (
+    load_production_signing_key,
+    public_key_text,
+    sign_envelope,
+)
+from opennosh_api.public_commons.manifests import ManifestKeyRing, canonical_json
 from opennosh_api.publication.receipts import (
     Ed25519ReceiptSigner,
     PublicationReceiptDraft,
@@ -130,15 +130,15 @@ def build_starter_release(
         if key_path.resolve(strict=True).is_relative_to(repository_root):
             raise ValueError("Private signing keys must be stored outside the repository")
 
-    manifest_key = _load_production_key(
-        manifest_private_key_path,
+    manifest_key = load_production_signing_key(
+        SecretStr(_read_production_key(manifest_private_key_path)),
         key_id=manifest_key_id,
     )
-    receipt_private_key = _load_production_key(
-        receipt_private_key_path,
+    receipt_private_key = load_production_signing_key(
+        SecretStr(_read_production_key(receipt_private_key_path)),
         key_id=receipt_key_id,
     )
-    if _public_key_text(manifest_key) == _public_key_text(receipt_private_key):
+    if public_key_text(manifest_key) == public_key_text(receipt_private_key):
         raise ValueError("Manifest and receipt signing keys must be independent")
 
     root = packs_root.resolve(strict=True)
@@ -238,7 +238,7 @@ def build_starter_release(
         foods=tuple(sorted(foods, key=lambda item: (item.source.value, item.source_id))),
         packs=tuple(sorted(packs, key=lambda item: (item.pack_id, item.pack_version))),
     )
-    manifest_bytes = _sign_envelope(
+    manifest_bytes = sign_envelope(
         manifest.model_dump(mode="json"),
         key_id=manifest_key_id,
         private_key=manifest_key,
@@ -265,9 +265,10 @@ def build_starter_release(
     pointer = PublicReadLatestPointer(
         release_version=release_version,
         manifest=manifest_descriptor,
+        issued_at=published_at,
         expires_at=published_at + timedelta(hours=23),
     )
-    pointer_bytes = _sign_envelope(
+    pointer_bytes = sign_envelope(
         pointer.model_dump(mode="json"),
         key_id=manifest_key_id,
         private_key=manifest_key,
@@ -315,9 +316,9 @@ def build_starter_release(
         source_commit=source_commit,
         source_inventory_digest=source_inventory_digest,
         manifest_key_id=manifest_key_id,
-        manifest_verifying_key=_public_key_text(manifest_key),
+        manifest_verifying_key=public_key_text(manifest_key),
         receipt_key_id=receipt_key_id,
-        receipt_verifying_key=_public_key_text(receipt_private_key),
+        receipt_verifying_key=public_key_text(receipt_private_key),
         food_count=len(foods),
         pack_count=len(packs),
         total_bytes=sum(item.size_bytes for item in object_inventory),
@@ -593,48 +594,13 @@ def _bootstrap_receipt(
     ).sign(draft)
 
 
-def _load_production_key(path: Path, *, key_id: str) -> Ed25519PrivateKey:
-    if not _KEY_ID.fullmatch(key_id) or key_id in NON_PRODUCTION_KEY_IDS:
-        raise ValueError("Production signing key ID is invalid or reserved")
+def _read_production_key(path: Path) -> str:
     if path.is_symlink():
         raise ValueError("Private signing key path cannot be a symbolic link")
     mode = stat.S_IMODE(path.stat().st_mode)
     if mode & 0o077:
         raise PermissionError("Private signing key must not be accessible by group or others")
-    encoded = path.read_text(encoding="ascii").strip()
-    try:
-        key_bytes = base64.urlsafe_b64decode(f"{encoded}{'=' * (-len(encoded) % 4)}")
-    except (ValueError, binascii.Error) as error:
-        raise ValueError("Private signing key is not valid base64url") from error
-    if len(key_bytes) != 32:
-        raise ValueError("Private signing key must contain exactly 32 bytes")
-    key = Ed25519PrivateKey.from_private_bytes(key_bytes)
-    if _public_key_text(key) in NON_PRODUCTION_PUBLIC_KEYS:
-        raise ValueError("Nonproduction signing keys cannot build a production release")
-    return key
-
-
-def _public_key_text(private_key: Ed25519PrivateKey) -> str:
-    payload = private_key.public_key().public_bytes(
-        serialization.Encoding.Raw,
-        serialization.PublicFormat.Raw,
-    )
-    return base64.urlsafe_b64encode(payload).decode().rstrip("=")
-
-
-def _sign_envelope(
-    payload: Mapping[str, object],
-    *,
-    key_id: str,
-    private_key: Ed25519PrivateKey,
-) -> bytes:
-    signature = base64.urlsafe_b64encode(private_key.sign(canonical_json(payload))).decode()
-    envelope = SignedEnvelope(
-        key_id=key_id,
-        payload=dict(payload),
-        signature=signature.rstrip("="),
-    )
-    return canonical_json(envelope.model_dump(mode="json"))
+    return path.read_text(encoding="ascii").strip()
 
 
 def _inventory_object(

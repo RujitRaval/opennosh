@@ -19,7 +19,7 @@ class DatabaseCapacityDeploymentTests(unittest.TestCase):
         services = compose["services"]
 
         self.assertIn("capacity-preflight", services)
-        manifest = load_capacity_manifest(ROOT / "config/database-capacity.v1.json")
+        manifest = load_capacity_manifest(ROOT / "config/database-capacity.local.v1.json")
         self.assertEqual(
             services["db"]["command"],
             [
@@ -115,11 +115,30 @@ class DatabaseCapacityDeploymentTests(unittest.TestCase):
         self.assertIn("artifact-origin api web", makefile)
         self.assertIn("down --volumes --remove-orphans", makefile)
 
+    def test_local_and_production_capacity_manifests_differ_only_by_topology(self) -> None:
+        production = json.loads(
+            (ROOT / "config/database-capacity.v1.json").read_text(encoding="utf-8")
+        )
+        local = json.loads(
+            (ROOT / "config/database-capacity.local.v1.json").read_text(encoding="utf-8")
+        )
+        for payload in (production, local):
+            payload.pop("manifest_version")
+            payload.pop("deployment_id")
+        production["roles"]["publication"]["replicas"] = 0
+
+        self.assertEqual(production, local)
+
     def test_runbook_capacity_arithmetic_matches_the_manifest(self) -> None:
-        manifest = load_capacity_manifest(ROOT / "config/database-capacity.v1.json")
+        production = load_capacity_manifest(ROOT / "config/database-capacity.v1.json")
+        local = load_capacity_manifest(ROOT / "config/database-capacity.local.v1.json")
         runbook = (ROOT / "docs/operations/database-capacity.md").read_text(encoding="utf-8")
 
-        self.assertIn(f"{manifest.uncommitted_connections} connections remain", runbook)
+        self.assertIn(
+            f"{production.uncommitted_connections} connections remain in production",
+            runbook,
+        )
+        self.assertIn(f"{local.uncommitted_connections} remain locally", runbook)
 
     def test_web_container_never_runs_migrations_inline(self) -> None:
         dockerfile = (ROOT / "api/Dockerfile").read_text(encoding="utf-8")
@@ -150,10 +169,10 @@ class DatabaseCapacityDeploymentTests(unittest.TestCase):
         payload = json.loads(
             (ROOT / "config/database-capacity.v1.json").read_text(encoding="utf-8")
         )
-        payload["roles"]["publication"]["replicas"] = 1
+        payload["roles"]["evidence"]["replicas"] = 1
         manifest = CapacityManifest.model_validate(payload)
 
-        with self.assertRaisesRegex(ValueError, "cover every active role"):
+        with self.assertRaisesRegex(ValueError, "exactly the web and bounded publication roles"):
             validate_benchmark_alignment(ROOT, manifest)
 
 

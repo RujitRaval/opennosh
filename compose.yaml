@@ -23,7 +23,7 @@ services:
     command:
       - opennosh-capacity-preflight
       - --manifest
-      - /app/config/database-capacity.v1.json
+      - /app/config/database-capacity.local.v1.json
       - --require-live-database
       - --require-deployment-topology
       - --deployed-role
@@ -55,7 +55,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:-}
-      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.v1.json
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.local.v1.json
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
     depends_on:
       capacity-preflight:
@@ -74,7 +74,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
       WEB_DATABASE_URL: ${WEB_DATABASE_URL:-}
-      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.v1.json
+      DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.local.v1.json
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       TRUSTED_WEB_PROXY_TOKEN: ${WEB_PROXY_TOKEN:-opennosh-local-web-proxy-token-2026}
       FOOD_SEARCH_RATE_LIMIT_ATTEMPTS: ${FOOD_SEARCH_RATE_LIMIT_ATTEMPTS:-120}

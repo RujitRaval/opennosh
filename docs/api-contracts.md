@@ -162,10 +162,14 @@ immutable URLs.
 
 The latest pointer and release manifest are canonical schema-version-`1` Ed25519 envelopes verified
 by `PUBLIC_COMMONS_VERIFYING_KEYS`. The pointer is capped at 16 KiB, expires after no more than 24
-hours, and binds the exact manifest key, size, media type, and SHA-256 digest. The manifest is capped
-at 8 MiB and lists sorted, unique food and pack identities. Every record, provenance, and pack object
-key contains its content digest; reads verify both the declared byte length and digest before any
-bytes are returned.
+hours from its signed `issued_at`, and binds the exact manifest key, size, media type, and SHA-256
+digest. Pointers created before online renewal omit `issued_at` and remain compatible by using the
+manifest publication time. A refresh may advance only `issued_at` and `expires_at`: the release
+version and complete manifest descriptor must remain byte-for-byte equivalent, and the durable
+checkpoint rejects an expiry rollback for the same release. The manifest is capped at 8 MiB and
+lists sorted, unique food and pack identities. Every record, provenance, and pack object key
+contains its content digest; reads verify both the declared byte length and digest before any bytes
+are returned.
 
 Each manifest names one canonical signed publication receipt. The receipt is independently verified
 with `PUBLICATION_RECEIPT_VERIFYING_KEYS`; its release version and publication time must match, and
