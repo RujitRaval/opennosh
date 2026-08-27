@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.56.0.2] - 2026-08-27
+
+### Fixed
+
+- Show runtime-enabled public hub tools in production images, including the Explore search needed to open verified Commons records.
+
 ## [0.56.0.1] - 2026-08-27
 
 ### Fixed
