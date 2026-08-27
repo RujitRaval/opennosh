@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     public_artifact_directory: Path | None = None
     public_artifact_base_url: str | None = None
     public_artifact_checkpoint_path: Path | None = None
+    public_artifact_cache_directory: Path | None = None
     public_artifact_timeout_seconds: PositiveFloat = 3.0
     publication_receipt_verifying_keys: SecretStr = SecretStr(
         '{"development":"Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"}'
@@ -274,6 +275,12 @@ class Settings(BaseSettings):
         if self.app_environment == "production" and self.public_artifact_directory is not None:
             raise ValueError("Production public artifacts require an HTTPS object-store origin")
         if (
+            self.app_environment == "production"
+            and self.public_artifact_base_url is not None
+            and self.public_artifact_cache_directory is None
+        ):
+            raise ValueError("Production public artifact reads require a durable verified cache")
+        if (
             self.public_artifact_directory is not None
             and self.public_artifact_checkpoint_path is not None
             and self.public_artifact_checkpoint_path.resolve(strict=False).is_relative_to(
@@ -281,6 +288,21 @@ class Settings(BaseSettings):
             )
         ):
             raise ValueError("Public artifact checkpoint must be separate from signed artifacts")
+        if (
+            self.public_artifact_cache_directory is not None
+            and self.public_artifact_checkpoint_path is not None
+        ):
+            cache_directory = self.public_artifact_cache_directory.resolve(strict=False)
+            checkpoint_path = self.public_artifact_checkpoint_path.resolve(strict=False)
+            if checkpoint_path.is_relative_to(cache_directory):
+                raise ValueError(
+                    "Public artifact checkpoint must be separate from the verified cache"
+                )
+        if (
+            self.public_artifact_directory is not None
+            and self.public_artifact_cache_directory is not None
+        ):
+            raise ValueError("Local public artifacts cannot also configure a verified cache")
         if (self.public_commons_latest_pointer_path is None) != (
             self.public_commons_release_directory is None
         ):

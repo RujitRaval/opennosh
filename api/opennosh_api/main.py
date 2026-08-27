@@ -177,8 +177,14 @@ def create_app(
         if resolved_settings.public_artifact_directory is not None
         else None
     )
+    artifact_cache = (
+        LocalArtifactStore(resolved_settings.public_artifact_cache_directory)
+        if resolved_settings.public_artifact_cache_directory is not None
+        else None
+    )
     application.state.public_artifact_read_service = PublicArtifactReadService(
         store=artifact_store,
+        cache_store=artifact_cache,
         manifest_keys=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
         receipt_keys=PublicationReceiptKeyRing.from_json(
             resolved_settings.publication_receipt_verifying_keys.get_secret_value()

@@ -7,6 +7,7 @@ import asyncio
 import json
 import sys
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -22,6 +23,22 @@ from opennosh_api.foodpacks.loader import (
 )
 from opennosh_api.foodpacks.validation import FoodPackLoadError
 from opennosh_api.importers.wger import WgerFormatError, import_wger
+from opennosh_api.public.artifacts import ArtifactReadError
+from opennosh_api.public.bootstrap import (
+    build_starter_release,
+    inventory_sha256,
+    load_verified_inventory,
+    verify_starter_release,
+)
+from opennosh_api.public.live import (
+    LiveReleaseVerificationError,
+    warm_and_verify_public_api,
+)
+from opennosh_api.public.r2 import (
+    R2PublicationError,
+    WranglerR2ObjectWriter,
+    publish_starter_release_to_r2,
+)
 from opennosh_api.settings import get_settings
 
 
@@ -42,6 +59,50 @@ def build_parser() -> argparse.ArgumentParser:
     import_wger_command.add_argument("paths", nargs="+", type=Path)
     import_wger_command.add_argument("--batch-size", type=int, default=250)
     import_wger_command.add_argument("--json", action="store_true")
+    commons = commands.add_parser("commons", help="Manage signed public Commons releases")
+    commons_commands = commons.add_subparsers(dest="commons_command", required=True)
+    build_release = commons_commands.add_parser(
+        "build-starter-release",
+        help="Build and verify an offline-signed starter release",
+    )
+    build_release.add_argument("--packs-root", type=Path, required=True)
+    build_release.add_argument("--output", type=Path, required=True)
+    build_release.add_argument("--release-version", required=True)
+    build_release.add_argument("--published-at", type=datetime.fromisoformat, required=True)
+    build_release.add_argument("--source-commit", required=True)
+    build_release.add_argument("--manifest-key-id", required=True)
+    build_release.add_argument("--manifest-private-key", type=Path, required=True)
+    build_release.add_argument("--receipt-key-id", required=True)
+    build_release.add_argument("--receipt-private-key", type=Path, required=True)
+    build_release.add_argument("--decision-reference", required=True)
+    build_release.add_argument("--approving-actor", required=True)
+    build_release.add_argument("--json", action="store_true")
+    verify_release = commons_commands.add_parser(
+        "verify-starter-release",
+        help="Verify a complete starter release directory",
+    )
+    verify_release.add_argument("directory", type=Path)
+    verify_release.add_argument("--inventory-sha256", required=True)
+    verify_release.add_argument("--json", action="store_true")
+    publish_release = commons_commands.add_parser(
+        "publish-starter-release",
+        help="Verify and publish a starter release to Cloudflare R2",
+    )
+    publish_release.add_argument("directory", type=Path)
+    publish_release.add_argument("--inventory-sha256", required=True)
+    publish_release.add_argument("--bucket", required=True)
+    publish_release.add_argument("--origin-url", required=True)
+    publish_release.add_argument("--wrangler", type=Path, required=True)
+    publish_release.add_argument("--json", action="store_true")
+    warm_release = commons_commands.add_parser(
+        "warm-live-release",
+        help="Warm and verify every release object through the deployed API",
+    )
+    warm_release.add_argument("directory", type=Path)
+    warm_release.add_argument("--inventory-sha256", required=True)
+    warm_release.add_argument("--api-origin", required=True)
+    warm_release.add_argument("--concurrency", type=int, default=8)
+    warm_release.add_argument("--json", action="store_true")
     return parser
 
 
@@ -129,12 +190,120 @@ def run_exercise_command(arguments: argparse.Namespace) -> int:
     return 2 if report["rows_rejected"] else 0
 
 
+def run_commons_command(arguments: argparse.Namespace) -> int:
+    try:
+        if arguments.commons_command == "build-starter-release":
+            inventory = build_starter_release(
+                packs_root=arguments.packs_root,
+                output_directory=arguments.output,
+                release_version=arguments.release_version,
+                published_at=arguments.published_at,
+                source_commit=arguments.source_commit,
+                manifest_key_id=arguments.manifest_key_id,
+                manifest_private_key_path=arguments.manifest_private_key,
+                receipt_key_id=arguments.receipt_key_id,
+                receipt_private_key_path=arguments.receipt_private_key,
+                decision_reference=arguments.decision_reference,
+                approving_actor=arguments.approving_actor,
+            )
+            asyncio.run(verify_starter_release(arguments.output, inventory))
+            summary = inventory.model_dump(mode="json")
+            summary["inventory_sha256"] = inventory_sha256(
+                arguments.output / "inventory.json"
+            )
+        elif arguments.commons_command == "verify-starter-release":
+            inventory = load_verified_inventory(
+                arguments.directory / "inventory.json",
+                expected_sha256=arguments.inventory_sha256,
+            )
+            asyncio.run(verify_starter_release(arguments.directory, inventory))
+            summary = {
+                "schema_version": "1",
+                "verified": True,
+                "release_version": inventory.release_version,
+                "food_count": inventory.food_count,
+                "pack_count": inventory.pack_count,
+                "object_count": len(inventory.objects),
+            }
+        elif arguments.commons_command == "publish-starter-release":
+            inventory = load_verified_inventory(
+                arguments.directory / "inventory.json",
+                expected_sha256=arguments.inventory_sha256,
+            )
+            asyncio.run(verify_starter_release(arguments.directory, inventory))
+            publication_result = asyncio.run(
+                publish_starter_release_to_r2(
+                    directory=arguments.directory,
+                    inventory=inventory,
+                    bucket=arguments.bucket,
+                    origin_url=arguments.origin_url,
+                    writer=WranglerR2ObjectWriter(arguments.wrangler),
+                )
+            )
+            summary = {
+                "schema_version": "1",
+                "release_version": publication_result.release_version,
+                "food_count": inventory.food_count,
+                "pack_count": inventory.pack_count,
+                "uploaded_immutable": publication_result.uploaded_immutable,
+                "reused_immutable": publication_result.reused_immutable,
+                "pointer_replaced": publication_result.pointer_replaced,
+            }
+        elif arguments.commons_command == "warm-live-release":
+            inventory = load_verified_inventory(
+                arguments.directory / "inventory.json",
+                expected_sha256=arguments.inventory_sha256,
+            )
+            asyncio.run(verify_starter_release(arguments.directory, inventory))
+            live_result = asyncio.run(
+                warm_and_verify_public_api(
+                    directory=arguments.directory,
+                    inventory=inventory,
+                    api_origin=arguments.api_origin,
+                    concurrency=arguments.concurrency,
+                )
+            )
+            summary = {
+                "schema_version": "1",
+                "release_version": live_result.release_version,
+                "food_count": live_result.foods_warmed,
+                "pack_count": live_result.packs_warmed,
+                "provenance_warmed": live_result.provenance_warmed,
+                "latest_checkpoint_advanced": live_result.latest_checkpoint_advanced,
+            }
+        else:
+            raise AssertionError(f"unsupported Commons command: {arguments.commons_command}")
+    except (
+        ArtifactReadError,
+        FileExistsError,
+        LiveReleaseVerificationError,
+        OSError,
+        PermissionError,
+        R2PublicationError,
+        ValueError,
+    ) as error:
+        print(f"Commons release failed: {error}", file=sys.stderr)
+        return 2
+    if arguments.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(
+            "Commons release verified: "
+            f"{summary['release_version']}, "
+            f"{summary['food_count']} foods, "
+            f"{summary['pack_count']} packs"
+        )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.command == "foods":
         return run_food_command(arguments)
     if arguments.command == "exercises":
         return run_exercise_command(arguments)
+    if arguments.command == "commons":
+        return run_commons_command(arguments)
     raise AssertionError(f"unsupported command: {arguments.command}")
 
 

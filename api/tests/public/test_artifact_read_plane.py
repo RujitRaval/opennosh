@@ -18,6 +18,7 @@ from opennosh_api.foods.schemas import FoodSource
 from opennosh_api.main import create_app
 from opennosh_api.public.artifacts import (
     ArtifactUnavailableError,
+    LocalArtifactStore,
     MemoryArtifactStore,
     PublicArtifactReadService,
     PublicFoodArtifact,
@@ -215,6 +216,97 @@ async def test_latest_falls_back_to_visible_last_verified_release(tmp_path: Path
     assert first.release.state == "verified"
     assert stale.release.state == "stale"
     assert stale.release.stale_age_seconds == 6900
+
+
+@pytest.mark.asyncio
+async def test_verified_cache_survives_complete_origin_outage_and_restart(tmp_path: Path) -> None:
+    published_service, origin = await _published(tmp_path / "publisher")
+    release = await published_service.resolve_release(release_version=RELEASE)
+    await published_service.aclose()
+    cache_directory = tmp_path / "cache"
+    checkpoint = tmp_path / "state" / "latest.json"
+    warming_service = PublicArtifactReadService(
+        store=origin,
+        cache_store=LocalArtifactStore(cache_directory),
+        manifest_keys=MANIFEST_KEYS,
+        receipt_keys=RECEIPT_KEYS,
+        checkpoint_path=checkpoint,
+    )
+    await warming_service.food(FoodSource.COMMUNITY, "rajma-masala", now=NOW)
+    await warming_service.provenance(
+        FoodSource.COMMUNITY,
+        "rajma-masala",
+        release_version=RELEASE,
+    )
+    await warming_service.pack(
+        "north-india-home-foods",
+        "2.4.0",
+        release_version=RELEASE,
+    )
+    await warming_service.aclose()
+
+    origin.objects.clear()
+    restarted = PublicArtifactReadService(
+        store=origin,
+        cache_store=LocalArtifactStore(cache_directory),
+        manifest_keys=MANIFEST_KEYS,
+        receipt_keys=RECEIPT_KEYS,
+        checkpoint_path=checkpoint,
+    )
+    try:
+        stale = await restarted.food(
+            FoodSource.COMMUNITY,
+            "rajma-masala",
+            now=release.manifest.published_at + timedelta(days=1),
+        )
+        provenance, _ = await restarted.provenance(
+            FoodSource.COMMUNITY,
+            "rajma-masala",
+            release_version=RELEASE,
+        )
+        pack, _, _ = await restarted.pack(
+            "north-india-home-foods",
+            "2.4.0",
+            release_version=RELEASE,
+        )
+    finally:
+        await restarted.aclose()
+
+    assert stale.release.state == "stale"
+    assert stale.record.name == "Rajma masala"
+    assert provenance == PROVENANCE
+    assert pack == PACK
+
+
+@pytest.mark.asyncio
+async def test_verified_cache_conflict_fails_closed(tmp_path: Path) -> None:
+    published_service, origin = await _published(tmp_path / "publisher")
+    release = await published_service.resolve_release(release_version=RELEASE)
+    await published_service.aclose()
+    cache_directory = tmp_path / "cache"
+    service = PublicArtifactReadService(
+        store=origin,
+        cache_store=LocalArtifactStore(cache_directory),
+        manifest_keys=MANIFEST_KEYS,
+        receipt_keys=RECEIPT_KEYS,
+        checkpoint_path=tmp_path / "state" / "latest.json",
+    )
+    await service.food(FoodSource.COMMUNITY, "rajma-masala", now=NOW)
+    record_key = release.manifest.foods[0].record.object_key
+    await asyncio.to_thread(
+        (cache_directory / record_key).write_bytes,
+        b"tampered cache",
+    )
+
+    try:
+        with pytest.raises(ArtifactUnavailableError, match="verified_cache_conflict"):
+            await service.food(
+                FoodSource.COMMUNITY,
+                "rajma-masala",
+                release_version=RELEASE,
+            )
+    finally:
+        await service.aclose()
 
 
 @pytest.mark.asyncio

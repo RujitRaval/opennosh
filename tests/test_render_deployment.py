@@ -117,6 +117,11 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
     assert api["autoDeployTrigger"] == web["autoDeployTrigger"] == "checksPass"
     assert web["domains"] == ["opennosh.org"]
     assert web["healthCheckPath"] == "/api/v1/healthz"
+    assert api["disk"] == {
+        "name": "opennosh-public-artifact-state",
+        "mountPath": "/var/lib/opennosh/public-artifacts",
+        "sizeGB": 1,
+    }
     assert blueprint["previews"] == {"generation": "off"}
 
 
@@ -152,6 +157,14 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     assert web_variables["PUBLIC_ARTIFACT_READS_ENABLED"] == {
         "key": "PUBLIC_ARTIFACT_READS_ENABLED",
         "value": "false",
+    }
+    assert api_variables["PUBLIC_ARTIFACT_CHECKPOINT_PATH"] == {
+        "key": "PUBLIC_ARTIFACT_CHECKPOINT_PATH",
+        "value": "/var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json",
+    }
+    assert api_variables["PUBLIC_ARTIFACT_CACHE_DIRECTORY"] == {
+        "key": "PUBLIC_ARTIFACT_CACHE_DIRECTORY",
+        "value": "/var/lib/opennosh/public-artifacts/cache",
     }
     assert "healthCheckPath" not in api
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
