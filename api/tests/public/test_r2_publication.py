@@ -186,7 +186,7 @@ async def test_r2_publication_requires_a_safe_https_origin(tmp_path: Path) -> No
             directory=tmp_path,
             inventory=inventory,
             bucket="opennosh-public-commons",
-            origin_url="http://user:secret@artifacts.example.test",
+            origin_url="http://artifacts.example.test",
             writer=FakeWriter({}),
         )
 
@@ -300,6 +300,52 @@ async def test_r2_publication_rejects_invalid_bucket_and_local_tamper(tmp_path: 
     client = _client({})
     try:
         with pytest.raises(ValueError, match="size mismatch"):
+            await publish_starter_release_to_r2(
+                directory=tmp_path,
+                inventory=inventory,
+                bucket="opennosh-public-commons",
+                origin_url="https://artifacts.example.test/commons",
+                writer=FakeWriter({}),
+                client=client,
+            )
+    finally:
+        await client.aclose()
+
+
+def test_wrangler_writer_requires_an_existing_executable(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        WranglerR2ObjectWriter(tmp_path / "missing-wrangler")
+
+
+@pytest.mark.asyncio
+async def test_r2_publication_requires_exactly_one_latest_pointer(tmp_path: Path) -> None:
+    _, inventory = _fixture(tmp_path)
+    without_pointer = inventory.model_copy(
+        update={"objects": tuple(item for item in inventory.objects if not item.mutable_pointer)}
+    )
+    client = _client({})
+    try:
+        with pytest.raises(ValueError, match="exactly one latest pointer"):
+            await publish_starter_release_to_r2(
+                directory=tmp_path,
+                inventory=without_pointer,
+                bucket="opennosh-public-commons",
+                origin_url="https://artifacts.example.test/commons",
+                writer=FakeWriter({}),
+                client=client,
+            )
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_r2_publication_rejects_same_size_local_digest_tamper(tmp_path: Path) -> None:
+    payloads, inventory = _fixture(tmp_path)
+    original = payloads["records/v1/record.json"]
+    (tmp_path / "records/v1/record.json").write_bytes(b"X" + original[1:])
+    client = _client({})
+    try:
+        with pytest.raises(ValueError, match="digest mismatch"):
             await publish_starter_release_to_r2(
                 directory=tmp_path,
                 inventory=inventory,

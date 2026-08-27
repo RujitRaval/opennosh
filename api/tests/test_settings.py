@@ -107,6 +107,22 @@ def test_production_public_artifacts_require_https_origin_and_checkpoint() -> No
             _env_file=None,
         )
 
+    with pytest.raises(ValidationError, match="separate from the verified cache"):
+        Settings(
+            public_artifact_base_url="https://artifacts.opennosh.org",
+            public_artifact_cache_directory="/state/public-artifacts/cache",
+            public_artifact_checkpoint_path="/state/public-artifacts/cache/checkpoint.json",
+            _env_file=None,
+        )
+
+    with pytest.raises(ValidationError, match="cannot also configure a verified cache"):
+        Settings(
+            public_artifact_directory="/artifacts",
+            public_artifact_cache_directory="/state/public-artifact-cache",
+            public_artifact_checkpoint_path="/state/public-artifacts.json",
+            _env_file=None,
+        )
+
     settings = Settings(
         **production,  # type: ignore[arg-type]
         public_artifact_base_url="https://artifacts.opennosh.org",

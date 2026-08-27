@@ -108,6 +108,58 @@ def _commons_inventory() -> SimpleNamespace:
     )
 
 
+def test_commons_build_command_executes_and_reports_the_inventory_anchor(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inventory = _commons_inventory()
+    inventory.model_dump = lambda **_options: {
+        "release_version": inventory.release_version,
+        "food_count": inventory.food_count,
+        "pack_count": inventory.pack_count,
+    }
+
+    async def verified(_directory: Path, received: SimpleNamespace) -> None:
+        assert received is inventory
+
+    monkeypatch.setattr(cli, "build_starter_release", lambda **_options: inventory)
+    monkeypatch.setattr(cli, "verify_starter_release", verified)
+    monkeypatch.setattr(cli, "inventory_sha256", lambda _path: "b" * 64)
+    arguments = cli.build_parser().parse_args(
+        [
+            "commons",
+            "build-starter-release",
+            "--packs-root",
+            "packs",
+            "--output",
+            "/secure/release",
+            "--release-version",
+            "0.56.0.0",
+            "--published-at",
+            "2026-08-27T02:00:00+00:00",
+            "--source-commit",
+            "a" * 40,
+            "--manifest-key-id",
+            "manifest-production",
+            "--manifest-private-key",
+            "/secure/manifest.key",
+            "--receipt-key-id",
+            "receipt-production",
+            "--receipt-private-key",
+            "/secure/receipt.key",
+            "--decision-reference",
+            "https://github.com/RujitRaval/opennosh/issues/97",
+            "--approving-actor",
+            "github:RujitRaval",
+            "--json",
+        ]
+    )
+
+    assert cli.run_commons_command(arguments) == 0
+    output = capsys.readouterr()
+    assert f'"inventory_sha256": "{"b" * 64}"' in output.out
+    assert output.err == ""
+
+
 def test_commons_verify_command_executes_and_reports_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
