@@ -39,12 +39,14 @@ Open the web app at <http://localhost:3000>. The API health endpoint is <http://
 
 ## Production deployment
 
-The versioned [`render.yaml`](render.yaml) Blueprint defines the first hosted production topology:
-an always-on public Next.js service, a private FastAPI service, and Render PostgreSQL in Ohio. Render
-generates every application secret, blocks public database ingress, waits for GitHub checks before
-deploying, and runs capacity validation plus Alembic migrations before replacing the API instance.
-The API starts with only the `opennosh_web` database credential; the database-owner and migration
-credentials are removed from its runtime environment.
+The versioned [`render.yaml`](render.yaml) Blueprint defines the hosted production topology: an
+always-on public Next.js service, a private FastAPI service, an isolated background publication
+worker, and Render PostgreSQL in Ohio. Render generates every application secret, blocks public
+database ingress, waits for GitHub checks before deploying, and runs capacity validation plus
+Alembic migrations before replacing the API instance. The API starts with only the `opennosh_web`
+database credential; the database-owner and migration credentials are removed from its runtime
+environment. The publication worker starts in refresh-only mode without a database URL or
+contribution claims.
 
 Render probes `https://opennosh.org/healthz` for shallow web-process liveness so verified Commons
 reads stay available during PostgreSQL outages. The database-aware readiness and post-deploy probe
@@ -224,8 +226,10 @@ Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read
 files use the schema-version-1 signed envelope documented in
 [`docs/api-contracts.md`](docs/api-contracts.md). Set `PUBLIC_COMMONS_VERIFYING_KEYS` as
 `current-id:unpadded-base64url-public-key,previous-id:public-key` during rotation. The API holds
-verification keys only; offline publishers retain private Ed25519 signing keys. Production refuses
-the documented development verifier. Compose persists the anti-rollback checkpoint under
+verification keys only. Offline publishers retain the private keys that sign immutable releases and
+publication receipts; production gives the isolated publication worker a separate online manifest
+key that can renew only the signed latest pointer's issue and expiry times. Production refuses the
+documented development verifier. Compose persists the anti-rollback checkpoint under
 `${PUBLIC_COMMONS_STATE_DIRECTORY:-./var/public-commons-state}`; native deployments set both
 `PUBLIC_COMMONS_CHECKPOINT_PATH` and `PUBLIC_COMMONS_PROJECTION_PATH` to durable writable files.
 Those state paths must be separate from each other and the read-only signed artifacts.

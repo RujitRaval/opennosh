@@ -278,10 +278,11 @@ services:
   after migrations and runtime grants, before the replacement API instance starts.
 - The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
   ledger. T10 installs the deterministic planner, bounded executor, reducer, and wake-up handler,
-  and T2 supplies the governed forge. The production replica count remains zero until the T3
-  evidence and T5 signed-receipt adapters land and the live forge Apps and protected ruleset are
-  configured; see
-  [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md).
+  and T2 supplies the governed forge. Render now runs one publication process in refresh-only mode:
+  it has no database URL, cannot claim contribution work, and may only verify the current immutable
+  release and renew its signed latest pointer. Six database connections remain reserved for the
+  later claims activation; see [`docs/spikes/t4-pgqueuer.md`](docs/spikes/t4-pgqueuer.md) and the
+  [`Render operations runbook`](docs/operations/render-production.md#t333-online-latest-pointer-renewal).
 - `.env.example` carries every variable with placeholders. No real values in the repo, ever.
 - nginx publishes port 3000, the API host port stays loopback-only, and the web/API proxy trust chain uses a unique 32+ character `WEB_PROXY_TOKEN` in production.
 - Health endpoint at `/healthz` reporting DB connectivity and seed status.
