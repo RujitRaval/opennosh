@@ -16,7 +16,12 @@ from opennosh_api.jobs import (
     JobRequest,
     JobTraceContext,
 )
-from opennosh_api.jobs.pgqueuer import decode_message, encode_message
+from opennosh_api.jobs.pgqueuer import (
+    PGQUEUER_SETTINGS,
+    PublicationActivationQueryBuilder,
+    decode_message,
+    encode_message,
+)
 from opennosh_api.jobs.worker import PgQueuerRoleDriver, asyncpg_dsn
 from pydantic import ValidationError
 from sqlalchemy.engine import URL, make_url
@@ -52,6 +57,19 @@ def test_job_payload_is_typed_minimal_and_deterministic() -> None:
     assert b"approved_payload" not in encoded
     assert b"authority" not in encoded
     assert b"secret" not in encoded
+
+
+def test_publication_activation_query_filters_fresh_and_stale_claims() -> None:
+    activation_id = uuid4()
+    query = PublicationActivationQueryBuilder(
+        PGQUEUER_SETTINGS,
+        activation_id,
+    ).build_dequeue_query()
+
+    expected = f"->> 'subject_id' = '{activation_id}'"
+    assert query.count(expected) == 2
+    assert "convert_from(q2.payload, 'UTF8')::jsonb" in query
+    assert "convert_from(q.payload, 'UTF8')::jsonb" in query
 
 
 @pytest.mark.parametrize(

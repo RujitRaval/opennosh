@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -93,6 +94,7 @@ class Settings(BaseSettings):
     public_artifact_cache_directory: Path | None = None
     public_artifact_timeout_seconds: PositiveFloat = 3.0
     publication_claims_enabled: bool = False
+    publication_activation_ids: str = ""
     latest_refresh_enabled: bool = False
     latest_refresh_interval_seconds: PositiveFloat = 3_600.0
     latest_refresh_after_seconds: PositiveInt = 72_000
@@ -279,6 +281,24 @@ class Settings(BaseSettings):
             self.r2_secret_access_key,
         )
         has_publication_secrets = any(value is not None for value in publication_secret_values)
+        activation_ids = self.publication_activation_ids.split(",")
+        if self.publication_claims_enabled:
+            if len(activation_ids) != 1 or not activation_ids[0]:
+                raise ValueError(
+                    "Publication claims require exactly one PUBLICATION_ACTIVATION_IDS value"
+                )
+            try:
+                activation_id = UUID(activation_ids[0])
+            except ValueError as error:
+                raise ValueError(
+                    "PUBLICATION_ACTIVATION_IDS must contain one canonical UUID"
+                ) from error
+            if str(activation_id) != activation_ids[0]:
+                raise ValueError(
+                    "PUBLICATION_ACTIVATION_IDS must contain one canonical UUID"
+                )
+        elif self.publication_activation_ids:
+            raise ValueError("Publication activation IDs require claims to be enabled")
         if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
             if not self.publication_claims_enabled and not self.latest_refresh_enabled:
                 raise ValueError("Production publication workers require an enabled runtime mode")
@@ -541,6 +561,12 @@ class Settings(BaseSettings):
         if self.auth_rate_limit_retention_seconds < longest_window:
             raise ValueError("Rate-limit retention must cover every configured window")
         return self
+
+    @property
+    def publication_activation_id(self) -> UUID | None:
+        if not self.publication_claims_enabled:
+            return None
+        return UUID(self.publication_activation_ids)
 
     @property
     def session_cookie_name(self) -> str:

@@ -268,7 +268,7 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         assert removed not in environment
 
 
-def test_render_claiming_environment_uses_only_the_worker_database_identity() -> None:
+def test_render_combined_environment_uses_only_the_worker_database_identity() -> None:
     environment = publication_environment(
         {
             "APP_ENVIRONMENT": "production",
@@ -278,7 +278,8 @@ def test_render_claiming_environment_uses_only_the_worker_database_identity() ->
             "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
             "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
             "PUBLICATION_CLAIMS_ENABLED": "true",
-            "LATEST_REFRESH_ENABLED": "false",
+            "LATEST_REFRESH_ENABLED": "true",
+            "PUBLICATION_ACTIVATION_IDS": "00000000-0000-4000-8000-000000000001",
             "PATH": "/usr/local/bin:/usr/bin",
             "TRUSTED_WEB_PROXY_TOKEN": "web-only-secret",
             "UNRELATED_GENERATED_SECRET": "must-not-survive",
@@ -290,6 +291,10 @@ def test_render_claiming_environment_uses_only_the_worker_database_identity() ->
     assert environment["APP_ENVIRONMENT"] == "production"
     assert environment["PROCESS_ROLE"] == "publication"
     assert environment["PUBLICATION_CLAIMS_ENABLED"] == "true"
+    assert environment["LATEST_REFRESH_ENABLED"] == "true"
+    assert environment["PUBLICATION_ACTIVATION_IDS"] == (
+        "00000000-0000-4000-8000-000000000001"
+    )
     assert environment["PATH"] == "/usr/local/bin:/usr/bin"
     assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
     assert "owner-secret" not in repr(environment)
@@ -337,6 +342,35 @@ def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> 
         "TRUSTED_WEB_PROXY_TOKEN",
     ):
         assert excluded not in environment
+
+
+@pytest.mark.parametrize(
+    "activation_id",
+    [None, "not-a-uuid", "AAAAAAAA-0000-4000-8000-000000000001"],
+)
+def test_render_claims_fail_closed_without_one_canonical_activation_id(
+    activation_id: str | None,
+) -> None:
+    source = {
+        "PUBLICATION_CLAIMS_ENABLED": "true",
+        "LATEST_REFRESH_ENABLED": "true",
+        "RENDER_DATABASE_URL": _database_url(),
+        "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+    }
+    if activation_id is not None:
+        source["PUBLICATION_ACTIVATION_IDS"] = activation_id
+    with pytest.raises(ValueError, match="PUBLICATION_ACTIVATION_IDS"):
+        publication_environment(source)
+
+
+def test_render_claims_cannot_disable_latest_refresh() -> None:
+    with pytest.raises(ValueError, match="latest refresh"):
+        publication_environment(
+            {
+                "PUBLICATION_CLAIMS_ENABLED": "true",
+                "LATEST_REFRESH_ENABLED": "false",
+            }
+        )
 
 
 @pytest.mark.parametrize(
