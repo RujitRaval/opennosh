@@ -18,6 +18,8 @@ import {
 } from "@/lib/routes";
 import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
 
+export const dynamic = "force-dynamic";
+
 function navigationFor(language: InterfaceLanguage) {
   return buildPublicNavigation(
     language,

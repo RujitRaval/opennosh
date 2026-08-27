@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import PublicHubPage, {
-  generateMetadata,
+  dynamic, generateMetadata,
   generateStaticParams,
 } from "@/app/(public)/[language]/[hub]/page";
 
@@ -42,6 +42,7 @@ describe("public hub pages", () => {
 
   it("renders only enabled child surfaces", async () => {
     vi.stubEnv("OPENNOSH_PUBLIC_NAV_FEATURES", "explorer-search");
+    expect(dynamic).toBe("force-dynamic");
     render(
       await PublicHubPage({
         params: Promise.resolve({ language: "en", hub: "explore" }),
