@@ -15,12 +15,14 @@ from opennosh_api.evidence.contracts import (
 )
 from opennosh_api.first_contribution.prepare import _build_package
 from opennosh_api.first_contribution.service import (
+    FirstContributionAuthorityError,
     FirstContributionConflictError,
     commit_usda_first_contribution,
 )
 from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, PgQueuerJobQueue
+from opennosh_api.public.r2 import R2PublicationError
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 from api.tests.test_migrations import migration_config
 
@@ -50,8 +52,7 @@ class MemoryEvidenceStore:
             destination="r2://opennosh-public-commons",
             content_digest=digest,
             external_reference=(
-                "r2://opennosh-public-commons/evidence/citations/v1/"
-                f"{digest}.json"
+                f"r2://opennosh-public-commons/evidence/citations/v1/{digest}.json"
             ),
             verified_at=now,
             adapter_identity="opennosh.test-first-contribution-store",
@@ -76,6 +77,36 @@ class BarrierEvidenceStore(MemoryEvidenceStore):
         else:
             await self._both_arrived.wait()
         return await MemoryEvidenceStore().preserve(manifest, now=now)
+
+
+class FailOnceEvidenceStore(MemoryEvidenceStore):
+    async def preserve(
+        self,
+        manifest: PublicDocumentManifest,
+        *,
+        now: datetime,
+    ) -> EvidenceAcknowledgement:
+        if self.calls == 0:
+            self.calls += 1
+            raise R2PublicationError("simulated first evidence write failure")
+        return await super().preserve(manifest, now=now)
+
+
+async def _truncate_first_contribution_state(engine: AsyncEngine) -> None:
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                """
+                TRUNCATE evidence_durable_acknowledgements, evidence_manifests,
+                  governance_decisions, governance_role_assignments,
+                  publication_steps, publication_intents,
+                  contribution_drafts, auth_sessions, users,
+                  opennosh_pgqueuer, opennosh_pgqueuer_log,
+                  opennosh_pgqueuer_statistics, opennosh_pgqueuer_schedules
+                CASCADE
+                """
+            )
+        )
 
 
 async def run_first_contribution_replays(database_url: str) -> None:
@@ -293,3 +324,197 @@ def test_competing_stewards_are_serialized_to_one_bootstrap() -> None:
     assert INTEGRATION_DATABASE_URL is not None
     alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
     asyncio.run(run_competing_steward_bootstraps(INTEGRATION_DATABASE_URL))
+
+
+async def run_first_contribution_resume(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    package = _build_package("e" * 64)
+    store = FailOnceEvidenceStore()
+    queue = PgQueuerJobQueue(clock=lambda: NOW)
+    try:
+        await _truncate_first_contribution_state(engine)
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO users (id, email, password_hash)
+                    VALUES (:id, 'resume-steward@example.test', 'hash')
+                    """
+                ),
+                {"id": STEWARD},
+            )
+
+        with pytest.raises(R2PublicationError, match="evidence write failure"):
+            await commit_usda_first_contribution(
+                factory,
+                queue,
+                store,
+                package,
+                steward_actor_id=STEWARD,
+                expected_base_commit="f" * 40,
+                reason="Reviewed the pinned USDA record and first pack scope.",
+                bootstrap_steward=True,
+                now=NOW,
+            )
+
+        async with engine.connect() as connection:
+            first_phase = []
+            for table in (
+                "contribution_drafts",
+                "evidence_manifests",
+                "evidence_durable_acknowledgements",
+                "governance_role_assignments",
+                "governance_decisions",
+                "publication_intents",
+                PGQUEUER_SETTINGS.queue_table,
+            ):
+                first_phase.append(
+                    int(
+                        (
+                            await connection.execute(text(f"SELECT count(*) FROM {table}"))
+                        ).scalar_one()
+                    )
+                )
+        assert first_phase == [1, 1, 0, 0, 0, 0, 0]
+
+        receipt = await commit_usda_first_contribution(
+            factory,
+            queue,
+            store,
+            package,
+            steward_actor_id=STEWARD,
+            expected_base_commit="f" * 40,
+            reason="Reviewed the pinned USDA record and first pack scope.",
+            bootstrap_steward=True,
+            now=NOW,
+        )
+        assert receipt.publication_intent_id == package.publication_intent_id
+        assert store.calls == 2
+
+        async with engine.connect() as connection:
+            completed = []
+            for table in (
+                "evidence_durable_acknowledgements",
+                "governance_role_assignments",
+                "governance_decisions",
+                "publication_intents",
+                PGQUEUER_SETTINGS.queue_table,
+            ):
+                completed.append(
+                    int(
+                        (
+                            await connection.execute(text(f"SELECT count(*) FROM {table}"))
+                        ).scalar_one()
+                    )
+                )
+        assert completed == [1, 1, 1, 1, 1]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_first_contribution_resumes_after_evidence_provider_failure() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(run_first_contribution_resume(INTEGRATION_DATABASE_URL))
+
+
+async def run_rejected_steward_scenario(database_url: str, scenario: str) -> None:
+    engine = create_async_engine(database_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    package = _build_package("1" * 64)
+    queue = PgQueuerJobQueue(clock=lambda: NOW)
+    steward_actor_id = package.source_actor_id if scenario == "source-service" else STEWARD
+    try:
+        await _truncate_first_contribution_state(engine)
+        async with engine.begin() as connection:
+            if scenario not in {"missing", "source-service"}:
+                actor_kind = "service" if scenario == "service" else "person"
+                disabled_at = NOW if scenario == "service" else None
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO users (
+                          id, email, password_hash, actor_kind, login_disabled_at
+                        ) VALUES (
+                          :id, 'candidate-steward@example.test', 'hash',
+                          :actor_kind, :disabled_at
+                        )
+                        """
+                    ),
+                    {
+                        "id": STEWARD,
+                        "actor_kind": actor_kind,
+                        "disabled_at": disabled_at,
+                    },
+                )
+            if scenario == "prior-role":
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO users (id, email, password_hash)
+                        VALUES (:id, 'prior-steward@example.test', 'hash')
+                        """
+                    ),
+                    {"id": SECOND_STEWARD},
+                )
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO governance_role_assignments (
+                          id, pack_id, actor_id, role, granted_by_actor_id,
+                          grant_reason, granted_at
+                        ) VALUES (
+                          '44444444-4444-4444-8444-444444444444',
+                          'common-fruits', :id, 'steward', :id,
+                          'Existing reviewed steward scope.', :granted_at
+                        )
+                        """
+                    ),
+                    {"id": SECOND_STEWARD, "granted_at": NOW},
+                )
+
+        with pytest.raises(FirstContributionAuthorityError):
+            await commit_usda_first_contribution(
+                factory,
+                queue,
+                MemoryEvidenceStore(),
+                package,
+                steward_actor_id=steward_actor_id,
+                expected_base_commit="2" * 40,
+                reason="Reviewed the pinned USDA record and first pack scope.",
+                bootstrap_steward=scenario != "no-bootstrap",
+                now=NOW,
+            )
+        async with engine.connect() as connection:
+            decision_count = int(
+                (
+                    await connection.execute(text("SELECT count(*) FROM governance_decisions"))
+                ).scalar_one()
+            )
+            intent_count = int(
+                (
+                    await connection.execute(text("SELECT count(*) FROM publication_intents"))
+                ).scalar_one()
+            )
+        assert (decision_count, intent_count) == (0, 0)
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+@pytest.mark.parametrize(
+    "scenario",
+    ["no-bootstrap", "missing", "service", "source-service", "prior-role"],
+)
+def test_first_contribution_rejects_invalid_steward_authority(scenario: str) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(run_rejected_steward_scenario(INTEGRATION_DATABASE_URL, scenario))
