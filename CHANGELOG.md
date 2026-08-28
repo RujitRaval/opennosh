@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.63.0.3] - 2026-08-28
+
+### Fixed
+
+- Recover a missing PgQueuer wake-up only for the single configured, nonterminal production activation while preserving existing work and refusing terminal intents.
+- Serialize concurrent startup recovery on the publication intent, validate any existing typed wake-up, and emit a redacted activation-readiness result before claims begin.
+
 ## [0.63.0.2] - 2026-08-28
 
 ### Fixed
