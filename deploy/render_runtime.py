@@ -18,6 +18,14 @@ PUBLICATION_ROLE = "opennosh_publication"
 
 PUBLICATION_TABLE_PRIVILEGES = {
     "accepted_events": "SELECT, INSERT",
+    "evidence_manifests": "SELECT",
+    "evidence_removal_tombstones": "SELECT",
+    "governance_decisions": "SELECT",
+    "governance_merge_authorizations": "SELECT, INSERT",
+    "governance_publication_interventions": "SELECT",
+    "governance_publication_pauses": "SELECT",
+    "governance_recusals": "SELECT",
+    "governance_role_assignments": "SELECT",
     "publication_durable_acknowledgements": "SELECT, INSERT",
     "publication_intents": "SELECT, UPDATE",
     "publication_receipts": "SELECT, INSERT",
@@ -55,6 +63,7 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "APP_ENVIRONMENT",
     "DATABASE_CAPACITY_MANIFEST_PATH",
     "PUBLICATION_CLAIMS_ENABLED",
+    "PUBLICATION_PREACTIVATION_SMOKE_ENABLED",
     "LATEST_REFRESH_ENABLED",
     "PUBLICATION_ACTIVATION_IDS",
     "LATEST_REFRESH_INTERVAL_SECONDS",
@@ -178,12 +187,21 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         key: value for key in PUBLICATION_ENVIRONMENT_KEYS if (value := source.get(key)) is not None
     }
     claims_enabled = environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true"
+    smoke_enabled = (
+        environment.get("PUBLICATION_PREACTIVATION_SMOKE_ENABLED", "false").casefold()
+        == "true"
+    )
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
     if not claims_enabled and not refresh_enabled:
         raise ValueError("Publication worker requires an enabled runtime mode")
     if claims_enabled and not refresh_enabled:
         raise ValueError("Publication claims require latest refresh to remain enabled")
+    if claims_enabled and smoke_enabled:
+        raise ValueError("Publication preactivation smoke requires claims disabled")
     environment["PROCESS_ROLE"] = "publication"
+    if claims_enabled or smoke_enabled:
+        if not refresh_enabled:
+            raise ValueError("Publication activation requires latest refresh enabled")
     if claims_enabled:
         activation_id = _required(source, "PUBLICATION_ACTIVATION_IDS")
         try:
@@ -192,6 +210,7 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
             raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
         if str(parsed_activation_id) != activation_id:
             raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
+    if claims_enabled or smoke_enabled:
         for key in (
             "GITHUB_FORGE_REPOSITORY_ID",
             "GITHUB_FORGE_APP_ID",
@@ -205,6 +224,7 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
             "PUBLICATION_ARTIFACT_BUCKET",
         ):
             _required(source, key)
+    if claims_enabled:
         owner_url = _required(source, "RENDER_DATABASE_URL")
         publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
         environment["PUBLICATION_DATABASE_URL"] = role_database_url(

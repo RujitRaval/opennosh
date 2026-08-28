@@ -286,6 +286,7 @@ contribution claims. Keep the Blueprint at:
 
 ```text
 PUBLICATION_CLAIMS_ENABLED=false
+PUBLICATION_PREACTIVATION_SMOKE_ENABLED=false
 LATEST_REFRESH_ENABLED=true
 ```
 
@@ -310,6 +311,35 @@ signatures are self-verified under `signatures/releases/v1/` before the canonica
 published. Receipt signatures are read back under `signatures/receipts/v1/`; only the following
 registry step writes `receipts/v1/{publication_id}.json`, and the durability step writes the
 independent digest-addressed copy under `durability/receipts/`.
+
+Canonical production material is re-read from the protected merged Git tree, never from mutable
+request data. The bounded source writes merge proof to
+`durability/git/{merged_commit}.json`, evidence proof to
+`durability/evidence/{sha256}.json`, content-addressed record, provenance, and pack objects,
+the signed release to `releases/v1/release-{version}.json`, and the independent release proof to
+`durability/releases/{sha256}.json`. The first automatic release is additive: an existing pack
+ID or community-food slug fails closed until replacement semantics have their own reviewed
+protocol.
+
+Before linking a database or activation ID, run the zero-claim production preactivation ceremony:
+
+1. Link the Forge, attester, receipt-signer, and R2 groups only to
+   `opennosh-publication`.
+2. Keep `PUBLICATION_CLAIMS_ENABLED=false`, remove
+   `PUBLICATION_ACTIVATION_IDS`, and confirm the worker has no publication database URL.
+3. Set `PUBLICATION_PREACTIVATION_SMOKE_ENABLED=true` and deploy only the worker.
+4. Require the log `Zero-claim publication preactivation smoke passed` with
+   `adapter_count=10`, all canonical step names, and `claims_enabled=false`.
+5. Set `PUBLICATION_PREACTIVATION_SMOKE_ENABLED=false` and redeploy before arming a live
+   contribution.
+
+The smoke parses and cross-checks every isolated production credential and constructs the exact
+ten-adapter registry. It never opens PostgreSQL, claims a queue row, calls GitHub, signs a payload,
+or writes R2.
+
+This slice deliberately rejects claims even when an activation ID is present. The next reviewed
+slice must add receipt-gated, compare-and-swap `latest` promotion after the durable receipt exists;
+only then may it remove that runtime gate and arm the first contribution.
 
 Claims may be enabled only after the production registry supplies every canonical
 `PublicationStepName` adapter. The worker validates that exact ten-step registry before opening

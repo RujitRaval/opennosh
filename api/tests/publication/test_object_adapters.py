@@ -15,6 +15,7 @@ from opennosh_api.publication.adapters import PublicationEffectError
 from opennosh_api.publication.object_adapters import (
     Ed25519ReleaseManifestSource,
     PublicationObject,
+    PublicationObjectSet,
     R2ImmutablePublicationAdapter,
     R2PublicationReceiptStore,
 )
@@ -54,6 +55,17 @@ class StaticManifestSource:
             published_at=NOW,
             publication_receipt_key=f"receipts/v1/{PUBLICATION_ID}.json",
         )
+
+
+class StaticSetSource:
+    identity = "canonical-set-fixture"
+    version = "1.0"
+
+    def __init__(self, material: PublicationObjectSet) -> None:
+        self.material = material
+
+    async def materialize(self, _intent: EffectIntent) -> PublicationObjectSet:
+        return self.material
 
 
 class MemoryWriter:
@@ -166,6 +178,47 @@ async def test_r2_object_adapter_quarantines_conflicting_immutable_bytes() -> No
     assert observation.status is ObservationStatus.CONFLICT
     assert observation.code == "immutable_r2_object_conflict"
     assert not writer.puts
+
+
+@pytest.mark.asyncio
+async def test_r2_object_set_resumes_partial_release_and_verifies_inventory() -> None:
+    writer = MemoryWriter()
+    first = PublicationObject(
+        object_key="records/v1/" + "1" * 64 + ".json",
+        payload=b'{"record":1}',
+        media_type="application/json",
+        context={},
+    )
+    second = PublicationObject(
+        object_key="releases/v1/release-1.0.0.1.json",
+        payload=b'{"release":1}',
+        media_type="application/vnd.opennosh.release+json",
+        context={},
+    )
+    material = PublicationObjectSet(
+        objects=(first, second),
+        context={"release_version": "1.0.0.1"},
+    )
+    writer.objects[first.object_key] = first.payload
+    destination = "urn:opennosh:commons:release"
+    adapter = R2ImmutablePublicationAdapter(
+        step=PublicationStepName.PUBLISH_RELEASE,
+        destination=destination,
+        source=StaticSetSource(material),
+        writer=cast(S3R2ObjectWriter, writer),
+        bucket=BUCKET,
+        clock=lambda: NOW,
+    )
+    intent = _intent(PublicationStepName.PUBLISH_RELEASE, destination)
+
+    assert (await adapter.observe(intent)).status is ObservationStatus.ABSENT
+    await adapter.apply(intent)
+    observed = await adapter.observe(intent)
+
+    assert observed.status is ObservationStatus.VERIFIED
+    assert observed.content_digest == material.digest
+    assert observed.context["object_keys"] == [first.object_key, second.object_key]
+    assert [item["object_key"] for item in writer.puts] == [second.object_key]
 
 
 @pytest.mark.asyncio

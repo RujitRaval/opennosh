@@ -7,6 +7,7 @@ from opennosh_api.publication.receipts import (
     receipt_draft_from_snapshot,
 )
 from opennosh_api.publication.state import (
+    DurableAcknowledgementSnapshot,
     EffectIntent,
     ExternalObservation,
     NoOpOutcome,
@@ -110,7 +111,24 @@ def _effect_intent(
     step: PublicationStepName,
     destination: str,
 ) -> EffectIntent:
-    context: dict[str, object] = {}
+    context: dict[str, object] = {
+        "pack_id": snapshot.pack_id,
+        "record_id": snapshot.record_id,
+        "reviewed_decision_id": str(snapshot.reviewed_decision_id),
+        "approving_actor_id": str(snapshot.approving_actor_id),
+        "evidence_manifest_digests": list(snapshot.evidence_manifest_digests),
+        "evidence_acknowledgements": [
+            dict(acknowledgement)
+            for acknowledgement in snapshot.evidence_acknowledgements
+        ],
+    }
+    commit = _acknowledgement(snapshot, PublicationStepName.COMMIT_RECORD)
+    if commit is not None:
+        context["merged_commit"] = commit.external_reference or ""
+        context["merged_tree_digest"] = commit.context.get(
+            "merged_tree_digest",
+            "",
+        )
     if step is PublicationStepName.SIGN_RECEIPT:
         context["receipt_draft"] = receipt_draft_from_snapshot(snapshot).model_dump(mode="json")
     elif step in {
@@ -158,3 +176,17 @@ def _verified_publication_state(
     }:
         return PublicationState.COMMITTED
     return PublicationState.SIGNED
+
+
+def _acknowledgement(
+    snapshot: PublicationSnapshot,
+    step: PublicationStepName,
+) -> DurableAcknowledgementSnapshot | None:
+    matches = [
+        acknowledgement
+        for acknowledgement in snapshot.acknowledgements
+        if acknowledgement.step is step
+    ]
+    if len(matches) > 1:
+        raise ValueError(f"Publication has duplicate {step.value} acknowledgements")
+    return matches[0] if matches else None

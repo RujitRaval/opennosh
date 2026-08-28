@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.governance.gate import GovernanceGate
+from opennosh_api.governance.policy import GovernanceBinding
 from opennosh_api.public.artifacts import PublicReadReleaseManifest
 from opennosh_api.public.r2 import S3R2ObjectWriter
 from opennosh_api.public.signing import public_key_text
@@ -23,6 +24,8 @@ from opennosh_api.publication.receipts import (
     PublicationReceiptKeyRing,
 )
 from opennosh_api.publication.runtime import (
+    DeferredGovernanceGate,
+    PreparedProductionPublicationRuntime,
     ProductionPublicationObjectSources,
     ProductionPublicationRuntime,
 )
@@ -97,6 +100,74 @@ def test_production_runtime_builds_exact_canonical_registry() -> None:
     }
 
 
+@pytest.mark.asyncio
+async def test_deferred_governance_gate_binds_once_and_forwards_both_operations() -> None:
+    gate = DeferredGovernanceGate()
+    publication_id = uuid4()
+    binding = cast(GovernanceBinding, SimpleNamespace(publication_id=publication_id))
+
+    with pytest.raises(RuntimeError, match="not bound"):
+        await gate.binding_for(publication_id)
+
+    class Delegate:
+        async def binding_for(self, requested_id: UUID) -> GovernanceBinding:
+            assert requested_id == publication_id
+            return binding
+
+        async def authorize_merge(
+            self,
+            requested_id: UUID,
+            *,
+            head_commit: str,
+            expected_payload_digest: str,
+            now: datetime,
+        ) -> GovernanceBinding:
+            assert requested_id == publication_id
+            assert head_commit == "a" * 40
+            assert expected_payload_digest == "b" * 64
+            assert now == datetime(2026, 8, 28, 1, tzinfo=UTC)
+            return binding
+
+    gate.bind(cast(GovernanceGate, Delegate()))
+    assert await gate.binding_for(publication_id) is binding
+    assert await gate.authorize_merge(
+        publication_id,
+        head_commit="a" * 40,
+        expected_payload_digest="b" * 64,
+        now=datetime(2026, 8, 28, 1, tzinfo=UTC),
+    ) is binding
+    with pytest.raises(RuntimeError, match="already bound"):
+        gate.bind(cast(GovernanceGate, Delegate()))
+
+
+@pytest.mark.asyncio
+async def test_prepared_runtime_binds_once_and_closes_owned_clients_once() -> None:
+    lifecycle: list[str] = []
+
+    class Closable:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        async def aclose(self) -> None:
+            lifecycle.append(self.name)
+
+    prepared = PreparedProductionPublicationRuntime(
+        runtime=_runtime(),
+        clients=cast(ProductionPublicationClients, Closable("clients")),
+        authority=cast(Any, Closable("authority")),
+        governance_gate=DeferredGovernanceGate(),
+    )
+
+    assert prepared.bind_pool(SimpleNamespace()) == prepared.runtime.adapters
+    with pytest.raises(RuntimeError, match="already bound"):
+        prepared.bind_pool(SimpleNamespace())
+    await prepared.aclose()
+    await prepared.aclose()
+    assert lifecycle == ["authority", "clients"]
+    with pytest.raises(RuntimeError, match="already closed"):
+        prepared.bind_pool(SimpleNamespace())
+
+
 def test_production_runtime_registry_is_immutable() -> None:
     runtime = _runtime()
 
@@ -118,7 +189,6 @@ def test_production_runtime_rejects_incomplete_registry() -> None:
 
 
 def test_production_provider_factory_constructs_all_ten_without_provider_calls() -> None:
-    activation_id = UUID("00000000-0000-4000-8000-000000000001")
     manifest_key = Ed25519PrivateKey.from_private_bytes(b"m" * 32)
     receipt_key = Ed25519PrivateKey.from_private_bytes(b"r" * 32)
     clients = cast(
@@ -154,8 +224,8 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
     settings = cast(
         Any,
         SimpleNamespace(
-            publication_claims_enabled=True,
-            publication_activation_id=activation_id,
+            publication_claims_enabled=False,
+            publication_activation_id=None,
             publication_artifact_bucket="opennosh-public-commons",
         ),
     )
@@ -166,9 +236,10 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
         governance_gate=cast(GovernanceGate, SimpleNamespace()),
         object_sources=sources,
         clock=lambda: datetime(2026, 8, 28, 1, tzinfo=UTC),
+        zero_claim_preflight=True,
     )
 
-    assert runtime.activation_id == activation_id
+    assert runtime.activation_id == UUID(int=0)
     assert tuple(runtime.adapters) == tuple(PublicationStepName)
     assert runtime.adapters[PublicationStepName.COMMIT_RECORD].identity == (
         "opennosh-governed-forge"
@@ -188,16 +259,17 @@ def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> 
         SimpleNamespace(identity=SimpleNamespace(artifact_bucket="provider-bucket")),
     )
 
-    def build(settings: object) -> None:
+    def build(settings: object, *, zero_claim_preflight: bool = False) -> None:
         ProductionPublicationRuntime.from_production_providers(
             settings=cast(Any, settings),
             clients=clients,
             governance_gate=cast(GovernanceGate, SimpleNamespace()),
             object_sources=cast(ProductionPublicationObjectSources, SimpleNamespace()),
             clock=lambda: datetime(2026, 8, 28, 1, tzinfo=UTC),
+            zero_claim_preflight=zero_claim_preflight,
         )
 
-    with pytest.raises(RuntimeError, match="claims enabled"):
+    with pytest.raises(RuntimeError, match="zero-claim preflight"):
         build(
             SimpleNamespace(
                 publication_claims_enabled=False,
@@ -205,7 +277,7 @@ def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> 
                 publication_artifact_bucket="provider-bucket",
             )
         )
-    with pytest.raises(RuntimeError, match="activation ID"):
+    with pytest.raises(RuntimeError, match="pointer-last activation"):
         build(
             SimpleNamespace(
                 publication_claims_enabled=True,
@@ -216,8 +288,9 @@ def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> 
     with pytest.raises(RuntimeError, match="configured R2 bucket"):
         build(
             SimpleNamespace(
-                publication_claims_enabled=True,
-                publication_activation_id=uuid4(),
+                publication_claims_enabled=False,
+                publication_activation_id=None,
                 publication_artifact_bucket="configured-bucket",
-            )
+            ),
+            zero_claim_preflight=True,
         )

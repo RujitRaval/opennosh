@@ -94,6 +94,7 @@ class Settings(BaseSettings):
     public_artifact_cache_directory: Path | None = None
     public_artifact_timeout_seconds: PositiveFloat = 3.0
     publication_claims_enabled: bool = False
+    publication_preactivation_smoke_enabled: bool = False
     publication_activation_ids: str = ""
     latest_refresh_enabled: bool = False
     latest_refresh_interval_seconds: PositiveFloat = 3_600.0
@@ -322,10 +323,17 @@ class Settings(BaseSettings):
         if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
             if not self.publication_claims_enabled and not self.latest_refresh_enabled:
                 raise ValueError("Production publication workers require an enabled runtime mode")
-            if self.publication_claims_enabled:
+            if (
+                self.publication_preactivation_smoke_enabled
+                and self.publication_claims_enabled
+            ):
+                raise ValueError(
+                    "Publication preactivation smoke requires claims disabled"
+                )
+            if self.publication_claims_enabled or self.publication_preactivation_smoke_enabled:
                 if not self.latest_refresh_enabled:
                     raise ValueError(
-                        "Production publication claims require latest refresh enabled"
+                        "Production publication activation requires latest refresh enabled"
                     )
                 from opennosh_api.publication.credentials import (
                     validate_publication_claim_credentials,
@@ -334,6 +342,7 @@ class Settings(BaseSettings):
                 validate_publication_claim_credentials(self)
         elif self.app_environment == "production" and (
             self.publication_claims_enabled
+            or self.publication_preactivation_smoke_enabled
             or self.latest_refresh_enabled
             or has_publication_secrets
         ):

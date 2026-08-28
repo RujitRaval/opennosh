@@ -238,6 +238,7 @@ def test_render_blueprint_links_only_refresh_credentials_to_the_worker() -> None
         "opennosh-r2-writer",
     }
     assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
+    assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
     assert variables["LATEST_REFRESH_ENABLED"]["value"] == "true"
     assert variables["PUBLIC_ARTIFACT_BASE_URL"]["value"] == (
         "https://commons-artifacts.opennosh.org"
@@ -394,6 +395,38 @@ def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> 
         "PUBLICATION_DATABASE_PASSWORD",
         "PUBLICATION_DATABASE_URL",
         "TRUSTED_WEB_PROXY_TOKEN",
+    ):
+        assert excluded not in environment
+
+
+def test_render_preactivation_smoke_keeps_live_adapters_but_no_claim_identity() -> None:
+    source = _claims_environment()
+    source.update(
+        {
+            "PUBLICATION_CLAIMS_ENABLED": "false",
+            "PUBLICATION_PREACTIVATION_SMOKE_ENABLED": "true",
+            "ONLINE_MANIFEST_SIGNING_KEY_ID": "manifest-online",
+            "ONLINE_MANIFEST_SIGNING_KEY": "manifest-private",
+            "R2_ACCOUNT_ID": "a" * 32,
+            "R2_BUCKET": "opennosh-public-commons",
+            "R2_ACCESS_KEY_ID": "access-key",
+            "R2_SECRET_ACCESS_KEY": "r2-secret",
+        }
+    )
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+
+    environment = publication_environment(source)
+
+    assert environment["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"] == "true"
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert environment["GITHUB_FORGE_PRIVATE_KEY"] == "forge-private"
+    assert environment["GITHUB_ATTESTER_PRIVATE_KEY"] == "attester-private"
+    assert environment["ONLINE_RECEIPT_SIGNING_KEY"] == "receipt-private"
+    for excluded in (
+        "PUBLICATION_ACTIVATION_IDS",
+        "RENDER_DATABASE_URL",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_URL",
     ):
         assert excluded not in environment
 

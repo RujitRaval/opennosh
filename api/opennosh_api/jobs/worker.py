@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
-from datetime import timedelta
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
@@ -13,7 +14,7 @@ from pgqueuer.errors import RetryRequested
 from pgqueuer.models import Channel, Job
 from sqlalchemy.engine import make_url
 
-from opennosh_api.capacity import ProcessRole, load_capacity_manifest
+from opennosh_api.capacity import ProcessRole, RoleBudget, load_capacity_manifest
 from opennosh_api.jobs.pgqueuer import (
     PGQUEUER_SETTINGS,
     PUBLICATION_ENTRYPOINT,
@@ -33,7 +34,11 @@ from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.publication.repository import PostgresPublicationRepository
-from opennosh_api.publication.runtime import validate_production_adapter_registry
+from opennosh_api.publication.runtime import (
+    PreparedProductionPublicationRuntime,
+    run_zero_claim_preactivation_smoke,
+    validate_production_adapter_registry,
+)
 from opennosh_api.settings import Settings, get_settings
 
 PUBLICATION_DRAIN_TIMEOUT_SECONDS = 30.0
@@ -62,6 +67,7 @@ class PgQueuerRoleDriver:
         *,
         worker_concurrency: int,
         task_name: str = "opennosh-publication-pgqueuer",
+        resource_closer: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         if worker_concurrency < 2:
             raise ValueError("PgQueuer worker concurrency must be at least two")
@@ -69,6 +75,7 @@ class PgQueuerRoleDriver:
         self._pool = pool
         self._worker_concurrency = worker_concurrency
         self._task_name = task_name
+        self._resource_closer = resource_closer
         self._batch_size = min(10, worker_concurrency // 2)
         self._run_task: asyncio.Task[None] | None = None
 
@@ -97,7 +104,11 @@ class PgQueuerRoleDriver:
         if self._run_task is not None and not self._run_task.done():
             self._run_task.cancel()
             await asyncio.gather(self._run_task, return_exceptions=True)
-        await self._pool.close()
+        try:
+            await self._pool.close()
+        finally:
+            if self._resource_closer is not None:
+                await self._resource_closer()
 
 
 async def supervise_publication_claims(
@@ -181,24 +192,71 @@ async def create_publication_role_driver(
 ) -> PgQueuerRoleDriver:
     configured = settings or get_settings()
     resolved_adapters = adapters or {}
+    prepared: PreparedProductionPublicationRuntime | None = None
     if configured.app_environment == "production":
-        resolved_adapters = validate_production_adapter_registry(adapters)
+        if adapters is not None:
+            resolved_adapters = validate_production_adapter_registry(adapters)
+        elif not getattr(configured, "publication_claims_enabled", False):
+            resolved_adapters = validate_production_adapter_registry(None)
+        else:
+            prepared = await PreparedProductionPublicationRuntime.from_settings(
+                configured,
+                clock=lambda: datetime.now(UTC),
+            )
+            resolved_adapters = prepared.runtime.adapters
     manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
     budget = manifest.active_role_budget(ProcessRole.PUBLICATION)
-    pool = await asyncpg.create_pool(
-        dsn=asyncpg_dsn(configured.process_database_url(ProcessRole.PUBLICATION)),
-        min_size=1,
-        max_size=budget.pool_size,
-        timeout=budget.acquisition_timeout_ms / 1000,
-        server_settings={
-            "application_name": (
-                f"opennosh:{manifest.deployment_id}:{ProcessRole.PUBLICATION.value}"[:63]
-            ),
-            "statement_timeout": str(budget.statement_timeout_ms),
-        },
-    )
+    try:
+        pool = await asyncpg.create_pool(
+            dsn=asyncpg_dsn(configured.process_database_url(ProcessRole.PUBLICATION)),
+            min_size=1,
+            max_size=budget.pool_size,
+            timeout=budget.acquisition_timeout_ms / 1000,
+            server_settings={
+                "application_name": (
+                    f"opennosh:{manifest.deployment_id}:{ProcessRole.PUBLICATION.value}"[:63]
+                ),
+                "statement_timeout": str(budget.statement_timeout_ms),
+            },
+        )
+    except BaseException:
+        if prepared is not None:
+            await prepared.aclose()
+        raise
     if pool is None:
+        if prepared is not None:
+            await prepared.aclose()
         raise RuntimeError("asyncpg did not create the publication pool")
+    if prepared is not None:
+        try:
+            resolved_adapters = prepared.bind_pool(pool)
+        except BaseException:
+            await pool.close()
+            await prepared.aclose()
+            raise
+    try:
+        return _assemble_publication_role_driver(
+            configured=configured,
+            adapters=resolved_adapters,
+            prepared=prepared,
+            pool=pool,
+            budget=budget,
+        )
+    except BaseException:
+        await pool.close()
+        if prepared is not None:
+            await prepared.aclose()
+        raise
+
+
+def _assemble_publication_role_driver(
+    *,
+    configured: Settings,
+    adapters: PublicationAdapterRegistry,
+    prepared: PreparedProductionPublicationRuntime | None,
+    pool: Any,
+    budget: RoleBudget,
+) -> PgQueuerRoleDriver:
     driver = AsyncpgPoolDriver(pool)
     activation_id = (
         configured.publication_activation_id
@@ -212,7 +270,7 @@ async def create_publication_role_driver(
     )
     orchestrator = PublicationOrchestrator(
         PostgresPublicationRepository(pool),
-        PublicationEffectExecutor(resolved_adapters),
+        PublicationEffectExecutor(adapters),
         owner=f"publication:{queue.qm.queue_manager_id}",
     )
 
@@ -228,6 +286,7 @@ async def create_publication_role_driver(
         queue,
         pool,
         worker_concurrency=budget.worker_concurrency,
+        resource_closer=prepared.aclose if prepared is not None else None,
     )
 
 
@@ -283,6 +342,19 @@ async def _run_publication_worker(
     configured = settings or get_settings()
     if not configured.latest_refresh_enabled and not configured.publication_claims_enabled:
         raise RuntimeError("Publication worker requires an enabled runtime mode")
+    if getattr(configured, "publication_preactivation_smoke_enabled", False):
+        steps = await run_zero_claim_preactivation_smoke(
+            configured,
+            clock=lambda: datetime.now(UTC),
+        )
+        logger.info(
+            "Zero-claim publication preactivation smoke passed",
+            extra={
+                "adapter_count": len(steps),
+                "steps": steps,
+                "claims_enabled": False,
+            },
+        )
     shutdown = shutdown_requested or asyncio.Event()
     loop = asyncio.get_running_loop()
     if shutdown_requested is None:
