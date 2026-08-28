@@ -4,15 +4,28 @@ import base64
 import json
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import ProcessRole
 from opennosh_api.public.signing import public_key_text
+from opennosh_api.publication.credentials import ProductionPublicationClients
 from opennosh_api.settings import Settings
 from pydantic import ValidationError
 
 ONLINE_MANIFEST_KEY = Ed25519PrivateKey.from_private_bytes(b"o" * 32)
 OFFLINE_MANIFEST_KEY = Ed25519PrivateKey.from_private_bytes(b"m" * 32)
 PRODUCTION_RECEIPT_KEY = Ed25519PrivateKey.from_private_bytes(b"r" * 32)
+FORGE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+ATTESTER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def _pem(key: rsa.RSAPrivateKey) -> str:
+    return key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
 
 
 def _refresh_settings(**overrides: object) -> Settings:
@@ -33,6 +46,18 @@ def _refresh_settings(**overrides: object) -> Settings:
         ),
         "online_manifest_signing_key_id": "manifest-online",
         "online_manifest_signing_key": encoded_online_key,
+        "online_receipt_signing_key_id": "receipt-production",
+        "online_receipt_signing_key": (
+            base64.urlsafe_b64encode(b"r" * 32).decode().rstrip("=")
+        ),
+        "github_forge_repository_id": 1,
+        "github_forge_app_id": 2,
+        "github_forge_installation_id": 3,
+        "github_forge_private_key": _pem(FORGE_KEY),
+        "github_attester_app_id": 4,
+        "github_attester_installation_id": 5,
+        "github_attester_private_key": _pem(ATTESTER_KEY),
+        "publication_artifact_bucket": "opennosh-public-commons",
         "r2_account_id": "a" * 32,
         "r2_bucket": "opennosh-public-commons",
         "r2_access_key_id": "access-key",
@@ -221,3 +246,82 @@ def test_combined_claims_and_refresh_accept_one_activation_id() -> None:
     assert str(settings.publication_activation_id) == (
         "00000000-0000-4000-8000-000000000001"
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("github_attester_app_id", 2),
+        ("github_attester_installation_id", 3),
+        ("github_attester_private_key", _pem(FORGE_KEY)),
+    ],
+)
+def test_claims_require_independent_forge_and_attester_identities(
+    field: str, value: object
+) -> None:
+    with pytest.raises(ValidationError, match="identities must be independent"):
+        _refresh_settings(
+            publication_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+            **{field: value},
+        )
+
+
+def test_claims_require_receipt_key_independent_from_offline_manifest_keys() -> None:
+    shared = base64.urlsafe_b64encode(b"m" * 32).decode().rstrip("=")
+    with pytest.raises(ValidationError, match="independent from manifest and offline"):
+        _refresh_settings(
+            publication_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+            online_receipt_signing_key=shared,
+            publication_receipt_verifying_keys=json.dumps(
+                {"receipt-production": public_key_text(OFFLINE_MANIFEST_KEY)}
+            ),
+        )
+
+
+def test_claims_require_the_publication_and_refresh_r2_bucket_to_match() -> None:
+    with pytest.raises(ValidationError, match="must match"):
+        _refresh_settings(
+            publication_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+            publication_artifact_bucket="opennosh-publication-different",
+        )
+
+
+def test_publication_artifact_bucket_rejects_invalid_cloudflare_name() -> None:
+    with pytest.raises(ValidationError, match="Cloudflare naming requirements"):
+        _refresh_settings(publication_artifact_bucket="has.dot")
+
+
+def test_production_claims_cannot_run_without_latest_refresh() -> None:
+    with pytest.raises(ValidationError, match="latest refresh enabled"):
+        _refresh_settings(
+            publication_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+            latest_refresh_enabled=False,
+        )
+
+
+@pytest.mark.asyncio
+async def test_claim_clients_construct_with_redacted_independent_identities() -> None:
+    settings = _refresh_settings(
+        publication_claims_enabled=True,
+        publication_activation_ids="00000000-0000-4000-8000-000000000001",
+    )
+
+    clients = ProductionPublicationClients.from_settings(settings)
+    try:
+        rendered = repr(clients)
+        assert clients.identity.forge.app_id == 2
+        assert clients.identity.attester.app_id == 4
+        assert clients.identity.forge.public_key_fingerprint != (
+            clients.identity.attester.public_key_fingerprint
+        )
+        assert clients.identity.manifest_public_key != clients.identity.receipt_public_key
+        assert _pem(FORGE_KEY) not in rendered
+        assert _pem(ATTESTER_KEY) not in rendered
+        assert settings.online_receipt_signing_key is not None
+        assert settings.online_receipt_signing_key.get_secret_value() not in rendered
+    finally:
+        await clients.aclose()

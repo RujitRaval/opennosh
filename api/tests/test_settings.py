@@ -1,9 +1,12 @@
+import base64
 import json
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import JobRole, ProcessRole
+from opennosh_api.public.signing import public_key_text
 from opennosh_api.settings import Settings
 from pydantic import ValidationError
 
@@ -221,6 +224,20 @@ def test_production_settings_use_secure_host_only_cookie_names() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_github_actions_repository_id_does_not_activate_publication_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY_ID", "123")
+
+    settings = Settings(
+        app_environment="production",
+        food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+        _env_file=None,
+    )
+
+    assert settings.github_forge_repository_id is None
+
+
 def test_proxy_token_must_be_long_and_unique_in_production() -> None:
     with pytest.raises(ValidationError):
         Settings(trusted_web_proxy_token="too-short", _env_file=None)
@@ -431,12 +448,30 @@ def test_open_food_facts_settings_reject_unsafe_values() -> None:
 
 
 def test_production_worker_roles_do_not_require_the_web_cursor_key() -> None:
+    online = Ed25519PrivateKey.from_private_bytes(b"o" * 32)
+    offline = Ed25519PrivateKey.from_private_bytes(b"m" * 32)
+    receipt = Ed25519PrivateKey.from_private_bytes(b"r" * 32)
     publication = Settings(
         app_environment="production",
         process_role=ProcessRole.PUBLICATION,
         publication_database_url="postgresql+asyncpg://publication-role@database/opennosh",
-        publication_claims_enabled=True,
-        publication_activation_ids="00000000-0000-4000-8000-000000000001",
+        latest_refresh_enabled=True,
+        public_artifact_base_url="https://commons-artifacts.opennosh.org",
+        public_commons_verifying_keys=(
+            f"manifest-offline:{public_key_text(offline)},"
+            f"manifest-online:{public_key_text(online)}"
+        ),
+        publication_receipt_verifying_keys=json.dumps(
+            {"receipt-production": public_key_text(receipt)}
+        ),
+        online_manifest_signing_key_id="manifest-online",
+        online_manifest_signing_key=(
+            base64.urlsafe_b64encode(b"o" * 32).decode().rstrip("=")
+        ),
+        r2_account_id="a" * 32,
+        r2_bucket="opennosh-public-commons",
+        r2_access_key_id="access-key",
+        r2_secret_access_key="secret-key",
         _env_file=None,
     )
 

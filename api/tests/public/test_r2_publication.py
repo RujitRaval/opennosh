@@ -13,6 +13,7 @@ from typing import Any, cast
 
 import httpx
 import pytest
+from botocore.exceptions import ClientError
 from opennosh_api.public.bootstrap import StarterReleaseInventory, StarterReleaseObject
 from opennosh_api.public.r2 import (
     R2ImmutableConflictError,
@@ -385,6 +386,16 @@ class FakeS3Client:
             "Body": BytesIO(payload),
         }
 
+    def list_objects_v2(self, **arguments: object) -> dict[str, object]:
+        bucket = str(arguments["Bucket"])
+        prefix = str(arguments["Prefix"])
+        maximum = int(cast(int, arguments["MaxKeys"]))
+        keys = sorted(
+            key for object_bucket, key in self.objects if object_bucket == bucket
+            and key.startswith(prefix)
+        )[:maximum]
+        return {"Contents": [{"Key": key} for key in keys]}
+
 
 class StaticResponseS3Client(FakeS3Client):
     def __init__(self, response: dict[str, object]) -> None:
@@ -638,6 +649,104 @@ async def test_s3_r2_writer_sends_the_current_revision_as_if_match() -> None:
 
 
 @pytest.mark.asyncio
+async def test_s3_r2_writer_sends_conditional_create_and_lists_bounded_keys() -> None:
+    client = FakeS3Client()
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=client,
+    )
+
+    await writer.put_bytes(
+        bucket="opennosh-public-commons",
+        object_key="durability/receipts/a.json",
+        payload=b"receipt",
+        media_type="application/json",
+        cache_control="immutable",
+        if_none_match="*",
+    )
+
+    assert client.put_calls[-1]["IfNoneMatch"] == "*"
+    assert await writer.list_keys(
+        bucket="opennosh-public-commons",
+        prefix="durability/receipts/",
+    ) == ("durability/receipts/a.json",)
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_closes_only_an_owned_client() -> None:
+    class CloseableClient(FakeS3Client):
+        def __init__(self) -> None:
+            super().__init__()
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    injected = CloseableClient()
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=injected,
+    )
+
+    await writer.aclose()
+
+    assert not injected.closed
+    writer._owns_client = True
+    await writer.aclose()
+    assert injected.closed
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_maps_not_found_and_conditional_conflict() -> None:
+    class ConditionalClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "NoSuchKey", "Message": "missing"},
+                    "ResponseMetadata": {"HTTPStatusCode": 404},
+                },
+                "GetObject",
+            )
+
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "PreconditionFailed", "Message": "exists"},
+                    "ResponseMetadata": {"HTTPStatusCode": 412},
+                },
+                "PutObject",
+            )
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=ConditionalClient(),
+    )
+
+    assert await writer.read_optional_bytes(
+        bucket="opennosh-public-commons",
+        object_key="missing.json",
+        max_bytes=1024,
+    ) is None
+    with pytest.raises(R2ImmutableConflictError, match="conditional"):
+        await writer.put_bytes(
+            bucket="opennosh-public-commons",
+            object_key="durability/receipt.json",
+            payload=b"receipt",
+            media_type="application/json",
+            cache_control="immutable",
+            if_none_match="*",
+        )
+
+
+@pytest.mark.asyncio
 async def test_s3_r2_writer_enforces_read_bounds() -> None:
     client = FakeS3Client()
     client.objects[("opennosh-public-commons", "latest/v1.json")] = b"oversized"
@@ -688,4 +797,83 @@ async def test_s3_r2_writer_rejects_incomplete_or_nonbyte_responses(
             bucket="opennosh-public-commons",
             object_key="latest/v1.json",
             max_bytes=1024,
+        )
+
+
+@pytest.mark.asyncio
+async def test_s3_r2_writer_maps_nonconditional_provider_failures() -> None:
+    failure = {
+        "Error": {"Code": "InternalError", "Message": "provider failed"},
+        "ResponseMetadata": {"HTTPStatusCode": 500},
+    }
+
+    class FailingProviderClient(FakeS3Client):
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+            raise ClientError(failure, "PutObject")
+
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(failure, "GetObject")
+
+        def list_objects_v2(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(failure, "ListObjectsV2")
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=FailingProviderClient(),
+    )
+
+    with pytest.raises(R2PublicationError, match="write failed"):
+        await writer.put_bytes(
+            bucket="opennosh-public-commons",
+            object_key="durability/receipt.json",
+            payload=b"receipt",
+            media_type="application/json",
+            cache_control="immutable",
+        )
+    with pytest.raises(R2PublicationError, match="read failed"):
+        await writer.read_optional_bytes(
+            bucket="opennosh-public-commons",
+            object_key="durability/receipt.json",
+            max_bytes=1024,
+        )
+    with pytest.raises(ValueError, match="between one and 1000"):
+        await writer.list_keys(
+            bucket="opennosh-public-commons",
+            prefix="durability/",
+            max_keys=0,
+        )
+    with pytest.raises(R2PublicationError, match="list failed"):
+        await writer.list_keys(
+            bucket="opennosh-public-commons",
+            prefix="durability/",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "contents",
+    ["invalid", [{"Size": 7}]],
+)
+async def test_s3_r2_writer_rejects_invalid_list_responses(contents: object) -> None:
+    class InvalidListClient(FakeS3Client):
+        def list_objects_v2(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            return {"Contents": contents}
+
+    writer = S3R2ObjectWriter(
+        account_id="a" * 32,
+        access_key_id="access-key",
+        secret_access_key="secret-key",
+        client=InvalidListClient(),
+    )
+
+    with pytest.raises(R2PublicationError, match="list response is invalid"):
+        await writer.list_keys(
+            bucket="opennosh-public-commons",
+            prefix="durability/",
         )

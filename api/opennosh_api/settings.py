@@ -101,6 +101,16 @@ class Settings(BaseSettings):
     latest_pointer_lifetime_seconds: PositiveInt = 82_800
     online_manifest_signing_key_id: str | None = None
     online_manifest_signing_key: SecretStr | None = None
+    online_receipt_signing_key_id: str | None = None
+    online_receipt_signing_key: SecretStr | None = None
+    github_forge_repository_id: PositiveInt | None = None
+    github_forge_app_id: PositiveInt | None = None
+    github_forge_installation_id: PositiveInt | None = None
+    github_forge_private_key: SecretStr | None = None
+    github_attester_app_id: PositiveInt | None = None
+    github_attester_installation_id: PositiveInt | None = None
+    github_attester_private_key: SecretStr | None = None
+    publication_artifact_bucket: str | None = None
     r2_account_id: str | None = None
     r2_bucket: str | None = None
     r2_access_key_id: SecretStr | None = None
@@ -275,6 +285,16 @@ class Settings(BaseSettings):
         publication_secret_values = (
             self.online_manifest_signing_key_id,
             self.online_manifest_signing_key,
+            self.online_receipt_signing_key_id,
+            self.online_receipt_signing_key,
+            self.github_forge_repository_id,
+            self.github_forge_app_id,
+            self.github_forge_installation_id,
+            self.github_forge_private_key,
+            self.github_attester_app_id,
+            self.github_attester_installation_id,
+            self.github_attester_private_key,
+            self.publication_artifact_bucket,
             self.r2_account_id,
             self.r2_bucket,
             self.r2_access_key_id,
@@ -302,6 +322,16 @@ class Settings(BaseSettings):
         if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
             if not self.publication_claims_enabled and not self.latest_refresh_enabled:
                 raise ValueError("Production publication workers require an enabled runtime mode")
+            if self.publication_claims_enabled:
+                if not self.latest_refresh_enabled:
+                    raise ValueError(
+                        "Production publication claims require latest refresh enabled"
+                    )
+                from opennosh_api.publication.credentials import (
+                    validate_publication_claim_credentials,
+                )
+
+                validate_publication_claim_credentials(self)
         elif self.app_environment == "production" and (
             self.publication_claims_enabled
             or self.latest_refresh_enabled
@@ -376,6 +406,12 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Online manifest signing key must be independent from offline and receipt keys"
                 )
+        if self.publication_artifact_bucket is not None and not _R2_BUCKET.fullmatch(
+            self.publication_artifact_bucket
+        ):
+            raise ValueError(
+                "Publication artifact bucket does not meet Cloudflare naming requirements"
+            )
         if (self.evidence_private_source_directory is None) != (
             self.evidence_immutable_directory is None
         ):

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+from uuid import UUID
 
+from opennosh_api.publication.adapters import PublicationEffectError
 from opennosh_api.publication.receipts import (
     Ed25519ReceiptSigner,
+    ImmutableReceiptConflictError,
     PublicationReceiptDraft,
     PublicationReceiptKeyRing,
     PublicationReceiptStore,
@@ -33,11 +36,13 @@ class ReceiptSigningAdapter:
         store: PublicationReceiptStore,
         key_ring: PublicationReceiptKeyRing,
         clock: Callable[[], datetime],
+        object_key_factory: Callable[[UUID], str] | None = None,
     ) -> None:
         self._signer = signer
         self._store = store
         self._key_ring = key_ring
         self._clock = clock
+        self._object_key_factory = object_key_factory or receipt_object_key
         self.identity = signer.adapter_identity
 
     async def apply(self, intent: EffectIntent) -> None:
@@ -46,11 +51,17 @@ class ReceiptSigningAdapter:
         draft = _draft_from_intent(intent)
         envelope = self._signer.sign(draft)
         payload = canonical_signed_receipt_bytes(envelope)
-        await self._store.put_immutable(
-            receipt_object_key(intent.publication_id),
-            payload,
-            expected_digest=signed_receipt_digest(envelope),
-        )
+        try:
+            await self._store.put_immutable(
+                self._object_key_factory(intent.publication_id),
+                payload,
+                expected_digest=signed_receipt_digest(envelope),
+            )
+        except ImmutableReceiptConflictError as error:
+            raise PublicationEffectError(
+                status=ObservationStatus.CONFLICT,
+                code="immutable_receipt_conflict",
+            ) from error
 
     async def observe(self, intent: EffectIntent) -> ExternalObservation:
         _require_step(intent, PublicationStepName.SIGN_RECEIPT)
@@ -68,6 +79,7 @@ class ReceiptSigningAdapter:
             expected_publisher_adapter_identity=self._signer.adapter_identity,
             expected_publisher_adapter_version=self._signer.adapter_version,
             include_envelope=True,
+            object_key=self._object_key_factory(intent.publication_id),
         )
 
 
@@ -81,6 +93,7 @@ class ReceiptReplicationAdapter:
         store: PublicationReceiptStore,
         key_ring: PublicationReceiptKeyRing,
         clock: Callable[[], datetime],
+        object_key_factory: Callable[[UUID, str], str] | None = None,
     ) -> None:
         if step not in {
             PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
@@ -91,6 +104,9 @@ class ReceiptReplicationAdapter:
         self._store = store
         self._key_ring = key_ring
         self._clock = clock
+        self._object_key_factory = object_key_factory or (
+            lambda publication_id, _digest: receipt_object_key(publication_id)
+        )
         self.identity = f"opennosh.receipt-replication.{step.value}"
 
     async def apply(self, intent: EffectIntent) -> None:
@@ -99,16 +115,24 @@ class ReceiptReplicationAdapter:
         envelope = _envelope_from_intent(intent)
         self._key_ring.verify(envelope)
         payload = canonical_signed_receipt_bytes(envelope)
-        await self._store.put_immutable(
-            receipt_object_key(intent.publication_id),
-            payload,
-            expected_digest=signed_receipt_digest(envelope),
-        )
+        digest = signed_receipt_digest(envelope)
+        try:
+            await self._store.put_immutable(
+                self._object_key_factory(intent.publication_id, digest),
+                payload,
+                expected_digest=digest,
+            )
+        except ImmutableReceiptConflictError as error:
+            raise PublicationEffectError(
+                status=ObservationStatus.CONFLICT,
+                code="immutable_receipt_conflict",
+            ) from error
 
     async def observe(self, intent: EffectIntent) -> ExternalObservation:
         _require_step(intent, self._step)
         _require_destination(intent, self._store.destination)
         envelope = _envelope_from_intent(intent)
+        digest = signed_receipt_digest(envelope)
         return await _observe_receipt(
             intent,
             store=self._store,
@@ -117,6 +141,7 @@ class ReceiptReplicationAdapter:
             adapter_identity=self.identity,
             adapter_version=self.version,
             expected_envelope=envelope,
+            object_key=self._object_key_factory(intent.publication_id, digest),
         )
 
 
@@ -135,8 +160,9 @@ async def _observe_receipt(
     expected_publisher_adapter_identity: str | None = None,
     expected_publisher_adapter_version: str | None = None,
     include_envelope: bool = False,
+    object_key: str | None = None,
 ) -> ExternalObservation:
-    observation = await store.observe(receipt_object_key(intent.publication_id))
+    observation = await store.observe(object_key or receipt_object_key(intent.publication_id))
     if observation is None:
         return _observation(
             intent,

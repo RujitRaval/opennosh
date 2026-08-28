@@ -66,6 +66,34 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "PUBLICATION_RECEIPT_VERIFYING_KEYS",
     "ONLINE_MANIFEST_SIGNING_KEY_ID",
     "ONLINE_MANIFEST_SIGNING_KEY",
+    "ONLINE_RECEIPT_SIGNING_KEY_ID",
+    "ONLINE_RECEIPT_SIGNING_KEY",
+    "GITHUB_FORGE_REPOSITORY_ID",
+    "GITHUB_FORGE_APP_ID",
+    "GITHUB_FORGE_INSTALLATION_ID",
+    "GITHUB_FORGE_PRIVATE_KEY",
+    "GITHUB_ATTESTER_APP_ID",
+    "GITHUB_ATTESTER_INSTALLATION_ID",
+    "GITHUB_ATTESTER_PRIVATE_KEY",
+    "PUBLICATION_ARTIFACT_BUCKET",
+    "R2_ACCOUNT_ID",
+    "R2_BUCKET",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+)
+PUBLICATION_PRIVATE_ENVIRONMENT_KEYS = (
+    "ONLINE_MANIFEST_SIGNING_KEY_ID",
+    "ONLINE_MANIFEST_SIGNING_KEY",
+    "ONLINE_RECEIPT_SIGNING_KEY_ID",
+    "ONLINE_RECEIPT_SIGNING_KEY",
+    "GITHUB_FORGE_REPOSITORY_ID",
+    "GITHUB_FORGE_APP_ID",
+    "GITHUB_FORGE_INSTALLATION_ID",
+    "GITHUB_FORGE_PRIVATE_KEY",
+    "GITHUB_ATTESTER_APP_ID",
+    "GITHUB_ATTESTER_INSTALLATION_ID",
+    "GITHUB_ATTESTER_PRIVATE_KEY",
+    "PUBLICATION_ARTIFACT_BUCKET",
     "R2_ACCOUNT_ID",
     "R2_BUCKET",
     "R2_ACCESS_KEY_ID",
@@ -138,6 +166,8 @@ def api_environment(source: Mapping[str, str]) -> dict[str, str]:
 
     _strip_database_credentials(environment, preserve_url="WEB_DATABASE_URL")
     environment.pop("FOOD_SEARCH_CURSOR_SECRET", None)
+    for key in PUBLICATION_PRIVATE_ENVIRONMENT_KEYS:
+        environment.pop(key, None)
     return environment
 
 
@@ -162,6 +192,19 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
             raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
         if str(parsed_activation_id) != activation_id:
             raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
+        for key in (
+            "GITHUB_FORGE_REPOSITORY_ID",
+            "GITHUB_FORGE_APP_ID",
+            "GITHUB_FORGE_INSTALLATION_ID",
+            "GITHUB_FORGE_PRIVATE_KEY",
+            "GITHUB_ATTESTER_APP_ID",
+            "GITHUB_ATTESTER_INSTALLATION_ID",
+            "GITHUB_ATTESTER_PRIVATE_KEY",
+            "ONLINE_RECEIPT_SIGNING_KEY_ID",
+            "ONLINE_RECEIPT_SIGNING_KEY",
+            "PUBLICATION_ARTIFACT_BUCKET",
+        ):
+            _required(source, key)
         owner_url = _required(source, "RENDER_DATABASE_URL")
         publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
         environment["PUBLICATION_DATABASE_URL"] = role_database_url(

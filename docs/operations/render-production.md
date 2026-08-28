@@ -289,6 +289,28 @@ PUBLICATION_CLAIMS_ENABLED=false
 LATEST_REFRESH_ENABLED=true
 ```
 
+Keep the claims-time groups unlinked while this flag is false. The reviewed activation Blueprint
+will link each group only to `opennosh-publication`:
+
+| Render group | Exact worker-only values |
+|---|---|
+| `opennosh-publication-forge` | `GITHUB_FORGE_REPOSITORY_ID`, `GITHUB_FORGE_APP_ID`, `GITHUB_FORGE_INSTALLATION_ID`, `GITHUB_FORGE_PRIVATE_KEY` |
+| `opennosh-governance-attester` | `GITHUB_ATTESTER_APP_ID`, `GITHUB_ATTESTER_INSTALLATION_ID`, `GITHUB_ATTESTER_PRIVATE_KEY` |
+| `opennosh-online-receipt-signer` | `ONLINE_RECEIPT_SIGNING_KEY_ID`, `ONLINE_RECEIPT_SIGNING_KEY`, `PUBLICATION_RECEIPT_VERIFYING_KEYS` |
+| `opennosh-r2-writer` | `R2_ACCOUNT_ID`, `R2_BUCKET`, `PUBLICATION_ARTIFACT_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |
+
+The Forge and attester App IDs, installation IDs, and RSA public-key fingerprints must all differ.
+The receipt Ed25519 public key must differ from the online manifest key and every offline
+root/recovery key. `PUBLICATION_ARTIFACT_BUCKET` must equal `R2_BUCKET`. A missing, malformed,
+aliased, or cross-role value aborts settings validation before a queue pool is created. The API
+bootstrap strips these values even if a provider accidentally injects them.
+
+The production registry uses separate immutable staging keys for signing and publication. Release
+signatures are self-verified under `signatures/releases/v1/` before the canonical release is
+published. Receipt signatures are read back under `signatures/receipts/v1/`; only the following
+registry step writes `receipts/v1/{publication_id}.json`, and the durability step writes the
+independent digest-addressed copy under `durability/receipts/`.
+
 Claims may be enabled only after the production registry supplies every canonical
 `PublicationStepName` adapter. The worker validates that exact ten-step registry before opening
 its PostgreSQL pool. Render must then provide one canonical UUID through
