@@ -23,6 +23,7 @@ from opennosh_api.first_contribution.contracts import (
     FirstContributionPackage,
     canonical_json,
     derived_id,
+    package_material_digest,
 )
 from opennosh_api.governance.contracts import ApprovedChangeSet, ApprovedFileChange
 
@@ -246,7 +247,18 @@ def _build_package(source_digest: str) -> FirstContributionPackage:
         "approved_changes": changes.as_json(),
         "record_id": FIRST_RECORD_ID,
     }
-    material["package_digest"] = hashlib.sha256(canonical_json(material)).hexdigest()
+    package_digest = package_material_digest(material)
+    material.update(
+        source_actor_id=str(derived_id(package_digest, "source-actor")),
+        draft_id=str(derived_id(package_digest, "draft")),
+        submission_id=str(derived_id(package_digest, "submission")),
+        evidence_id=str(derived_id(package_digest, "evidence")),
+        role_assignment_id=str(derived_id(package_digest, "steward-role")),
+        decision_id=str(derived_id(package_digest, "decision")),
+        publication_intent_id=str(derived_id(package_digest, "publication-intent")),
+        package_digest=package_digest,
+    )
+    material["evidence_manifest"]["evidence_id"] = material["evidence_id"]
     return FirstContributionPackage.model_validate(material)
 
 

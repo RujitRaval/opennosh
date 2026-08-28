@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -119,6 +119,10 @@ async def commit_usda_first_contribution(
 
     async with factory() as session:
         async with session.begin():
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+                {"scope": f"first-contribution-steward:{FIRST_PACK_ID}"},
+            )
             replay = await _load_receipt(
                 session,
                 package,

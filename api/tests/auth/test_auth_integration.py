@@ -802,7 +802,7 @@ def test_service_principal_is_excluded_from_every_human_auth_path(
     registration = auth_client.post(
         "/api/v1/auth/register",
         json={
-            "email": "source@actors.opennosh.invalid",
+            "email": "unused@actors.opennosh.invalid",
             "password": "known service password",
         },
     )
@@ -826,6 +826,7 @@ def test_service_principal_is_excluded_from_every_human_auth_path(
     session_state = auth_client.get("/api/v1/auth/session-state")
 
     assert registration.status_code == 409
+    assert registration.json()["detail"] == "Registration is unavailable for this address"
     assert login.status_code == 401
     assert recovery.status_code == 401
     assert session.status_code == 401

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Literal, Self
 from uuid import UUID, uuid5
@@ -19,6 +20,15 @@ FIRST_PACK_ID = "common-fruits"
 FIRST_RECORD_ID = "bananas-ripe-and-slightly-ripe-raw"
 FIRST_SOURCE_URI = "https://fdc.nal.usda.gov/fdc-app.html#/food-details/1105314/nutrients"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_DERIVED_ID_FIELDS = {
+    "source_actor_id",
+    "draft_id",
+    "submission_id",
+    "evidence_id",
+    "role_assignment_id",
+    "decision_id",
+    "publication_intent_id",
+}
 
 
 def canonical_json(value: object) -> bytes:
@@ -30,12 +40,25 @@ def canonical_json(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def derived_id(source_digest: str, purpose: str) -> UUID:
-    if not _SHA256.fullmatch(source_digest):
-        raise ValueError("First-contribution source digest must be lowercase SHA-256")
+def derived_id(anchor_digest: str, purpose: str) -> UUID:
+    if not _SHA256.fullmatch(anchor_digest):
+        raise ValueError("First-contribution identity digest must be lowercase SHA-256")
     if not purpose or not purpose.isascii():
         raise ValueError("First-contribution identity purpose must be ASCII")
-    return uuid5(FIRST_CONTRIBUTION_NAMESPACE, f"{source_digest}:{purpose}")
+    return uuid5(FIRST_CONTRIBUTION_NAMESPACE, f"{anchor_digest}:{purpose}")
+
+
+def package_material_digest(value: Mapping[str, Any]) -> str:
+    material = dict(value)
+    material.pop("package_digest", None)
+    for field in _DERIVED_ID_FIELDS:
+        material.pop(field, None)
+    evidence = material.get("evidence_manifest")
+    if isinstance(evidence, dict):
+        evidence = dict(evidence)
+        evidence.pop("evidence_id", None)
+        material["evidence_manifest"] = evidence
+    return hashlib.sha256(canonical_json(material)).hexdigest()
 
 
 class FirstContributionPackage(BaseModel):
@@ -87,21 +110,23 @@ class FirstContributionPackage(BaseModel):
 
     @model_validator(mode="after")
     def validate_identities_and_digest(self) -> Self:
+        digest = package_material_digest(self.model_dump(mode="json"))
+        if digest != self.package_digest:
+            raise ValueError("First-contribution package digest mismatch")
         expected = {
-            "source_actor_id": derived_id(self.source_record_digest, "source-actor"),
-            "draft_id": derived_id(self.source_record_digest, "draft"),
-            "submission_id": derived_id(self.source_record_digest, "submission"),
-            "evidence_id": derived_id(self.source_record_digest, "evidence"),
-            "role_assignment_id": derived_id(self.source_record_digest, "steward-role"),
-            "decision_id": derived_id(self.source_record_digest, "decision"),
-            "publication_intent_id": derived_id(self.source_record_digest, "publication-intent"),
+            "source_actor_id": derived_id(digest, "source-actor"),
+            "draft_id": derived_id(digest, "draft"),
+            "submission_id": derived_id(digest, "submission"),
+            "evidence_id": derived_id(digest, "evidence"),
+            "role_assignment_id": derived_id(digest, "steward-role"),
+            "decision_id": derived_id(digest, "decision"),
+            "publication_intent_id": derived_id(digest, "publication-intent"),
         }
         if any(getattr(self, field) != identity for field, identity in expected.items()):
             raise ValueError("First-contribution deterministic identity mismatch")
-        material = self.model_dump(mode="json", exclude={"package_digest"})
-        digest = hashlib.sha256(canonical_json(material)).hexdigest()
-        if digest != self.package_digest:
-            raise ValueError("First-contribution package digest mismatch")
+        manifest = parse_manifest(self.evidence_manifest)
+        if manifest.evidence_id != self.evidence_id:
+            raise ValueError("First-contribution evidence identity mismatch")
         return self
 
     def canonical_bytes(self) -> bytes:
