@@ -136,7 +136,7 @@ def validate_publication_claim_credentials(
     """Validate claims-time identities without retaining or returning private material."""
 
     required = {
-        "GITHUB_REPOSITORY_ID": settings.github_repository_id,
+        "GITHUB_FORGE_REPOSITORY_ID": settings.github_forge_repository_id,
         "GITHUB_FORGE_APP_ID": settings.github_forge_app_id,
         "GITHUB_FORGE_INSTALLATION_ID": settings.github_forge_installation_id,
         "GITHUB_FORGE_PRIVATE_KEY": settings.github_forge_private_key,
@@ -152,7 +152,7 @@ def validate_publication_claim_credentials(
         raise ValueError(
             "Publication claims configuration is incomplete: " + ",".join(missing)
         )
-    assert settings.github_repository_id is not None
+    assert settings.github_forge_repository_id is not None
     assert settings.github_forge_app_id is not None
     assert settings.github_forge_installation_id is not None
     assert settings.github_forge_private_key is not None
@@ -168,7 +168,7 @@ def validate_publication_claim_credentials(
     forge = GitHubAppIdentity(
         app_id=settings.github_forge_app_id,
         installation_id=settings.github_forge_installation_id,
-        repository_id=settings.github_repository_id,
+        repository_id=settings.github_forge_repository_id,
         public_key_fingerprint=_rsa_public_key_fingerprint(
             settings.github_forge_private_key.get_secret_value()
         ),
@@ -176,7 +176,7 @@ def validate_publication_claim_credentials(
     attester = GitHubAppIdentity(
         app_id=settings.github_attester_app_id,
         installation_id=settings.github_attester_installation_id,
-        repository_id=settings.github_repository_id,
+        repository_id=settings.github_forge_repository_id,
         public_key_fingerprint=_rsa_public_key_fingerprint(
             settings.github_attester_private_key.get_secret_value()
         ),

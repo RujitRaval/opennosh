@@ -58,7 +58,7 @@ def _claims_environment() -> dict[str, str]:
         "PUBLICATION_CLAIMS_ENABLED": "true",
         "LATEST_REFRESH_ENABLED": "true",
         "PUBLICATION_ACTIVATION_IDS": "00000000-0000-4000-8000-000000000001",
-        "GITHUB_REPOSITORY_ID": "123",
+        "GITHUB_FORGE_REPOSITORY_ID": "123",
         "GITHUB_FORGE_APP_ID": "456",
         "GITHUB_FORGE_INSTALLATION_ID": "789",
         "GITHUB_FORGE_PRIVATE_KEY": "forge-private",
@@ -347,7 +347,7 @@ def test_render_combined_environment_uses_only_the_worker_database_identity() ->
 @pytest.mark.parametrize(
     "key",
     [
-        "GITHUB_REPOSITORY_ID",
+        "GITHUB_FORGE_REPOSITORY_ID",
         "GITHUB_FORGE_APP_ID",
         "GITHUB_FORGE_INSTALLATION_ID",
         "GITHUB_FORGE_PRIVATE_KEY",

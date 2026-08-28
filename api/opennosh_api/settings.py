@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     online_manifest_signing_key: SecretStr | None = None
     online_receipt_signing_key_id: str | None = None
     online_receipt_signing_key: SecretStr | None = None
-    github_repository_id: PositiveInt | None = None
+    github_forge_repository_id: PositiveInt | None = None
     github_forge_app_id: PositiveInt | None = None
     github_forge_installation_id: PositiveInt | None = None
     github_forge_private_key: SecretStr | None = None
@@ -287,7 +287,7 @@ class Settings(BaseSettings):
             self.online_manifest_signing_key,
             self.online_receipt_signing_key_id,
             self.online_receipt_signing_key,
-            self.github_repository_id,
+            self.github_forge_repository_id,
             self.github_forge_app_id,
             self.github_forge_installation_id,
             self.github_forge_private_key,

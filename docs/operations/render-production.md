@@ -294,7 +294,7 @@ will link each group only to `opennosh-publication`:
 
 | Render group | Exact worker-only values |
 |---|---|
-| `opennosh-publication-forge` | `GITHUB_REPOSITORY_ID`, `GITHUB_FORGE_APP_ID`, `GITHUB_FORGE_INSTALLATION_ID`, `GITHUB_FORGE_PRIVATE_KEY` |
+| `opennosh-publication-forge` | `GITHUB_FORGE_REPOSITORY_ID`, `GITHUB_FORGE_APP_ID`, `GITHUB_FORGE_INSTALLATION_ID`, `GITHUB_FORGE_PRIVATE_KEY` |
 | `opennosh-governance-attester` | `GITHUB_ATTESTER_APP_ID`, `GITHUB_ATTESTER_INSTALLATION_ID`, `GITHUB_ATTESTER_PRIVATE_KEY` |
 | `opennosh-online-receipt-signer` | `ONLINE_RECEIPT_SIGNING_KEY_ID`, `ONLINE_RECEIPT_SIGNING_KEY`, `PUBLICATION_RECEIPT_VERIFYING_KEYS` |
 | `opennosh-r2-writer` | `R2_ACCOUNT_ID`, `R2_BUCKET`, `PUBLICATION_ARTIFACT_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |

@@ -50,7 +50,7 @@ def _refresh_settings(**overrides: object) -> Settings:
         "online_receipt_signing_key": (
             base64.urlsafe_b64encode(b"r" * 32).decode().rstrip("=")
         ),
-        "github_repository_id": 1,
+        "github_forge_repository_id": 1,
         "github_forge_app_id": 2,
         "github_forge_installation_id": 3,
         "github_forge_private_key": _pem(FORGE_KEY),

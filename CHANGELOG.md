@@ -17,6 +17,7 @@ All notable changes to opennosh will be documented in this file.
 ### Fixed
 
 - Convert immutable R2 write races into deterministic publication conflicts and close worker-owned provider clients during bounded shutdown.
+- Use a publication-specific Forge repository variable so GitHub Actions' built-in repository metadata cannot activate worker-only credential validation in unrelated processes.
 
 ## [0.59.0.0] - 2026-08-27
 

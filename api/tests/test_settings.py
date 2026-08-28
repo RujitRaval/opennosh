@@ -224,6 +224,20 @@ def test_production_settings_use_secure_host_only_cookie_names() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_github_actions_repository_id_does_not_activate_publication_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY_ID", "123")
+
+    settings = Settings(
+        app_environment="production",
+        food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
+        _env_file=None,
+    )
+
+    assert settings.github_forge_repository_id is None
+
+
 def test_proxy_token_must_be_long_and_unique_in_production() -> None:
     with pytest.raises(ValidationError):
         Settings(trusted_web_proxy_token="too-short", _env_file=None)
