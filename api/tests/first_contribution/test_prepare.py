@@ -33,7 +33,7 @@ def usda_source() -> dict[str, object]:
         "fdcId": 1105314,
         "dataType": "Foundation",
         "description": "Bananas, ripe and slightly ripe, raw",
-        "publicationDate": "2020-04-01",
+        "publicationDate": "4/1/2020",
         "foodNutrients": [
             {"nutrient": {"id": 1008}, "amount": 97},
             {"nutrient": {"id": 1003}, "amount": 0.74},
@@ -77,6 +77,19 @@ def test_prepare_is_deterministic_and_reuses_identical_output(tmp_path: Path) ->
     package_path.chmod(0o644)
     with pytest.raises(FirstContributionPreparationError, match="mode-0600"):
         prepare_usda_first_contribution(source, package_path)
+
+
+def test_prepare_accepts_the_prior_iso_usda_publication_date_encoding(
+    tmp_path: Path,
+) -> None:
+    source_value = usda_source()
+    source_value["publicationDate"] = "2020-04-01"
+    source = tmp_path / "usda.json"
+    write_source(source, source_value)
+
+    package = prepare_usda_first_contribution(source, tmp_path / "package.json")
+
+    assert package.fdc_id == "1105314"
 
 
 @pytest.mark.parametrize(

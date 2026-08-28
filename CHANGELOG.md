@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.63.0.1] - 2026-08-28
+
+### Fixed
+
+- Accept USDA FoodData Central's current `M/D/YYYY` publication-date encoding for the pinned first contribution while retaining the previously reviewed ISO encoding.
+
 ## [0.63.0.0] - 2026-08-28
 
 ### Added
