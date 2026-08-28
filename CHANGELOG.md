@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.63.0.0] - 2026-08-28
+
+### Added
+
+- Let an operator prepare and review one deterministic USDA FoodData Central package for the first `common-fruits` contribution without touching the database or external services.
+- Add a resumable, receipt-producing commit ceremony that preserves reference-only citation evidence, bootstraps one human steward, and queues exactly one governed publication intent.
+- Add login-disabled service principals so public data sources can own contributions without gaining any human authentication or account-recovery path.
+
+### Changed
+
+- Generate the exact one-record `common-fruits` pack and prove it passes the existing food-pack schema and signed release builder before production use.
+- Document the claims-disabled Render ceremony, independent review anchors, temporary credential isolation, replay checks, and post-run revocation procedure.
+
+### Security
+
+- Bind every first-contribution UUID to the reviewed package material digest, reject package or replay drift, and serialize the empty-scope steward bootstrap so concurrent operators cannot create competing authority.
+- Preserve immutable R2 evidence with observe-first, conditional-create, readback verification, lost-response recovery, and terminal conflict handling while holding no database connection during provider I/O.
+
 ## [0.62.0.0] - 2026-08-28
 
 ### Added
