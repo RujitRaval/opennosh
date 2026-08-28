@@ -13,11 +13,27 @@ from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
 
 class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "users"
-    __table_args__ = (Index("uq_users_email_normalized", text("lower(email)"), unique=True),)
+    __table_args__ = (
+        CheckConstraint(
+            "actor_kind IN ('person', 'service')",
+            name="actor_kind_allowed",
+        ),
+        CheckConstraint(
+            "(actor_kind = 'person' AND login_disabled_at IS NULL) OR "
+            "(actor_kind = 'service' AND login_disabled_at IS NOT NULL "
+            "AND recovery_token_hash IS NULL)",
+            name="service_login_disabled",
+        ),
+        Index("uq_users_email_normalized", text("lower(email)"), unique=True),
+    )
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     recovery_token_hash: Mapped[str | None] = mapped_column(String(64))
+    actor_kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=text("'person'")
+    )
+    login_disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     settings_json: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )

@@ -1587,3 +1587,105 @@ def test_wger_catalogue_migration_rejects_invalid_legacy_rows(invalid_kind: str)
             command.upgrade(config, "head")
     finally:
         command.downgrade(config, "base")
+
+
+async def service_principal_migration_checks(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            person = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT actor_kind, login_disabled_at
+                        FROM users WHERE email = 'existing-person@example.test'
+                        """
+                    )
+                )
+            ).one()
+        assert tuple(person) == ("person", None)
+
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO users (
+                            email, password_hash, actor_kind, login_disabled_at
+                        ) VALUES (
+                            'invalid-service@actors.opennosh.invalid', 'hash',
+                            'service', NULL
+                        )
+                        """
+                    )
+                )
+
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO users (
+                        email, password_hash, recovery_token_hash,
+                        actor_kind, login_disabled_at
+                    ) VALUES (
+                        'valid-service@actors.opennosh.invalid', 'hash', NULL,
+                        'service', now()
+                    )
+                    """
+                )
+            )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_service_principal_migration_preserves_people_enforces_and_downgrades() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260826_0018")
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+
+        async def seed_person() -> None:
+            try:
+                async with engine.begin() as connection:
+                    await connection.execute(
+                        text(
+                            """
+                            INSERT INTO users (email, password_hash)
+                            VALUES ('existing-person@example.test', 'hash')
+                            """
+                        )
+                    )
+            finally:
+                await engine.dispose()
+
+        asyncio.run(seed_person())
+        command.upgrade(config, "head")
+        asyncio.run(service_principal_migration_checks(INTEGRATION_DATABASE_URL))
+
+        constraints = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    constraint["name"] for constraint in inspector.get_check_constraints("users")
+                },
+            )
+        )
+        assert {
+            "ck_users_actor_kind_allowed",
+            "ck_users_service_login_disabled",
+        }.issubset(constraints)
+
+        command.downgrade(config, "20260826_0018")
+        columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {column["name"] for column in inspector.get_columns("users")},
+            )
+        )
+        assert "actor_kind" not in columns
+        assert "login_disabled_at" not in columns
+    finally:
+        command.downgrade(config, "base")
