@@ -5537,7 +5537,7 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.61.0.0",
+    "version": "0.61.0.1",
     "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",

@@ -276,6 +276,10 @@ async def test_preactivation_smoke_runs_before_refresh_without_claim_queue(
         latest_refresh_interval_seconds=3600.0,
     )
     lifecycle: list[str] = []
+    warnings: list[str] = []
+
+    def warning(message: str, *arguments: object) -> None:
+        warnings.append(message % arguments)
 
     async def smoke(_settings: object, *, clock: object) -> tuple[str, ...]:
         assert callable(clock)
@@ -306,6 +310,10 @@ async def test_preactivation_smoke_runs_before_refresh_without_claim_queue(
         "opennosh_api.jobs.worker.run_latest_pointer_refresh_loop",
         refresh,
     )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.logger.warning",
+        warning,
+    )
 
     await _run_publication_worker(
         settings=cast(Any, settings),
@@ -313,6 +321,12 @@ async def test_preactivation_smoke_runs_before_refresh_without_claim_queue(
     )
 
     assert lifecycle == ["smoke", "refresh"]
+    steps = ",".join(step.value for step in PublicationStepName)
+    proof = (
+        "Zero-claim publication preactivation smoke passed "
+        f"adapter_count=10 steps={steps} claims_enabled=false"
+    )
+    assert warnings == [proof]
 
 
 @pytest.mark.asyncio
