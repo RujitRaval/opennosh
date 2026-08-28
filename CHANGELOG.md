@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.61.0.0] - 2026-08-27
+
+### Added
+
+- Build a public Commons release directly from the exact approved food-pack files in the merged Git tree, preserving its commit, tree, evidence, records, provenance, pack, and signed manifest as immutable objects.
+- Add a production-shaped zero-claim smoke mode that constructs all ten publication adapters without opening the database, claiming a contribution, mutating GitHub, signing data, or writing to R2.
+
+### Changed
+
+- Reopen the deterministic governed pull request for every later publication step and revalidate its merge commit, tree identity, approved digest, and bounded pack contents before release materialization.
+- Give the publication worker only the governance and evidence database reads required for the future activation path while keeping its Forge, attester, signer, and R2 credentials isolated.
+
+### Security
+
+- Keep live contribution claims fail-closed until a durable receipt can gate compare-and-swap promotion of the public latest pointer.
+- Revalidate cached release material against the current publication intent and reject replacement semantics until prior pack history can prove safe removals.
+
 ## [0.60.0.0] - 2026-08-27
 
 ### Added
