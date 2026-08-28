@@ -76,6 +76,8 @@ services:
         value: /app/config/database-capacity.v1.json
       - key: PUBLICATION_CLAIMS_ENABLED
         value: "false"
+      - key: PUBLICATION_PREACTIVATION_SMOKE_ENABLED
+        value: "false"
       - key: LATEST_REFRESH_ENABLED
         value: "true"
       - key: LATEST_REFRESH_INTERVAL_SECONDS

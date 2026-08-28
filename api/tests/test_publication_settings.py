@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import UTC, datetime
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -10,6 +11,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import ProcessRole
 from opennosh_api.public.signing import public_key_text
 from opennosh_api.publication.credentials import ProductionPublicationClients
+from opennosh_api.publication.runtime import run_zero_claim_preactivation_smoke
+from opennosh_api.publication.state import PublicationStepName
 from opennosh_api.settings import Settings
 from pydantic import ValidationError
 
@@ -246,6 +249,36 @@ def test_combined_claims_and_refresh_accept_one_activation_id() -> None:
     assert str(settings.publication_activation_id) == (
         "00000000-0000-4000-8000-000000000001"
     )
+
+
+def test_preactivation_smoke_accepts_complete_credentials_without_claims_or_database() -> None:
+    settings = _refresh_settings(publication_preactivation_smoke_enabled=True)
+
+    assert settings.publication_preactivation_smoke_enabled is True
+    assert settings.publication_claims_enabled is False
+    assert settings.publication_activation_id is None
+    assert settings.publication_database_url is None
+
+
+def test_preactivation_smoke_and_claims_are_mutually_exclusive() -> None:
+    with pytest.raises(ValidationError, match="requires claims disabled"):
+        _refresh_settings(
+            publication_preactivation_smoke_enabled=True,
+            publication_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+        )
+
+
+@pytest.mark.asyncio
+async def test_preactivation_smoke_constructs_all_adapters_without_provider_io() -> None:
+    settings = _refresh_settings(publication_preactivation_smoke_enabled=True)
+
+    steps = await run_zero_claim_preactivation_smoke(
+        settings,
+        clock=lambda: datetime(2026, 8, 28, 1, tzinfo=UTC),
+    )
+
+    assert steps == tuple(step.value for step in PublicationStepName)
 
 
 @pytest.mark.parametrize(

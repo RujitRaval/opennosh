@@ -302,7 +302,10 @@ class GovernedForgeAdapter:
             observed_at,
             content_digest=binding.approved_changes.digest,
             external_reference=forge.merged_commit or forge.external_reference,
-            context={"pull_request": forge.external_reference or ""},
+            context={
+                "pull_request": forge.external_reference or "",
+                "merged_tree_digest": forge.merged_tree_digest or "",
+            },
         )
 
     async def _binding(self, intent: EffectIntent):  # type: ignore[no-untyped-def]

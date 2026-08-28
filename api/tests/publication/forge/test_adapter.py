@@ -235,6 +235,7 @@ def merged(*, digest: str | None = None) -> ForgeObservation:
         head_commit="d" * 40,
         merged_at=NOW,
         merged_commit="c" * 40,
+        merged_tree_digest="e" * 64,
         merged_payload_digest=digest or approved_changes().digest,
     )
 
@@ -249,6 +250,7 @@ async def test_verified_merge_requires_exact_approved_payload_and_all_checks() -
     assert observed.status is ObservationStatus.VERIFIED
     assert observed.content_digest == approved_changes().digest
     assert observed.external_reference == "c" * 40
+    assert observed.context["merged_tree_digest"] == "e" * 64
 
 
 @pytest.mark.parametrize(

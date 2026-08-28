@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from opennosh_api.jobs.worker import (
@@ -16,6 +18,8 @@ from opennosh_api.publication.state import (
     ExternalObservation,
     PublicationStepName,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class Adapter:
@@ -79,6 +83,147 @@ async def test_production_worker_rejects_missing_adapters_before_opening_a_pool(
 
 
 @pytest.mark.asyncio
+async def test_production_claims_build_live_registry_before_pool_and_own_resources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lifecycle: list[str] = []
+    registry = complete_registry()
+
+    class Pool:
+        def get_max_size(self) -> int:
+            return 4
+
+        async def close(self) -> None:
+            lifecycle.append("pool:close")
+
+    pool = Pool()
+
+    class Prepared:
+        runtime = SimpleNamespace(adapters=registry)
+
+        def bind_pool(self, supplied_pool: object) -> object:
+            assert supplied_pool is pool
+            lifecycle.append("registry:bind")
+            return registry
+
+        async def aclose(self) -> None:
+            lifecycle.append("providers:close")
+
+    prepared = Prepared()
+
+    async def prepare(
+        _settings: object,
+        *,
+        clock: object,
+    ) -> Prepared:
+        assert callable(clock)
+        lifecycle.append("registry:prepare")
+        return prepared
+
+    async def create_pool(**arguments: object) -> Pool:
+        assert arguments["min_size"] == 1
+        lifecycle.append("pool:create")
+        return pool
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
+        prepare,
+    )
+    monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", create_pool)
+    settings = SimpleNamespace(
+        app_environment="production",
+        publication_claims_enabled=True,
+        publication_activation_id=UUID(
+            "00000000-0000-4000-8000-000000000001"
+        ),
+        database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
+        process_database_url=lambda _role: (
+            "postgresql+asyncpg://publication:secret@db/opennosh"
+        ),
+    )
+
+    driver = await create_publication_role_driver(cast(Any, settings))
+
+    assert lifecycle == ["registry:prepare", "pool:create", "registry:bind"]
+    await driver.close()
+    assert lifecycle[-2:] == ["pool:close", "providers:close"]
+
+
+@pytest.mark.parametrize("failure", ["pool", "bind", "assemble"])
+@pytest.mark.asyncio
+async def test_production_claim_startup_failure_closes_every_created_resource(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    lifecycle: list[str] = []
+    registry = complete_registry()
+
+    class Pool:
+        def get_max_size(self) -> int:
+            return 4
+
+        async def close(self) -> None:
+            lifecycle.append("pool:close")
+
+    pool = Pool()
+
+    class Prepared:
+        runtime = SimpleNamespace(adapters=registry)
+
+        def bind_pool(self, _pool: object) -> object:
+            if failure == "bind":
+                raise RuntimeError("bind failed")
+            return registry
+
+        async def aclose(self) -> None:
+            lifecycle.append("providers:close")
+
+    prepared = Prepared()
+
+    async def prepare(_settings: object, *, clock: object) -> Prepared:
+        assert callable(clock)
+        return prepared
+
+    async def create_pool(**_arguments: object) -> Pool:
+        if failure == "pool":
+            raise RuntimeError("pool failed")
+        return pool
+
+    def assemble(**_arguments: object) -> None:
+        raise RuntimeError("assemble failed")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
+        prepare,
+    )
+    monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", create_pool)
+    if failure == "assemble":
+        monkeypatch.setattr(
+            "opennosh_api.jobs.worker._assemble_publication_role_driver",
+            assemble,
+        )
+    settings = SimpleNamespace(
+        app_environment="production",
+        publication_claims_enabled=True,
+        publication_activation_id=UUID(
+            "00000000-0000-4000-8000-000000000001"
+        ),
+        database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
+        process_database_url=lambda _role: (
+            "postgresql+asyncpg://publication:secret@db/opennosh"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match=failure):
+        await create_publication_role_driver(cast(Any, settings))
+
+    if failure == "pool":
+        assert lifecycle == ["providers:close"]
+    else:
+        assert lifecycle == ["pool:close", "providers:close"]
+
+
+@pytest.mark.asyncio
 async def test_refresh_only_worker_never_constructs_the_queue_driver(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -118,6 +263,56 @@ async def test_refresh_only_worker_never_constructs_the_queue_driver(
     assert len(calls) == 1
     assert calls[0][0] is service
     assert calls[0][2] == 3600.0
+
+
+@pytest.mark.asyncio
+async def test_preactivation_smoke_runs_before_refresh_without_claim_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=True,
+        publication_claims_enabled=False,
+        publication_preactivation_smoke_enabled=True,
+        latest_refresh_interval_seconds=3600.0,
+    )
+    lifecycle: list[str] = []
+
+    async def smoke(_settings: object, *, clock: object) -> tuple[str, ...]:
+        assert callable(clock)
+        lifecycle.append("smoke")
+        return tuple(step.value for step in PublicationStepName)
+
+    async def forbidden_queue_driver(**_arguments: object) -> None:
+        raise AssertionError("preactivation constructed the publication queue")
+
+    async def refresh(
+        _service: object,
+        _shutdown: object,
+        *,
+        interval_seconds: float,
+    ) -> None:
+        assert interval_seconds == 3600.0
+        lifecycle.append("refresh")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_zero_claim_preactivation_smoke",
+        smoke,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        forbidden_queue_driver,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_latest_pointer_refresh_loop",
+        refresh,
+    )
+
+    await _run_publication_worker(
+        settings=cast(Any, settings),
+        refresh_service=cast(Any, object()),
+    )
+
+    assert lifecycle == ["smoke", "refresh"]
 
 
 @pytest.mark.asyncio

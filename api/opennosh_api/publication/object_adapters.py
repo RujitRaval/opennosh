@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -42,7 +44,7 @@ class PublicationObject:
     object_key: str
     payload: bytes
     media_type: str
-    context: dict[str, object]
+    context: Mapping[str, object]
     external_reference: str | None = None
 
     def __post_init__(self) -> None:
@@ -52,10 +54,43 @@ class PublicationObject:
             raise ValueError("Publication object payload is empty or too large")
         if not self.media_type or len(self.media_type) > 127:
             raise ValueError("Publication object media type is invalid")
+        object.__setattr__(self, "context", MappingProxyType(dict(self.context)))
 
     @property
     def digest(self) -> str:
         return hashlib.sha256(self.payload).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationObjectSet:
+    """Ordered immutable objects represented by one durable step acknowledgement."""
+
+    objects: tuple[PublicationObject, ...]
+    context: Mapping[str, object]
+    external_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        keys = tuple(item.object_key for item in self.objects)
+        if not keys or len(keys) != len(set(keys)):
+            raise ValueError("Publication object-set keys must be unique")
+        object.__setattr__(self, "context", MappingProxyType(dict(self.context)))
+
+    @property
+    def digest(self) -> str:
+        inventory = [
+            {
+                "object_key": item.object_key,
+                "digest": item.digest,
+                "media_type": item.media_type,
+            }
+            for item in self.objects
+        ]
+        payload = json.dumps(
+            inventory,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
 
 
 @runtime_checkable
@@ -68,7 +103,10 @@ class PublicationObjectSource(Protocol):
     @property
     def version(self) -> str: ...
 
-    async def materialize(self, intent: EffectIntent) -> PublicationObject: ...
+    async def materialize(
+        self,
+        intent: EffectIntent,
+    ) -> PublicationObject | PublicationObjectSet: ...
 
 
 @runtime_checkable
@@ -168,14 +206,69 @@ class R2ImmutablePublicationAdapter:
     async def apply(self, intent: EffectIntent) -> None:
         self._require_intent(intent)
         material = await self._source.materialize(intent)
+        for item in _objects(material):
+            await self._put_missing(item)
+
+    async def observe(self, intent: EffectIntent) -> ExternalObservation:
+        self._require_intent(intent)
+        observed_at = self._now()
+        try:
+            material = await self._source.materialize(intent)
+            items = _objects(material)
+            payloads = [
+                await self._read(item.object_key, max_bytes=_MAX_OBJECT_BYTES)
+                for item in items
+            ]
+        except R2PublicationError:
+            return self._observation(
+                intent,
+                status=ObservationStatus.RETRYABLE_FAILURE,
+                observed_at=observed_at,
+                code="r2_object_unavailable",
+            )
+        if any(payload is None for payload in payloads):
+            return self._observation(
+                intent,
+                status=ObservationStatus.ABSENT,
+                observed_at=observed_at,
+            )
+        conflicting_key = next(
+            (
+                item.object_key
+                for item, payload in zip(items, payloads, strict=True)
+                if payload != item.payload
+            ),
+            None,
+        )
+        if conflicting_key is not None:
+            return self._observation(
+                intent,
+                status=ObservationStatus.CONFLICT,
+                observed_at=observed_at,
+                code="immutable_r2_object_conflict",
+                context={"object_key": conflicting_key},
+            )
+        return self._observation(
+            intent,
+            status=ObservationStatus.VERIFIED,
+            observed_at=observed_at,
+            content_digest=material.digest,
+            external_reference=(
+                material.external_reference
+                or f"r2://{self._bucket}/{items[-1].object_key}"
+            ),
+            context={
+                "object_key": items[-1].object_key,
+                "object_keys": [item.object_key for item in items],
+                **material.context,
+            },
+        )
+
+    async def _put_missing(self, material: PublicationObject) -> None:
         existing = await self._read(material.object_key, max_bytes=_MAX_OBJECT_BYTES)
         if existing is not None:
             if existing != material.payload:
-                raise PublicationEffectError(
-                    status=ObservationStatus.CONFLICT,
-                    code="immutable_r2_object_conflict",
-                    context={"object_key": material.object_key},
-                )
+                self._raise_conflict(material.object_key)
             return
         try:
             await self._writer.put_bytes(
@@ -192,50 +285,7 @@ class R2ImmutablePublicationAdapter:
                 max_bytes=_MAX_OBJECT_BYTES,
             )
             if existing != material.payload:
-                raise PublicationEffectError(
-                    status=ObservationStatus.CONFLICT,
-                    code="immutable_r2_object_conflict",
-                    context={"object_key": material.object_key},
-                ) from error
-
-    async def observe(self, intent: EffectIntent) -> ExternalObservation:
-        self._require_intent(intent)
-        observed_at = self._now()
-        try:
-            material = await self._source.materialize(intent)
-            payload = await self._read(material.object_key, max_bytes=_MAX_OBJECT_BYTES)
-        except R2PublicationError:
-            return self._observation(
-                intent,
-                status=ObservationStatus.RETRYABLE_FAILURE,
-                observed_at=observed_at,
-                code="r2_object_unavailable",
-            )
-        if payload is None:
-            return self._observation(
-                intent,
-                status=ObservationStatus.ABSENT,
-                observed_at=observed_at,
-            )
-        if payload != material.payload:
-            return self._observation(
-                intent,
-                status=ObservationStatus.CONFLICT,
-                observed_at=observed_at,
-                code="immutable_r2_object_conflict",
-                context={"object_key": material.object_key},
-            )
-        return self._observation(
-            intent,
-            status=ObservationStatus.VERIFIED,
-            observed_at=observed_at,
-            content_digest=material.digest,
-            external_reference=(
-                material.external_reference
-                or f"r2://{self._bucket}/{material.object_key}"
-            ),
-            context={"object_key": material.object_key, **material.context},
-        )
+                self._raise_conflict(material.object_key, cause=error)
 
     async def _read(self, object_key: str, *, max_bytes: int) -> bytes | None:
         return await self._writer.read_optional_bytes(
@@ -243,6 +293,21 @@ class R2ImmutablePublicationAdapter:
             object_key=object_key,
             max_bytes=max_bytes,
         )
+
+    @staticmethod
+    def _raise_conflict(
+        object_key: str,
+        *,
+        cause: Exception | None = None,
+    ) -> None:
+        error = PublicationEffectError(
+            status=ObservationStatus.CONFLICT,
+            code="immutable_r2_object_conflict",
+            context={"object_key": object_key},
+        )
+        if cause is None:
+            raise error
+        raise error from cause
 
     def _require_intent(self, intent: EffectIntent) -> None:
         if intent.step is not self._step:
@@ -282,6 +347,14 @@ class R2ImmutablePublicationAdapter:
             code=code,
             context=context or {},
         )
+
+
+def _objects(
+    material: PublicationObject | PublicationObjectSet,
+) -> tuple[PublicationObject, ...]:
+    if isinstance(material, PublicationObject):
+        return (material,)
+    return material.objects
 
 
 class R2PublicationReceiptStore:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -26,6 +27,7 @@ from opennosh_api.publication.forge.contracts import (
     ForgePullRequestState,
     ForgeRetryableError,
     ForgeTerminalError,
+    MergedPackMaterial,
 )
 
 
@@ -296,6 +298,7 @@ class GitHubForgeClient:
                 mutation.binding.approved_changes,
                 pull_number=_pull_number(pull),
             )
+            tree_digest = await self._tree_digest(owner, repository, merged_commit)
             return ForgeObservation(
                 state=ForgePullRequestState.MERGED,
                 checks=checks,
@@ -303,6 +306,7 @@ class GitHubForgeClient:
                 head_commit=head_sha,
                 merged_at=datetime.fromisoformat(merged_at_raw.replace("Z", "+00:00")),
                 merged_commit=merged_commit,
+                merged_tree_digest=tree_digest,
                 merged_payload_digest=digest,
             )
         if pull.get("state") == "closed":
@@ -328,6 +332,51 @@ class GitHubForgeClient:
             head_commit=head_sha,
             head_payload_digest=head_payload_digest,
             auto_merge_enabled=await self._auto_merge_enabled(node_id),
+        )
+
+    async def read_merged_pack(
+        self,
+        mutation: ForgeMutation,
+        *,
+        expected_commit: str,
+        expected_tree_digest: str,
+    ) -> MergedPackMaterial:
+        """Read the governed pack and shared license files from the merged tree."""
+
+        owner, repository = _repository(mutation.binding.forge_target)
+        branch = _branch_name(mutation.idempotency_key)
+        pull = await self._find_pull(owner, repository, branch)
+        if pull is None or not bool(pull.get("merged")):
+            raise ForgeConflictError("protected_pull_request_not_merged")
+        merged_commit = pull.get("merge_commit_sha")
+        if merged_commit != expected_commit:
+            raise ForgeConflictError("merged_commit_changed")
+        digest = await self._digest_for_ref(
+            owner,
+            repository,
+            expected_commit,
+            mutation.binding.approved_changes,
+            pull_number=_pull_number(pull),
+        )
+        if digest != mutation.binding.approved_changes.digest:
+            raise ForgeConflictError("merged_payload_mismatch")
+        tree_sha, tree_digest = await self._tree_identity(
+            owner,
+            repository,
+            expected_commit,
+        )
+        if tree_digest != expected_tree_digest:
+            raise ForgeConflictError("merged_tree_changed")
+        files = await self._read_pack_tree(
+            owner,
+            repository,
+            tree_sha=tree_sha,
+            pack_id=mutation.binding.pack_id,
+        )
+        return MergedPackMaterial(
+            commit_sha=expected_commit,
+            tree_digest=tree_digest,
+            files=files,
         )
 
     async def _auto_merge_enabled(self, pull_request_node_id: str) -> bool:
@@ -564,6 +613,107 @@ class GitHubForgeClient:
                 raise ForgeTerminalError("github_merged_content_invalid") from error
             files.append(ApprovedFileChange(path=expected.path, content=decoded))
         return ApprovedChangeSet.build(pack_id=approved.pack_id, files=tuple(files)).digest
+
+    async def _tree_digest(self, owner: str, repository: str, commit_sha: str) -> str:
+        _, digest = await self._tree_identity(owner, repository, commit_sha)
+        return digest
+
+    async def _tree_identity(
+        self,
+        owner: str,
+        repository: str,
+        commit_sha: str,
+    ) -> tuple[str, str]:
+        commit = await self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/git/commits/{commit_sha}",
+            expected={200},
+        )
+        tree = commit.get("tree") if isinstance(commit, dict) else None
+        tree_sha = tree.get("sha") if isinstance(tree, dict) else None
+        if not isinstance(tree_sha, str):
+            raise ForgeTerminalError("github_merged_tree_missing")
+        material = json.dumps(
+            {"commit": commit_sha, "tree": tree_sha},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("ascii")
+        return tree_sha, hashlib.sha256(material).hexdigest()
+
+    async def _read_pack_tree(
+        self,
+        owner: str,
+        repository: str,
+        *,
+        tree_sha: str,
+        pack_id: str,
+    ) -> dict[str, bytes]:
+        tree = await self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/git/trees/{tree_sha}",
+            params={"recursive": "1"},
+            expected={200},
+        )
+        if not isinstance(tree, dict) or tree.get("truncated") is True:
+            raise ForgeTerminalError("github_merged_tree_unbounded")
+        entries = tree.get("tree")
+        if not isinstance(entries, list):
+            raise ForgeTerminalError("github_merged_tree_invalid")
+        pack_root = f"packs/{pack_id}/"
+        shared_paths = {"packs/CC0-1.0.txt", "packs/LICENSE.md"}
+        selected = [
+            entry
+            for entry in entries
+            if isinstance(entry, dict)
+            and entry.get("type") == "blob"
+            and isinstance(entry.get("path"), str)
+            and (
+                str(entry["path"]).startswith(pack_root)
+                or str(entry["path"]) in shared_paths
+            )
+        ]
+        if not selected or len(selected) > 256:
+            raise ForgeTerminalError("github_merged_pack_unbounded")
+        typed_selected = [dict(entry) for entry in selected]
+        return await self._read_selected_blobs(owner, repository, typed_selected)
+
+    async def _read_selected_blobs(
+        self,
+        owner: str,
+        repository: str,
+        entries: list[dict[str, Any]],
+    ) -> dict[str, bytes]:
+        files: dict[str, bytes] = {}
+        total_bytes = 0
+        for entry in sorted(entries, key=lambda item: str(item["path"])):
+            path = str(entry["path"])
+            blob_sha = entry.get("sha")
+            declared_size = entry.get("size")
+            if (
+                not isinstance(blob_sha, str)
+                or not isinstance(declared_size, int)
+                or not 0 < declared_size <= 1_000_000
+            ):
+                raise ForgeTerminalError("github_merged_blob_invalid")
+            blob = await self._request(
+                "GET",
+                f"/repos/{owner}/{repository}/git/blobs/{blob_sha}",
+                expected={200},
+            )
+            encoded = blob.get("content") if isinstance(blob, dict) else None
+            if not isinstance(encoded, str) or blob.get("encoding") != "base64":
+                raise ForgeTerminalError("github_merged_blob_invalid")
+            try:
+                payload = base64.b64decode(encoded.replace("\n", ""), validate=True)
+            except ValueError as error:
+                raise ForgeTerminalError("github_merged_blob_invalid") from error
+            if len(payload) != declared_size:
+                raise ForgeTerminalError("github_merged_blob_size_mismatch")
+            total_bytes += len(payload)
+            if total_bytes > 8_000_000:
+                raise ForgeTerminalError("github_merged_pack_unbounded")
+            files[path.removeprefix("packs/")] = payload
+        return files
 
     async def _request(
         self,
