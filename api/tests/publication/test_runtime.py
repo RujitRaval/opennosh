@@ -227,6 +227,10 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
             publication_claims_enabled=False,
             publication_activation_id=None,
             publication_artifact_bucket="opennosh-public-commons",
+            public_commons_verifying_keys=(
+                f"manifest-online:{public_key_text(manifest_key)}"
+            ),
+            latest_pointer_lifetime_seconds=82_800,
         ),
     )
 
@@ -249,8 +253,29 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
         "opennosh.ed25519-release-signer.production-manifest"
     )
     assert runtime.adapters[PublicationStepName.COPY_RECEIPT].identity == (
-        "opennosh.receipt-replication.copy_receipt"
+        "opennosh.receipt-gated-pointer-activation"
     )
+    activation_id = uuid4()
+    armed = ProductionPublicationRuntime.from_production_providers(
+        settings=cast(
+            Any,
+            SimpleNamespace(
+                publication_claims_enabled=True,
+                publication_activation_id=activation_id,
+                publication_artifact_bucket="opennosh-public-commons",
+                public_commons_verifying_keys=(
+                    f"manifest-online:{public_key_text(manifest_key)}"
+                ),
+                latest_pointer_lifetime_seconds=82_800,
+            ),
+        ),
+        clients=clients,
+        governance_gate=cast(GovernanceGate, SimpleNamespace()),
+        object_sources=sources,
+        clock=lambda: datetime(2026, 8, 28, 1, tzinfo=UTC),
+    )
+    assert armed.activation_id == activation_id
+    assert tuple(armed.adapters) == tuple(PublicationStepName)
 
 
 def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> None:
@@ -269,7 +294,7 @@ def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> 
             zero_claim_preflight=zero_claim_preflight,
         )
 
-    with pytest.raises(RuntimeError, match="zero-claim preflight"):
+    with pytest.raises(RuntimeError, match="claims or zero-claim preflight"):
         build(
             SimpleNamespace(
                 publication_claims_enabled=False,
@@ -277,7 +302,7 @@ def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> 
                 publication_artifact_bucket="provider-bucket",
             )
         )
-    with pytest.raises(RuntimeError, match="pointer-last activation"):
+    with pytest.raises(RuntimeError, match="one activation ID"):
         build(
             SimpleNamespace(
                 publication_claims_enabled=True,

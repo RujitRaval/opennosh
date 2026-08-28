@@ -13,6 +13,9 @@ from opennosh_api.governance.gate import GovernanceGate, PostgresGovernanceGate
 from opennosh_api.governance.policy import GovernanceBinding
 from opennosh_api.public.artifacts import HttpArtifactStore, PublicArtifactReadService
 from opennosh_api.public_commons.manifests import ManifestKeyRing
+from opennosh_api.publication.activation import (
+    ReceiptGatedPointerActivationAdapter,
+)
 from opennosh_api.publication.adapters import (
     PublicationAdapterRegistry,
     PublicationEffectAdapter,
@@ -199,13 +202,9 @@ class ProductionPublicationRuntime:
     ) -> ProductionPublicationRuntime:
         """Construct all ten live adapters before a publication pool is opened."""
 
-        if settings.publication_claims_enabled:
+        if not zero_claim_preflight and not settings.publication_claims_enabled:
             raise RuntimeError(
-                "Production claims await receipt-gated pointer-last activation"
-            )
-        if not zero_claim_preflight:
-            raise RuntimeError(
-                "Production publication runtime is limited to zero-claim preflight"
+                "Production publication runtime requires claims or zero-claim preflight"
             )
         activation_id = settings.publication_activation_id
         if zero_claim_preflight:
@@ -259,6 +258,17 @@ class ProductionPublicationRuntime:
             destination=destinations[PublicationStepName.COPY_RECEIPT],
             list_prefix="durability/receipts",
         )
+        receipt_copy = ReceiptReplicationAdapter(
+            step=PublicationStepName.COPY_RECEIPT,
+            store=durability_receipt_store,
+            key_ring=clients.receipt_key_ring,
+            clock=clock,
+            object_key_factory=(
+                lambda _publication_id, digest: (
+                    f"durability/receipts/{digest}.json"
+                )
+            ),
+        )
         return cls.build(
             activation_id=activation_id,
             commit_record=GovernedForgeAdapter(
@@ -290,16 +300,18 @@ class ProductionPublicationRuntime:
                 key_ring=clients.receipt_key_ring,
                 clock=clock,
             ),
-            copy_receipt=ReceiptReplicationAdapter(
-                step=PublicationStepName.COPY_RECEIPT,
-                store=durability_receipt_store,
-                key_ring=clients.receipt_key_ring,
-                clock=clock,
-                object_key_factory=(
-                    lambda _publication_id, digest: (
-                        f"durability/receipts/{digest}.json"
-                    )
+            copy_receipt=ReceiptGatedPointerActivationAdapter(
+                receipt_copy=receipt_copy,
+                writer=clients.r2_writer,
+                bucket=clients.identity.artifact_bucket,
+                manifest_keys=ManifestKeyRing.from_config(
+                    settings.public_commons_verifying_keys
                 ),
+                receipt_keys=clients.receipt_key_ring,
+                signing_key_id=clients.identity.manifest_key_id,
+                signing_key=clients.manifest_signing_key,
+                pointer_lifetime_seconds=settings.latest_pointer_lifetime_seconds,
+                clock=clock,
             ),
         )
 

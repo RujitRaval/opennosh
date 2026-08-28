@@ -337,9 +337,19 @@ The smoke parses and cross-checks every isolated production credential and const
 ten-adapter registry. It never opens PostgreSQL, claims a queue row, calls GitHub, signs a payload,
 or writes R2.
 
-This slice deliberately rejects claims even when an activation ID is present. The next reviewed
-slice must add receipt-gated, compare-and-swap `latest` promotion after the durable receipt exists;
-only then may it remove that runtime gate and arm the first contribution.
+The final `copy_receipt` adapter is also the only contribution pointer activator. It first
+requires the independent durable receipt copy to read back as verified. It then re-reads and
+cryptographically verifies the canonical receipt registry entry and signed release manifest,
+including their release version, publication ID, publication time, manifest digest, and
+`copy_release` proof binding. Any missing material is retryable; invalid signatures,
+non-canonical payloads, or binding conflicts quarantine the publication without pointer I/O.
+
+Only after those checks may the adapter sign a pointer with a lifetime of at most 24 hours and
+replace `latest/v1.json` using the current R2 ETag. A same-release CAS winner is an idempotent
+success. A valid newer pointer terminally supersedes the older publication after its durable
+receipt is proved, preventing stale work from spinning or rolling the Commons backward. An
+untrusted pointer, an invalid lifetime, or the same release version bound to a different manifest
+fails closed. A lost write response is reconciled by the next signed-pointer observation.
 
 Claims may be enabled only after the production registry supplies every canonical
 `PublicationStepName` adapter. The worker validates that exact ten-step registry before opening
@@ -360,7 +370,10 @@ leaves immutable artifacts untouched.
 
 Do not add a second ID, disable refresh while claims are enabled, or use the activation variable
 as a general queue filter. Roll back by setting claims to `false`, removing the activation ID,
-and leaving refresh enabled.
+and leaving refresh enabled. This stops new queue claims without deleting immutable artifacts or
+rewinding `latest`. Before the first live contribution, capture the activation UUID, current
+pointer digest and ETag, deploy with exactly the three values above, then require one verified
+durable receipt and a newer, correctly bound public pointer before clearing the activation ID.
 
 ## Pre-cutover verification
 
