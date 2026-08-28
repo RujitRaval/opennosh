@@ -17,6 +17,7 @@ from urllib.parse import quote, urlsplit
 import boto3  # type: ignore[import-untyped]
 import httpx
 from botocore.config import Config  # type: ignore[import-untyped]
+from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
 from opennosh_api.public.bootstrap import StarterReleaseInventory, StarterReleaseObject
 
@@ -156,6 +157,7 @@ class S3R2ObjectWriter:
         if not 0 < operation_timeout_seconds <= 5:
             raise ValueError("R2 operation timeout must be between zero and five seconds")
         self._operation_timeout_seconds = operation_timeout_seconds
+        self._owns_client = client is None
         self._client = client or boto3.client(
             "s3",
             endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
@@ -169,6 +171,14 @@ class S3R2ObjectWriter:
                 retries={"mode": "standard", "total_max_attempts": 1},
             ),
         )
+
+    async def aclose(self) -> None:
+        close = getattr(self._client, "close", None)
+        if self._owns_client and callable(close):
+            await _run_daemon_with_deadline(
+                close,
+                timeout_seconds=self._operation_timeout_seconds,
+            )
 
     async def put(
         self,
@@ -197,6 +207,7 @@ class S3R2ObjectWriter:
         media_type: str,
         cache_control: str,
         if_match: str | None = None,
+        if_none_match: str | None = None,
     ) -> None:
         _validate_bucket(bucket)
         if not payload:
@@ -210,10 +221,20 @@ class S3R2ObjectWriter:
         }
         if if_match is not None:
             arguments["IfMatch"] = if_match
-        await _run_daemon_with_deadline(
-            partial(self._client.put_object, **arguments),
-            timeout_seconds=self._operation_timeout_seconds,
-        )
+        if if_none_match is not None:
+            arguments["IfNoneMatch"] = if_none_match
+        try:
+            await _run_daemon_with_deadline(
+                partial(self._client.put_object, **arguments),
+                timeout_seconds=self._operation_timeout_seconds,
+            )
+        except ClientError as error:
+            status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status in {409, 412}:
+                raise R2ImmutableConflictError(
+                    "R2 conditional immutable write conflicted"
+                ) from error
+            raise R2PublicationError("R2 write failed") from error
 
     async def read_bytes(self, *, bucket: str, object_key: str, max_bytes: int) -> bytes:
         payload, _ = await self.read_revision(
@@ -222,6 +243,52 @@ class S3R2ObjectWriter:
             max_bytes=max_bytes,
         )
         return payload
+
+    async def read_optional_bytes(
+        self, *, bucket: str, object_key: str, max_bytes: int
+    ) -> bytes | None:
+        try:
+            return await self.read_bytes(
+                bucket=bucket,
+                object_key=object_key,
+                max_bytes=max_bytes,
+            )
+        except ClientError as error:
+            status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            code = error.response.get("Error", {}).get("Code")
+            if status == 404 or code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            raise R2PublicationError("R2 read failed") from error
+
+    async def list_keys(
+        self, *, bucket: str, prefix: str, max_keys: int = 1_000
+    ) -> tuple[str, ...]:
+        _validate_bucket(bucket)
+        if not 1 <= max_keys <= 1_000:
+            raise ValueError("R2 list bound must be between one and 1000")
+        try:
+            response = await _run_daemon_with_deadline(
+                partial(
+                    self._client.list_objects_v2,
+                    Bucket=bucket,
+                    Prefix=prefix,
+                    MaxKeys=max_keys,
+                ),
+                timeout_seconds=self._operation_timeout_seconds,
+            )
+        except ClientError as error:
+            raise R2PublicationError("R2 list failed") from error
+        contents = response.get("Contents", [])
+        if not isinstance(contents, list):
+            raise R2PublicationError("R2 list response is invalid")
+        keys = tuple(
+            item["Key"]
+            for item in contents
+            if isinstance(item, dict) and isinstance(item.get("Key"), str)
+        )
+        if len(keys) != len(contents):
+            raise R2PublicationError("R2 list response is invalid")
+        return tuple(sorted(keys))
 
     async def read_revision(
         self,

@@ -60,6 +60,7 @@ class GitHubAppInstallationTokenProvider:
         self._installation_id = installation_id
         self._repository_id = repository_id
         self._key = key
+        self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
             base_url="https://api.github.com",
             headers={
@@ -73,6 +74,10 @@ class GitHubAppInstallationTokenProvider:
         self._cached_token: str | None = None
         self._expires_at: datetime | None = None
         self._lock = asyncio.Lock()
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
 
     async def __call__(self) -> str:
         now = self._now()
@@ -163,6 +168,7 @@ class GitHubForgeClient:
             raise ValueError("GitHub base branch is invalid")
         self._base_branch = base_branch
         self._installation_token_provider = installation_token_provider
+        self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
             base_url="https://api.github.com",
             headers={
@@ -172,6 +178,10 @@ class GitHubForgeClient:
             },
             timeout=20,
         )
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
 
     async def ensure_protected_pull_request(self, mutation: ForgeMutation) -> None:
         owner, repository = _repository(mutation.binding.forge_target)
@@ -613,6 +623,7 @@ class GitHubGovernanceAttester:
             raise RuntimeError("Governance attestation is not protected by policy")
         self._installation_token_provider = installation_token_provider
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
             base_url="https://api.github.com",
             headers={
@@ -622,6 +633,10 @@ class GitHubGovernanceAttester:
             },
             timeout=20,
         )
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
 
     async def attest(self, mutation: ForgeMutation, *, head_commit: str) -> None:
         if len(head_commit) not in {40, 64} or any(

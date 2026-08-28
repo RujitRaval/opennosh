@@ -50,6 +50,27 @@ def _database_url(
     ).render_as_string(hide_password=False)
 
 
+def _claims_environment() -> dict[str, str]:
+    return {
+        "APP_ENVIRONMENT": "production",
+        "RENDER_DATABASE_URL": _database_url(),
+        "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+        "PUBLICATION_CLAIMS_ENABLED": "true",
+        "LATEST_REFRESH_ENABLED": "true",
+        "PUBLICATION_ACTIVATION_IDS": "00000000-0000-4000-8000-000000000001",
+        "GITHUB_REPOSITORY_ID": "123",
+        "GITHUB_FORGE_APP_ID": "456",
+        "GITHUB_FORGE_INSTALLATION_ID": "789",
+        "GITHUB_FORGE_PRIVATE_KEY": "forge-private",
+        "GITHUB_ATTESTER_APP_ID": "654",
+        "GITHUB_ATTESTER_INSTALLATION_ID": "987",
+        "GITHUB_ATTESTER_PRIVATE_KEY": "attester-private",
+        "ONLINE_RECEIPT_SIGNING_KEY_ID": "receipt-online",
+        "ONLINE_RECEIPT_SIGNING_KEY": "receipt-private",
+        "PUBLICATION_ARTIFACT_BUCKET": "opennosh-public-commons",
+    }
+
+
 class FakeTransaction:
     async def __aenter__(self) -> None:
         return None
@@ -250,6 +271,11 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
             "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
             "PUBLICATION_DATABASE_URL": "postgresql+asyncpg://sibling:secret@db/opennosh",
             "ADMINISTRATION_DATABASE_URL": "postgresql+asyncpg://admin:secret@db/opennosh",
+            "GITHUB_FORGE_PRIVATE_KEY": "forge-private",
+            "GITHUB_ATTESTER_PRIVATE_KEY": "attester-private",
+            "ONLINE_RECEIPT_SIGNING_KEY": "receipt-private",
+            "ONLINE_MANIFEST_SIGNING_KEY": "manifest-private",
+            "R2_SECRET_ACCESS_KEY": "r2-private",
         }
     )
     assert environment["APP_ENVIRONMENT"] == "production"
@@ -264,28 +290,31 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         "FOOD_SEARCH_CURSOR_SECRET",
         "PUBLICATION_DATABASE_URL",
         "ADMINISTRATION_DATABASE_URL",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "ONLINE_MANIFEST_SIGNING_KEY",
+        "R2_SECRET_ACCESS_KEY",
     ):
         assert removed not in environment
 
 
 def test_render_combined_environment_uses_only_the_worker_database_identity() -> None:
-    environment = publication_environment(
+    source = _claims_environment()
+    source.update(
         {
-            "APP_ENVIRONMENT": "production",
-            "RENDER_DATABASE_URL": _database_url(),
             "WEB_DATABASE_PASSWORD": "web-secret",
             "MIGRATION_DATABASE_PASSWORD": "migration-secret",
-            "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
             "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
-            "PUBLICATION_CLAIMS_ENABLED": "true",
-            "LATEST_REFRESH_ENABLED": "true",
-            "PUBLICATION_ACTIVATION_IDS": "00000000-0000-4000-8000-000000000001",
             "PATH": "/usr/local/bin:/usr/bin",
             "TRUSTED_WEB_PROXY_TOKEN": "web-only-secret",
             "UNRELATED_GENERATED_SECRET": "must-not-survive",
             "WEB_DATABASE_URL": "postgresql+asyncpg://sibling:secret@db/opennosh",
             "MIGRATION_DATABASE_URL": "postgresql+asyncpg://migration:secret@db/opennosh",
         }
+    )
+    environment = publication_environment(
+        source
     )
 
     assert environment["APP_ENVIRONMENT"] == "production"
@@ -297,6 +326,9 @@ def test_render_combined_environment_uses_only_the_worker_database_identity() ->
     )
     assert environment["PATH"] == "/usr/local/bin:/usr/bin"
     assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert environment["GITHUB_FORGE_PRIVATE_KEY"] == "forge-private"
+    assert environment["GITHUB_ATTESTER_PRIVATE_KEY"] == "attester-private"
+    assert environment["ONLINE_RECEIPT_SIGNING_KEY"] == "receipt-private"
     assert "owner-secret" not in repr(environment)
     for removed in (
         "RENDER_DATABASE_URL",
@@ -310,6 +342,28 @@ def test_render_combined_environment_uses_only_the_worker_database_identity() ->
         "UNRELATED_GENERATED_SECRET",
     ):
         assert removed not in environment
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "GITHUB_REPOSITORY_ID",
+        "GITHUB_FORGE_APP_ID",
+        "GITHUB_FORGE_INSTALLATION_ID",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_APP_ID",
+        "GITHUB_ATTESTER_INSTALLATION_ID",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+        "ONLINE_RECEIPT_SIGNING_KEY_ID",
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "PUBLICATION_ARTIFACT_BUCKET",
+    ],
+)
+def test_render_claims_fail_closed_without_each_isolated_credential(key: str) -> None:
+    source = _claims_environment()
+    source.pop(key)
+    with pytest.raises(ValueError, match=key):
+        publication_environment(source)
 
 
 def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> None:

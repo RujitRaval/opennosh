@@ -136,6 +136,32 @@ async def test_signing_adapter_rejects_another_trusted_publishers_receipt() -> N
     assert observation.code == "receipt_signer_identity_conflict"
 
 
+@pytest.mark.asyncio
+async def test_signing_adapter_can_use_a_distinct_staging_key() -> None:
+    store = MemoryPublicationReceiptStore(destination="urn:opennosh:receipt:signer")
+    staging_key = f"signatures/receipts/v1/{PUBLICATION_ID}.json"
+    adapter = ReceiptSigningAdapter(
+        signer=SIGNER,
+        store=store,
+        key_ring=KEY_RING,
+        clock=lambda: NOW,
+        object_key_factory=lambda _publication_id: staging_key,
+    )
+    intent = _intent(
+        PublicationStepName.SIGN_RECEIPT,
+        store.destination,
+        {"receipt_draft": _draft().model_dump(mode="json")},
+    )
+
+    await adapter.apply(intent)
+    observation = await adapter.observe(intent)
+
+    assert observation.status is ObservationStatus.VERIFIED
+    assert observation.external_reference is not None
+    assert staging_key in observation.external_reference
+    assert await store.read(receipt_object_key(PUBLICATION_ID)) is None
+
+
 def test_receipt_binding_rejects_a_different_approved_payload() -> None:
     source = snapshot(current=7)
     envelope = SIGNER.sign(receipt_draft_from_snapshot(source))

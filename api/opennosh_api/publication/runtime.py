@@ -1,15 +1,56 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 from uuid import UUID
 
+from opennosh_api.governance.contracts import CANONICAL_FORGE_TARGET
+from opennosh_api.governance.gate import GovernanceGate
 from opennosh_api.publication.adapters import (
     PublicationAdapterRegistry,
     PublicationEffectAdapter,
 )
-from opennosh_api.publication.state import PublicationStepName
+from opennosh_api.publication.credentials import ProductionPublicationClients
+from opennosh_api.publication.forge.adapter import GovernedForgeAdapter
+from opennosh_api.publication.object_adapters import (
+    Ed25519ReleaseManifestSource,
+    PublicationObjectSource,
+    R2ImmutablePublicationAdapter,
+    R2PublicationReceiptStore,
+    ReleaseManifestDraftSource,
+)
+from opennosh_api.publication.receipt_adapters import (
+    ReceiptReplicationAdapter,
+    ReceiptSigningAdapter,
+)
+from opennosh_api.publication.state import PublicationStepName, publication_protocol
+
+if TYPE_CHECKING:
+    from opennosh_api.settings import Settings
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionPublicationObjectSources:
+    copy_commit: PublicationObjectSource
+    copy_evidence: PublicationObjectSource
+    sign_release: ReleaseManifestDraftSource
+    publish_release: PublicationObjectSource
+    copy_release: PublicationObjectSource
+    confirm_registry: PublicationObjectSource
+
+    def as_mapping(self) -> Mapping[PublicationStepName, PublicationObjectSource]:
+        return MappingProxyType(
+            {
+                PublicationStepName.COPY_COMMIT: self.copy_commit,
+                PublicationStepName.COPY_EVIDENCE: self.copy_evidence,
+                PublicationStepName.PUBLISH_RELEASE: self.publish_release,
+                PublicationStepName.COPY_RELEASE: self.copy_release,
+                PublicationStepName.CONFIRM_REGISTRY: self.confirm_registry,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +122,113 @@ class ProductionPublicationRuntime:
                 PublicationStepName.PUBLISH_RECEIPT_REGISTRY: publish_receipt_registry,
                 PublicationStepName.COPY_RECEIPT: copy_receipt,
             },
+        )
+
+    @classmethod
+    def from_production_providers(
+        cls,
+        *,
+        settings: Settings,
+        clients: ProductionPublicationClients,
+        governance_gate: GovernanceGate,
+        object_sources: ProductionPublicationObjectSources,
+        clock: Callable[[], datetime],
+    ) -> ProductionPublicationRuntime:
+        """Construct all ten live adapters before a publication pool is opened."""
+
+        if not settings.publication_claims_enabled:
+            raise RuntimeError("Production publication runtime requires claims enabled")
+        if settings.publication_activation_id is None:
+            raise RuntimeError("Production publication runtime requires one activation ID")
+        if settings.publication_artifact_bucket != clients.identity.artifact_bucket:
+            raise RuntimeError("Publication client identity does not match configured R2 bucket")
+        destinations = {
+            definition.name: definition.destination
+            for definition in publication_protocol(CANONICAL_FORGE_TARGET)
+        }
+        object_adapters = {
+            step: R2ImmutablePublicationAdapter(
+                step=step,
+                destination=destinations[step],
+                source=source,
+                writer=clients.r2_writer,
+                bucket=clients.identity.artifact_bucket,
+                clock=clock,
+            )
+            for step, source in object_sources.as_mapping().items()
+        }
+        object_adapters[PublicationStepName.SIGN_RELEASE] = R2ImmutablePublicationAdapter(
+            step=PublicationStepName.SIGN_RELEASE,
+            destination=destinations[PublicationStepName.SIGN_RELEASE],
+            source=Ed25519ReleaseManifestSource(
+                source=object_sources.sign_release,
+                key_id=clients.identity.manifest_key_id,
+                signing_key=clients.manifest_signing_key,
+            ),
+            writer=clients.r2_writer,
+            bucket=clients.identity.artifact_bucket,
+            clock=clock,
+        )
+        receipt_store = R2PublicationReceiptStore(
+            writer=clients.r2_writer,
+            bucket=clients.identity.artifact_bucket,
+            destination=destinations[PublicationStepName.SIGN_RECEIPT],
+            list_prefix="signatures/receipts/v1",
+        )
+        registry_receipt_store = R2PublicationReceiptStore(
+            writer=clients.r2_writer,
+            bucket=clients.identity.artifact_bucket,
+            destination=destinations[PublicationStepName.PUBLISH_RECEIPT_REGISTRY],
+            list_prefix="receipts/v1",
+        )
+        durability_receipt_store = R2PublicationReceiptStore(
+            writer=clients.r2_writer,
+            bucket=clients.identity.artifact_bucket,
+            destination=destinations[PublicationStepName.COPY_RECEIPT],
+            list_prefix="durability/receipts",
+        )
+        return cls.build(
+            activation_id=settings.publication_activation_id,
+            commit_record=GovernedForgeAdapter(
+                governance_gate,
+                clients.forge,
+                clients.attester,
+                clock=clock,
+            ),
+            copy_commit=object_adapters[PublicationStepName.COPY_COMMIT],
+            copy_evidence=object_adapters[PublicationStepName.COPY_EVIDENCE],
+            sign_release=object_adapters[PublicationStepName.SIGN_RELEASE],
+            publish_release=object_adapters[PublicationStepName.PUBLISH_RELEASE],
+            copy_release=object_adapters[PublicationStepName.COPY_RELEASE],
+            confirm_registry=object_adapters[PublicationStepName.CONFIRM_REGISTRY],
+            sign_receipt=ReceiptSigningAdapter(
+                signer=clients.receipt_signer,
+                store=receipt_store,
+                key_ring=clients.receipt_key_ring,
+                clock=clock,
+                object_key_factory=(
+                    lambda publication_id: (
+                        f"signatures/receipts/v1/{publication_id}.json"
+                    )
+                ),
+            ),
+            publish_receipt_registry=ReceiptReplicationAdapter(
+                step=PublicationStepName.PUBLISH_RECEIPT_REGISTRY,
+                store=registry_receipt_store,
+                key_ring=clients.receipt_key_ring,
+                clock=clock,
+            ),
+            copy_receipt=ReceiptReplicationAdapter(
+                step=PublicationStepName.COPY_RECEIPT,
+                store=durability_receipt_store,
+                key_ring=clients.receipt_key_ring,
+                clock=clock,
+                object_key_factory=(
+                    lambda _publication_id, digest: (
+                        f"durability/receipts/{digest}.json"
+                    )
+                ),
+            ),
         )
 
 

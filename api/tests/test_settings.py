@@ -1,9 +1,12 @@
+import base64
 import json
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import JobRole, ProcessRole
+from opennosh_api.public.signing import public_key_text
 from opennosh_api.settings import Settings
 from pydantic import ValidationError
 
@@ -431,12 +434,30 @@ def test_open_food_facts_settings_reject_unsafe_values() -> None:
 
 
 def test_production_worker_roles_do_not_require_the_web_cursor_key() -> None:
+    online = Ed25519PrivateKey.from_private_bytes(b"o" * 32)
+    offline = Ed25519PrivateKey.from_private_bytes(b"m" * 32)
+    receipt = Ed25519PrivateKey.from_private_bytes(b"r" * 32)
     publication = Settings(
         app_environment="production",
         process_role=ProcessRole.PUBLICATION,
         publication_database_url="postgresql+asyncpg://publication-role@database/opennosh",
-        publication_claims_enabled=True,
-        publication_activation_ids="00000000-0000-4000-8000-000000000001",
+        latest_refresh_enabled=True,
+        public_artifact_base_url="https://commons-artifacts.opennosh.org",
+        public_commons_verifying_keys=(
+            f"manifest-offline:{public_key_text(offline)},"
+            f"manifest-online:{public_key_text(online)}"
+        ),
+        publication_receipt_verifying_keys=json.dumps(
+            {"receipt-production": public_key_text(receipt)}
+        ),
+        online_manifest_signing_key_id="manifest-online",
+        online_manifest_signing_key=(
+            base64.urlsafe_b64encode(b"o" * 32).decode().rstrip("=")
+        ),
+        r2_account_id="a" * 32,
+        r2_bucket="opennosh-public-commons",
+        r2_access_key_id="access-key",
+        r2_secret_access_key="secret-key",
         _env_file=None,
     )
 
