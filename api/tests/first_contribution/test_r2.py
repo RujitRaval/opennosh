@@ -52,6 +52,30 @@ class MemoryWriter:
             raise R2PublicationError("simulated lost response")
 
 
+class UnrecoverableWriter(MemoryWriter):
+    async def put_bytes(self, **_options: Any) -> None:
+        self.put_calls += 1
+        raise R2PublicationError("simulated provider outage")
+
+
+class FinalMismatchWriter(MemoryWriter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.read_calls = 0
+
+    async def read_optional_bytes(
+        self, *, bucket: str, object_key: str, max_bytes: int
+    ) -> bytes | None:
+        self.read_calls += 1
+        if self.read_calls == 2:
+            return None
+        return await super().read_optional_bytes(
+            bucket=bucket,
+            object_key=object_key,
+            max_bytes=max_bytes,
+        )
+
+
 def manifest() -> PublicDocumentManifest:
     return PublicDocumentManifest(
         evidence_id=uuid4(),
@@ -108,5 +132,30 @@ async def test_r2_citation_maps_concurrent_different_bytes_to_terminal_conflict(
     )
 
     with pytest.raises(FirstContributionEvidenceConflictError, match="won a race"):
+        await store.preserve(manifest(), now=NOW)
+    assert writer.put_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_r2_citation_propagates_unrecoverable_provider_failure() -> None:
+    writer = UnrecoverableWriter()
+    store = R2FirstContributionEvidenceStore(  # type: ignore[arg-type]
+        writer=writer, bucket="evidence-bucket"
+    )
+
+    with pytest.raises(R2PublicationError, match="provider outage"):
+        await store.preserve(manifest(), now=NOW)
+    assert writer.put_calls == 1
+    assert writer.objects == {}
+
+
+@pytest.mark.asyncio
+async def test_r2_citation_rejects_final_readback_mismatch() -> None:
+    writer = FinalMismatchWriter()
+    store = R2FirstContributionEvidenceStore(  # type: ignore[arg-type]
+        writer=writer, bucket="evidence-bucket"
+    )
+
+    with pytest.raises(FirstContributionEvidenceConflictError, match="read-back"):
         await store.preserve(manifest(), now=NOW)
     assert writer.put_calls == 1

@@ -794,41 +794,96 @@ def test_account_security_actions_reject_wrong_password(auth_client: TestClient)
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+@pytest.mark.parametrize(
+    "flow",
+    [
+        "register",
+        "login",
+        "recover",
+        "session",
+        "session-state",
+        "change-password",
+        "rotate-recovery",
+        "settings",
+        "delete-account",
+    ],
+)
 def test_service_principal_is_excluded_from_every_human_auth_path(
     auth_client: TestClient,
+    flow: str,
 ) -> None:
     raw_session = asyncio.run(_seed_disabled_service_principal(INTEGRATION_DATABASE_URL))
-
-    registration = auth_client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "unused@actors.opennosh.invalid",
-            "password": "known service password",
-        },
-    )
-    login = auth_client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "source@actors.opennosh.invalid",
-            "password": "known service password",
-        },
-    )
-    recovery = auth_client.post(
-        "/api/v1/auth/recover",
-        json={
-            "email": "source@actors.opennosh.invalid",
-            "recovery_code": "x" * 32,
-            "new_password": "replacement service password",
-        },
-    )
-    auth_client.cookies.set("opennosh_session", raw_session)
-    session = auth_client.get("/api/v1/auth/session")
-    session_state = auth_client.get("/api/v1/auth/session-state")
-
-    assert registration.status_code == 409
-    assert registration.json()["detail"] == "Registration is unavailable for this address"
-    assert login.status_code == 401
-    assert recovery.status_code == 401
-    assert session.status_code == 401
-    assert session_state.status_code == 200
-    assert session_state.json() == {"authenticated": False, "user": None}
+    if flow == "register":
+        response = auth_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "unused@actors.opennosh.invalid",
+                "password": "known service password",
+            },
+        )
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Registration is unavailable for this address"
+        return
+    if flow == "login":
+        response = auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "source@actors.opennosh.invalid",
+                "password": "known service password",
+            },
+        )
+    elif flow == "recover":
+        response = auth_client.post(
+            "/api/v1/auth/recover",
+            json={
+                "email": "source@actors.opennosh.invalid",
+                "recovery_code": "x" * 32,
+                "new_password": "replacement service password",
+            },
+        )
+    else:
+        csrf = "disabled-service-csrf-token-2026"
+        auth_client.cookies.set("opennosh_session", raw_session)
+        auth_client.cookies.set("opennosh_csrf", csrf)
+        headers = {"X-CSRF-Token": csrf}
+        if flow == "session":
+            response = auth_client.get("/api/v1/auth/session")
+        elif flow == "session-state":
+            response = auth_client.get("/api/v1/auth/session-state")
+            assert response.status_code == 200
+            assert response.json() == {"authenticated": False, "user": None}
+            return
+        elif flow == "change-password":
+            response = auth_client.put(
+                "/api/v1/auth/account/password",
+                headers=headers,
+                json={
+                    "current_password": "known service password",
+                    "new_password": "replacement service password",
+                },
+            )
+        elif flow == "rotate-recovery":
+            response = auth_client.post(
+                "/api/v1/auth/account/recovery-code",
+                headers=headers,
+                json={"password": "known service password"},
+            )
+        elif flow == "settings":
+            response = auth_client.patch(
+                "/api/v1/auth/account/settings",
+                headers=headers,
+                json={"preferred_units": "metric"},
+            )
+        else:
+            response = auth_client.request(
+                "DELETE",
+                "/api/v1/auth/account",
+                headers=headers,
+                json={"password": "known service password"},
+            )
+    assert response.status_code == 401
+    expected_detail = {
+        "recover": "Email or recovery code is incorrect",
+        "login": "Invalid email or password",
+    }.get(flow, "Authentication required")
+    assert response.json()["detail"] == expected_detail
