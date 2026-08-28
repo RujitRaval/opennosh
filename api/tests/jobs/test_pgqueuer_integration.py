@@ -20,7 +20,12 @@ from opennosh_api.jobs.pgqueuer import (
     build_queries,
     decode_message,
 )
-from opennosh_api.jobs.worker import asyncpg_dsn, create_publication_role_driver
+from opennosh_api.jobs.worker import (
+    PublicationActivationWakeupOutcome,
+    asyncpg_dsn,
+    create_publication_role_driver,
+    ensure_publication_activation_wakeup,
+)
 from opennosh_api.publication.service import (
     CreatePublicationIntent,
     PublicationIntentConflictError,
@@ -355,6 +360,142 @@ async def delivery_recovery_scenario(database_url: str) -> None:
         await engine.dispose()
 
 
+async def activation_wakeup_recovery_scenario(database_url: str) -> None:
+    await reset_t4_tables(database_url)
+    now = datetime(2026, 8, 28, 22, tzinfo=UTC)
+    queue = PgQueuerJobQueue(clock=lambda: now)
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    pool = await asyncpg.create_pool(asyncpg_dsn(database_url), min_size=1, max_size=2)
+    assert pool is not None
+    try:
+        draft_id = await create_draft(database_url, "activation-recovery")
+        async with sessions() as session:
+            async with session.begin():
+                intent = await create_publication_intent(
+                    session,
+                    queue,
+                    publication_command(draft_id),
+                    now=now,
+                )
+
+        unrelated_subject = uuid4()
+        async with engine.begin() as connection:
+            unrelated = await queue.enqueue(
+                connection,
+                JobRequest(
+                    message=JobMessage(
+                        lane=JobLane.PUBLICATION,
+                        job_type="publication.wake",
+                        subject_id=unrelated_subject,
+                        idempotency_key="publication-unrelated-picked",
+                        workflow_revision=0,
+                    ),
+                    run_after=now,
+                    priority=10,
+                    deduplication_key="publication-unrelated-picked",
+                ),
+            )
+        assert unrelated.job_id is not None
+        raw = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            claimed = await build_queries(AsyncpgDriver(raw)).dequeue(
+                1,
+                {
+                    PUBLICATION_ENTRYPOINT: EntrypointExecutionParameter(
+                        concurrency_limit=0
+                    )
+                },
+                uuid4(),
+                None,
+                timedelta(seconds=30),
+            )
+            assert [job.id for job in claimed] == [unrelated.job_id]
+        finally:
+            await raw.close()
+
+        async with engine.connect() as connection:
+            unrelated_before = (
+                await connection.execute(
+                    text(
+                        f"SELECT status, execute_after, heartbeat, payload "
+                        f"FROM {PGQUEUER_SETTINGS.queue_table} WHERE id = :job_id"
+                    ),
+                    {"job_id": unrelated.job_id},
+                )
+            ).one()
+
+        existing = await ensure_publication_activation_wakeup(
+            pool,
+            intent.id,
+            now=now,
+        )
+        assert existing.outcome is PublicationActivationWakeupOutcome.EXISTING
+        assert existing.active_jobs == 1
+        assert existing.workflow_revision == 0
+
+        async with engine.connect() as connection:
+            unrelated_after = (
+                await connection.execute(
+                    text(
+                        f"SELECT status, execute_after, heartbeat, payload "
+                        f"FROM {PGQUEUER_SETTINGS.queue_table} WHERE id = :job_id"
+                    ),
+                    {"job_id": unrelated.job_id},
+                )
+            ).one()
+        assert unrelated_after == unrelated_before
+
+        async with pool.acquire() as claimant:
+            async with claimant.transaction():
+                await claimant.fetchval(
+                    "SELECT id FROM opennosh_pgqueuer WHERE status = 'queued' FOR UPDATE"
+                )
+                nonblocking = await asyncio.wait_for(
+                    ensure_publication_activation_wakeup(pool, intent.id, now=now),
+                    timeout=1,
+                )
+                assert nonblocking.outcome is PublicationActivationWakeupOutcome.EXISTING
+
+        async with engine.begin() as connection:
+            await connection.execute(text("TRUNCATE opennosh_pgqueuer"))
+
+        first, second = await asyncio.gather(
+            ensure_publication_activation_wakeup(pool, intent.id, now=now),
+            ensure_publication_activation_wakeup(pool, intent.id, now=now),
+        )
+        assert {first.outcome, second.outcome} == {
+            PublicationActivationWakeupOutcome.ENQUEUED,
+            PublicationActivationWakeupOutcome.EXISTING,
+        }
+        assert await count_rows(database_url, PGQUEUER_SETTINGS.queue_table) == 1
+        recovered_message = await read_queued_message(database_url)
+        assert recovered_message.subject_id == intent.id
+        assert recovered_message.workflow_revision == 0
+
+        async with engine.begin() as connection:
+            await connection.execute(text("TRUNCATE opennosh_pgqueuer"))
+            await connection.execute(
+                text("UPDATE publication_intents SET state = 'published' WHERE id = :id"),
+                {"id": intent.id},
+            )
+
+        terminal = await ensure_publication_activation_wakeup(
+            pool,
+            intent.id,
+            now=now,
+        )
+        assert terminal.outcome is PublicationActivationWakeupOutcome.TERMINAL
+        assert terminal.active_jobs == 0
+        assert await count_rows(database_url, PGQUEUER_SETTINGS.queue_table) == 0
+
+        with pytest.raises(LookupError, match="Unknown publication intent"):
+            await ensure_publication_activation_wakeup(pool, uuid4(), now=now)
+    finally:
+        await pool.close()
+        await engine.dispose()
+
+
 @pytest.mark.skipif(
     INTEGRATION_DATABASE_URL is None,
     reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
@@ -373,6 +514,16 @@ def test_pgqueuer_priority_stale_lease_retry_timing_and_unknown_jobs() -> None:
     assert INTEGRATION_DATABASE_URL is not None
     alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
     asyncio.run(delivery_recovery_scenario(INTEGRATION_DATABASE_URL))
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_activation_startup_recovers_only_the_selected_nonterminal_wakeup() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(activation_wakeup_recovery_scenario(INTEGRATION_DATABASE_URL))
 
 
 async def graceful_worker_scenario(database_url: str, manifest_path: Path) -> None:
