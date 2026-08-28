@@ -31,6 +31,10 @@ MAX_SOURCE_BYTES = 2 * 1024 * 1024
 OBSERVED_AT = datetime(2026, 8, 28, 16, 0, tzinfo=UTC)
 EXPECTED_DESCRIPTION = "Bananas, ripe and slightly ripe, raw"
 EXPECTED_PUBLICATION_DATE = date(2020, 4, 1)
+EXPECTED_PUBLICATION_DATE_VALUES = {
+    EXPECTED_PUBLICATION_DATE.isoformat(),
+    "4/1/2020",
+}
 EXPECTED_NUTRIENTS = {
     1008: Decimal("97"),
     1003: Decimal("0.74"),
@@ -161,7 +165,7 @@ def _validate_source(source: dict[str, Any]) -> None:
         raise FirstContributionPreparationError("USDA source must be Foundation data")
     if source.get("description") != EXPECTED_DESCRIPTION:
         raise FirstContributionPreparationError("USDA source description differs from the pin")
-    if source.get("publicationDate") != EXPECTED_PUBLICATION_DATE.isoformat():
+    if source.get("publicationDate") not in EXPECTED_PUBLICATION_DATE_VALUES:
         raise FirstContributionPreparationError("USDA source publication date differs from the pin")
     observed: dict[int, Decimal] = {}
     raw_nutrients = source.get("foodNutrients")
