@@ -67,7 +67,12 @@ def response(status: int, value: object) -> httpx.Response:
     )
 
 
-def handler(*, extra_file: bool = False, duplicate_failed_check: bool = False):  # type: ignore[no-untyped-def]
+def handler(  # type: ignore[no-untyped-def]
+    *,
+    extra_file: bool = False,
+    extra_tree_file: bool = False,
+    duplicate_failed_check: bool = False,
+):
     def route(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path.endswith("/pulls"):
@@ -110,24 +115,35 @@ def handler(*, extra_file: bool = False, duplicate_failed_check: bool = False): 
         if path.endswith(f"/git/commits/{'c' * 40}"):
             return response(200, {"tree": {"sha": TREE_SHA}})
         if path.endswith(f"/git/trees/{TREE_SHA}"):
+            entries = [
+                {
+                    "path": PATH,
+                    "type": "blob",
+                    "sha": "1" * 40,
+                    "size": len(CONTENT.encode()),
+                },
+                {
+                    "path": "packs/CC0-1.0.txt",
+                    "type": "blob",
+                    "sha": "2" * 40,
+                    "size": len(LICENSE),
+                },
+            ]
+            if extra_tree_file:
+                entries.insert(
+                    1,
+                    {
+                        "path": "packs/global-core/foods/unapproved.json",
+                        "type": "blob",
+                        "sha": "3" * 40,
+                        "size": 2,
+                    },
+                )
             return response(
                 200,
                 {
                     "truncated": False,
-                    "tree": [
-                        {
-                            "path": PATH,
-                            "type": "blob",
-                            "sha": "1" * 40,
-                            "size": len(CONTENT.encode()),
-                        },
-                        {
-                            "path": "packs/CC0-1.0.txt",
-                            "type": "blob",
-                            "sha": "2" * 40,
-                            "size": len(LICENSE),
-                        },
-                    ],
+                    "tree": entries,
                 },
             )
         if path.endswith(f"/git/blobs/{'1' * 40}"):
@@ -196,6 +212,28 @@ async def test_github_reads_only_bounded_pack_material_from_verified_merge() -> 
         "CC0-1.0.txt": LICENSE,
         "global-core/foods/lentils.json": CONTENT.encode(),
     }
+    await http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_github_rejects_unapproved_file_already_present_in_pack_tree() -> None:
+    http = httpx.AsyncClient(
+        base_url="https://api.github.test",
+        transport=httpx.MockTransport(handler(extra_tree_file=True)),
+    )
+    client = GitHubForgeClient(installation_token, client=http)
+    mutation = ForgeMutation(binding=mutation_binding(), idempotency_key="b" * 64)
+    observed = await client.observe(mutation)
+    assert observed.merged_commit is not None
+    assert observed.merged_tree_digest is not None
+
+    with pytest.raises(ForgeConflictError, match="merged_pack_inventory_mismatch"):
+        await client.read_merged_pack(
+            mutation,
+            expected_commit=observed.merged_commit,
+            expected_tree_digest=observed.merged_tree_digest,
+        )
+
     await http.aclose()
 
 

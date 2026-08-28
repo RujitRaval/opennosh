@@ -372,6 +372,9 @@ class GitHubForgeClient:
             repository,
             tree_sha=tree_sha,
             pack_id=mutation.binding.pack_id,
+            approved_paths=frozenset(
+                file.path for file in mutation.binding.approved_changes.files
+            ),
         )
         return MergedPackMaterial(
             commit_sha=expected_commit,
@@ -647,6 +650,7 @@ class GitHubForgeClient:
         *,
         tree_sha: str,
         pack_id: str,
+        approved_paths: frozenset[str],
     ) -> dict[str, bytes]:
         tree = await self._request(
             "GET",
@@ -661,16 +665,26 @@ class GitHubForgeClient:
             raise ForgeTerminalError("github_merged_tree_invalid")
         pack_root = f"packs/{pack_id}/"
         shared_paths = {"packs/CC0-1.0.txt", "packs/LICENSE.md"}
-        selected = [
+        pack_entries = [
             entry
             for entry in entries
             if isinstance(entry, dict)
             and entry.get("type") == "blob"
             and isinstance(entry.get("path"), str)
-            and (
-                str(entry["path"]).startswith(pack_root)
-                or str(entry["path"]) in shared_paths
-            )
+            and str(entry["path"]).startswith(pack_root)
+        ]
+        pack_paths = {str(entry["path"]) for entry in pack_entries}
+        if pack_paths != approved_paths:
+            raise ForgeConflictError("merged_pack_inventory_mismatch")
+        selected = [
+            *pack_entries,
+            *(
+                entry
+                for entry in entries
+                if isinstance(entry, dict)
+                and entry.get("type") == "blob"
+                and entry.get("path") in shared_paths
+            ),
         ]
         if not selected or len(selected) > 256:
             raise ForgeTerminalError("github_merged_pack_unbounded")
