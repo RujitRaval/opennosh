@@ -2,6 +2,12 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.61.0.1] - 2026-08-28
+
+### Fixed
+
+- Emit the zero-claim publication smoke result as a self-contained production warning so Render captures the complete ten-adapter proof before public pointer activation.
+
 ## [0.61.0.0] - 2026-08-27
 
 ### Added

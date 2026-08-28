@@ -347,13 +347,11 @@ async def _run_publication_worker(
             configured,
             clock=lambda: datetime.now(UTC),
         )
-        logger.info(
-            "Zero-claim publication preactivation smoke passed",
-            extra={
-                "adapter_count": len(steps),
-                "steps": steps,
-                "claims_enabled": False,
-            },
+        logger.warning(
+            "Zero-claim publication preactivation smoke passed "
+            "adapter_count=%d steps=%s claims_enabled=false",
+            len(steps),
+            ",".join(steps),
         )
     shutdown = shutdown_requested or asyncio.Event()
     loop = asyncio.get_running_loop()
