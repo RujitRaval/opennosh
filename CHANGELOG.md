@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.62.0.0] - 2026-08-28
+
+### Added
+
+- Gate automatic latest-pointer activation on a cryptographically verified canonical receipt, signed release manifest, and independent durable receipt copy.
+- Promote eligible releases with an ETag compare-and-swap and preserve receipt and pointer proof in the final durable acknowledgement.
+
+### Changed
+
+- Allow the production worker to claim exactly one configured publication only after all ten concrete adapters and pointer-last activation are present.
+- Treat a valid newer pointer as terminal supersession so stale publication work cannot spin or roll the Commons backward.
+
+### Security
+
+- Fail closed before pointer I/O on invalid signatures, non-canonical payloads, receipt/manifest binding conflicts, untrusted pointers, or invalid pointer lifetimes.
+- Reconcile lost pointer-write responses through signed R2 observation while retaining refresh-only rollback.
+
 ## [0.61.0.1] - 2026-08-28
 
 ### Fixed
