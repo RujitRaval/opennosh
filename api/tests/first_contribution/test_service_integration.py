@@ -428,6 +428,7 @@ async def run_rejected_steward_scenario(database_url: str, scenario: str) -> Non
     factory = async_sessionmaker(engine, expire_on_commit=False)
     package = _build_package("1" * 64)
     queue = PgQueuerJobQueue(clock=lambda: NOW)
+    store = MemoryEvidenceStore()
     steward_actor_id = package.source_actor_id if scenario == "source-service" else STEWARD
     try:
         await _truncate_first_contribution_state(engine)
@@ -482,7 +483,7 @@ async def run_rejected_steward_scenario(database_url: str, scenario: str) -> Non
             await commit_usda_first_contribution(
                 factory,
                 queue,
-                MemoryEvidenceStore(),
+                store,
                 package,
                 steward_actor_id=steward_actor_id,
                 expected_base_commit="2" * 40,
@@ -490,18 +491,34 @@ async def run_rejected_steward_scenario(database_url: str, scenario: str) -> Non
                 bootstrap_steward=scenario != "no-bootstrap",
                 now=NOW,
             )
+        assert store.calls == 0
         async with engine.connect() as connection:
-            decision_count = int(
+            untouched = []
+            for table in (
+                "contribution_drafts",
+                "evidence_manifests",
+                "evidence_durable_acknowledgements",
+                "governance_decisions",
+                "publication_intents",
+                PGQUEUER_SETTINGS.queue_table,
+            ):
+                untouched.append(
+                    int(
+                        (
+                            await connection.execute(text(f"SELECT count(*) FROM {table}"))
+                        ).scalar_one()
+                    )
+                )
+            source_actor_count = int(
                 (
-                    await connection.execute(text("SELECT count(*) FROM governance_decisions"))
+                    await connection.execute(
+                        text("SELECT count(*) FROM users WHERE id = :id"),
+                        {"id": package.source_actor_id},
+                    )
                 ).scalar_one()
             )
-            intent_count = int(
-                (
-                    await connection.execute(text("SELECT count(*) FROM publication_intents"))
-                ).scalar_one()
-            )
-        assert (decision_count, intent_count) == (0, 0)
+        assert untouched == [0, 0, 0, 0, 0, 0]
+        assert source_actor_count == 0
     finally:
         await engine.dispose()
 

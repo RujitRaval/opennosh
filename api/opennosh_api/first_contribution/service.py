@@ -101,6 +101,16 @@ async def commit_usda_first_contribution(
             "First common-fruits contribution requires explicit steward bootstrap"
         )
 
+    existing = await _preflight_authority(
+        factory,
+        package,
+        steward_actor_id=steward_actor_id,
+        expected_base_commit=expected_base_commit,
+        reason=reason,
+    )
+    if existing is not None:
+        return existing
+
     existing = await _prepare_database(
         factory,
         package,
@@ -253,6 +263,47 @@ async def commit_usda_first_contribution(
                     "First-contribution receipt rows were not visible after approval"
                 )
             return replay
+
+
+async def _preflight_authority(
+    factory: async_sessionmaker[AsyncSession],
+    package: FirstContributionPackage,
+    *,
+    steward_actor_id: UUID,
+    expected_base_commit: str,
+    reason: str,
+) -> FirstContributionReceipt | None:
+    async with factory() as session:
+        replay = await _load_receipt(
+            session,
+            package,
+            steward_actor_id=steward_actor_id,
+            expected_base_commit=expected_base_commit,
+            reason=reason,
+        )
+        if replay is not None:
+            return replay
+        steward = await session.get(User, steward_actor_id)
+        if (
+            steward is None
+            or steward.actor_kind != "person"
+            or steward.login_disabled_at is not None
+        ):
+            raise FirstContributionAuthorityError(
+                "First-contribution steward must be an active person"
+            )
+        if steward.id == package.source_actor_id:
+            raise FirstContributionAuthorityError("First-contribution self-review is forbidden")
+        prior_role = await session.scalar(
+            select(GovernanceRoleAssignment).where(
+                GovernanceRoleAssignment.pack_id == FIRST_PACK_ID
+            )
+        )
+        if prior_role is not None:
+            raise FirstContributionAuthorityError(
+                "The common-fruits steward scope has already been bootstrapped"
+            )
+    return None
 
 
 async def _prepare_database(
@@ -448,9 +499,7 @@ def _receipt(
     expected_acknowledgements = [
         acknowledgement.model_dump(mode="json"),
     ]
-    expected_intent_key = hashlib.sha256(
-        f"governance-decision:{decision.id}".encode()
-    ).hexdigest()
+    expected_intent_key = hashlib.sha256(f"governance-decision:{decision.id}".encode()).hexdigest()
     if (
         actor.email != SOURCE_ACTOR_EMAIL
         or actor.actor_kind != "service"
@@ -484,8 +533,7 @@ def _receipt(
         or acknowledgement.kind is not EvidenceAcknowledgementKind.CITATION_MANIFEST
         or acknowledgement.content_digest != expected_manifest_digest
         or not acknowledgement.destination.startswith("r2://")
-        or acknowledgement.external_reference
-        != f"{acknowledgement.destination}/{expected_object}"
+        or acknowledgement.external_reference != f"{acknowledgement.destination}/{expected_object}"
         or decision.source_draft_id != package.draft_id
         or decision.source_draft_version != 1
         or decision.pack_id != FIRST_PACK_ID
