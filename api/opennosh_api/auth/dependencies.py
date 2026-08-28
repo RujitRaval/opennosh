@@ -43,6 +43,8 @@ async def get_current_session(
             AuthSession.token_hash == hash_token(raw_token),
             AuthSession.revoked_at.is_(None),
             AuthSession.expires_at > datetime.now(UTC),
+            User.actor_kind == "person",
+            User.login_disabled_at.is_(None),
         )
     )
     row = (await database.execute(statement)).one_or_none()
@@ -67,6 +69,8 @@ async def get_optional_session(
             AuthSession.token_hash == hash_token(raw_token),
             AuthSession.revoked_at.is_(None),
             AuthSession.expires_at > datetime.now(UTC),
+            User.actor_kind == "person",
+            User.login_disabled_at.is_(None),
         )
     )
     row = (await database.execute(statement)).one_or_none()

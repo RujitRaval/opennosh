@@ -10,6 +10,7 @@ from uuid import UUID
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from opennosh_api.first_contribution.prepare import _build_package
 from opennosh_api.governance.contracts import (
     CANONICAL_FORGE_TARGET,
     PROTECTED_STATUS_CHECKS,
@@ -426,6 +427,53 @@ def test_release_material_is_additive_content_addressed_and_deterministic() -> N
     )
     with pytest.raises(ValueError, match="not releaseable"):
         _build_release_material(_intent(), invalid_proof, current)
+
+
+def test_first_contribution_pack_passes_governed_release_material_path() -> None:
+    package = _build_package("a" * 64)
+    changes = ApprovedChangeSet.from_json(package.approved_changes)
+    binding = replace(
+        _binding(),
+        publication_id=package.publication_intent_id,
+        decision_id=package.decision_id,
+        pack_id="common-fruits",
+        contributor_actor_id=package.source_actor_id,
+        approved_changes=changes,
+    )
+    files = {
+        change.path.removeprefix("packs/"): change.content.encode("utf-8")
+        for change in changes.files
+    }
+    files["CC0-1.0.txt"] = (ROOT / "packs/CC0-1.0.txt").read_bytes()
+    proof = CanonicalMergedProof(
+        binding=binding,
+        observation=_observation(binding),
+        pack=MergedPackMaterial(
+            commit_sha="c" * 40,
+            tree_digest="d" * 64,
+            files=files,
+        ),
+    )
+    intent = replace(
+        _intent(),
+        publication_id=package.publication_intent_id,
+        approved_payload_digest=changes.digest,
+    )
+    current = PublicReadReleaseManifest(
+        release_version="0.62.0.0",
+        published_at=NOW - timedelta(days=1),
+        publication_receipt_key=(
+            "receipts/v1/00000000-0000-4000-8000-000000000099.json"
+        ),
+    )
+
+    release = _build_release_material(intent, proof, current)
+
+    assert [food.source_id for food in release.manifest.foods] == [package.record_id]
+    assert [(pack.pack_id, pack.pack_version) for pack in release.manifest.packs] == [
+        ("common-fruits", "1.0.0")
+    ]
+    assert len(release.objects) == 3
 
 
 def test_merged_pack_writer_rejects_path_traversal(tmp_path: Path) -> None:

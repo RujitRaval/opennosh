@@ -375,6 +375,91 @@ rewinding `latest`. Before the first live contribution, capture the activation U
 pointer digest and ETag, deploy with exactly the three values above, then require one verified
 durable receipt and a newer, correctly bound public pointer before clearing the activation ID.
 
+### T33.4a controlled first contribution intake
+
+The first live contribution is one reviewed USDA FoodData Central Foundation record: FDC 1105314,
+`Bananas, ripe and slightly ripe, raw`. USDA is the attributed source, not an opennosh signer. Its
+public document is preserved as immutable citation evidence and remains `reference_only`; never
+describe the contribution as `source_verified`. The resulting `common-fruits` pack is CC0-1.0 and
+contains exactly one food record.
+
+Run this ceremony from a clean checkout of the reviewed release after its migration has been
+deployed. Keep publication claims disabled and federation unconfigured throughout intake:
+
+```text
+PUBLICATION_CLAIMS_ENABLED=false
+PUBLICATION_ACTIVATION_IDS=<unset>
+LATEST_REFRESH_ENABLED=true
+```
+
+1. Download the canonical USDA JSON response for FDC 1105314 over HTTPS to an operator-controlled
+   regular file. Do not paste provider responses or credentials into chat or shell history.
+2. Create the deterministic, mode-`0600` review package. Re-running against byte-identical USDA
+   JSON must return the same package; a different source digest or existing output fails closed:
+
+   ```bash
+   opennosh commons prepare-usda-first-contribution \
+     --source-json /secure/operator-volume/usda-fdc-1105314.json \
+     --output /secure/operator-volume/usda-fdc-1105314.opennosh.json \
+     --json
+   ```
+
+3. Inspect the source digest, package digest, deterministic IDs, evidence manifest, and exact
+   three-file `common-fruits` change set. Independently confirm 97 kcal, 0.74 g protein, 0.29 g
+   fat, and 23.0 g carbohydrate per 100 g, publication date 2020-04-01, and CC0-1.0 attribution.
+4. Select an existing active human opennosh account as the first `common-fruits` steward. Record
+   that person's actor UUID and the exact reviewed 40- or 64-character lowercase base commit. A
+   disabled service identity cannot approve, and the USDA source identity cannot review itself.
+5. Provision one temporary database administration URL and one bucket-scoped R2 read/write token
+   only in the operator environment, using the `FIRST_CONTRIBUTION_` prefix. The database URL must
+   use the capacity-governed administration role. Never link these values to the API, web service,
+   or long-running publication worker. Set exactly:
+
+   ```text
+   FIRST_CONTRIBUTION_ADMINISTRATION_DATABASE_URL=<temporary-administration-url>
+   FIRST_CONTRIBUTION_DATABASE_CAPACITY_MANIFEST_PATH=<reviewed-capacity-manifest>
+   FIRST_CONTRIBUTION_REVIEWED_BASE_COMMIT=<independently-reviewed-fresh-main>
+   FIRST_CONTRIBUTION_REVIEWED_PACKAGE_DIGEST=<independently-recorded-package-sha256>
+   FIRST_CONTRIBUTION_R2_ACCOUNT_ID=<account-id>
+   FIRST_CONTRIBUTION_R2_BUCKET=opennosh-public-commons
+   FIRST_CONTRIBUTION_R2_ACCESS_KEY_ID=<temporary-bucket-access-key>
+   FIRST_CONTRIBUTION_R2_SECRET_ACCESS_KEY=<temporary-bucket-secret>
+   ```
+
+   Record the package digest separately from the package file. The command rejects a different
+   package digest, `--expected-base-commit`, or bucket before it builds database or R2 clients.
+6. Commit once, with explicit first-steward bootstrap authority:
+
+   ```bash
+   opennosh commons commit-usda-first-contribution \
+     --package /secure/operator-volume/usda-fdc-1105314.opennosh.json \
+     --steward-actor-id REVIEWED_HUMAN_ACTOR_UUID \
+     --expected-base-commit REVIEWED_BASE_COMMIT \
+     --reason "Approve the reviewed USDA FDC 1105314 common-fruits seed" \
+     --bootstrap-steward \
+     --json
+   ```
+
+7. Save only the redacted receipt. Confirm one disabled USDA service principal, one
+   `reference_only` evidence acknowledgement, one steward assignment, one governance decision,
+   one `publication_pending` draft, one publication intent, and one queue wakeup. Re-running the
+   same command must return the same receipt without another R2 write or database row.
+8. Independently confirm that the emitted publication-intent UUID is the only candidate for the
+   later activation allowlist, while `PUBLICATION_CLAIMS_ENABLED=false` and
+   `PUBLICATION_ACTIVATION_IDS` remains unset. No GitHub branch, signed release, pointer update, or
+   federation enrollment belongs to this ceremony.
+9. Revoke the temporary database and R2 credentials, securely remove their exact local files and
+   the downloaded provider response, and retain the non-secret package and redacted receipt with
+   the operational proof.
+
+Abort before the database commit if the USDA fields, digests, exact files, steward, or base commit
+do not match the review. If R2 accepts the immutable citation but the command loses its response,
+re-run the identical package: it reconciles by read-back. If the database transaction fails, leave
+the immutable citation in place and retry only after diagnosing the error. Never delete or
+overwrite that object, manually edit partial rows, enable claims to test the intake, or bootstrap a
+second `common-fruits` steward. Stopping claims is the rollback boundary; database history is
+forward-fixed through a separately reviewed change.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:

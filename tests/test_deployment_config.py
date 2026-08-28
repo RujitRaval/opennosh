@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,27 @@ FOOD_SEARCH_ENV_DEFAULTS = {
 }
 
 PUBLIC_ROOT_ENABLED_DEFAULT = "true"
+REVISION_PATTERN = re.compile(r'^revision: str = "([^"]+)"$', re.MULTILINE)
+DOWN_REVISION_PATTERN = re.compile(
+    r'^down_revision: .* = "([^"]+)"$',
+    re.MULTILINE,
+)
+
+
+def _alembic_head() -> str:
+    revisions: set[str] = set()
+    ancestors: set[str] = set()
+    for migration in (ROOT / "api/alembic/versions").glob("*.py"):
+        source = migration.read_text(encoding="utf-8")
+        revision = REVISION_PATTERN.search(source)
+        if revision is not None:
+            revisions.add(revision.group(1))
+        down_revision = DOWN_REVISION_PATTERN.search(source)
+        if down_revision is not None:
+            ancestors.add(down_revision.group(1))
+    heads = revisions - ancestors
+    assert len(heads) == 1
+    return heads.pop()
 
 
 def test_food_search_environment_is_wired_from_template_through_compose() -> None:
@@ -46,3 +68,9 @@ def test_public_root_rollback_is_wired_from_template_through_compose() -> None:
         "OPENNOSH_PUBLIC_ROOT_ENABLED: "
         f"${{OPENNOSH_PUBLIC_ROOT_ENABLED:-{PUBLIC_ROOT_ENABLED_DEFAULT}}}"
     ) in compose
+
+
+def test_compose_ci_asserts_the_current_alembic_head() -> None:
+    workflow = (ROOT / ".github/workflows/quality.yml").read_text(encoding="utf-8")
+
+    assert f"grep -qx '{_alembic_head()}'" in workflow

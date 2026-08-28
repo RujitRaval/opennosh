@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -73,6 +74,8 @@ async def approve_contribution(
     command: ApproveContribution,
     *,
     now: datetime,
+    decision_id_generator: Callable[[], UUID] = uuid4,
+    publication_intent_id_generator: Callable[[], UUID] = uuid4,
 ) -> tuple[GovernanceDecision, PublicationIntent]:
     """Atomically record the approval, publication intent, and queue wake-up."""
 
@@ -136,7 +139,7 @@ async def approve_contribution(
         raise GovernanceDecisionError(error.code) from error
 
     decision = GovernanceDecision(
-        id=uuid4(),
+        id=decision_id_generator(),
         source_draft_id=draft.id,
         source_draft_version=draft.draft_version,
         pack_id=command.approved_changes.pack_id,
@@ -173,6 +176,7 @@ async def approve_contribution(
             evidence_acknowledgements=evidence.acknowledgements,
         ),
         now=now,
+        id_generator=publication_intent_id_generator,
     )
     draft.review_state = "publication_pending"
     draft.updated_at = now

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -97,6 +98,316 @@ def test_commons_warm_command_bounds_operator_concurrency() -> None:
 
     assert arguments.commons_command == "warm-live-release"
     assert arguments.concurrency == 4
+
+
+def test_first_contribution_commands_require_explicit_inputs() -> None:
+    prepare = cli.build_parser().parse_args(
+        [
+            "commons",
+            "prepare-usda-first-contribution",
+            "--source-json",
+            "usda.json",
+            "--output",
+            "review-package.json",
+            "--json",
+        ]
+    )
+    commit = cli.build_parser().parse_args(
+        [
+            "commons",
+            "commit-usda-first-contribution",
+            "--package",
+            "review-package.json",
+            "--steward-actor-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--expected-base-commit",
+            "a" * 40,
+            "--reason",
+            "Reviewed pinned USDA record.",
+            "--bootstrap-steward",
+            "--json",
+        ]
+    )
+
+    assert prepare.source_json == Path("usda.json")
+    assert prepare.output == Path("review-package.json")
+    assert commit.steward_actor_id == __import__("uuid").UUID(
+        "11111111-1111-4111-8111-111111111111"
+    )
+    assert commit.bootstrap_steward is True
+
+
+def _first_contribution_commit_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(
+        [
+            "commons",
+            "commit-usda-first-contribution",
+            "--package",
+            "review-package.json",
+            "--steward-actor-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--expected-base-commit",
+            "a" * 40,
+            "--reason",
+            "Reviewed pinned USDA record.",
+            "--bootstrap-steward",
+            "--json",
+        ]
+    )
+
+
+def test_first_contribution_package_and_usage_fail_with_exit_two(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def reject(_arguments: argparse.Namespace) -> dict[str, object]:
+        raise cli.FirstContributionPreparationError("invalid package")
+
+    monkeypatch.setattr(cli, "_commit_first_contribution", reject)
+
+    assert cli._run_commit_first_contribution(_first_contribution_commit_arguments()) == 2
+    assert "invalid package" in capsys.readouterr().err
+
+
+def test_first_contribution_provider_failure_never_prints_secret_material(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def reject(_arguments: argparse.Namespace) -> dict[str, object]:
+        raise cli.R2PublicationError("secret-access-key-value")
+
+    monkeypatch.setattr(cli, "_commit_first_contribution", reject)
+
+    assert cli._run_commit_first_contribution(_first_contribution_commit_arguments()) == 5
+    captured = capsys.readouterr()
+    assert "provider operation failed" in captured.err
+    assert "secret-access-key-value" not in captured.err
+    assert captured.out == ""
+
+
+def test_first_contribution_rejects_unreviewed_package_before_external_clients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments = _first_contribution_commit_arguments()
+    monkeypatch.setattr(
+        cli,
+        "load_first_contribution_package",
+        lambda _path: SimpleNamespace(package_digest="d" * 64),
+    )
+    monkeypatch.setattr(
+        cli,
+        "FirstContributionOperatorSettings",
+        lambda: SimpleNamespace(
+            reviewed_base_commit="a" * 40,
+            reviewed_package_digest="c" * 64,
+        ),
+    )
+
+    with pytest.raises(cli.FirstContributionConflictError, match="Package digest"):
+        asyncio.run(cli._commit_first_contribution(arguments))
+
+
+def test_first_contribution_rejects_unreviewed_base_before_external_clients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arguments = _first_contribution_commit_arguments()
+    monkeypatch.setattr(
+        cli,
+        "load_first_contribution_package",
+        lambda _path: SimpleNamespace(package_digest="d" * 64),
+    )
+    monkeypatch.setattr(
+        cli,
+        "FirstContributionOperatorSettings",
+        lambda: SimpleNamespace(
+            reviewed_base_commit="b" * 40,
+            reviewed_package_digest="d" * 64,
+        ),
+    )
+
+    with pytest.raises(cli.FirstContributionConflictError, match="fresh main"):
+        asyncio.run(cli._commit_first_contribution(arguments))
+
+
+def _prepared_package() -> SimpleNamespace:
+    return SimpleNamespace(
+        schema_version="1.0",
+        fdc_id="1105314",
+        draft_fields={"pack_id": "common-fruits"},
+        record_id="bananas-ripe-and-slightly-ripe-raw",
+        source_record_digest="a" * 64,
+        evidence_id="11111111-1111-4111-8111-111111111111",
+        approved_changes={"digest": "b" * 64},
+        package_digest="d" * 64,
+    )
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_first_contribution_prepare_reports_text_and_json(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    as_json: bool,
+) -> None:
+    package = _prepared_package()
+    monkeypatch.setattr(cli, "prepare_usda_first_contribution", lambda *_args: package)
+    arguments = cli.build_parser().parse_args(
+        [
+            "commons",
+            "prepare-usda-first-contribution",
+            "--source-json",
+            "usda.json",
+            "--output",
+            "package.json",
+            *(["--json"] if as_json else []),
+        ]
+    )
+
+    assert cli.run_commons_command(arguments) == 0
+    output = capsys.readouterr().out
+    assert package.package_digest in output
+    assert ('"schema_version": "1.0"' in output) is as_json
+
+
+def test_first_contribution_prepare_failure_is_exit_two(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def reject(*_args: object) -> None:
+        raise cli.FirstContributionPreparationError("invalid source")
+
+    monkeypatch.setattr(cli, "prepare_usda_first_contribution", reject)
+    arguments = cli.build_parser().parse_args(
+        [
+            "commons",
+            "prepare-usda-first-contribution",
+            "--source-json",
+            "usda.json",
+            "--output",
+            "package.json",
+        ]
+    )
+
+    assert cli.run_commons_command(arguments) == 2
+    assert "invalid source" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_first_contribution_commit_reports_text_and_json(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    as_json: bool,
+) -> None:
+    async def committed(_arguments: argparse.Namespace) -> dict[str, object]:
+        return {"publication_intent_id": "publication-1", "schema_version": "1.0"}
+
+    arguments = _first_contribution_commit_arguments()
+    arguments.json = as_json
+    monkeypatch.setattr(cli, "_commit_first_contribution", committed)
+
+    assert cli.run_commons_command(arguments) == 0
+    output = capsys.readouterr().out
+    assert "publication-1" in output
+    assert ('"schema_version": "1.0"' in output) is as_json
+
+
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (cli.FirstContributionAuthorityError("not steward"), 3, "authority failed"),
+        (cli.FirstContributionConflictError("changed"), 4, "conflict"),
+        (cli.FirstContributionEvidenceConflictError("changed"), 4, "conflict"),
+        (
+            cli.ValidationError.from_exception_data(
+                "operator settings",
+                [{"type": "missing", "loc": ("value",), "input": {}}],
+            ),
+            5,
+            "configuration is invalid",
+        ),
+        (ValueError("provider details"), 5, "provider operation failed"),
+    ],
+)
+def test_first_contribution_commit_maps_failures_to_stable_exit_contracts(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    exit_code: int,
+    message: str,
+) -> None:
+    async def reject(_arguments: argparse.Namespace) -> dict[str, object]:
+        raise error
+
+    monkeypatch.setattr(cli, "_commit_first_contribution", reject)
+
+    assert cli._run_commit_first_contribution(_first_contribution_commit_arguments()) == exit_code
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert "provider details" not in captured.err
+
+
+def test_first_contribution_commit_wires_clients_and_closes_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = SimpleNamespace(package_digest="d" * 64)
+    secret = SimpleNamespace(get_secret_value=lambda: "secret")
+
+    class Engine:
+        disposed = False
+
+        async def dispose(self) -> None:
+            self.disposed = True
+
+    class Writer:
+        closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    engine = Engine()
+    writer = Writer()
+    settings = SimpleNamespace(
+        reviewed_base_commit="a" * 40,
+        reviewed_package_digest="d" * 64,
+        administration_database_url="postgresql+asyncpg://operator@db/opennosh",
+        database_capacity_manifest_path=None,
+        r2_account_id="account",
+        r2_access_key_id=secret,
+        r2_secret_access_key=secret,
+        r2_bucket="opennosh-public-commons",
+    )
+    monkeypatch.setattr(cli, "load_first_contribution_package", lambda _path: package)
+    monkeypatch.setattr(cli, "FirstContributionOperatorSettings", lambda: settings)
+    monkeypatch.setattr(cli, "build_administration_engine", lambda *_args, **_kwargs: engine)
+    monkeypatch.setattr(cli, "async_sessionmaker", lambda *_args, **_kwargs: "factory")
+    monkeypatch.setattr(cli, "S3R2ObjectWriter", lambda **_kwargs: writer)
+    monkeypatch.setattr(cli, "PgQueuerJobQueue", lambda: "queue")
+    monkeypatch.setattr(cli, "R2FirstContributionEvidenceStore", lambda **_kwargs: "store")
+
+    async def committed(
+        factory: object,
+        queue: object,
+        store: object,
+        received_package: object,
+        **options: object,
+    ) -> SimpleNamespace:
+        assert (factory, queue, store, received_package) == (
+            "factory",
+            "queue",
+            "store",
+            package,
+        )
+        assert options["expected_base_commit"] == "a" * 40
+        return SimpleNamespace(
+            model_dump=lambda **_kwargs: {"publication_intent_id": "publication-1"}
+        )
+
+    monkeypatch.setattr(cli, "commit_usda_first_contribution", committed)
+
+    result = asyncio.run(cli._commit_first_contribution(_first_contribution_commit_arguments()))
+
+    assert result == {"publication_intent_id": "publication-1"}
+    assert writer.closed
+    assert engine.disposed
 
 
 def _commons_inventory() -> SimpleNamespace:

@@ -39,6 +39,7 @@ from opennosh_api.models import AuthSession, User
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
+SERVICE_ACTOR_EMAIL_DOMAIN = "@actors.opennosh.invalid"
 
 
 def _set_session_cookies(
@@ -135,6 +136,11 @@ async def register(
         key=client_address(request, settings),
         settings=settings,
     )
+    if credentials.email.endswith(SERVICE_ACTOR_EMAIL_DOMAIN):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Registration is unavailable for this address",
+        )
     password_hash = await asyncio.to_thread(hash_password, credentials.password)
     recovery_code = generate_token()
     user = User(
@@ -187,7 +193,7 @@ async def login(
         settings=settings,
     )
     user = await database.scalar(select(User).where(User.email == credentials.email))
-    if user is None:
+    if user is None or user.actor_kind != "person" or user.login_disabled_at is not None:
         await asyncio.to_thread(perform_dummy_verification, credentials.password)
         raise _invalid_credentials()
     if not await asyncio.to_thread(verify_password, credentials.password, user.password_hash):
@@ -260,12 +266,12 @@ async def recover_account(
         key=payload.email,
         settings=settings,
     )
-    user = await database.scalar(
-        select(User).where(User.email == payload.email).with_for_update()
-    )
+    user = await database.scalar(select(User).where(User.email == payload.email).with_for_update())
     supplied_hash = hash_token(payload.recovery_code)
     if (
         user is None
+        or user.actor_kind != "person"
+        or user.login_disabled_at is not None
         or user.recovery_token_hash is None
         or not tokens_match(supplied_hash, user.recovery_token_hash)
     ):

@@ -10,12 +10,29 @@ from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import cast
+from uuid import UUID
 
-from sqlalchemy.exc import DBAPIError
+from pydantic import ValidationError
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.capacity import JobRole
 from opennosh_api.database import build_administration_engine
+from opennosh_api.first_contribution.prepare import (
+    FirstContributionPreparationError,
+    load_first_contribution_package,
+    prepare_usda_first_contribution,
+)
+from opennosh_api.first_contribution.r2 import (
+    FirstContributionEvidenceConflictError,
+    R2FirstContributionEvidenceStore,
+)
+from opennosh_api.first_contribution.service import (
+    FirstContributionAuthorityError,
+    FirstContributionConflictError,
+    commit_usda_first_contribution,
+)
+from opennosh_api.first_contribution.settings import FirstContributionOperatorSettings
 from opennosh_api.foodpacks.loader import (
     DEFAULT_MAX_ATTEMPTS,
     FoodPackBatchLoadReport,
@@ -23,6 +40,7 @@ from opennosh_api.foodpacks.loader import (
 )
 from opennosh_api.foodpacks.validation import FoodPackLoadError
 from opennosh_api.importers.wger import WgerFormatError, import_wger
+from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
 from opennosh_api.public.artifacts import ArtifactReadError
 from opennosh_api.public.bootstrap import (
     build_starter_release,
@@ -36,6 +54,7 @@ from opennosh_api.public.live import (
 )
 from opennosh_api.public.r2 import (
     R2PublicationError,
+    S3R2ObjectWriter,
     WranglerR2ObjectWriter,
     publish_starter_release_to_r2,
 )
@@ -103,6 +122,23 @@ def build_parser() -> argparse.ArgumentParser:
     warm_release.add_argument("--api-origin", required=True)
     warm_release.add_argument("--concurrency", type=int, default=8)
     warm_release.add_argument("--json", action="store_true")
+    prepare_first = commons_commands.add_parser(
+        "prepare-usda-first-contribution",
+        help="Prepare the pinned first USDA contribution without external mutation",
+    )
+    prepare_first.add_argument("--source-json", type=Path, required=True)
+    prepare_first.add_argument("--output", type=Path, required=True)
+    prepare_first.add_argument("--json", action="store_true")
+    commit_first = commons_commands.add_parser(
+        "commit-usda-first-contribution",
+        help="Preserve and approve the reviewed first USDA contribution",
+    )
+    commit_first.add_argument("--package", type=Path, required=True)
+    commit_first.add_argument("--steward-actor-id", type=UUID, required=True)
+    commit_first.add_argument("--expected-base-commit", required=True)
+    commit_first.add_argument("--reason", required=True)
+    commit_first.add_argument("--bootstrap-steward", action="store_true")
+    commit_first.add_argument("--json", action="store_true")
     return parser
 
 
@@ -191,6 +227,10 @@ def run_exercise_command(arguments: argparse.Namespace) -> int:
 
 
 def run_commons_command(arguments: argparse.Namespace) -> int:
+    if arguments.commons_command == "prepare-usda-first-contribution":
+        return _run_prepare_first_contribution(arguments)
+    if arguments.commons_command == "commit-usda-first-contribution":
+        return _run_commit_first_contribution(arguments)
     try:
         if arguments.commons_command == "build-starter-release":
             inventory = build_starter_release(
@@ -208,9 +248,7 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
             )
             asyncio.run(verify_starter_release(arguments.output, inventory))
             summary = inventory.model_dump(mode="json")
-            summary["inventory_sha256"] = inventory_sha256(
-                arguments.output / "inventory.json"
-            )
+            summary["inventory_sha256"] = inventory_sha256(arguments.output / "inventory.json")
         elif arguments.commons_command == "verify-starter-release":
             inventory = load_verified_inventory(
                 arguments.directory / "inventory.json",
@@ -292,6 +330,113 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
             f"{summary['release_version']}, "
             f"{summary['food_count']} foods, "
             f"{summary['pack_count']} packs"
+        )
+    return 0
+
+
+def _run_prepare_first_contribution(arguments: argparse.Namespace) -> int:
+    try:
+        package = prepare_usda_first_contribution(arguments.source_json, arguments.output)
+    except (FirstContributionPreparationError, OSError, ValueError) as error:
+        print(f"First-contribution preparation failed: {error}", file=sys.stderr)
+        return 2
+    summary = {
+        "schema_version": package.schema_version,
+        "fdc_id": package.fdc_id,
+        "pack_id": package.draft_fields["pack_id"],
+        "record_id": package.record_id,
+        "source_record_digest": package.source_record_digest,
+        "evidence_id": str(package.evidence_id),
+        "approved_payload_digest": package.approved_changes["digest"],
+        "package_digest": package.package_digest,
+        "output": str(arguments.output),
+    }
+    if arguments.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(
+            "First contribution prepared: "
+            f"FDC {package.fdc_id}, {package.record_id}, package {package.package_digest}"
+        )
+    return 0
+
+
+async def _commit_first_contribution(arguments: argparse.Namespace) -> dict[str, object]:
+    package = load_first_contribution_package(arguments.package)
+    if len(arguments.expected_base_commit) not in {40, 64} or any(
+        character not in "0123456789abcdef"
+        for character in arguments.expected_base_commit
+    ):
+        raise FirstContributionPreparationError(
+            "First-contribution base commit must be a lowercase Git hash"
+        )
+    if not arguments.reason.strip() or len(arguments.reason) > 1000:
+        raise FirstContributionPreparationError(
+            "First-contribution reason must contain 1 to 1000 characters"
+        )
+    settings = FirstContributionOperatorSettings()  # type: ignore[call-arg]
+    if package.package_digest != settings.reviewed_package_digest:
+        raise FirstContributionConflictError(
+            "Package digest differs from the independently reviewed package"
+        )
+    if arguments.expected_base_commit != settings.reviewed_base_commit:
+        raise FirstContributionConflictError(
+            "Expected base commit differs from the independently reviewed fresh main"
+        )
+    engine = build_administration_engine(
+        settings.administration_database_url,
+        manifest_path=settings.database_capacity_manifest_path,
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    writer = S3R2ObjectWriter(
+        account_id=settings.r2_account_id,
+        access_key_id=settings.r2_access_key_id.get_secret_value(),
+        secret_access_key=settings.r2_secret_access_key.get_secret_value(),
+    )
+    try:
+        receipt = await commit_usda_first_contribution(
+            factory,
+            PgQueuerJobQueue(),
+            R2FirstContributionEvidenceStore(writer=writer, bucket=settings.r2_bucket),
+            package,
+            steward_actor_id=arguments.steward_actor_id,
+            expected_base_commit=arguments.expected_base_commit,
+            reason=arguments.reason,
+            bootstrap_steward=arguments.bootstrap_steward,
+        )
+        return receipt.model_dump(mode="json")
+    finally:
+        await writer.aclose()
+        await engine.dispose()
+
+
+def _run_commit_first_contribution(arguments: argparse.Namespace) -> int:
+    try:
+        summary = asyncio.run(_commit_first_contribution(arguments))
+    except FirstContributionPreparationError as error:
+        print(f"First-contribution package failed: {error}", file=sys.stderr)
+        return 2
+    except FirstContributionAuthorityError as error:
+        print(f"First-contribution authority failed: {error}", file=sys.stderr)
+        return 3
+    except (FirstContributionConflictError, FirstContributionEvidenceConflictError) as error:
+        print(f"First-contribution conflict: {error}", file=sys.stderr)
+        return 4
+    except ValidationError:
+        print(
+            "First-contribution commit failed: operator configuration is invalid",
+            file=sys.stderr,
+        )
+        return 5
+    except (OSError, R2PublicationError, SQLAlchemyError, ValueError):
+        print("First-contribution commit failed: provider operation failed", file=sys.stderr)
+        return 5
+    if arguments.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(
+            "First contribution approved and queued: "
+            f"publication {summary['publication_intent_id']}"
         )
     return 0
 

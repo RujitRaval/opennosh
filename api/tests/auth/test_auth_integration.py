@@ -13,6 +13,7 @@ from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from opennosh_api.auth.client_address import client_address
 from opennosh_api.auth.dependencies import get_optional_session
+from opennosh_api.auth.passwords import hash_password
 from opennosh_api.auth.rate_limit import enforce_auth_rate_limit
 from opennosh_api.auth.schemas import Credentials
 from opennosh_api.auth.tokens import hash_token
@@ -95,6 +96,46 @@ async def _expire_session(database_url: str, token_hash: str) -> None:
             )
     finally:
         await engine.dispose()
+
+
+async def _seed_disabled_service_principal(database_url: str) -> str:
+    raw_session = "disabled-service-session-token-2026"
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            service_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO users (
+                        email, password_hash, recovery_token_hash,
+                        actor_kind, login_disabled_at
+                    ) VALUES (
+                        'source@actors.opennosh.invalid', :password_hash, NULL,
+                        'service', now()
+                    ) RETURNING id
+                    """
+                ),
+                {"password_hash": hash_password("known service password")},
+            )
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO auth_sessions (
+                        user_id, token_hash, csrf_token_hash, expires_at
+                    ) VALUES (
+                        :user_id, :token_hash, :csrf_token_hash, now() + INTERVAL '1 hour'
+                    )
+                    """
+                ),
+                {
+                    "user_id": service_id,
+                    "token_hash": hash_token(raw_session),
+                    "csrf_token_hash": hash_token("disabled-service-csrf-token-2026"),
+                },
+            )
+    finally:
+        await engine.dispose()
+    return raw_session
 
 
 async def _concurrent_rate_limit_statuses(database_url: str) -> list[int]:
@@ -750,3 +791,99 @@ def test_account_security_actions_reject_wrong_password(auth_client: TestClient)
         assert body["code"] == "authentication_required"
         assert body["detail"] == "Invalid email or password"
     assert auth_client.get("/api/v1/auth/session-state").json()["authenticated"] is True
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+@pytest.mark.parametrize(
+    "flow",
+    [
+        "register",
+        "login",
+        "recover",
+        "session",
+        "session-state",
+        "change-password",
+        "rotate-recovery",
+        "settings",
+        "delete-account",
+    ],
+)
+def test_service_principal_is_excluded_from_every_human_auth_path(
+    auth_client: TestClient,
+    flow: str,
+) -> None:
+    raw_session = asyncio.run(_seed_disabled_service_principal(INTEGRATION_DATABASE_URL))
+    if flow == "register":
+        response = auth_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "unused@actors.opennosh.invalid",
+                "password": "known service password",
+            },
+        )
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Registration is unavailable for this address"
+        return
+    if flow == "login":
+        response = auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "source@actors.opennosh.invalid",
+                "password": "known service password",
+            },
+        )
+    elif flow == "recover":
+        response = auth_client.post(
+            "/api/v1/auth/recover",
+            json={
+                "email": "source@actors.opennosh.invalid",
+                "recovery_code": "x" * 32,
+                "new_password": "replacement service password",
+            },
+        )
+    else:
+        csrf = "disabled-service-csrf-token-2026"
+        auth_client.cookies.set("opennosh_session", raw_session)
+        auth_client.cookies.set("opennosh_csrf", csrf)
+        headers = {"X-CSRF-Token": csrf}
+        if flow == "session":
+            response = auth_client.get("/api/v1/auth/session")
+        elif flow == "session-state":
+            response = auth_client.get("/api/v1/auth/session-state")
+            assert response.status_code == 200
+            assert response.json() == {"authenticated": False, "user": None}
+            return
+        elif flow == "change-password":
+            response = auth_client.put(
+                "/api/v1/auth/account/password",
+                headers=headers,
+                json={
+                    "current_password": "known service password",
+                    "new_password": "replacement service password",
+                },
+            )
+        elif flow == "rotate-recovery":
+            response = auth_client.post(
+                "/api/v1/auth/account/recovery-code",
+                headers=headers,
+                json={"password": "known service password"},
+            )
+        elif flow == "settings":
+            response = auth_client.patch(
+                "/api/v1/auth/account/settings",
+                headers=headers,
+                json={"preferred_units": "metric"},
+            )
+        else:
+            response = auth_client.request(
+                "DELETE",
+                "/api/v1/auth/account",
+                headers=headers,
+                json={"password": "known service password"},
+            )
+    assert response.status_code == 401
+    expected_detail = {
+        "recover": "Email or recovery code is incorrect",
+        "login": "Invalid email or password",
+    }.get(flow, "Authentication required")
+    assert response.json()["detail"] == expected_detail
