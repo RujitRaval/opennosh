@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.63.0.2] - 2026-08-28
+
+### Fixed
+
+- Supply the publication worker with Blueprint-managed database bootstrap inputs so controlled claims activation can derive its bounded database connection while refresh-only mode continues to strip database credentials.
+- Cover the production database and publication-role password links in the Render deployment contract.
+
 ## [0.63.0.1] - 2026-08-28
 
 ### Fixed

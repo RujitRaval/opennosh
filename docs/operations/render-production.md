@@ -321,7 +321,11 @@ the signed release to `releases/v1/release-{version}.json`, and the independent 
 ID or community-food slug fails closed until replacement semantics have their own reviewed
 protocol.
 
-Before linking a database or activation ID, run the zero-claim production preactivation ceremony:
+Before arming an activation ID or deriving a publication database URL, run the zero-claim
+production preactivation ceremony. The Blueprint supplies the database owner reference and the
+generated publication-role password to the Render wrapper, but refresh-only mode strips both
+before starting the worker. Claims mode alone derives and retains the bounded
+`PUBLICATION_DATABASE_URL`:
 
 1. Link the Forge, attester, receipt-signer, and R2 groups only to
    `opennosh-publication`.
