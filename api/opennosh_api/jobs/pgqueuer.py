@@ -4,6 +4,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import cast
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 from pgqueuer.adapters.persistence.qb import (
@@ -37,13 +38,57 @@ ENTRYPOINTS = {
 }
 
 
-def build_queries(driver: Driver) -> Queries:
+class PublicationActivationQueryBuilder(QueryQueueBuilder):
+    """Restrict publication dequeue to one immutable activation subject."""
+
+    def __init__(self, settings: DBSettings, activation_id: UUID) -> None:
+        super().__init__(settings)
+        self._activation_id = activation_id
+
+    def build_dequeue_query(self) -> str:
+        query = super().build_dequeue_query()
+        subject = str(self._activation_id)
+        queued_filter = (
+            "          AND convert_from(q2.payload, 'UTF8')::jsonb "
+            f"->> 'subject_id' = '{subject}'\n"
+        )
+        stale_filter = (
+            "      AND convert_from(q.payload, 'UTF8')::jsonb "
+            f"->> 'subject_id' = '{subject}'\n"
+        )
+        queued_anchor = "          AND q2.status = 'queued'\n"
+        stale_anchor = "    WHERE q.status = 'picked'\n"
+        if query.count(queued_anchor) != 1 or query.count(stale_anchor) != 1:
+            raise RuntimeError("PgQueuer dequeue contract changed")
+        return query.replace(
+            queued_anchor,
+            queued_anchor + queued_filter,
+            1,
+        ).replace(
+            stale_anchor,
+            stale_anchor + stale_filter,
+            1,
+        )
+
+
+def build_queries(
+    driver: Driver,
+    *,
+    publication_activation_id: UUID | None = None,
+) -> Queries:
     """Bind every PgQueuer query family to the reviewed OpenNosh namespace."""
 
     return Queries(
         driver,
         qbe=QueryBuilderEnvironment(PGQUEUER_SETTINGS),
-        qbq=QueryQueueBuilder(PGQUEUER_SETTINGS),
+        qbq=(
+            PublicationActivationQueryBuilder(
+                PGQUEUER_SETTINGS,
+                publication_activation_id,
+            )
+            if publication_activation_id is not None
+            else QueryQueueBuilder(PGQUEUER_SETTINGS)
+        ),
         qbs=QuerySchedulerBuilder(PGQUEUER_SETTINGS),
     )
 

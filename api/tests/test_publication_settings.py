@@ -179,3 +179,45 @@ def test_production_publication_worker_requires_one_runtime_mode() -> None:
             process_role=ProcessRole.PUBLICATION,
             _env_file=None,
         )
+
+
+@pytest.mark.parametrize(
+    "activation_ids",
+    [
+        "",
+        "not-a-uuid",
+        "00000000-0000-4000-8000-000000000001,",
+        " 00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000001,"
+        "00000000-0000-4000-8000-000000000002",
+        "aaaaaaaa-0000-4000-8000-000000000001".upper(),
+    ],
+)
+def test_publication_claims_require_one_canonical_activation_id(
+    activation_ids: str,
+) -> None:
+    with pytest.raises(ValidationError, match="PUBLICATION_ACTIVATION_IDS"):
+        Settings(
+            publication_claims_enabled=True,
+            publication_activation_ids=activation_ids,
+            _env_file=None,
+        )
+
+
+def test_publication_activation_id_requires_claims_enabled() -> None:
+    with pytest.raises(ValidationError, match="require claims"):
+        Settings(
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+            _env_file=None,
+        )
+
+
+def test_combined_claims_and_refresh_accept_one_activation_id() -> None:
+    settings = _refresh_settings(
+        publication_claims_enabled=True,
+        publication_activation_ids="00000000-0000-4000-8000-000000000001",
+    )
+
+    assert str(settings.publication_activation_id) == (
+        "00000000-0000-4000-8000-000000000001"
+    )

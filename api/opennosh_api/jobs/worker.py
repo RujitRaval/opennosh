@@ -28,16 +28,12 @@ from opennosh_api.public.refresh import (
 )
 from opennosh_api.public.signing import load_production_signing_key
 from opennosh_api.public_commons.manifests import ManifestKeyRing
-from opennosh_api.publication.adapters import (
-    PublicationAdapterRegistry,
-    PublicationEffectAdapter,
-)
+from opennosh_api.publication.adapters import PublicationAdapterRegistry
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.publication.repository import PostgresPublicationRepository
-from opennosh_api.publication.state import PublicationStepName
-from opennosh_api.runtime import supervise_role
+from opennosh_api.publication.runtime import validate_production_adapter_registry
 from opennosh_api.settings import Settings, get_settings
 
 PUBLICATION_DRAIN_TIMEOUT_SECONDS = 30.0
@@ -104,6 +100,50 @@ class PgQueuerRoleDriver:
         await self._pool.close()
 
 
+async def supervise_publication_claims(
+    driver: PgQueuerRoleDriver,
+    shutdown_requested: asyncio.Event,
+    *,
+    drain_timeout_seconds: float,
+) -> None:
+    """Treat an unexpected PgQueuer exit as a worker-level failure."""
+
+    drain_task: asyncio.Task[None] | None = None
+    shutdown_task: asyncio.Task[bool] | None = None
+    try:
+        await driver.start()
+        drain_task = asyncio.create_task(
+            driver.drain(),
+            name="opennosh-publication-claims-exit",
+        )
+        shutdown_task = asyncio.create_task(
+            shutdown_requested.wait(),
+            name="opennosh-publication-shutdown",
+        )
+        done, _ = await asyncio.wait(
+            (drain_task, shutdown_task),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if shutdown_task in done:
+            driver.stop_claiming()
+            async with asyncio.timeout(drain_timeout_seconds):
+                await drain_task
+        else:
+            await drain_task
+            raise RuntimeError("Publication claims loop exited before shutdown")
+    finally:
+        pending = [
+            task
+            for task in (drain_task, shutdown_task)
+            if task is not None and not task.done()
+        ]
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        await driver.close()
+
+
 async def process_publication_wakeup(
     orchestrator: PublicationOrchestrator,
     job: Job,
@@ -135,40 +175,6 @@ async def process_publication_wakeup(
         ) from error
 
 
-def validate_production_adapter_registry(
-    adapters: PublicationAdapterRegistry | None,
-) -> PublicationAdapterRegistry:
-    """Reject incomplete or ambiguous production effect wiring before queue claims."""
-
-    if adapters is None:
-        raise RuntimeError("Production publication worker requires canonical adapters")
-    expected = set(PublicationStepName)
-    actual = set(adapters)
-    missing = sorted(step.value for step in expected - actual)
-    extra = sorted(str(step) for step in actual - expected)
-    if missing or extra:
-        details = []
-        if missing:
-            details.append(f"missing={','.join(missing)}")
-        if extra:
-            details.append(f"extra={','.join(extra)}")
-        raise RuntimeError(
-            "Production publication adapter registry is invalid: " + "; ".join(details)
-        )
-    for step in PublicationStepName:
-        adapter = adapters[step]
-        if not isinstance(adapter, PublicationEffectAdapter):
-            raise RuntimeError(f"Publication adapter {step.value} violates the adapter contract")
-        if (
-            not isinstance(adapter.identity, str)
-            or not adapter.identity.strip()
-            or not isinstance(adapter.version, str)
-            or not adapter.version.strip()
-        ):
-            raise RuntimeError(f"Publication adapter {step.value} requires identity and version")
-    return adapters
-
-
 async def create_publication_role_driver(
     settings: Settings | None = None,
     adapters: PublicationAdapterRegistry | None = None,
@@ -194,10 +200,15 @@ async def create_publication_role_driver(
     if pool is None:
         raise RuntimeError("asyncpg did not create the publication pool")
     driver = AsyncpgPoolDriver(pool)
+    activation_id = (
+        configured.publication_activation_id
+        if configured.publication_claims_enabled
+        else None
+    )
     queue = PgQueuer(
         connection=driver,
         channel=Channel(PGQUEUER_SETTINGS.channel),
-        queries=build_queries(driver),
+        queries=build_queries(driver, publication_activation_id=activation_id),
     )
     orchestrator = PublicationOrchestrator(
         PostgresPublicationRepository(pool),
@@ -223,8 +234,8 @@ async def create_publication_role_driver(
 def create_latest_pointer_refresh_service(settings: Settings) -> LatestPointerRefreshService:
     """Construct every refresh dependency before the first R2 write."""
 
-    if not settings.latest_refresh_enabled or settings.publication_claims_enabled:
-        raise RuntimeError("Refresh-only construction requires claims disabled and refresh enabled")
+    if not settings.latest_refresh_enabled:
+        raise RuntimeError("Latest refresh construction requires refresh enabled")
     if (
         settings.public_artifact_base_url is None
         or settings.online_manifest_signing_key_id is None
@@ -267,28 +278,51 @@ async def _run_publication_worker(
     *,
     settings: Settings | None = None,
     refresh_service: LatestPointerRefreshService | None = None,
+    shutdown_requested: asyncio.Event | None = None,
 ) -> None:
     configured = settings or get_settings()
-    if configured.latest_refresh_enabled and configured.publication_claims_enabled:
-        raise RuntimeError("Combined publication claims and latest refresh activate in T33.4")
-    shutdown_requested = asyncio.Event()
+    if not configured.latest_refresh_enabled and not configured.publication_claims_enabled:
+        raise RuntimeError("Publication worker requires an enabled runtime mode")
+    shutdown = shutdown_requested or asyncio.Event()
     loop = asyncio.get_running_loop()
-    for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(shutdown_signal, shutdown_requested.set)
+    if shutdown_requested is None:
+        for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(shutdown_signal, shutdown.set)
+
+    driver = None
+    service = None
     if configured.latest_refresh_enabled:
         service = refresh_service or create_latest_pointer_refresh_service(configured)
-        await run_latest_pointer_refresh_loop(
-            service,
-            shutdown_requested,
-            interval_seconds=configured.latest_refresh_interval_seconds,
-        )
-        return
-    driver = await create_publication_role_driver(settings=configured, adapters=adapters)
-    await supervise_role(
-        driver,
-        shutdown_requested,
-        drain_timeout_seconds=PUBLICATION_DRAIN_TIMEOUT_SECONDS,
-    )
+    try:
+        if configured.publication_claims_enabled:
+            driver = await create_publication_role_driver(
+                settings=configured,
+                adapters=adapters,
+            )
+    except BaseException:
+        if service is not None:
+            await service.aclose()
+        raise
+
+    async with asyncio.TaskGroup() as tasks:
+        if driver is not None:
+            tasks.create_task(
+                supervise_publication_claims(
+                    driver,
+                    shutdown,
+                    drain_timeout_seconds=PUBLICATION_DRAIN_TIMEOUT_SECONDS,
+                ),
+                name="opennosh-publication-claims",
+            )
+        if service is not None:
+            tasks.create_task(
+                run_latest_pointer_refresh_loop(
+                    service,
+                    shutdown,
+                    interval_seconds=configured.latest_refresh_interval_seconds,
+                ),
+                name="opennosh-latest-pointer-refresh",
+            )
 
 
 def run_publication_worker(

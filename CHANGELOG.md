@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.59.0.0] - 2026-08-27
+
+### Added
+
+- Add an immutable typed production-publication runtime that requires all ten canonical effect adapters before database access.
+- Add a single-publication activation UUID enforced inside both fresh and stale PgQueuer dequeue paths.
+
+### Changed
+
+- Run contribution claims and signed latest-pointer refresh concurrently under one fail-together task supervisor.
+- Preserve refresh-only production as the default while allowing a later reviewed deployment to arm one contribution without pausing pointer renewal.
+
+### Security
+
+- Reject empty, malformed, non-canonical, disabled, or multi-value activation configuration before queue startup.
+- Stop new claims and drain bounded in-flight work on shutdown; close prepared refresh resources if claims construction fails.
+- Keep claims disabled in the production Blueprint until every concrete provider adapter and isolated credential is provisioned.
+
 ## [0.58.0.2] - 2026-08-27
 
 ### Fixed

@@ -7,6 +7,7 @@ import asyncio
 import os
 import subprocess
 from collections.abc import Mapping
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 from sqlalchemy.engine import make_url
@@ -55,6 +56,7 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "DATABASE_CAPACITY_MANIFEST_PATH",
     "PUBLICATION_CLAIMS_ENABLED",
     "LATEST_REFRESH_ENABLED",
+    "PUBLICATION_ACTIVATION_IDS",
     "LATEST_REFRESH_INTERVAL_SECONDS",
     "LATEST_REFRESH_AFTER_SECONDS",
     "LATEST_POINTER_LIFETIME_SECONDS",
@@ -147,12 +149,19 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
     }
     claims_enabled = environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true"
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
-    if claims_enabled and refresh_enabled:
-        raise ValueError("Combined publication claims and latest refresh activate in T33.4")
     if not claims_enabled and not refresh_enabled:
         raise ValueError("Publication worker requires an enabled runtime mode")
+    if claims_enabled and not refresh_enabled:
+        raise ValueError("Publication claims require latest refresh to remain enabled")
     environment["PROCESS_ROLE"] = "publication"
     if claims_enabled:
+        activation_id = _required(source, "PUBLICATION_ACTIVATION_IDS")
+        try:
+            parsed_activation_id = UUID(activation_id)
+        except ValueError as error:
+            raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
+        if str(parsed_activation_id) != activation_id:
+            raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
         owner_url = _required(source, "RENDER_DATABASE_URL")
         publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
         environment["PUBLICATION_DATABASE_URL"] = role_database_url(

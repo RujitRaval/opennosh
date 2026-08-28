@@ -436,6 +436,7 @@ def test_production_worker_roles_do_not_require_the_web_cursor_key() -> None:
         process_role=ProcessRole.PUBLICATION,
         publication_database_url="postgresql+asyncpg://publication-role@database/opennosh",
         publication_claims_enabled=True,
+        publication_activation_ids="00000000-0000-4000-8000-000000000001",
         _env_file=None,
     )
 

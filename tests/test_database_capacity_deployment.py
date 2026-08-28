@@ -96,6 +96,14 @@ class DatabaseCapacityDeploymentTests(unittest.TestCase):
             ["opennosh-acceptance-publication-worker"],
         )
         self.assertEqual(
+            services["publication-worker"]["environment"]["PUBLICATION_CLAIMS_ENABLED"],
+            "true",
+        )
+        self.assertEqual(
+            services["publication-worker"]["environment"]["PUBLICATION_ACTIVATION_IDS"],
+            "11111111-1111-4111-8111-111111111111",
+        )
+        self.assertEqual(
             services["evidence-worker"]["command"],
             ["opennosh-evidence-worker"],
         )

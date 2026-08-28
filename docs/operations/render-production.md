@@ -279,6 +279,37 @@ for at least 24 hours and until the live pointer and durable checkpoint both use
 Remove only the retired public key in a later reviewed deployment. Online receipt-key rotation and
 offline root-key rotation are separate ceremonies and remain outside T33.3.
 
+## T33.4 staged contribution activation
+
+The first T33.4 slice adds the bounded runtime and shutdown contract without activating live
+contribution claims. Keep the Blueprint at:
+
+```text
+PUBLICATION_CLAIMS_ENABLED=false
+LATEST_REFRESH_ENABLED=true
+```
+
+Claims may be enabled only after the production registry supplies every canonical
+`PublicationStepName` adapter. The worker validates that exact ten-step registry before opening
+its PostgreSQL pool. Render must then provide one canonical UUID through
+`PUBLICATION_ACTIVATION_IDS` and keep latest refresh enabled:
+
+```text
+PUBLICATION_CLAIMS_ENABLED=true
+PUBLICATION_ACTIVATION_IDS=<one-publication-intent-uuid>
+LATEST_REFRESH_ENABLED=true
+```
+
+The activation ID is applied inside PgQueuer's PostgreSQL dequeue statement to both new and
+stale-job recovery paths. Unrelated queued publication rows remain unclaimed. Claims and pointer
+refresh run as sibling tasks: either loop failing cancels and closes the other; SIGTERM stops new
+claims, drains leased work within the existing 30-second deadline, closes both resources, and
+leaves immutable artifacts untouched.
+
+Do not add a second ID, disable refresh while claims are enabled, or use the activation variable
+as a general queue filter. Roll back by setting claims to `false`, removing the activation ID,
+and leaving refresh enabled.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:

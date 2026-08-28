@@ -141,6 +141,8 @@ services:
       OPENNOSH_ACCEPTANCE_FIXTURES: "1"
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-opennosh}:${POSTGRES_PASSWORD:-opennosh}@db:5432/${POSTGRES_DB:-opennosh}}
       DATABASE_CAPACITY_MANIFEST_PATH: /app/config/database-capacity.acceptance.v1.json
+      PUBLICATION_CLAIMS_ENABLED: "true"
+      PUBLICATION_ACTIVATION_IDS: 11111111-1111-4111-8111-111111111111
       ACCEPTANCE_ARTIFACT_DIRECTORY: /fixtures/artifacts
       ACCEPTANCE_STATE_DIRECTORY: /fixtures/state
     volumes:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -7,6 +8,7 @@ import pytest
 from opennosh_api.jobs.worker import (
     _run_publication_worker,
     create_publication_role_driver,
+    supervise_publication_claims,
     validate_production_adapter_registry,
 )
 from opennosh_api.publication.state import (
@@ -119,21 +121,149 @@ async def test_refresh_only_worker_never_constructs_the_queue_driver(
 
 
 @pytest.mark.asyncio
-async def test_combined_claims_and_refresh_fail_before_runtime_construction(
+async def test_combined_claims_and_refresh_share_one_shutdown_boundary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = SimpleNamespace(
         latest_refresh_enabled=True,
         publication_claims_enabled=True,
+        latest_refresh_interval_seconds=3600.0,
     )
+    shutdown = asyncio.Event()
+    claims_started = asyncio.Event()
+    refresh_started = asyncio.Event()
+    claims_stopped = asyncio.Event()
+    lifecycle: list[str] = []
 
-    async def forbidden_queue_driver(**_arguments: object) -> None:
-        raise AssertionError("combined mode reached queue construction")
+    class Driver:
+        async def start(self) -> None:
+            lifecycle.append("claims:start")
+            claims_started.set()
+
+        def stop_claiming(self) -> None:
+            lifecycle.append("claims:stop")
+            claims_stopped.set()
+
+        async def drain(self) -> None:
+            await claims_stopped.wait()
+            lifecycle.append("claims:drain")
+
+        async def close(self) -> None:
+            lifecycle.append("claims:close")
+
+    driver = Driver()
+    service = cast(Any, object())
+
+    async def create_driver(**_arguments: object) -> Driver:
+        return driver
+
+    async def run_refresh(
+        supplied_service: object,
+        supplied_shutdown: asyncio.Event,
+        *,
+        interval_seconds: float,
+    ) -> None:
+        assert supplied_service is service
+        assert supplied_shutdown is shutdown
+        assert interval_seconds == 3600.0
+        lifecycle.append("refresh:start")
+        refresh_started.set()
+        await supplied_shutdown.wait()
+        lifecycle.append("refresh:stop")
 
     monkeypatch.setattr(
         "opennosh_api.jobs.worker.create_publication_role_driver",
-        forbidden_queue_driver,
+        create_driver,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_latest_pointer_refresh_loop",
+        run_refresh,
     )
 
-    with pytest.raises(RuntimeError, match="T33.4"):
-        await _run_publication_worker(settings=cast(Any, settings))
+    task = asyncio.create_task(
+        _run_publication_worker(
+            settings=cast(Any, settings),
+            refresh_service=service,
+            shutdown_requested=shutdown,
+        )
+    )
+    await asyncio.wait_for(
+        asyncio.gather(claims_started.wait(), refresh_started.wait()),
+        timeout=1,
+    )
+    shutdown.set()
+    await asyncio.wait_for(task, timeout=1)
+
+    assert lifecycle[:2] == ["claims:start", "refresh:start"]
+    assert set(lifecycle[2:]) == {
+        "claims:stop",
+        "claims:drain",
+        "claims:close",
+        "refresh:stop",
+    }
+    assert lifecycle.index("claims:stop") < lifecycle.index("claims:drain")
+    assert lifecycle.index("claims:drain") < lifecycle.index("claims:close")
+
+
+@pytest.mark.asyncio
+async def test_claims_supervisor_fails_when_queue_exits_before_shutdown() -> None:
+    lifecycle: list[str] = []
+
+    class Driver:
+        async def start(self) -> None:
+            lifecycle.append("start")
+
+        def stop_claiming(self) -> None:
+            lifecycle.append("stop")
+
+        async def drain(self) -> None:
+            lifecycle.append("exit")
+
+        async def close(self) -> None:
+            lifecycle.append("close")
+
+    with pytest.raises(RuntimeError, match="claims loop exited"):
+        await supervise_publication_claims(
+            cast(Any, Driver()),
+            asyncio.Event(),
+            drain_timeout_seconds=1,
+        )
+
+    assert lifecycle == ["start", "exit", "close"]
+
+
+@pytest.mark.asyncio
+async def test_claims_construction_failure_closes_prepared_refresh_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=True,
+        publication_claims_enabled=True,
+        latest_refresh_interval_seconds=3600.0,
+    )
+
+    class Service:
+        def __init__(self) -> None:
+            self.closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    service = Service()
+
+    async def fail_driver(**_arguments: object) -> None:
+        raise RuntimeError("queue construction failed")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        fail_driver,
+    )
+
+    with pytest.raises(RuntimeError, match="queue construction failed"):
+        await _run_publication_worker(
+            settings=cast(Any, settings),
+            refresh_service=cast(Any, service),
+            shutdown_requested=asyncio.Event(),
+        )
+
+    assert service.closed is True
