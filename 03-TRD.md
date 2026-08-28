@@ -26,7 +26,8 @@ Licence separation from `04-DATA-LICENSING.md` is enforced in the schema. Do not
 
 ```
 users
-  id, email, password_hash, recovery_token_hash, created_at, settings_json
+  id, email, password_hash, recovery_token_hash, actor_kind, login_disabled_at,
+  created_at, settings_json
 
 auth_sessions
   id, user_id, token_hash, csrf_token_hash, expires_at, revoked_at, created_at
