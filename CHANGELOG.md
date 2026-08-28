@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.60.0.0] - 2026-08-27
+
+### Added
+
+- Add the complete production publication adapter set for governed GitHub Forge writes, governance attestation, online manifest and receipt signing, and immutable Cloudflare R2 storage.
+- Add fail-closed identity checks that prove Forge, attester, manifest signer, receipt signer, and public verification keys are independent before any database connection opens.
+
+### Changed
+
+- Stage signed release manifests and publication receipts under distinct immutable object keys, then self-verify them before canonical registry and durability publication.
+- Restrict every new provider credential to the publication worker while keeping contribution claims disabled until the activation ceremony.
+
+### Fixed
+
+- Convert immutable R2 write races into deterministic publication conflicts and close worker-owned provider clients during bounded shutdown.
+
 ## [0.59.0.0] - 2026-08-27
 
 ### Added
