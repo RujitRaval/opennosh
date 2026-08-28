@@ -225,7 +225,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
 
-def test_render_blueprint_links_only_refresh_credentials_to_the_worker() -> None:
+def test_render_blueprint_links_claim_bootstrap_and_refresh_credentials_to_worker() -> None:
     services = _blueprint()["services"]
     assert isinstance(services, list)
     publication = _resource(services, "opennosh-publication")
@@ -240,13 +240,20 @@ def test_render_blueprint_links_only_refresh_credentials_to_the_worker() -> None
     assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
     assert variables["LATEST_REFRESH_ENABLED"]["value"] == "true"
+    assert variables["RENDER_DATABASE_URL"]["fromDatabase"] == {
+        "name": "opennosh-db",
+        "property": "connectionString",
+    }
+    assert variables["PUBLICATION_DATABASE_PASSWORD"]["fromService"] == {
+        "type": "pserv",
+        "name": "opennosh-api",
+        "envVarKey": "PUBLICATION_DATABASE_PASSWORD",
+    }
     assert variables["PUBLIC_ARTIFACT_BASE_URL"]["value"] == (
         "https://commons-artifacts.opennosh.org"
     )
     assert variables["PUBLIC_ARTIFACT_TIMEOUT_SECONDS"]["value"] == "2"
     for excluded in (
-        "RENDER_DATABASE_URL",
-        "PUBLICATION_DATABASE_PASSWORD",
         "PUBLICATION_DATABASE_URL",
         "TRUSTED_WEB_PROXY_TOKEN",
         "FOOD_SEARCH_CURSOR_SECRET",

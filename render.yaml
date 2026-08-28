@@ -74,6 +74,15 @@ services:
         value: production
       - key: DATABASE_CAPACITY_MANIFEST_PATH
         value: /app/config/database-capacity.v1.json
+      - key: RENDER_DATABASE_URL
+        fromDatabase:
+          name: opennosh-db
+          property: connectionString
+      - key: PUBLICATION_DATABASE_PASSWORD
+        fromService:
+          type: pserv
+          name: opennosh-api
+          envVarKey: PUBLICATION_DATABASE_PASSWORD
       - key: PUBLICATION_CLAIMS_ENABLED
         value: "false"
       - key: PUBLICATION_PREACTIVATION_SMOKE_ENABLED
