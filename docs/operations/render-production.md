@@ -372,6 +372,15 @@ refresh run as sibling tasks: either loop failing cancels and closes the other; 
 claims, drains leased work within the existing 30-second deadline, closes both resources, and
 leaves immutable artifacts untouched.
 
+Before the claims loop starts, the worker locks only the configured publication intent and checks
+its active typed wake-ups. It preserves a valid queued or picked wake-up, or creates one
+revision-bound wake-up when none exists; it never scans or changes unrelated publication work.
+Startup fails closed for an unknown or terminal intent, an unbound or future-revision wake-up, or a
+conflicting deduplication key. Require the redacted
+`Publication activation wake-up ready` log with its outcome, intent state, workflow revision,
+active-job count, and eligibility result before treating claims as armed. The log deliberately
+omits the activation UUID.
+
 Do not add a second ID, disable refresh while claims are enabled, or use the activation variable
 as a general queue filter. Roll back by setting claims to `false`, removing the activation ID,
 and leaving refresh enabled. This stops new queue claims without deleting immutable artifacts or
