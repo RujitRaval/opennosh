@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -110,9 +111,70 @@ async def _run_reconstruction_scenarios(database_url: str) -> None:
         assert await pool.fetchval("SELECT count(*) FROM publication_receipts") == 0
 
         await _put(registry, envelope)
+        object_key = receipt_object_key(envelope.receipt.publication_id)
+        registry_observation = await registry.observe(object_key)
+        assert registry_observation is not None
+        receipt_digest = signed_receipt_digest(envelope)
+        async with pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.executemany(
+                    """
+                    INSERT INTO publication_durable_acknowledgements (
+                        publication_intent_id, acknowledgement_kind, destination,
+                        content_digest, external_reference, context_json, verified_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+                    """,
+                    (
+                        (
+                            seeded.publication_id,
+                            "sign_receipt",
+                            "urn:opennosh:receipt:signer",
+                            receipt_digest,
+                            f"key:{envelope.signature_key_id}",
+                            json.dumps(
+                                {
+                                    "adapter_identity": envelope.receipt.publisher_adapter_identity,
+                                    "adapter_version": envelope.receipt.publisher_adapter_version,
+                                    "signed_receipt": envelope.model_dump(mode="json"),
+                                }
+                            ),
+                            NOW + timedelta(seconds=1),
+                        ),
+                        (
+                            seeded.publication_id,
+                            "publish_receipt_registry",
+                            registry.destination,
+                            receipt_digest,
+                            registry_observation.external_reference,
+                            json.dumps(
+                                {
+                                    "adapter_identity": registry.identity,
+                                    "adapter_version": registry.version,
+                                }
+                            ),
+                            NOW + timedelta(seconds=2),
+                        ),
+                    ),
+                )
+                await connection.execute(
+                    """
+                    UPDATE publication_steps
+                    SET state = 'verified',
+                        verified_at = CASE step_name
+                            WHEN 'sign_receipt' THEN $2::timestamptz
+                            ELSE $3::timestamptz
+                        END
+                    WHERE publication_intent_id = $1
+                      AND step_name IN ('sign_receipt', 'publish_receipt_registry')
+                    """,
+                    seeded.publication_id,
+                    NOW + timedelta(seconds=1),
+                    NOW + timedelta(seconds=2),
+                )
         concurrent = await asyncio.gather(
-            reconciler.run(now=NOW + timedelta(seconds=1)),
-            reconciler.run(now=NOW + timedelta(seconds=1)),
+            reconciler.run(now=NOW + timedelta(seconds=3)),
+            reconciler.run(now=NOW + timedelta(seconds=3)),
         )
         assert sum(result.reconstructed for result in concurrent) == 1
         assert sum(result.already_current for result in concurrent) == 1

@@ -547,7 +547,7 @@ class PublicArtifactReadService:
         bound = receipt.receipt
         if (
             bound.release_version != manifest.release_version
-            or bound.published_at != manifest.published_at
+            or bound.published_at < manifest.published_at
             or bound.signed_release_metadata_digest != manifest_digest
             or _copy_release_digest(bound) != manifest_digest
         ):
@@ -738,7 +738,7 @@ async def activate_verified_release(
     manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
     if (
         parsed_receipt.receipt.release_version != manifest.release_version
-        or parsed_receipt.receipt.published_at != manifest.published_at
+        or parsed_receipt.receipt.published_at < manifest.published_at
         or parsed_receipt.receipt.signed_release_metadata_digest != manifest_digest
         or _copy_release_digest(parsed_receipt.receipt) != manifest_digest
     ):

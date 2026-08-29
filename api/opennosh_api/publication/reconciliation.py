@@ -525,6 +525,13 @@ class PublicationReceiptReconciler:
                 definition.name.value,
                 definition.destination,
             )
+            acknowledgement_verified_at = (
+                acknowledgement["verified_at"]
+                if acknowledgement is not None
+                and definition.name not in proof_by_step
+                and acknowledgement["verified_at"] >= verified_at
+                else verified_at
+            )
             if acknowledgement is None or (
                 str(acknowledgement["content_digest"]) != digest
                 or acknowledgement["external_reference"] != reference
@@ -532,11 +539,14 @@ class PublicationReceiptReconciler:
                     _json_object(acknowledgement["context_json"]).get(key) != value
                     for key, value in context.items()
                 )
-                or acknowledgement["verified_at"] != verified_at
+                or acknowledgement["verified_at"] != acknowledgement_verified_at
             ):
                 raise ReceiptVerificationError("publication_acknowledgement_conflict")
 
-            if str(step["state"]) != "verified" or step["verified_at"] != verified_at:
+            if (
+                str(step["state"]) != "verified"
+                or step["verified_at"] != acknowledgement_verified_at
+            ):
                 await connection.execute(
                     """
                     UPDATE publication_steps
@@ -547,7 +557,7 @@ class PublicationReceiptReconciler:
                     """,
                     receipt.publication_id,
                     definition.ordinal,
-                    verified_at,
+                    acknowledgement_verified_at,
                 )
                 changed = True
             changed = inserted_step is not None or inserted_ack is not None or changed

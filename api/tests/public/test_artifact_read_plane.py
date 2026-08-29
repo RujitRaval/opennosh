@@ -99,7 +99,11 @@ def _descriptor(prefix: str, payload: bytes, media_type: str):  # type: ignore[n
     return artifact_descriptor(f"{prefix}/{digest}", payload, media_type)
 
 
-async def _published(tmp_path: Path) -> tuple[PublicArtifactReadService, MemoryArtifactStore]:
+async def _published(
+    tmp_path: Path,
+    *,
+    receipt_delay: timedelta = timedelta(),
+) -> tuple[PublicArtifactReadService, MemoryArtifactStore]:
     store = MemoryArtifactStore()
     checkpoint = tmp_path / "trusted-latest.json"
     service = PublicArtifactReadService(
@@ -137,7 +141,13 @@ async def _published(tmp_path: Path) -> tuple[PublicArtifactReadService, MemoryA
     acknowledgements = tuple(
         replace(
             acknowledgement,
-            content_digest=manifest_digest,
+            content_digest=(
+                manifest_digest
+                if acknowledgement.step
+                in {PublicationStepName.SIGN_RELEASE, PublicationStepName.COPY_RELEASE}
+                else acknowledgement.content_digest
+            ),
+            verified_at=acknowledgement.verified_at + receipt_delay,
             context={
                 **dict(acknowledgement.context),
                 **(
@@ -147,9 +157,6 @@ async def _published(tmp_path: Path) -> tuple[PublicArtifactReadService, MemoryA
                 ),
             },
         )
-        if acknowledgement.step
-        in {PublicationStepName.SIGN_RELEASE, PublicationStepName.COPY_RELEASE}
-        else acknowledgement
         for acknowledgement in source.acknowledgements
     )
     receipt = RECEIPT_SIGNER.sign(
@@ -180,6 +187,22 @@ async def _published(tmp_path: Path) -> tuple[PublicArtifactReadService, MemoryA
         pointer_bytes=pointer_bytes,
     )
     return service, store
+
+
+@pytest.mark.asyncio
+async def test_receipt_may_follow_its_signed_release(tmp_path: Path) -> None:
+    service, _ = await _published(tmp_path, receipt_delay=timedelta(seconds=30))
+
+    release = await service.resolve_release(release_version=RELEASE)
+
+    assert release.manifest.published_at == NOW
+    assert release.manifest.release_version == RELEASE
+
+
+@pytest.mark.asyncio
+async def test_receipt_cannot_predate_its_signed_release(tmp_path: Path) -> None:
+    with pytest.raises(ArtifactUnavailableError, match="publication_receipt_binding_invalid"):
+        await _published(tmp_path, receipt_delay=-timedelta(seconds=1))
 
 
 @pytest.mark.asyncio
