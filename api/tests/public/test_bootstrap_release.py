@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.public.bootstrap import (
@@ -64,6 +65,15 @@ def _build(
     )
 
 
+def _expected_release_counts() -> tuple[int, int]:
+    manifests = [
+        yaml.safe_load((path / "pack.yaml").read_text(encoding="utf-8"))
+        for path in sorted(PACKS.iterdir())
+        if path.is_dir() and (path / "pack.yaml").is_file()
+    ]
+    return len(manifests), sum(int(manifest["entry_count"]) for manifest in manifests)
+
+
 @pytest.mark.asyncio
 async def test_starter_release_is_complete_deterministic_and_verifiable(tmp_path: Path) -> None:
     manifest_key = tmp_path / "manifest.key"
@@ -73,11 +83,12 @@ async def test_starter_release_is_complete_deterministic_and_verifiable(tmp_path
 
     first = _build(tmp_path / "first", manifest_key, receipt_key)
     second = _build(tmp_path / "second", manifest_key, receipt_key)
+    expected_pack_count, expected_food_count = _expected_release_counts()
 
     assert first == second
     assert first.release_version == "0.56.0.0"
-    assert first.food_count == 165
-    assert first.pack_count == 4
+    assert first.food_count == expected_food_count
+    assert first.pack_count == expected_pack_count
     assert len(first.objects) == first.food_count * 2 + first.pack_count + 3
     assert first.objects[-1].object_key == "latest/v1.json"
     assert first.objects[-1].mutable_pointer is True

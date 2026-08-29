@@ -11,7 +11,7 @@ from scripts.build_starter_food_packs import portion_name
 
 ROOT = Path(__file__).resolve().parents[3]
 PACK_ROOT = ROOT / "packs"
-EXPECTED_COUNTS = {
+FOUNDATIONAL_COUNTS = {
     "gujarati-home-cooking": 50,
     "indian-staples-north": 60,
     "common-vegetarian-proteins": 30,
@@ -39,7 +39,15 @@ def load_pack(pack_id: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
 
 def all_entries() -> list[dict[str, Any]]:
-    return [entry for pack_id in EXPECTED_COUNTS for entry in load_pack(pack_id)[1]]
+    return [entry for pack_id in FOUNDATIONAL_COUNTS for entry in load_pack(pack_id)[1]]
+
+
+def pack_directories() -> tuple[Path, ...]:
+    return tuple(
+        path
+        for path in sorted(PACK_ROOT.iterdir())
+        if path.is_dir() and (path / "pack.yaml").is_file()
+    )
 
 
 def test_usda_portion_amount_formatting_preserves_integer_zeroes() -> None:
@@ -52,24 +60,20 @@ def test_usda_portion_amount_formatting_preserves_integer_zeroes() -> None:
     )
 
 
-def test_four_starter_packs_have_the_promised_165_entries() -> None:
-    actual_directories = {
-        path.name
-        for path in PACK_ROOT.iterdir()
-        if path.is_dir() and (path / "pack.yaml").is_file()
-    }
+def test_foundational_starter_packs_have_the_promised_165_entries() -> None:
+    actual_directories = {path.name for path in pack_directories()}
 
-    assert actual_directories == set(EXPECTED_COUNTS)
-    for pack_id, expected in EXPECTED_COUNTS.items():
+    assert set(FOUNDATIONAL_COUNTS) <= actual_directories
+    for pack_id, expected in FOUNDATIONAL_COUNTS.items():
         manifest, foods = load_pack(pack_id)
         assert manifest["id"] == pack_id
         assert manifest["entry_count"] == expected
         assert len(foods) == expected
-    assert sum(EXPECTED_COUNTS.values()) == 165
+    assert sum(FOUNDATIONAL_COUNTS.values()) == 165
 
 
 def test_starter_packs_pass_runtime_validation_without_warnings() -> None:
-    report = validate_pack_directories(PACK_ROOT / pack_id for pack_id in EXPECTED_COUNTS)
+    report = validate_pack_directories(pack_directories())
 
     assert report.valid
     assert report.errors == ()
