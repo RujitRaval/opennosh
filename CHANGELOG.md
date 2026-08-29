@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.64.0.0] - 2026-08-29
+
+### Added
+
+- Add a bounded steward operator command that creates one governed successor for an exact terminal publication intent against a freshly reviewed base commit.
+- Record append-only decision and publication lineage so a lost operator response can replay safely without branching or duplicating queue work.
+
+### Changed
+
+- Permit multiple governed attempts for the same reviewed draft version only through a single-successor lineage, while retaining one unique initial approval and intent.
+- Rebind current durable evidence, canonical checks, forge target, contributor, record, and approved payload before the successor becomes claimable.
+
+### Security
+
+- Keep terminal publication history immutable and reject unchanged resubmission after a steward intervention, committed merge authorization, active publication, authority loss, recusal, pause, evidence drift, or governance-binding drift.
+- Make publication lineage immutable at the database boundary even though the bounded worker may update workflow state on the same intent rows.
+
 ## [0.63.0.3] - 2026-08-28
 
 ### Fixed

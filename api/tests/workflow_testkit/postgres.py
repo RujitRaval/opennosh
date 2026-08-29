@@ -190,6 +190,12 @@ async def restore_publication_snapshot(
             )
             if locked is None:
                 raise LookupError(f"Unknown publication intent: {snapshot.publication_id}")
+            # This test-only helper models an operator restoring a physical database
+            # checkpoint. Normal application transactions must never delete ledger rows.
+            await connection.execute(
+                "ALTER TABLE publication_intents "
+                "DISABLE TRIGGER prohibit_publication_intents_delete"
+            )
             for table in reversed(_SNAPSHOT_TABLES):
                 await connection.execute(
                     _snapshot_delete(table),
@@ -202,6 +208,10 @@ async def restore_publication_snapshot(
                         f"SELECT * FROM jsonb_populate_record(NULL::{table}, $1::jsonb)",
                         row,
                     )
+            await connection.execute(
+                "ALTER TABLE publication_intents "
+                "ENABLE TRIGGER prohibit_publication_intents_delete"
+            )
 
 
 async def expire_publication_lease(

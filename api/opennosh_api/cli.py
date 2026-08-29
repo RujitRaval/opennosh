@@ -39,6 +39,11 @@ from opennosh_api.foodpacks.loader import (
     load_food_pack_root_with_retries,
 )
 from opennosh_api.foodpacks.validation import FoodPackLoadError
+from opennosh_api.governance.service import (
+    GovernanceDecisionError,
+    ResubmitPublication,
+    resubmit_publication,
+)
 from opennosh_api.importers.wger import WgerFormatError, import_wger
 from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
 from opennosh_api.public.artifacts import ArtifactReadError
@@ -139,6 +144,15 @@ def build_parser() -> argparse.ArgumentParser:
     commit_first.add_argument("--reason", required=True)
     commit_first.add_argument("--bootstrap-steward", action="store_true")
     commit_first.add_argument("--json", action="store_true")
+    resubmit = commons_commands.add_parser(
+        "resubmit-publication",
+        help="Create one governed successor for a terminal publication intent",
+    )
+    resubmit.add_argument("--prior-publication-intent-id", type=UUID, required=True)
+    resubmit.add_argument("--steward-actor-id", type=UUID, required=True)
+    resubmit.add_argument("--expected-base-commit", required=True)
+    resubmit.add_argument("--reason", required=True)
+    resubmit.add_argument("--json", action="store_true")
     return parser
 
 
@@ -231,6 +245,8 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
         return _run_prepare_first_contribution(arguments)
     if arguments.commons_command == "commit-usda-first-contribution":
         return _run_commit_first_contribution(arguments)
+    if arguments.commons_command == "resubmit-publication":
+        return _run_resubmit_publication(arguments)
     try:
         if arguments.commons_command == "build-starter-release":
             inventory = build_starter_release(
@@ -364,8 +380,7 @@ def _run_prepare_first_contribution(arguments: argparse.Namespace) -> int:
 async def _commit_first_contribution(arguments: argparse.Namespace) -> dict[str, object]:
     package = load_first_contribution_package(arguments.package)
     if len(arguments.expected_base_commit) not in {40, 64} or any(
-        character not in "0123456789abcdef"
-        for character in arguments.expected_base_commit
+        character not in "0123456789abcdef" for character in arguments.expected_base_commit
     ):
         raise FirstContributionPreparationError(
             "First-contribution base commit must be a lowercase Git hash"
@@ -437,6 +452,78 @@ def _run_commit_first_contribution(arguments: argparse.Namespace) -> int:
         print(
             "First contribution approved and queued: "
             f"publication {summary['publication_intent_id']}"
+        )
+    return 0
+
+
+async def _resubmit_publication(arguments: argparse.Namespace) -> dict[str, object]:
+    settings = get_settings()
+    engine = build_administration_engine(
+        settings.process_database_url(JobRole.ADMINISTRATION),
+        manifest_path=settings.database_capacity_manifest_path,
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            async with session.begin():
+                decision, intent = await resubmit_publication(
+                    session,
+                    PgQueuerJobQueue(),
+                    ResubmitPublication(
+                        prior_publication_intent_id=(arguments.prior_publication_intent_id),
+                        deciding_actor_id=arguments.steward_actor_id,
+                        expected_base_commit=arguments.expected_base_commit,
+                        reason=arguments.reason,
+                    ),
+                    now=datetime.now().astimezone(),
+                )
+        return {
+            "schema_version": "1.0",
+            "prior_publication_intent_id": str(arguments.prior_publication_intent_id),
+            "publication_intent_id": str(intent.id),
+            "governance_decision_id": str(decision.id),
+            "expected_base_commit": decision.expected_base_commit,
+            "state": intent.state,
+            "decided_at": decision.decided_at.isoformat(),
+        }
+    finally:
+        await engine.dispose()
+
+
+def _run_resubmit_publication(arguments: argparse.Namespace) -> int:
+    try:
+        summary = asyncio.run(_resubmit_publication(arguments))
+    except GovernanceDecisionError as error:
+        authority_errors = {
+            "self_review_prohibited",
+            "steward_role_not_active",
+            "steward_recused",
+            "publication_paused",
+        }
+        if error.code in authority_errors:
+            print(f"Publication resubmission authority failed: {error.code}", file=sys.stderr)
+            return 3
+        print(f"Publication resubmission conflict: {error.code}", file=sys.stderr)
+        return 4
+    except ValidationError:
+        print(
+            "Publication resubmission failed: operator configuration is invalid",
+            file=sys.stderr,
+        )
+        return 5
+    except (DBAPIError, OSError, SQLAlchemyError, ValueError):
+        print(
+            "Publication resubmission failed: operator operation failed",
+            file=sys.stderr,
+        )
+        return 5
+    if arguments.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print(
+            "Publication resubmission queued: "
+            f"{summary['publication_intent_id']} from "
+            f"{summary['prior_publication_intent_id']}"
         )
     return 0
 

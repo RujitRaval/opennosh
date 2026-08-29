@@ -137,6 +137,151 @@ def test_first_contribution_commands_require_explicit_inputs() -> None:
     assert commit.bootstrap_steward is True
 
 
+def _publication_resubmission_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(
+        [
+            "commons",
+            "resubmit-publication",
+            "--prior-publication-intent-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--steward-actor-id",
+            "22222222-2222-4222-8222-222222222222",
+            "--expected-base-commit",
+            "b" * 40,
+            "--reason",
+            "Retry unchanged reviewed material from fresh main.",
+            "--json",
+        ]
+    )
+
+
+def test_publication_resubmission_requires_exact_terminal_intent_and_fresh_base() -> None:
+    arguments = _publication_resubmission_arguments()
+
+    assert str(arguments.prior_publication_intent_id) == ("11111111-1111-4111-8111-111111111111")
+    assert str(arguments.steward_actor_id) == "22222222-2222-4222-8222-222222222222"
+    assert arguments.expected_base_commit == "b" * 40
+
+
+def test_publication_resubmission_wires_database_queue_and_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Engine:
+        disposed = False
+
+        async def dispose(self) -> None:
+            self.disposed = True
+
+    class Session:
+        async def __aenter__(self) -> Session:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        def begin(self) -> Session:
+            return self
+
+    engine = Engine()
+    session = Session()
+    settings = SimpleNamespace(
+        database_capacity_manifest_path="capacity.json",
+        process_database_url=lambda role: f"postgresql://operator/{role.value}",
+    )
+    decided_at = __import__("datetime").datetime(2026, 8, 29, tzinfo=__import__("datetime").UTC)
+
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr(cli, "build_administration_engine", lambda *_args, **_kwargs: engine)
+    monkeypatch.setattr(cli, "async_sessionmaker", lambda *_args, **_kwargs: lambda: session)
+    monkeypatch.setattr(cli, "PgQueuerJobQueue", lambda: "queue")
+
+    async def resubmitted(
+        received_session: object,
+        queue: object,
+        command: cli.ResubmitPublication,
+        **_options: object,
+    ) -> tuple[SimpleNamespace, SimpleNamespace]:
+        assert received_session is session
+        assert queue == "queue"
+        assert command.expected_base_commit == "b" * 40
+        return (
+            SimpleNamespace(
+                id="decision-2",
+                expected_base_commit=command.expected_base_commit,
+                decided_at=decided_at,
+            ),
+            SimpleNamespace(id="publication-2", state="pending"),
+        )
+
+    monkeypatch.setattr(cli, "resubmit_publication", resubmitted)
+
+    result = asyncio.run(cli._resubmit_publication(_publication_resubmission_arguments()))
+
+    assert result["publication_intent_id"] == "publication-2"
+    assert result["governance_decision_id"] == "decision-2"
+    assert result["state"] == "pending"
+    assert engine.disposed
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_publication_resubmission_dispatches_and_reports_success(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    as_json: bool,
+) -> None:
+    async def resubmitted(_arguments: argparse.Namespace) -> dict[str, object]:
+        return {
+            "schema_version": "1.0",
+            "prior_publication_intent_id": "publication-1",
+            "publication_intent_id": "publication-2",
+        }
+
+    arguments = _publication_resubmission_arguments()
+    arguments.json = as_json
+    monkeypatch.setattr(cli, "_resubmit_publication", resubmitted)
+
+    assert cli.run_commons_command(arguments) == 0
+    output = capsys.readouterr()
+    assert "publication-2" in output.out
+    assert ('"schema_version": "1.0"' in output.out) is as_json
+    assert output.err == ""
+
+
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (cli.GovernanceDecisionError("steward_role_not_active"), 3, "authority failed"),
+        (cli.GovernanceDecisionError("publication_intervened"), 4, "conflict"),
+        (
+            cli.ValidationError.from_exception_data(
+                "operator settings",
+                [{"type": "missing", "loc": ("value",), "input": {}}],
+            ),
+            5,
+            "configuration is invalid",
+        ),
+        (ValueError("secret database detail"), 5, "operator operation failed"),
+    ],
+)
+def test_publication_resubmission_maps_redacted_exit_contracts(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    exit_code: int,
+    message: str,
+) -> None:
+    async def reject(_arguments: argparse.Namespace) -> dict[str, object]:
+        raise error
+
+    monkeypatch.setattr(cli, "_resubmit_publication", reject)
+
+    assert cli._run_resubmit_publication(_publication_resubmission_arguments()) == exit_code
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert "secret database detail" not in captured.err
+    assert captured.out == ""
+
+
 def _first_contribution_commit_arguments() -> argparse.Namespace:
     return cli.build_parser().parse_args(
         [
