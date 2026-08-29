@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.66.0.0] - 2026-08-29
+
+### Added
+
+- Add the canonical ten-case federation failure-drill contract, typed redacted evidence report,
+  fail-closed validator, and offline CLI plan that require no production credentials.
+- Add deterministic restoration coverage, PostgreSQL matrix execution, weekly federation trust
+  evidence, and the serialized production ceremony for outages, replay, restart, rotation, pause,
+  rollback refusal, immutable conflict, and public-navigation rollback.
+
+### Security
+
+- Reject incomplete, reordered, slow, identity-drifting, fail-open, secret-bearing, or
+  insufficiently evidenced reports before they can unlock normal publication claims.
+- Keep production claims disabled throughout the matrix and preserve the last verified release,
+  receipt, pointer, food record, and provenance as immutable rollback anchors.
+
 ## [0.65.0.0] - 2026-08-29
 
 ### Added
