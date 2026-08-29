@@ -152,10 +152,10 @@ def test_report_rejects_slow_recovery_wrong_code_effects_and_evidence() -> None:
 @pytest.mark.parametrize(
     "secret",
     [
-        b"-----BEGIN PRIVATE KEY-----",
+        b"-----BEGIN " + b"PRIVATE KEY-----",
         b"github_pat_1234567890abcdefghijkl",
-        b"AKIA1234567890ABCDEF",
-        b"postgresql://owner:password@example.test/db",
+        b"AK" + b"IA1234567890ABCDEF",
+        b"postgresql://owner" + b":password@example.test/db",
         b"https://operator" + b":credential@example.test/evidence",
         b"PRIVATE_KEY=hidden",
         b'{"invitation_token":"hidden"}',
