@@ -78,10 +78,12 @@ uv run pytest api/tests/foodpacks/test_starter_pack_generator.py \
   api/tests/foodpacks/test_starter_packs.py -q
 ```
 
-The committed release produces zero validator errors and zero warnings. The 43 focused generator
-and committed-pack tests additionally prove:
+The committed release produces zero validator errors and zero warnings. The focused generator,
+committed-pack, and signed-release tests additionally prove:
 
-- exactly four packs and 165 entries;
+- the original four-pack, 165-entry launch foundation remains intact;
+- every governed extension pack is validated with zero errors or warnings and is included in the
+  signed release with totals derived from the current catalog;
 - 144 government records and 21 disclosed recipe calculations;
 - unique slugs and no nutrient profiles within the validator's 1% near-duplicate threshold;
 - a named positive-weight portion for every entry;
