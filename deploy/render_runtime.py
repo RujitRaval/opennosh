@@ -35,6 +35,13 @@ PUBLICATION_TABLE_PRIVILEGES = {
     "opennosh_pgqueuer_schedules": "SELECT, INSERT, UPDATE, DELETE",
     "opennosh_pgqueuer_statistics": "SELECT, INSERT, UPDATE",
 }
+# PostgreSQL row-locking clauses require UPDATE privilege on at least one
+# selected column.  The governance gate locks the immutable evidence row while
+# authorizing a merge, so grant only the primary-key column needed for that
+# lock instead of table-wide UPDATE access.
+PUBLICATION_COLUMN_PRIVILEGES = {
+    "evidence_manifests": {"UPDATE": ("id",)},
+}
 PUBLICATION_SEQUENCES = (
     "opennosh_pgqueuer_id_seq",
     "opennosh_pgqueuer_log_id_seq",
@@ -345,6 +352,12 @@ async def grant_publication_runtime_privileges(migration_url: str) -> None:
                 await connection.execute(
                     f"GRANT {privileges} ON TABLE {table} TO {PUBLICATION_ROLE}"
                 )
+            for table, grants in PUBLICATION_COLUMN_PRIVILEGES.items():
+                for privilege, columns in grants.items():
+                    column_list = ", ".join(columns)
+                    await connection.execute(
+                        f"GRANT {privilege} ({column_list}) ON TABLE {table} TO {PUBLICATION_ROLE}"
+                    )
             for sequence in PUBLICATION_SEQUENCES:
                 await connection.execute(
                     f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {sequence} TO {PUBLICATION_ROLE}"

@@ -424,7 +424,11 @@ class ReceiptGatedPointerActivationAdapter:
             stored_receipt != receipt
             or hashlib.sha256(registry_receipt).hexdigest() != receipt_digest
             or manifest.release_version != receipt.receipt.release_version
-            or manifest.published_at != receipt.receipt.published_at
+            # The release is signed after the governed merge. The receipt is
+            # intentionally signed later, after every release and registry
+            # proof verifies, so equality would reject every real publication
+            # whose adapters do not share a frozen test clock.
+            or manifest.published_at > receipt.receipt.published_at
             or manifest.publication_receipt_key
             != f"receipts/v1/{intent.publication_id}.json"
             or manifest_digest != receipt.receipt.signed_release_metadata_digest

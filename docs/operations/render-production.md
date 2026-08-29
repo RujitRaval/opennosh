@@ -344,8 +344,8 @@ or writes R2.
 The final `copy_receipt` adapter is also the only contribution pointer activator. It first
 requires the independent durable receipt copy to read back as verified. It then re-reads and
 cryptographically verifies the canonical receipt registry entry and signed release manifest,
-including their release version, publication ID, publication time, manifest digest, and
-`copy_release` proof binding. Any missing material is retryable; invalid signatures,
+including their release version, publication ID, ordered release/receipt times, manifest digest,
+and `copy_release` proof binding. Any missing material is retryable; invalid signatures,
 non-canonical payloads, or binding conflicts quarantine the publication without pointer I/O.
 
 Only after those checks may the adapter sign a pointer with a lifetime of at most 24 hours and

@@ -172,8 +172,9 @@ contains its content digest; reads verify both the declared byte length and dige
 are returned.
 
 Each manifest names one canonical signed publication receipt. The receipt is independently verified
-with `PUBLICATION_RECEIPT_VERIFYING_KEYS`; its release version and publication time must match, and
-its signed-release plus copied-artifact proofs must bind the exact manifest digest. Immutable objects
+with `PUBLICATION_RECEIPT_VERIFYING_KEYS`; its release version must match, its publication time must
+be at or after the signed release time, and its signed-release plus copied-artifact proofs must bind
+the exact manifest digest. Immutable objects
 are written before the receipt and manifest, and `latest/v1.json` moves last. A lower version or a
 different manifest for an already trusted version cannot replace the durable checkpoint. If latest
 is missing, corrupt, expired, rolled back, or equivocated, only the checkpointed verified release
