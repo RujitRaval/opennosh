@@ -2,6 +2,17 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.64.0.2] - 2026-08-29
+
+### Fixed
+
+- Accept the real publication timeline in which a signed release follows the governed merge and its signed receipt follows the verified release and registry steps.
+- Grant the publication role only the evidence primary-key column privilege PostgreSQL requires for the governance gate's immutable `FOR SHARE` lock.
+
+### Security
+
+- Continue rejecting a release timestamped after its receipt, while preserving receipt, manifest, durable-copy, and pointer-last binding checks.
+
 ## [0.64.0.1] - 2026-08-29
 
 ### Fixed

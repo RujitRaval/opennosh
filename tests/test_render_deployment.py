@@ -12,6 +12,7 @@ from sqlalchemy.engine import URL, make_url
 
 from deploy.render_runtime import (
     MIGRATION_ROLE,
+    PUBLICATION_COLUMN_PRIVILEGES,
     PUBLICATION_ROLE,
     PUBLICATION_SEQUENCES,
     PUBLICATION_TABLE_PRIVILEGES,
@@ -695,6 +696,13 @@ async def test_publication_runtime_grants_only_reviewed_objects(
     assert not any("ALL TABLES" in statement for statement in connection.executed)
     for table, privileges in PUBLICATION_TABLE_PRIVILEGES.items():
         assert f"GRANT {privileges} ON TABLE {table} TO {PUBLICATION_ROLE}" in connection.executed
+    for table, grants in PUBLICATION_COLUMN_PRIVILEGES.items():
+        for privilege, columns in grants.items():
+            column_list = ", ".join(columns)
+            assert (
+                f"GRANT {privilege} ({column_list}) ON TABLE {table} TO {PUBLICATION_ROLE}"
+                in connection.executed
+            )
     for sequence in PUBLICATION_SEQUENCES:
         assert (
             f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE {sequence} TO {PUBLICATION_ROLE}"

@@ -190,10 +190,11 @@ def _release_material(
     *,
     manifest_key: Ed25519PrivateKey = MANIFEST_KEY,
     manifest_key_id: str = "manifest-online",
+    manifest_published_at: datetime = NOW,
 ) -> tuple[bytes, SignedPublicationReceipt, bytes]:
     manifest = PublicReadReleaseManifest(
         release_version=RELEASE_VERSION,
-        published_at=NOW,
+        published_at=manifest_published_at,
         publication_receipt_key=f"receipts/v1/{PUBLICATION_ID}.json",
     )
     manifest_bytes = sign_envelope(
@@ -230,6 +231,39 @@ def _release_material(
         receipt_draft_from_snapshot(replace(source, acknowledgements=acknowledgements))
     )
     return manifest_bytes, receipt, canonical_signed_receipt_bytes(receipt)
+
+
+@pytest.mark.asyncio
+async def test_manifest_may_precede_the_receipt_publication_time() -> None:
+    manifest_bytes, receipt, receipt_bytes = _release_material(
+        manifest_published_at=NOW - timedelta(seconds=30)
+    )
+    adapter, intent, _store, writer, events = _fixture(
+        release_material=(manifest_bytes, receipt, receipt_bytes)
+    )
+
+    await adapter.apply(intent)
+
+    assert writer.pointer_written is True
+    assert "pointer-put" in events
+
+
+@pytest.mark.asyncio
+async def test_manifest_after_receipt_never_moves_latest() -> None:
+    manifest_bytes, receipt, receipt_bytes = _release_material(
+        manifest_published_at=NOW + timedelta(seconds=1)
+    )
+    adapter, intent, _store, writer, events = _fixture(
+        release_material=(manifest_bytes, receipt, receipt_bytes)
+    )
+
+    with pytest.raises(PublicationEffectError) as raised:
+        await adapter.apply(intent)
+
+    assert raised.value.status is ObservationStatus.CONFLICT
+    assert raised.value.code == "activation_material_binding_conflict"
+    assert writer.pointer_written is False
+    assert "pointer-put" not in events
 
 
 def _old_pointer() -> bytes:
@@ -309,6 +343,7 @@ def _fixture(
     release_manifest_key_id: str = "manifest-online",
     manifest_keys: ManifestKeyRing = MANIFEST_KEYS,
     clock: datetime = NOW,
+    release_material: tuple[bytes, SignedPublicationReceipt, bytes] | None = None,
 ) -> tuple[
     ReceiptGatedPointerActivationAdapter,
     EffectIntent,
@@ -316,7 +351,7 @@ def _fixture(
     MemoryPointerWriter,
     list[str],
 ]:
-    manifest_bytes, receipt, receipt_bytes = _release_material(
+    manifest_bytes, receipt, receipt_bytes = release_material or _release_material(
         manifest_key=release_manifest_key,
         manifest_key_id=release_manifest_key_id,
     )
