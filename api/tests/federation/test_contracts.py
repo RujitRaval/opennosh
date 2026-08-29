@@ -15,6 +15,7 @@ from opennosh_api.federation.contracts import (
     FederationReleaseStatement,
     FederationScope,
     SignedFederationRelease,
+    decode_public_key,
     encode_public_key,
     load_public_key,
     public_key_fingerprint,
@@ -126,6 +127,31 @@ def test_public_key_loader_accepts_pem_and_reports_stable_fingerprint(tmp_path: 
     assert encoded == encode_public_key(public_key)
     assert len(fingerprint) == 64
     assert fingerprint == public_key_fingerprint(encoded)
+
+
+@pytest.mark.parametrize("value", ["not-base64*", base64.urlsafe_b64encode(b"short").decode()])
+def test_public_key_decoder_rejects_invalid_material(value: str) -> None:
+    with pytest.raises(ValueError, match="encoding|32 bytes"):
+        decode_public_key(value)
+
+
+def test_public_key_loader_rejects_binary_and_non_ed25519_keys(tmp_path: Path) -> None:
+    binary = tmp_path / "binary.pub"
+    binary.write_bytes(b"\xff\xfe")
+    with pytest.raises(ValueError, match="file is invalid"):
+        load_public_key(binary)
+
+    rsa_public = tmp_path / "rsa.pub"
+    rsa_public.write_bytes(
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        .public_key()
+        .public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+    )
+    with pytest.raises(ValueError, match="must be Ed25519"):
+        load_public_key(rsa_public)
 
 
 def test_federation_release_signature_is_domain_separated_and_verified() -> None:
@@ -300,3 +326,14 @@ def test_release_statement_rejects_noncanonical_public_url(public_url: str) -> N
 
     with pytest.raises(ValidationError, match="canonical HTTPS"):
         FederationReleaseStatement.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("repository", "pack_id", "message"),
+    [("missing-owner", "common-fruits", "repository"), (SCOPE.repository, "UPPER", "pack")],
+)
+def test_scope_label_validator_rejects_noncanonical_values(
+    repository: str, pack_id: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        validate_scope_labels(repository, pack_id)
