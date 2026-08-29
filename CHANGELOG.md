@@ -2,6 +2,17 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.64.0.3] - 2026-08-29
+
+### Fixed
+
+- Let the public Commons read plane verify a release manifest created before its later signed publication receipt.
+- Preserve real receipt-step acknowledgement timestamps during receipt-ledger reconciliation instead of assuming a frozen clock.
+
+### Security
+
+- Continue rejecting receipts timestamped before their signed release and preserve exact digest, signature, release, and durable-copy bindings.
+
 ## [0.64.0.2] - 2026-08-29
 
 ### Fixed
