@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +30,7 @@ from opennosh_api.governance.models import (
 )
 from opennosh_api.jobs import JobQueue
 from opennosh_api.publication.models import PublicationIntent
+from opennosh_api.publication.receipts import ReceiptEventType
 from opennosh_api.publication.service import (
     CreatePublicationIntent,
     create_publication_intent,
@@ -66,6 +67,22 @@ class ApproveContribution:
             raise ValueError("Governed approval requires the canonical protected checks")
         if self.forge_target != CANONICAL_FORGE_TARGET:
             raise ValueError("Governed approval must target the canonical repository")
+
+
+@dataclass(frozen=True, slots=True)
+class ResubmitPublication:
+    prior_publication_intent_id: UUID
+    deciding_actor_id: UUID
+    expected_base_commit: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if len(self.expected_base_commit) not in {40, 64} or any(
+            character not in "0123456789abcdef" for character in self.expected_base_commit
+        ):
+            raise ValueError("Resubmission base commit must be a lowercase Git hash")
+        if not self.reason.strip() or len(self.reason) > 2000:
+            raise ValueError("Resubmission requires a bounded reason")
 
 
 async def approve_contribution(
@@ -179,6 +196,206 @@ async def approve_contribution(
         id_generator=publication_intent_id_generator,
     )
     draft.review_state = "publication_pending"
+    draft.updated_at = now
+    await session.flush()
+    return decision, intent
+
+
+async def resubmit_publication(
+    session: AsyncSession,
+    queue: JobQueue,
+    command: ResubmitPublication,
+    *,
+    now: datetime,
+    decision_id_generator: Callable[[], UUID] = uuid4,
+    publication_intent_id_generator: Callable[[], UUID] = uuid4,
+) -> tuple[GovernanceDecision, PublicationIntent]:
+    """Create one governed successor without reopening terminal publication history."""
+
+    _require_aware(now)
+    pack_id = await session.scalar(
+        select(PublicationIntent.pack_id).where(
+            PublicationIntent.id == command.prior_publication_intent_id
+        )
+    )
+    if pack_id is None:
+        raise GovernanceDecisionError("publication_not_found")
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+        {"scope": f"opennosh.governance-pack:{pack_id}"},
+    )
+    prior_intent = await session.scalar(
+        select(PublicationIntent)
+        .where(PublicationIntent.id == command.prior_publication_intent_id)
+        .with_for_update()
+    )
+    if prior_intent is None:
+        raise GovernanceDecisionError("publication_not_found")
+    if prior_intent.pack_id != pack_id:
+        raise GovernanceDecisionError("publication_governance_binding_mismatch")
+
+    existing_intent = await session.scalar(
+        select(PublicationIntent).where(
+            PublicationIntent.prior_publication_intent_id == prior_intent.id
+        )
+    )
+    if existing_intent is not None:
+        existing_decision = await session.get(
+            GovernanceDecision, existing_intent.reviewed_decision_id
+        )
+        if existing_decision is None:
+            raise GovernanceDecisionError("governance_decision_not_found")
+        if (
+            existing_decision.prior_decision_id != prior_intent.reviewed_decision_id
+            or existing_decision.deciding_actor_id != command.deciding_actor_id
+            or existing_decision.expected_base_commit != command.expected_base_commit
+            or existing_decision.reason != command.reason
+        ):
+            raise GovernanceDecisionError("publication_already_resubmitted")
+        return existing_decision, existing_intent
+
+    if prior_intent.state not in {
+        "blocked",
+        "failed",
+        "publish_blocked",
+        "quarantined",
+    }:
+        raise GovernanceDecisionError("publication_not_terminal")
+    intervention = await session.scalar(
+        select(GovernancePublicationIntervention.id).where(
+            GovernancePublicationIntervention.publication_intent_id == prior_intent.id
+        )
+    )
+    if intervention is not None:
+        raise GovernanceDecisionError("publication_intervened")
+    authorization = await session.scalar(
+        select(GovernanceMergeAuthorization.id).where(
+            GovernanceMergeAuthorization.publication_intent_id == prior_intent.id
+        )
+    )
+    if authorization is not None:
+        raise GovernanceDecisionError("merge_authorization_committed")
+
+    prior_decision = await session.get(GovernanceDecision, prior_intent.reviewed_decision_id)
+    if prior_decision is None:
+        raise GovernanceDecisionError("governance_decision_not_found")
+    draft = await session.scalar(
+        select(ContributionDraft)
+        .where(ContributionDraft.id == prior_decision.source_draft_id)
+        .with_for_update()
+    )
+    if draft is None:
+        raise GovernanceDecisionError("contribution_not_found")
+    if draft.review_state != "publication_pending":
+        raise GovernanceDecisionError("contribution_not_publication_pending")
+    if draft.draft_version != prior_decision.source_draft_version:
+        raise GovernanceDecisionError("contribution_version_changed")
+    if draft.user_id == command.deciding_actor_id:
+        raise GovernanceDecisionError("self_review_prohibited")
+
+    role = await session.scalar(
+        select(GovernanceRoleAssignment).where(
+            GovernanceRoleAssignment.pack_id == prior_decision.pack_id,
+            GovernanceRoleAssignment.actor_id == command.deciding_actor_id,
+            GovernanceRoleAssignment.role == GovernanceRole.STEWARD.value,
+            GovernanceRoleAssignment.granted_at <= now,
+            (
+                GovernanceRoleAssignment.revoked_at.is_(None)
+                | (GovernanceRoleAssignment.revoked_at > now)
+            ),
+        )
+    )
+    if role is None:
+        raise GovernanceDecisionError("steward_role_not_active")
+    recusal = await session.scalar(
+        select(GovernanceRecusal.id).where(
+            GovernanceRecusal.source_draft_id == prior_decision.source_draft_id,
+            GovernanceRecusal.actor_id == command.deciding_actor_id,
+            GovernanceRecusal.recused_at <= now,
+        )
+    )
+    if recusal is not None:
+        raise GovernanceDecisionError("steward_recused")
+    pause = await session.scalar(
+        select(GovernancePublicationPause.id).where(
+            GovernancePublicationPause.pack_id == prior_decision.pack_id,
+            GovernancePublicationPause.paused_at <= now,
+            (
+                GovernancePublicationPause.resumed_at.is_(None)
+                | (GovernancePublicationPause.resumed_at > now)
+            ),
+        )
+    )
+    if pause is not None:
+        raise GovernanceDecisionError("publication_paused")
+    try:
+        evidence = await require_verified_evidence(
+            session,
+            source_draft_id=prior_decision.source_draft_id,
+            source_draft_version=prior_decision.source_draft_version,
+        )
+    except EvidenceDurabilityError as error:
+        raise GovernanceDecisionError(error.code) from error
+
+    approved_changes = ApprovedChangeSet.from_json(prior_decision.approved_changes_json)
+    if approved_changes.digest != prior_decision.approved_payload_digest:
+        raise GovernanceDecisionError("approved_payload_digest_mismatch")
+    if (
+        prior_intent.source_draft_id != prior_decision.source_draft_id
+        or prior_intent.source_draft_version != prior_decision.source_draft_version
+        or prior_intent.pack_id != prior_decision.pack_id
+        or prior_intent.record_id != prior_decision.record_id
+        or prior_intent.approved_payload_digest != prior_decision.approved_payload_digest
+        or prior_intent.required_checks_json != prior_decision.required_checks_json
+        or prior_intent.forge_target != prior_decision.forge_target
+        or prior_intent.evidence_manifest_digests_json != [manifest_digest(evidence.manifest)]
+    ):
+        raise GovernanceDecisionError("publication_governance_binding_mismatch")
+
+    decision = GovernanceDecision(
+        id=decision_id_generator(),
+        prior_decision_id=prior_decision.id,
+        source_draft_id=prior_decision.source_draft_id,
+        source_draft_version=prior_decision.source_draft_version,
+        pack_id=prior_decision.pack_id,
+        record_id=prior_decision.record_id,
+        contributor_actor_id=prior_decision.contributor_actor_id,
+        deciding_actor_id=command.deciding_actor_id,
+        outcome="approved",
+        reason=command.reason,
+        approved_payload_digest=prior_decision.approved_payload_digest,
+        approved_changes_json=approved_changes.as_json(),
+        expected_base_commit=command.expected_base_commit,
+        required_checks_json=list(PROTECTED_STATUS_CHECKS),
+        forge_target=CANONICAL_FORGE_TARGET,
+        decided_at=now,
+    )
+    session.add(decision)
+    await session.flush()
+    intent = await create_publication_intent(
+        session,
+        queue,
+        CreatePublicationIntent(
+            source_draft_id=prior_intent.source_draft_id,
+            source_draft_version=prior_intent.source_draft_version,
+            prior_publication_intent_id=prior_intent.id,
+            reviewed_decision_id=decision.id,
+            approving_actor_id=command.deciding_actor_id,
+            pack_id=prior_intent.pack_id,
+            record_id=prior_intent.record_id,
+            approved_payload_digest=prior_intent.approved_payload_digest,
+            expected_base_commit=command.expected_base_commit,
+            required_checks=PROTECTED_STATUS_CHECKS,
+            forge_target=CANONICAL_FORGE_TARGET,
+            idempotency_key=f"governance-resubmission:{prior_intent.id}",
+            event_type=ReceiptEventType(prior_intent.event_type),
+            prior_receipt_digest=prior_intent.prior_receipt_digest,
+            evidence_manifest_digests=(manifest_digest(evidence.manifest),),
+            evidence_acknowledgements=evidence.acknowledgements,
+        ),
+        now=now,
+        id_generator=publication_intent_id_generator,
+    )
     draft.updated_at = now
     await session.flush()
     return decision, intent
@@ -356,6 +573,15 @@ async def intervene_publication(
         GovernanceDecisionOutcome.REJECTED,
     }:
         raise ValueError("Publication intervention must reject or request changes")
+    pack_id = await session.scalar(
+        select(PublicationIntent.pack_id).where(PublicationIntent.id == publication_intent_id)
+    )
+    if pack_id is None:
+        raise GovernanceDecisionError("publication_not_found")
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+        {"scope": f"opennosh.governance-pack:{pack_id}"},
+    )
     intent = await session.scalar(
         select(PublicationIntent)
         .where(PublicationIntent.id == publication_intent_id)
@@ -363,6 +589,8 @@ async def intervene_publication(
     )
     if intent is None:
         raise GovernanceDecisionError("publication_not_found")
+    if intent.pack_id != pack_id:
+        raise GovernanceDecisionError("publication_governance_binding_mismatch")
     if intent.state == "published":
         raise GovernanceDecisionError("published_contribution_is_immutable")
     authorization = await session.scalar(
@@ -384,6 +612,8 @@ async def intervene_publication(
     )
     if decision is None:
         raise GovernanceDecisionError("governance_decision_not_found")
+    if decision.pack_id != pack_id:
+        raise GovernanceDecisionError("publication_governance_binding_mismatch")
     if decision.contributor_actor_id == actor_id:
         raise GovernanceDecisionError("self_review_prohibited")
     role = await session.scalar(

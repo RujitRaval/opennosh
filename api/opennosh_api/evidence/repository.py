@@ -159,10 +159,12 @@ async def require_verified_evidence(
     source_draft_version: int,
 ) -> EvidenceBundle:
     record = await session.scalar(
-        select(EvidenceManifestRecord).where(
+        select(EvidenceManifestRecord)
+        .where(
             EvidenceManifestRecord.source_draft_id == source_draft_id,
             EvidenceManifestRecord.source_draft_version == source_draft_version,
         )
+        .with_for_update(read=True)
     )
     if record is None:
         raise EvidenceDurabilityError("evidence_manifest_missing")

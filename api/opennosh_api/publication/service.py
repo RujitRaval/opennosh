@@ -25,6 +25,7 @@ class CreatePublicationIntent(BaseModel):
 
     source_draft_id: UUID
     source_draft_version: int = Field(gt=0)
+    prior_publication_intent_id: UUID | None = None
     reviewed_decision_id: UUID
     approving_actor_id: UUID
     pack_id: str = Field(min_length=1, max_length=160)
@@ -78,6 +79,7 @@ def _matches_existing_intent(intent: PublicationIntent, command: CreatePublicati
     return (
         intent.source_draft_id == command.source_draft_id
         and intent.source_draft_version == command.source_draft_version
+        and intent.prior_publication_intent_id == command.prior_publication_intent_id
         and intent.reviewed_decision_id == command.reviewed_decision_id
         and intent.approving_actor_id == command.approving_actor_id
         and intent.pack_id == command.pack_id
@@ -136,6 +138,7 @@ async def create_publication_intent(
         "id": intent_id,
         "source_draft_id": command.source_draft_id,
         "source_draft_version": command.source_draft_version,
+        "prior_publication_intent_id": command.prior_publication_intent_id,
         "reviewed_decision_id": command.reviewed_decision_id,
         "approving_actor_id": command.approving_actor_id,
         "pack_id": command.pack_id,

@@ -137,6 +137,59 @@ def test_first_contribution_commands_require_explicit_inputs() -> None:
     assert commit.bootstrap_steward is True
 
 
+def _publication_resubmission_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(
+        [
+            "commons",
+            "resubmit-publication",
+            "--prior-publication-intent-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--steward-actor-id",
+            "22222222-2222-4222-8222-222222222222",
+            "--expected-base-commit",
+            "b" * 40,
+            "--reason",
+            "Retry unchanged reviewed material from fresh main.",
+            "--json",
+        ]
+    )
+
+
+def test_publication_resubmission_requires_exact_terminal_intent_and_fresh_base() -> None:
+    arguments = _publication_resubmission_arguments()
+
+    assert str(arguments.prior_publication_intent_id) == ("11111111-1111-4111-8111-111111111111")
+    assert str(arguments.steward_actor_id) == "22222222-2222-4222-8222-222222222222"
+    assert arguments.expected_base_commit == "b" * 40
+
+
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (cli.GovernanceDecisionError("steward_role_not_active"), 3, "authority failed"),
+        (cli.GovernanceDecisionError("publication_intervened"), 4, "conflict"),
+        (ValueError("secret database detail"), 5, "operator operation failed"),
+    ],
+)
+def test_publication_resubmission_maps_redacted_exit_contracts(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    exit_code: int,
+    message: str,
+) -> None:
+    async def reject(_arguments: argparse.Namespace) -> dict[str, object]:
+        raise error
+
+    monkeypatch.setattr(cli, "_resubmit_publication", reject)
+
+    assert cli._run_resubmit_publication(_publication_resubmission_arguments()) == exit_code
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert "secret database detail" not in captured.err
+    assert captured.out == ""
+
+
 def _first_contribution_commit_arguments() -> argparse.Namespace:
     return cli.build_parser().parse_args(
         [

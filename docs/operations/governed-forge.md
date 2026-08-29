@@ -68,3 +68,12 @@ The current or historical pause interval is evaluated at authorization time, so 
 do not rewrite committed history. Decisions, recusals, interventions, and merge authorizations are
 append-only at the database boundary. Role and pause rows permit only their complete audited
 one-way revoke and resume transitions; governance audit rows cannot be deleted.
+
+A terminal publication intent is never reopened or rewritten. When unchanged reviewed material
+must be attempted again from a fresh `main`, one active, non-recused steward may create one
+append-only successor decision and publication intent. The successor points to the terminal intent
+and prior decision, re-verifies and rebinds the current durable evidence, and records the newly
+reviewed base commit. The command fails closed if the prior intent is not terminal, an intervention
+or merge authorization exists, the pack is paused, steward authority is missing, or a successor
+already exists with different authorization. An identical retry returns the same successor. Claims
+remain a separate activation decision; creating the successor only queues it for later selection.

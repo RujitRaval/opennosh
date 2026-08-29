@@ -80,10 +80,20 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             ondelete="RESTRICT",
             use_alter=True,
         ),
+        CheckConstraint(
+            "prior_publication_intent_id IS NULL OR prior_publication_intent_id != id",
+            name="prior_publication_intent_not_self",
+        ),
         UniqueConstraint(
+            "prior_publication_intent_id",
+            name="uq_publication_intent_successor",
+        ),
+        Index(
+            "uq_publication_intent_initial_draft_version",
             "source_draft_id",
             "source_draft_version",
-            name="uq_publication_intents_source_draft_version",
+            unique=True,
+            postgresql_where=text("prior_publication_intent_id IS NULL"),
         ),
         Index(
             "ix_publication_intents_claim",
@@ -96,6 +106,9 @@ class PublicationIntent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
 
     source_draft_id: Mapped[UUID] = mapped_column(
         ForeignKey("contribution_drafts.id", ondelete="RESTRICT"), nullable=False
+    )
+    prior_publication_intent_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("publication_intents.id", ondelete="RESTRICT")
     )
     source_draft_version: Mapped[int] = mapped_column(Integer, nullable=False)
     reviewed_decision_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)

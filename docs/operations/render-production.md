@@ -388,6 +388,30 @@ rewinding `latest`. Before the first live contribution, capture the activation U
 pointer digest and ETag, deploy with exactly the three values above, then require one verified
 durable receipt and a newer, correctly bound public pointer before clearing the activation ID.
 
+If the selected intent becomes terminal before merge authorization, keep claims disabled and leave
+that intent unchanged. A governed resubmission is allowed only for `blocked`, `failed`,
+`publish_blocked`, or `quarantined` history with no intervention and no committed merge
+authorization. From an authorized operator environment, review the current durable evidence and a
+fresh exact `main` commit, then run:
+
+```bash
+opennosh commons resubmit-publication \
+  --prior-publication-intent-id TERMINAL_PUBLICATION_INTENT_UUID \
+  --steward-actor-id REVIEWED_HUMAN_ACTOR_UUID \
+  --expected-base-commit REVIEWED_FRESH_MAIN_COMMIT \
+  --reason "Retry unchanged reviewed material from fresh main" \
+  --json
+```
+
+The command must preserve the terminal intent, create exactly one lineage-bound successor decision
+and pending intent, rebind the same verified payload and evidence to the fresh base, and enqueue one
+activation wake-up. An identical retry is idempotent; a conflicting second successor fails closed.
+Active intervention, committed merge authorization, publication pause, missing steward authority,
+self-review, or recusal also fails closed. Save the redacted JSON receipt and confirm the predecessor
+is still terminal before proceeding. Keep `PUBLICATION_CLAIMS_ENABLED=false` and
+`PUBLICATION_ACTIVATION_IDS` unset until the new intent UUID has been independently reviewed and is
+the sole value selected through the activation ceremony above. Never select the terminal UUID.
+
 ### T33.4a controlled first contribution intake
 
 The first live contribution is one reviewed USDA FoodData Central Foundation record: FDC 1105314,

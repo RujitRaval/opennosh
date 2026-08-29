@@ -92,16 +92,29 @@ class GovernanceDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "expected_base_commit ~ '^[0-9a-f]{40}([0-9a-f]{24})?$'",
             name="expected_base_commit_hash",
         ),
+        CheckConstraint(
+            "prior_decision_id IS NULL OR prior_decision_id != id",
+            name="prior_decision_not_self",
+        ),
         UniqueConstraint(
+            "prior_decision_id",
+            name="uq_governance_decision_successor",
+        ),
+        Index(
+            "uq_governance_decision_initial_draft_version",
             "source_draft_id",
             "source_draft_version",
-            name="uq_governance_decision_draft_version",
+            unique=True,
+            postgresql_where=text("prior_decision_id IS NULL"),
         ),
         Index("ix_governance_decisions_pack_decided", "pack_id", "decided_at"),
     )
 
     source_draft_id: Mapped[UUID] = mapped_column(
         ForeignKey("contribution_drafts.id", ondelete="RESTRICT"), nullable=False
+    )
+    prior_decision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("governance_decisions.id", ondelete="RESTRICT")
     )
     source_draft_version: Mapped[int] = mapped_column(Integer, nullable=False)
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
