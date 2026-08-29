@@ -23,6 +23,10 @@ EXPECTED_TABLE_OWNERS = {
     "evidence_removal_tombstones": (
         "opennosh_api.evidence.models.EvidenceRemovalTombstone"
     ),
+    "federation_audit_events": "opennosh_api.federation.models.FederationAuditEvent",
+    "federation_invitations": "opennosh_api.federation.models.FederationInvitation",
+    "federation_maintainers": "opennosh_api.federation.models.FederationMaintainer",
+    "federation_role_keys": "opennosh_api.federation.models.FederationRoleKey",
     "governance_decisions": "opennosh_api.governance.models.GovernanceDecision",
     "governance_merge_authorizations": (
         "opennosh_api.governance.models.GovernanceMergeAuthorization"
@@ -102,6 +106,10 @@ def test_registry_import_order_is_deterministic() -> None:
         "governance_merge_authorizations",
         "governance_publication_pauses",
         "governance_publication_interventions",
+        "federation_invitations",
+        "federation_maintainers",
+        "federation_role_keys",
+        "federation_audit_events",
         "publication_intents",
         "publication_steps",
         "publication_durable_acknowledgements",

@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.65.0.0] - 2026-08-29
+
+### Added
+
+- Add the bounded invitation-only federation lifecycle for one external GitHub maintainer and one
+  `common-fruits` release, including provider verification, role-key rotation, quarantine, and
+  append-only redacted audit events.
+- Add isolated steward CLI operations and the production ceremony for invitation, verification,
+  activation, governed release binding, rotation, quarantine, revocation, and status inspection.
+
+### Security
+
+- Bind federation authority to immutable GitHub account and repository IDs, exact pack scope,
+  an active human pack steward, GitHub App installation access, write-level collaborator control,
+  and Ed25519 role keys without storing raw invitation tokens or private keys.
+- Fail publication claims closed for enrolled scopes that are not active while preserving the last
+  verified public release, and block pending scoped work on quarantine or revocation.
+
 ## [0.64.0.3] - 2026-08-29
 
 ### Fixed

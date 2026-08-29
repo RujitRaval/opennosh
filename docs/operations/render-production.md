@@ -497,6 +497,65 @@ overwrite that object, manually edit partial rows, enable claims to test the int
 second `common-fruits` steward. Stopping claims is the rollback boundary; database history is
 forward-fixed through a separately reviewed change.
 
+### T33.4b first invitation-only federation enrollment
+
+Run this one-maintainer ceremony only after the governed `common-fruits` release and its signed
+publication receipt are live. Keep `PUBLICATION_CLAIMS_ENABLED=false` and
+`PUBLICATION_ACTIVATION_IDS` unset throughout. The public API has no federation mutation routes;
+every state change uses the isolated administration CLI and is written to the append-only audit
+ledger.
+
+1. Pin one external GitHub identity, the canonical repository ID and name, `common-fruits`, the
+   inviter's existing human actor UUID, and the Forge GitHub App verifier. Supply the administration
+   database URL and App private key only to the temporary operator environment:
+
+   ```text
+   FEDERATION_ADMINISTRATION_DATABASE_URL=<temporary-administration-url>
+   FEDERATION_DATABASE_CAPACITY_MANIFEST_PATH=<reviewed-capacity-manifest>
+   FEDERATION_ALLOWED_GITHUB_ACCOUNT_ID=<immutable-external-account-id>
+   FEDERATION_ALLOWED_GITHUB_LOGIN=<external-login>
+   FEDERATION_ALLOWED_REPOSITORY_ID=<immutable-repository-id>
+   FEDERATION_ALLOWED_REPOSITORY=<owner/repository>
+   FEDERATION_ALLOWED_PACK_ID=common-fruits
+   FEDERATION_ALLOWED_PUBLIC_ORIGIN=https://opennosh.org
+   FEDERATION_INVITER_ACTOR_ID=<existing-human-actor-uuid>
+   FEDERATION_GITHUB_APP_ID=<forge-app-id>
+   FEDERATION_GITHUB_APP_PRIVATE_KEY=<temporary-in-memory-pem>
+   ```
+
+2. Generate the maintainer's Ed25519 role key offline. Keep the private key outside Render and
+   opennosh; provide only its public key to the operator. Create the single expiring invitation with
+   `opennosh federation invite`, capture its token directly to a mode-`0600` file, and never place
+   the token in logs, chat, command arguments, or the database. A second invitation must fail.
+3. Run `opennosh federation verify --token-file ... --public-key-file ...`. Verification must bind
+   the immutable GitHub account ID and login, repository ID and name, exact pack, App installation,
+   repository visibility to that installation, and external maintainer write control. The token is
+   single-use and its reuse must fail.
+4. Inspect the redacted `verified` status, then run `opennosh federation activate` with the reviewed
+   actor and reason. Confirm exactly one active maintainer and one unretired role key.
+5. The external maintainer signs a domain-separated federation release statement for the already
+   governed live release. The statement must bind the maintainer, repository, pack, publication
+   UUID, release version, signed manifest digest, publication-receipt digest, HTTPS manifest URL,
+   issue time, and current key ID. Run `opennosh federation publish-release --release-file ...` and
+   confirm its statement digest is recorded once and binds the canonical receipt ledger.
+6. Generate an independent replacement Ed25519 key offline and run
+   `opennosh federation rotate-key`. Resubmit the original signed statement and require exit code 3
+   with `release_key_retired_or_untrusted`; the rejected operator attempt must appear in the audit
+   ledger without key material or invitation tokens.
+7. Run `opennosh federation quarantine` with the reviewed reason. Confirm future scoped claims fail
+   closed as `publish_blocked`, while the previously verified release, manifest, receipt, and latest
+   pointer remain publicly readable and unchanged.
+8. Save a redacted proof containing the immutable public IDs, maintainer UUID, state timestamps,
+   key fingerprints, statement/manifest/receipt digests, audit event counts, retired-key rejection,
+   quarantine result, claims-disabled state, and live HTTP checks. Revoke the temporary database and
+   GitHub App credentials, and securely remove the exact token, private-key, and statement files.
+
+Abort on any scope mismatch, provider outage, insufficient repository permission, signature or
+receipt mismatch, duplicate invitation/release, unexpected active maintainer, claims-enabled state,
+or public-read regression. Do not edit federation rows manually, reuse an invitation, reactivate a
+quarantined maintainer, or delete the last verified public release. Remediation is a reviewed
+forward change; a distinct enrollment requires a later federation phase.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:
