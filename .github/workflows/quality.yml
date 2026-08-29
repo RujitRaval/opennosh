@@ -150,7 +150,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint API and performance contract
-        run: uv run ruff check api benchmarks scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
+        run: uv run ruff check api benchmarks scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 
       - name: Type-check API and performance contract
         run: |
@@ -243,13 +243,17 @@ jobs:
       - name: Prove stable trust semantics on every pull request
         run: |
           PYTHONPATH=api:. uv run pytest \
+            api/tests/federation/test_failure_drills.py \
             api/tests/workflow_testkit/test_contracts.py \
             api/tests/publication/test_planner.py \
             api/tests/governance/test_interventions.py
 
       - name: Prove the complete deterministic transition matrix
         if: needs.classify.outputs.trust_protocol == 'true' || github.event_name == 'push'
-        run: PYTHONPATH=api:. uv run pytest api/tests/workflow_testkit/test_publication_matrix.py
+        run: |
+          PYTHONPATH=api:. uv run pytest \
+            api/tests/federation/test_failure_drills_integration.py \
+            api/tests/workflow_testkit/test_publication_matrix.py
 
       - name: Prove every governed security-policy branch
         if: needs.classify.outputs.security_policy == 'true' || github.event_name == 'push'

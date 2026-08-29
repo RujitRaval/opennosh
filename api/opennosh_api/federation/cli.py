@@ -19,6 +19,15 @@ from opennosh_api.federation.contracts import (
     SignedFederationRelease,
     load_public_key,
 )
+from opennosh_api.federation.drills import (
+    DEFAULT_DRILL_CONTRACT_PATH,
+    FailureDrillInvariantError,
+    FailureDrillSecretError,
+    canonical_digest,
+    load_failure_drill_contract,
+    parse_failure_drill_report,
+    validate_failure_drill_report,
+)
 from opennosh_api.federation.github import (
     FederationProviderError,
     GitHubInstallationVerifier,
@@ -73,6 +82,18 @@ def add_federation_parser(commands: argparse._SubParsersAction[argparse.Argument
     status.add_argument("--maintainer-id", type=UUID, required=True)
     status.add_argument("--json", action="store_true")
 
+    plan = operations.add_parser("drill-plan", help="Print the canonical failure-drill matrix")
+    plan.add_argument("--contract-file", type=Path, default=DEFAULT_DRILL_CONTRACT_PATH)
+    plan.add_argument("--json", action="store_true")
+
+    validate = operations.add_parser(
+        "validate-drill-report",
+        help="Validate a redacted failure-drill report without production credentials",
+    )
+    validate.add_argument("--contract-file", type=Path, default=DEFAULT_DRILL_CONTRACT_PATH)
+    validate.add_argument("--report-file", type=Path, required=True)
+    validate.add_argument("--json", action="store_true")
+
 
 def _add_scope_arguments(parser: argparse.ArgumentParser, *, include_login: bool) -> None:
     parser.add_argument("--github-account-id", type=int, required=True)
@@ -90,6 +111,11 @@ def _add_lifecycle_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def run_federation_command(arguments: argparse.Namespace) -> int:
+    if getattr(arguments, "federation_command", None) in {
+        "drill-plan",
+        "validate-drill-report",
+    }:
+        return _run_failure_drill_command(arguments)
     try:
         settings = FederationOperatorSettings()  # type: ignore[call-arg]
         return asyncio.run(_run(arguments, settings))
@@ -106,6 +132,59 @@ def run_federation_command(arguments: argparse.Namespace) -> int:
     except (DBAPIError, IntegrityError, SQLAlchemyError, LookupError):
         print("Federation operation failed: database operation failed", file=sys.stderr)
         return 5
+
+
+def _run_failure_drill_command(arguments: argparse.Namespace) -> int:
+    try:
+        contract = load_failure_drill_contract(arguments.contract_file)
+    except (OSError, ValidationError, json.JSONDecodeError, ValueError):
+        print("Federation drill validation failed: drill_contract_invalid", file=sys.stderr)
+        return 2
+
+    if arguments.federation_command == "drill-plan":
+        payload = contract.model_dump(mode="json")
+        if arguments.json:
+            print(json.dumps(payload, sort_keys=True))
+        else:
+            print(
+                f"Federation failure-drill matrix: {len(contract.cases)} cases "
+                f"({canonical_digest(contract)})"
+            )
+        return 0
+
+    try:
+        report_payload = arguments.report_file.read_bytes()
+    except OSError:
+        print("Federation drill validation failed: drill_report_io_failed", file=sys.stderr)
+        return 5
+    try:
+        report = parse_failure_drill_report(report_payload)
+    except FailureDrillSecretError:
+        print(
+            "Federation drill validation failed: drill_report_secret_pattern_detected",
+            file=sys.stderr,
+        )
+        return 2
+    except (ValidationError, json.JSONDecodeError, ValueError):
+        print("Federation drill validation failed: drill_report_invalid", file=sys.stderr)
+        return 2
+    try:
+        report_digest = validate_failure_drill_report(report, contract)
+    except FailureDrillInvariantError as error:
+        print(f"Federation drill validation failed: {error}", file=sys.stderr)
+        return 3
+    summary = {
+        "case_count": len(report.drills),
+        "contract_digest": report.contract_digest,
+        "report_digest": report_digest,
+        "schema_version": report.schema_version,
+        "status": "passed",
+    }
+    if arguments.json:
+        print(json.dumps(summary, sort_keys=True))
+    else:
+        print(f"Federation failure-drill report passed: {report_digest}")
+    return 0
 
 
 async def _run(

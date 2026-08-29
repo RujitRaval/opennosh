@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "recovery_limit_seconds": 600,
+  "navigation_rollback_limit_seconds": 300,
+  "required_public_checks": [
+    "api_health",
+    "latest_pointer",
+    "manifest",
+    "latest_food",
+    "pinned_food",
+    "provenance",
+    "receipt"
+  ],
+  "cases": [
+    {
+      "sequence": 1,
+      "case_id": "idempotent_replay",
+      "injection": "Redeliver one synthetic delivery and publication wake ten times through controlled adapters.",
+      "expected_failure_code": "duplicate_delivery_ignored",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["postgres_snapshot", "github_audit", "worker_log"]
+    },
+    {
+      "sequence": 2,
+      "case_id": "forge_outage",
+      "injection": "Make the controlled Forge adapter unavailable before commit creation.",
+      "expected_failure_code": "github_unavailable",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["github_audit", "worker_log"]
+    },
+    {
+      "sequence": 3,
+      "case_id": "signer_outage",
+      "injection": "Make the controlled online signer unavailable before registry publication.",
+      "expected_failure_code": "online_signer_unavailable",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["worker_log"]
+    },
+    {
+      "sequence": 4,
+      "case_id": "r2_immutable_conflict",
+      "injection": "Offer different bytes for a dedicated non-latest immutable drill object.",
+      "expected_failure_code": "r2_immutable_conflict",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["r2_object", "worker_log"]
+    },
+    {
+      "sequence": 5,
+      "case_id": "worker_restart",
+      "injection": "Restart the refresh-only publication worker and require a fresh live instance.",
+      "expected_failure_code": "worker_restarted",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["render_event", "worker_log"]
+    },
+    {
+      "sequence": 6,
+      "case_id": "database_lease_recovery",
+      "injection": "Lose the controlled PostgreSQL lease and restart during a non-claiming readiness probe.",
+      "expected_failure_code": "publication_lease_lost",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["postgres_snapshot", "render_event", "worker_log"]
+    },
+    {
+      "sequence": 7,
+      "case_id": "rollback_equivocation_refusal",
+      "injection": "Present an older pointer and a same-version different-manifest candidate to the controlled activation adapter.",
+      "expected_failure_code": "release_rollback_or_equivocation",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["http_snapshot", "worker_log"]
+    },
+    {
+      "sequence": 8,
+      "case_id": "forge_credential_rotation",
+      "injection": "Deploy a replacement Forge key, revoke the old key, and prove old authentication fails.",
+      "expected_failure_code": "credential_rotated",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["github_audit", "render_event", "worker_log"]
+    },
+    {
+      "sequence": 9,
+      "case_id": "worker_pause_resume",
+      "injection": "Restart refresh-only with claims disabled and verify the disabled state after recovery.",
+      "expected_failure_code": "claims_paused",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["render_event", "worker_log"]
+    },
+    {
+      "sequence": 10,
+      "case_id": "public_navigation_rollback",
+      "injection": "Remove only explorer-search from public navigation, deploy, then restore the exact prior value.",
+      "expected_failure_code": "navigation_rollback_verified",
+      "expected_side_effect_delta": 0,
+      "evidence_kinds": ["render_event", "http_snapshot"]
+    }
+  ]
+}

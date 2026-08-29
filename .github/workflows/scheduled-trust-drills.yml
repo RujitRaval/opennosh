@@ -73,18 +73,24 @@ jobs:
         run: |
           mkdir -p test-results
           PYTHONPATH=api:. uv run pytest \
+            api/tests/federation \
             api/tests/publication/forge \
             api/tests/public/test_artifact_read_plane.py \
             api/tests/publication/test_receipts.py \
             api/tests/publication/test_reconciliation_integration.py \
             api/tests/workflow_testkit \
             --junitxml=test-results/scheduled-trust-matrix.xml
+          PYTHONPATH=api:. uv run python scripts/build_federation_failure_drill_report.py \
+            --output test-results/synthetic-federation-failure-drill-report.json
+          PYTHONPATH=api:. uv run opennosh federation validate-drill-report \
+            --report-file test-results/synthetic-federation-failure-drill-report.json \
+            --json > test-results/synthetic-federation-failure-drill-summary.json
       - name: Upload scheduled trust evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scheduled-trust-matrix
-          path: test-results/scheduled-trust-matrix.xml
+          path: test-results
           if-no-files-found: error
           retention-days: 30
 

@@ -556,6 +556,65 @@ or public-read regression. Do not edit federation rows manually, reuse an invita
 quarantined maintainer, or delete the last verified public release. Remediation is a reviewed
 forward change; a distinct enrollment requires a later federation phase.
 
+### T33.5 live federation failure-drill matrix
+
+Run this matrix only after the T33.4 enrollment is quarantined, its temporary credentials are
+revoked, and the last verified `common-fruits` release is publicly readable. Keep
+`PUBLICATION_CLAIMS_ENABLED=false`, remove `PUBLICATION_ACTIVATION_IDS`, and keep
+`LATEST_REFRESH_ENABLED=true` until the complete report validates and a separate activation is
+approved. Generate the reviewed plan before touching a provider:
+
+```bash
+opennosh federation drill-plan --json
+```
+
+Capture one baseline containing the production commit, release version, publication UUID,
+manifest and receipt SHA-256 digests, online pointer key ID, and `https://opennosh.org`. Verify and
+digest these seven redacted HTTP responses: API health, latest pointer, exact manifest, latest
+food, pinned food, provenance, and receipt. Store provider responses outside Git and retain only
+stable public identifiers plus SHA-256 digests in the report.
+
+Run the cases in canonical order and never overlap them:
+
+| # | Case | Live boundary | Restoration proof |
+|---|---|---|---|
+| 1 | Idempotent replay | Replay only the controlled synthetic delivery/wake; never a new contribution | One acknowledged effect and zero later provider/database deltas |
+| 2 | Forge outage | Use the controlled unavailable adapter or a disposable invalid authentication probe before commit creation | Normal Forge authentication succeeds again; no branch or PR was created |
+| 3 | Signer outage | Refuse the controlled signing request before registry publication | Online signer verifies a non-published challenge after restoration |
+| 4 | R2 conflict | Use a dedicated non-latest drill key preloaded with different immutable bytes | Conflict is returned, original bytes remain, latest is untouched |
+| 5 | Worker restart | Restart only the refresh-only publication worker | A fresh instance is live and refresh-only within ten minutes |
+| 6 | Database lease recovery | Exercise lease loss in the controlled PostgreSQL fixture; restart live worker during a non-claiming readiness probe | Probe and worker recover with zero claimable work |
+| 7 | Rollback/equivocation | Submit older and same-version/different-manifest candidates only to the controlled activation adapter | Both are rejected and the live pointer is byte-identical |
+| 8 | Forge credential rotation | Add a replacement key, deploy a fresh worker environment, prove it, then revoke the old key | New authentication succeeds and old authentication fails without printing tokens |
+| 9 | Claims pause/resume | Restart refresh-only with claims disabled and activation IDs absent | Fresh instance logs claims disabled and public refresh remains healthy |
+| 10 | Public navigation rollback | Remove only `explorer-search` from `OPENNOSH_PUBLIC_NAV_FEATURES`, deploy web, then restore the exact prior value | Navigation hides within five minutes, public APIs remain 200, then navigation is restored |
+
+For every case, record ordered aware timestamps for start, failure observation, restoration start,
+and full recovery. Recovery must complete within 600 seconds, except public navigation rollback,
+which must complete within 300 seconds. Re-run all seven public checks after restoration and bind
+their digests to the baseline. The release version, publication UUID, manifest digest, receipt
+digest, pointer key ID, and public origin must not change.
+
+Build the final report with exactly the fields emitted by `drill-plan`. Never include raw logs,
+provider responses, database URLs, credential-bearing URLs, environment dumps, PEM blocks, tokens,
+passwords, or secret field names. Validate the exact file before upload:
+
+```bash
+opennosh federation validate-drill-report \
+  --report-file /secure/operator-volume/t33-5-redacted-report.json \
+  --json
+```
+
+Post only the validator summary, canonical report digest, and redacted artifact/provider links to
+GitHub issue #130. Stop immediately on identity drift, non-200 public checks, recovery timeout,
+missing restoration, false publication, overwrite, or secret-pattern rejection. Restore the
+current case before investigating. Do not proceed to the next case and do not enable claims.
+
+Normal production claims remain a separate activation gate. They require a complete exit-0 report,
+a healthy refresh-only worker, unchanged public identity, all protected checks green, and explicit
+operator approval. The code PR, scheduled synthetic matrix, or a partial live report cannot satisfy
+that gate.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:
