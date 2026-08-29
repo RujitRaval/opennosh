@@ -290,7 +290,7 @@ def test_release_statement_rejects_naive_time() -> None:
     "public_url",
     (
         "http://opennosh.org/api/v1/public/releases/1.2.3.4/manifest",
-        "https://user:secret@opennosh.org/api/v1/public/releases/1.2.3.4/manifest",
+        "https://user@opennosh.org/api/v1/public/releases/1.2.3.4/manifest",
         "https://opennosh.org/api/v1/public/releases/1.2.3.4/manifest?unsafe=true",
     ),
 )
