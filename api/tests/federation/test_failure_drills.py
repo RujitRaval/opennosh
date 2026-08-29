@@ -225,6 +225,12 @@ def test_drill_cli_uses_stable_safe_failure_codes(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     parser = build_parser()
+    invalid_contract = parser.parse_args(
+        ["federation", "drill-plan", "--contract-file", str(tmp_path / "missing-contract")]
+    )
+    assert run_federation_command(invalid_contract) == 2
+    assert capsys.readouterr().err.strip().endswith("drill_contract_invalid")
+
     missing = parser.parse_args(
         ["federation", "validate-drill-report", "--report-file", str(tmp_path / "missing")]
     )
@@ -240,3 +246,21 @@ def test_drill_cli_uses_stable_safe_failure_codes(
     output = capsys.readouterr()
     assert "secret_pattern_detected" in output.err
     assert "must-not-be-echoed" not in output.err + output.out
+
+    malformed_path = tmp_path / "malformed.json"
+    malformed_path.write_text("{}", encoding="utf-8")
+    malformed = parser.parse_args(
+        ["federation", "validate-drill-report", "--report-file", str(malformed_path)]
+    )
+    assert run_federation_command(malformed) == 2
+    assert capsys.readouterr().err.strip().endswith("drill_report_invalid")
+
+    invariant_payload = _payload()
+    invariant_payload["contract_digest"] = "d" * 64
+    invariant_path = tmp_path / "invariant.json"
+    invariant_path.write_text(json.dumps(invariant_payload), encoding="utf-8")
+    invariant = parser.parse_args(
+        ["federation", "validate-drill-report", "--report-file", str(invariant_path)]
+    )
+    assert run_federation_command(invariant) == 3
+    assert capsys.readouterr().err.strip().endswith("drill_contract_digest_mismatch")
