@@ -4,12 +4,16 @@ import base64
 import hashlib
 import json
 import os
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from opennosh_api.foodpacks.validation import validate_pack_directories
+from opennosh_api.public.artifacts import PublicReadReleaseManifest
 from opennosh_api.public.bootstrap import (
     StarterReleaseInventory,
     build_starter_release,
@@ -18,12 +22,19 @@ from opennosh_api.public.bootstrap import (
     load_verified_inventory,
     verify_starter_release,
 )
+from opennosh_api.public_commons.manifests import SignedEnvelope
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKS = ROOT / "packs"
 PUBLISHED_AT = datetime(2026, 8, 27, 2, tzinfo=UTC)
 SOURCE_COMMIT = "a" * 40
 DECISION = "https://github.com/RujitRaval/opennosh/issues/97"
+FOUNDATIONAL_PACKS = (
+    "common-vegetarian-proteins",
+    "gujarati-home-cooking",
+    "indian-staples-north",
+    "supplements-and-powders",
+)
 
 
 def _write_private_key(path: Path) -> str:
@@ -48,9 +59,11 @@ def _build(
     output: Path,
     manifest_key: Path,
     receipt_key: Path,
+    *,
+    packs_root: Path = PACKS,
 ) -> StarterReleaseInventory:
     return build_starter_release(
-        packs_root=PACKS,
+        packs_root=packs_root,
         output_directory=output,
         release_version="0.56.0.0",
         published_at=PUBLISHED_AT,
@@ -64,6 +77,71 @@ def _build(
     )
 
 
+def _expected_release_counts(packs_root: Path = PACKS) -> tuple[int, int]:
+    manifests = [
+        yaml.safe_load((path / "pack.yaml").read_text(encoding="utf-8"))
+        for path in sorted(packs_root.iterdir())
+        if path.is_dir() and (path / "pack.yaml").is_file()
+    ]
+    return len(manifests), sum(int(manifest["entry_count"]) for manifest in manifests)
+
+
+def _catalog_with_extension(tmp_path: Path) -> Path:
+    catalog = tmp_path / "fixture-repository" / "packs"
+    shutil.copytree(PACKS, catalog)
+    extension = catalog / "community-extension"
+    foods = extension / "foods"
+    foods.mkdir(parents=True)
+    (extension / "pack.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "community-extension",
+                "name": "Community extension",
+                "description": "A governed extension used to prove that the catalog is additive.",
+                "version": "1.0.0",
+                "locale": "en",
+                "license": "CC0-1.0",
+                "maintainers": [{"github": "RujitRaval"}],
+                "entry_count": 1,
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    (foods / "foods.yaml").write_text(
+        yaml.safe_dump(
+            [
+                {
+                    "slug": "community-extension-recipe-fixture",
+                    "name": "Governed extension recipe fixture",
+                    "category": "mixed-dish",
+                    "tags": ["test-fixture"],
+                    "contributed_by": "OpenNosh-test-suite",
+                    "provenance": "published_recipe_calculation",
+                    "source_uri": None,
+                    "source_license": "contributor-original",
+                    "source_note": (
+                        "Synthetic contributor-authored record used only by this isolated test. "
+                        "Batch formula and Cooked yield are intentionally fixture-only; actual "
+                        "recipes vary."
+                    ),
+                    "basis": "per_100g",
+                    "nutrients": {
+                        "energy_kcal": 333,
+                        "protein_g": 17.0,
+                        "fat_g": 13.0,
+                        "carbohydrate_g": 37.0,
+                    },
+                    "portions": [{"name": "100 g", "grams": 100}],
+                }
+            ],
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    return catalog
+
+
 @pytest.mark.asyncio
 async def test_starter_release_is_complete_deterministic_and_verifiable(tmp_path: Path) -> None:
     manifest_key = tmp_path / "manifest.key"
@@ -73,11 +151,12 @@ async def test_starter_release_is_complete_deterministic_and_verifiable(tmp_path
 
     first = _build(tmp_path / "first", manifest_key, receipt_key)
     second = _build(tmp_path / "second", manifest_key, receipt_key)
+    expected_pack_count, expected_food_count = _expected_release_counts()
 
     assert first == second
     assert first.release_version == "0.56.0.0"
-    assert first.food_count == 165
-    assert first.pack_count == 4
+    assert first.food_count == expected_food_count
+    assert first.pack_count == expected_pack_count
     assert len(first.objects) == first.food_count * 2 + first.pack_count + 3
     assert first.objects[-1].object_key == "latest/v1.json"
     assert first.objects[-1].mutable_pointer is True
@@ -110,6 +189,54 @@ async def test_starter_release_is_complete_deterministic_and_verifiable(tmp_path
     assert manifest_secret.encode() not in public_payload
     assert receipt_secret.encode() not in public_payload
     await verify_starter_release(tmp_path / "first", first)
+
+
+@pytest.mark.asyncio
+async def test_starter_release_adds_a_valid_governed_pack(tmp_path: Path) -> None:
+    catalog = _catalog_with_extension(tmp_path)
+    pack_directories = tuple(
+        path
+        for path in sorted(catalog.iterdir())
+        if path.is_dir() and (path / "pack.yaml").is_file()
+    )
+    report = validate_pack_directories(pack_directories)
+    assert report.valid
+    assert report.errors == ()
+    assert report.warnings == ()
+
+    manifest_key = tmp_path / "manifest.key"
+    receipt_key = tmp_path / "receipt.key"
+    _write_private_key(manifest_key)
+    _write_private_key(receipt_key)
+    output = tmp_path / "release"
+    inventory = _build(
+        output,
+        manifest_key,
+        receipt_key,
+        packs_root=catalog,
+    )
+
+    catalog_pack_count, catalog_food_count = _expected_release_counts()
+    foundational_food_count = sum(
+        int(
+            yaml.safe_load((PACKS / pack_id / "pack.yaml").read_text(encoding="utf-8"))[
+                "entry_count"
+            ]
+        )
+        for pack_id in FOUNDATIONAL_PACKS
+    )
+    assert foundational_food_count == 165
+    assert inventory.pack_count == catalog_pack_count + 1
+    assert inventory.food_count == catalog_food_count + 1
+
+    manifest_path = output / "releases" / "v1" / "release-0.56.0.0.json"
+    envelope = SignedEnvelope.model_validate_json(manifest_path.read_bytes())
+    manifest = PublicReadReleaseManifest.model_validate(envelope.payload)
+    assert "community-extension" in {pack.pack_id for pack in manifest.packs}
+    assert "community-extension-recipe-fixture" in {
+        food.source_id for food in manifest.foods
+    }
+    await verify_starter_release(output, inventory)
 
 
 def test_starter_release_refuses_private_keys_with_broad_permissions(tmp_path: Path) -> None:
