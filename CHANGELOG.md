@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.64.0.1] - 2026-08-29
+
+### Fixed
+
+- Let governed food-pack additions pass the release checks while keeping the original 165-food foundation strict and validating every pack in the catalog.
+- Derive signed starter-release totals from the current pack manifests so new approved foods cannot leave stale hard-coded counts behind.
+
 ## [0.64.0.0] - 2026-08-29
 
 ### Added
