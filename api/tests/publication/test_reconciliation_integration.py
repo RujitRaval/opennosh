@@ -162,8 +162,8 @@ async def _run_reconstruction_scenarios(database_url: str) -> None:
                     UPDATE publication_steps
                     SET state = 'verified',
                         verified_at = CASE step_name
-                            WHEN 'sign_receipt' THEN $2
-                            ELSE $3
+                            WHEN 'sign_receipt' THEN $2::timestamptz
+                            ELSE $3::timestamptz
                         END
                     WHERE publication_intent_id = $1
                       AND step_name IN ('sign_receipt', 'publish_receipt_registry')
