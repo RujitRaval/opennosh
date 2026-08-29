@@ -1,0 +1,22 @@
+- slug: bananas-ripe-and-slightly-ripe-raw
+  name: Bananas, ripe and slightly ripe, raw
+  category: fruit
+  tags:
+  - fruit
+  - usda
+  contributed_by: USDA-FoodData-Central
+  provenance: government_database
+  source_uri: https://fdc.nal.usda.gov/fdc-app.html#/food-details/1105314/nutrients
+  source_license: CC0-1.0
+  source_note: >-
+    USDA FoodData Central Foundation record 1105314, published 2020-04-01.
+    Nutrient values are reproduced from the public-domain record.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 97
+    protein_g: 0.74
+    fat_g: 0.29
+    carbohydrate_g: 23.0
+  portions:
+  - name: 100 g
+    grams: 100
