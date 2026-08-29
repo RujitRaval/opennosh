@@ -56,6 +56,7 @@ async def seed_publication(
     now: datetime,
     ids: DeterministicIdGenerator,
     suffix: str,
+    manifest_digest: str = "f" * 64,
 ) -> SeededPublication:
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("Seed publication time must include a timezone")
@@ -85,7 +86,7 @@ async def seed_publication(
                 "'{}'::jsonb, 'evidence_preserved')",
                 ids(),
                 draft_id,
-                "f" * 64,
+                manifest_digest,
             )
     finally:
         await connection.close()
@@ -106,12 +107,12 @@ async def seed_publication(
             required_checks=("schema", "provenance", "license"),
             forge_target=FORGE_TARGET,
             idempotency_key=f"publication-testkit-{suffix}",
-            evidence_manifest_digests=("f" * 64,),
+            evidence_manifest_digests=(manifest_digest,),
             evidence_acknowledgements=(
                 EvidenceAcknowledgement(
                     evidence_id=draft_id,
                     evidence_class="sanitized_media",
-                    manifest_digest="f" * 64,
+                    manifest_digest=manifest_digest,
                     kind="immutable_sanitized_copy",
                     destination="urn:opennosh:durability:evidence",
                     content_digest="7" * 64,

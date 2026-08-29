@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.capacity import JobRole
 from opennosh_api.database import build_administration_engine
+from opennosh_api.federation.cli import add_federation_parser, run_federation_command
 from opennosh_api.first_contribution.prepare import (
     FirstContributionPreparationError,
     load_first_contribution_package,
@@ -153,6 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     resubmit.add_argument("--expected-base-commit", required=True)
     resubmit.add_argument("--reason", required=True)
     resubmit.add_argument("--json", action="store_true")
+    add_federation_parser(commands)
     return parser
 
 
@@ -536,6 +538,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_exercise_command(arguments)
     if arguments.command == "commons":
         return run_commons_command(arguments)
+    if arguments.command == "federation":
+        return run_federation_command(arguments)
     raise AssertionError(f"unsupported command: {arguments.command}")
 
 

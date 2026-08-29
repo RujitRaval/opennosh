@@ -20,6 +20,7 @@ PUBLICATION_TABLE_PRIVILEGES = {
     "accepted_events": "SELECT, INSERT",
     "evidence_manifests": "SELECT",
     "evidence_removal_tombstones": "SELECT",
+    "federation_maintainers": "SELECT",
     "governance_decisions": "SELECT",
     "governance_merge_authorizations": "SELECT, INSERT",
     "governance_publication_interventions": "SELECT",

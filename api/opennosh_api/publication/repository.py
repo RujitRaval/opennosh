@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import asyncpg  # type: ignore[import-untyped]
 from pgqueuer.db import AsyncpgDriver
 
+from opennosh_api.federation.repository import federation_scope_allows_claim
 from opennosh_api.jobs import JobLane, JobMessage
 from opennosh_api.jobs.pgqueuer import (
     PUBLICATION_ENTRYPOINT,
@@ -121,7 +122,7 @@ class PostgresPublicationRepository:
             async with connection.transaction():
                 intent = await connection.fetchrow(
                     """
-                    SELECT workflow_revision, state
+                    SELECT workflow_revision, state, pack_id, forge_target
                     FROM publication_intents
                     WHERE id = $1
                     FOR UPDATE
@@ -139,6 +140,24 @@ class PostgresPublicationRepository:
                     PublicationState.PUBLISH_BLOCKED.value,
                     PublicationState.QUARANTINED.value,
                 }:
+                    return None
+                forge_target = str(intent["forge_target"])
+                if forge_target.startswith("github:") and not await federation_scope_allows_claim(
+                    connection,
+                    repository=forge_target.removeprefix("github:"),
+                    pack_id=str(intent["pack_id"]),
+                ):
+                    await connection.execute(
+                        """
+                        UPDATE publication_intents
+                        SET state = 'publish_blocked',
+                            last_failure_code = 'federation_scope_not_active',
+                            updated_at = $2
+                        WHERE id = $1
+                        """,
+                        effect.publication_id,
+                        now,
+                    )
                     return None
 
                 step = await connection.fetchrow(

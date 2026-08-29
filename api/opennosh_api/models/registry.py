@@ -13,6 +13,12 @@ from opennosh_api.evidence.models import (
     EvidenceManifestRecord,
     EvidenceRemovalTombstone,
 )
+from opennosh_api.federation.models import (
+    FederationAuditEvent,
+    FederationInvitation,
+    FederationMaintainer,
+    FederationRoleKey,
+)
 from opennosh_api.governance.models import (
     GovernanceDecision,
     GovernanceMergeAuthorization,
@@ -80,6 +86,10 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     GovernanceMergeAuthorization,
     GovernancePublicationPause,
     GovernancePublicationIntervention,
+    FederationInvitation,
+    FederationMaintainer,
+    FederationRoleKey,
+    FederationAuditEvent,
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
@@ -130,6 +140,10 @@ __all__ = [
     "EvidenceDurableAcknowledgement",
     "EvidenceManifestRecord",
     "EvidenceRemovalTombstone",
+    "FederationAuditEvent",
+    "FederationInvitation",
+    "FederationMaintainer",
+    "FederationRoleKey",
     "Exercise",
     "FoodCommunity",
     "FoodCustom",
