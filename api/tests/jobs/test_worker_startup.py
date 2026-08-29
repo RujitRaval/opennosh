@@ -1,25 +1,192 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
 import pytest
+from opennosh_api.jobs import JobLane, JobMessage
+from opennosh_api.jobs.pgqueuer import encode_message
 from opennosh_api.jobs.worker import (
+    PublicationActivationWakeup,
+    PublicationActivationWakeupOutcome,
     _run_publication_worker,
     create_publication_role_driver,
+    ensure_publication_activation_wakeup,
     supervise_publication_claims,
     validate_production_adapter_registry,
 )
 from opennosh_api.publication.state import (
     EffectIntent,
     ExternalObservation,
+    PublicationState,
     PublicationStepName,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+class _AsyncContext:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    async def __aenter__(self) -> object:
+        return self.value
+
+    async def __aexit__(self, *_arguments: object) -> None:
+        return None
+
+
+class _RecoveryConnection:
+    def __init__(
+        self,
+        *,
+        intent: dict[str, object],
+        active: list[dict[str, object]] | None = None,
+        conflict: dict[str, object] | None = None,
+    ) -> None:
+        self.intent = intent
+        self.active = active or []
+        self.conflict = conflict
+        self.fetchrow_calls = 0
+
+    def transaction(self) -> _AsyncContext:
+        return _AsyncContext(self)
+
+    async def fetchrow(self, _query: str, *_arguments: object) -> object:
+        self.fetchrow_calls += 1
+        return self.intent if self.fetchrow_calls == 1 else self.conflict
+
+    async def fetch(self, _query: str, *_arguments: object) -> object:
+        return self.active
+
+
+class _RecoveryPool:
+    def __init__(self, connection: _RecoveryConnection) -> None:
+        self.connection = connection
+
+    def acquire(self) -> _AsyncContext:
+        return _AsyncContext(self.connection)
+
+
+def _activation_message(
+    publication_id: UUID,
+    *,
+    revision: int | None,
+    key: str = "publication-activation-test",
+) -> bytes:
+    return encode_message(
+        JobMessage(
+            lane=JobLane.PUBLICATION,
+            job_type="publication.wake",
+            subject_id=publication_id,
+            idempotency_key=key,
+            workflow_revision=revision,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_activation_recovery_rejects_a_naive_clock_before_database_access() -> None:
+    class ForbiddenPool:
+        def acquire(self) -> None:
+            raise AssertionError("naive clock reached the database")
+
+    with pytest.raises(ValueError, match="timezone"):
+        await ensure_publication_activation_wakeup(
+            ForbiddenPool(),
+            UUID("00000000-0000-4000-8000-000000000001"),
+            now=datetime(2026, 8, 28, 22),
+        )
+
+
+@pytest.mark.parametrize("revision", [None, 2])
+@pytest.mark.asyncio
+async def test_activation_recovery_rejects_unbound_or_future_active_work(
+    revision: int | None,
+) -> None:
+    publication_id = UUID("00000000-0000-4000-8000-000000000001")
+    now = datetime(2026, 8, 28, 22, tzinfo=UTC)
+    connection = _RecoveryConnection(
+        intent={
+            "state": "pending",
+            "workflow_revision": 1,
+            "next_attempt_at": now,
+        },
+        active=[
+            {
+                "id": 7,
+                "status": "queued",
+                "execute_after": now,
+                "heartbeat": None,
+                "payload": _activation_message(publication_id, revision=revision),
+            }
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="conflicts with the configured intent"):
+        await ensure_publication_activation_wakeup(
+            _RecoveryPool(connection), publication_id, now=now
+        )
+
+
+@pytest.mark.parametrize("conflict", ["matching", "missing", "mismatched"])
+@pytest.mark.asyncio
+async def test_activation_recovery_reconciles_enqueue_conflicts_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    conflict: str,
+) -> None:
+    publication_id = UUID("00000000-0000-4000-8000-000000000001")
+    now = datetime(2026, 8, 28, 22, tzinfo=UTC)
+    key = f"publication:{publication_id}:activation-recovery:1"
+    conflict_row = {
+        "id": 9,
+        "payload": _activation_message(
+            (
+                publication_id
+                if conflict != "mismatched"
+                else UUID("00000000-0000-4000-8000-000000000002")
+            ),
+            revision=1,
+            key=key,
+        ),
+    }
+    connection = _RecoveryConnection(
+        intent={
+            "state": "pending",
+            "workflow_revision": 1,
+            "next_attempt_at": now,
+        },
+        conflict=None if conflict == "missing" else conflict_row,
+    )
+
+    class Queries:
+        async def enqueue(self, *_arguments: object, **_keywords: object) -> tuple[None]:
+            return (None,)
+
+    monkeypatch.setattr("opennosh_api.jobs.worker.AsyncpgDriver", lambda value: value)
+    monkeypatch.setattr("opennosh_api.jobs.worker.build_queries", lambda _driver: Queries())
+
+    if conflict == "matching":
+        outcome = await ensure_publication_activation_wakeup(
+            _RecoveryPool(connection), publication_id, now=now
+        )
+        assert outcome.outcome is PublicationActivationWakeupOutcome.EXISTING
+        assert outcome.job_id == 9
+        return
+
+    message = (
+        "neither enqueued nor already present"
+        if conflict == "missing"
+        else "dedupe key is bound to another message"
+    )
+    with pytest.raises(RuntimeError, match=message):
+        await ensure_publication_activation_wakeup(
+            _RecoveryPool(connection), publication_id, now=now
+        )
 
 
 class Adapter:
@@ -125,11 +292,34 @@ async def test_production_claims_build_live_registry_before_pool_and_own_resourc
         lifecycle.append("pool:create")
         return pool
 
+    async def ensure_wakeup(
+        supplied_pool: object,
+        activation_id: UUID,
+        *,
+        now: object,
+    ) -> PublicationActivationWakeup:
+        assert supplied_pool is pool
+        assert activation_id == UUID("00000000-0000-4000-8000-000000000001")
+        assert now is not None
+        lifecycle.append("activation:ensure")
+        return PublicationActivationWakeup(
+            outcome=PublicationActivationWakeupOutcome.EXISTING,
+            state=PublicationState.PENDING,
+            workflow_revision=0,
+            active_jobs=1,
+            eligible=True,
+            job_id=1,
+        )
+
     monkeypatch.setattr(
         "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
         prepare,
     )
     monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", create_pool)
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.ensure_publication_activation_wakeup",
+        ensure_wakeup,
+    )
     settings = SimpleNamespace(
         app_environment="production",
         publication_claims_enabled=True,
@@ -144,12 +334,29 @@ async def test_production_claims_build_live_registry_before_pool_and_own_resourc
 
     driver = await create_publication_role_driver(cast(Any, settings))
 
-    assert lifecycle == ["registry:prepare", "pool:create", "registry:bind"]
+    assert lifecycle == [
+        "registry:prepare",
+        "pool:create",
+        "registry:bind",
+        "activation:ensure",
+    ]
     await driver.close()
     assert lifecycle[-2:] == ["pool:close", "providers:close"]
 
 
-@pytest.mark.parametrize("failure", ["pool", "bind", "assemble"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "manifest",
+        "budget",
+        "pool",
+        "bind",
+        "activation",
+        "recover",
+        "terminal",
+        "assemble",
+    ],
+)
 @pytest.mark.asyncio
 async def test_production_claim_startup_failure_closes_every_created_resource(
     monkeypatch: pytest.MonkeyPatch,
@@ -189,6 +396,49 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
             raise RuntimeError("pool failed")
         return pool
 
+    class Manifest:
+        def active_role_budget(self, _role: object) -> object:
+            if failure == "budget":
+                raise RuntimeError("budget failed")
+            return SimpleNamespace(
+                pool_size=4,
+                acquisition_timeout_ms=5000,
+                statement_timeout_ms=30000,
+            )
+
+        deployment_id = "test"
+
+    def load_manifest(_path: object) -> Manifest:
+        if failure == "manifest":
+            raise RuntimeError("manifest failed")
+        return Manifest()
+
+    async def ensure_wakeup(
+        _pool: object,
+        _activation_id: UUID,
+        *,
+        now: object,
+    ) -> PublicationActivationWakeup:
+        assert now is not None
+        if failure == "recover":
+            raise RuntimeError("recover failed")
+        return PublicationActivationWakeup(
+            outcome=(
+                PublicationActivationWakeupOutcome.TERMINAL
+                if failure == "terminal"
+                else PublicationActivationWakeupOutcome.EXISTING
+            ),
+            state=(
+                PublicationState.PUBLISHED
+                if failure == "terminal"
+                else PublicationState.PENDING
+            ),
+            workflow_revision=0,
+            active_jobs=1,
+            eligible=True,
+            job_id=1,
+        )
+
     def assemble(**_arguments: object) -> None:
         raise RuntimeError("assemble failed")
 
@@ -196,7 +446,15 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
         "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
         prepare,
     )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.load_capacity_manifest",
+        load_manifest,
+    )
     monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", create_pool)
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.ensure_publication_activation_wakeup",
+        ensure_wakeup,
+    )
     if failure == "assemble":
         monkeypatch.setattr(
             "opennosh_api.jobs.worker._assemble_publication_role_driver",
@@ -205,8 +463,10 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
     settings = SimpleNamespace(
         app_environment="production",
         publication_claims_enabled=True,
-        publication_activation_id=UUID(
-            "00000000-0000-4000-8000-000000000001"
+        publication_activation_id=(
+            None
+            if failure == "activation"
+            else UUID("00000000-0000-4000-8000-000000000001")
         ),
         database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
         process_database_url=lambda _role: (
@@ -217,7 +477,7 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
     with pytest.raises(RuntimeError, match=failure):
         await create_publication_role_driver(cast(Any, settings))
 
-    if failure == "pool":
+    if failure in {"manifest", "budget", "pool"}:
         assert lifecycle == ["providers:close"]
     else:
         assert lifecycle == ["pool:close", "providers:close"]

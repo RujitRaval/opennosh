@@ -30,6 +30,7 @@ Queue completion is never interpreted as publication completion.
 | Priority fairness | Pass | Higher-priority eligible work is claimed first |
 | Unknown job safety | Pass | A future entrypoint remains unclaimed by the current publication worker |
 | Graceful shutdown | Pass | Real worker verifies schema, stops claiming, drains, and closes its bounded pool |
+| Bounded activation recovery | Pass | Production startup preserves or creates one revision-bound wake-up for the configured nonterminal intent without scanning unrelated work |
 | Migration compatibility | Pass | Explicit `0012 -> 0013 -> 0012` migration and clean Alembic metadata check |
 | Namespacing | Pass | All adapter tables, enum, indexes, trigger, function, and channel use `opennosh_` |
 | Health/metrics | Pass | Adapter health reports schema readiness plus queued and eligible lane counts |
@@ -50,9 +51,11 @@ The publication process uses the T9 capacity manifest for pool size, acquisition
 statement timeout, worker concurrency, application name, and replica activation. Its
 six-connection pool permits at most five concurrent publication database sections so queue
 coordination always retains one connection. T10 installs the deterministic planner, bounded
-effect executor, reducer, and PgQueuer wake-up handler. The default production replica count
-remains zero after T2 supplies the governed forge; T3 evidence, T5 signed receipts, and live forge
-App and protected-ruleset configuration are still required to complete and activate the protocol.
+effect executor, reducer, and PgQueuer wake-up handler. Production now runs one refresh-only
+publication replica. When an operator later enables claims for exactly one reviewed activation,
+startup locks that publication intent, validates any active typed wake-up, and creates one
+revision-bound wake-up only when none exists. Unknown or terminal intents and conflicting wake-ups
+stop startup before the claims loop; unrelated queue work remains untouched.
 
 Migration `20260825_0014` intentionally refuses a database containing any legacy
 `publication_steps` rows because those rows do not carry a canonical T10 destination and ordinal.

@@ -4,22 +4,27 @@ import asyncio
 import logging
 import signal
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 from pgqueuer import PgQueuer
-from pgqueuer.db import AsyncpgPoolDriver
+from pgqueuer.db import AsyncpgDriver, AsyncpgPoolDriver
 from pgqueuer.errors import RetryRequested
 from pgqueuer.models import Channel, Job
 from sqlalchemy.engine import make_url
 
 from opennosh_api.capacity import ProcessRole, RoleBudget, load_capacity_manifest
+from opennosh_api.jobs.contracts import JobLane, JobMessage
 from opennosh_api.jobs.pgqueuer import (
     PGQUEUER_SETTINGS,
     PUBLICATION_ENTRYPOINT,
     build_queries,
     decode_message,
+    encode_message,
 )
 from opennosh_api.public.artifacts import HttpArtifactStore
 from opennosh_api.public.r2 import S3R2ObjectWriter
@@ -39,6 +44,7 @@ from opennosh_api.publication.runtime import (
     run_zero_claim_preactivation_smoke,
     validate_production_adapter_registry,
 )
+from opennosh_api.publication.state import PublicationState
 from opennosh_api.settings import Settings, get_settings
 
 PUBLICATION_DRAIN_TIMEOUT_SECONDS = 30.0
@@ -55,6 +61,173 @@ def asyncpg_dsn(database_url: str) -> str:
     if url.get_backend_name() != "postgresql":
         raise ValueError("PgQueuer requires a PostgreSQL database URL")
     return url.set(drivername="postgresql").render_as_string(hide_password=False)
+
+
+class PublicationActivationWakeupOutcome(StrEnum):
+    EXISTING = "existing"
+    ENQUEUED = "enqueued"
+    TERMINAL = "terminal"
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationActivationWakeup:
+    outcome: PublicationActivationWakeupOutcome
+    state: PublicationState
+    workflow_revision: int
+    active_jobs: int
+    eligible: bool
+    job_id: int | None
+
+
+_TERMINAL_PUBLICATION_STATES = frozenset(
+    {
+        PublicationState.BLOCKED,
+        PublicationState.FAILED,
+        PublicationState.PUBLISHED,
+        PublicationState.PUBLISH_BLOCKED,
+        PublicationState.QUARANTINED,
+    }
+)
+
+
+async def ensure_publication_activation_wakeup(
+    pool: Any,
+    publication_id: UUID,
+    *,
+    now: datetime,
+) -> PublicationActivationWakeup:
+    """Recover one configured nonterminal activation without scanning the backlog."""
+
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("Publication activation recovery time must include a timezone")
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            intent = await connection.fetchrow(
+                """
+                SELECT state, workflow_revision, next_attempt_at
+                FROM publication_intents
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                publication_id,
+            )
+            if intent is None:
+                raise LookupError(f"Unknown publication intent: {publication_id}")
+            state = PublicationState(str(intent["state"]))
+            revision = int(intent["workflow_revision"])
+            # PgQueuer claims a queue row before the orchestrator locks this intent.
+            # Reading active rows without locking them keeps rolling deploys from
+            # taking the same two locks in opposite order.
+            active = await connection.fetch(
+                f"""
+                SELECT id, status, execute_after, heartbeat, payload
+                FROM {PGQUEUER_SETTINGS.queue_table}
+                WHERE entrypoint = $1
+                  AND status IN ('queued', 'picked')
+                  AND convert_from(payload, 'UTF8')::jsonb ->> 'subject_id' = $2
+                ORDER BY id
+                """,
+                PUBLICATION_ENTRYPOINT,
+                str(publication_id),
+            )
+            eligible = any(
+                (
+                    str(row["status"]) == "queued"
+                    and row["execute_after"] < now
+                )
+                or (
+                    str(row["status"]) == "picked"
+                    and row["execute_after"] < now
+                    and row["heartbeat"] is not None
+                    and row["heartbeat"]
+                    < now - timedelta(seconds=PGQUEUER_HEARTBEAT_TIMEOUT_SECONDS)
+                )
+                for row in active
+            )
+            for row in active:
+                message = decode_message(bytes(row["payload"]))
+                if (
+                    message.subject_id != publication_id
+                    or message.workflow_revision is None
+                    or message.workflow_revision > revision
+                ):
+                    raise RuntimeError(
+                        "Active publication wake-up conflicts with the configured intent"
+                    )
+            if state in _TERMINAL_PUBLICATION_STATES:
+                return PublicationActivationWakeup(
+                    outcome=PublicationActivationWakeupOutcome.TERMINAL,
+                    state=state,
+                    workflow_revision=revision,
+                    active_jobs=len(active),
+                    eligible=eligible,
+                    job_id=int(active[0]["id"]) if active else None,
+                )
+            if active:
+                return PublicationActivationWakeup(
+                    outcome=PublicationActivationWakeupOutcome.EXISTING,
+                    state=state,
+                    workflow_revision=revision,
+                    active_jobs=len(active),
+                    eligible=eligible,
+                    job_id=int(active[0]["id"]),
+                )
+
+            run_after = max(intent["next_attempt_at"], now)
+            key = f"publication:{publication_id}:activation-recovery:{revision}"
+            message = JobMessage(
+                lane=JobLane.PUBLICATION,
+                job_type="publication.wake",
+                subject_id=publication_id,
+                idempotency_key=key,
+                workflow_revision=revision,
+            )
+            queries = build_queries(AsyncpgDriver(connection))
+            (job_id,) = await queries.enqueue(
+                PUBLICATION_ENTRYPOINT,
+                encode_message(message),
+                execute_after=max(run_after - now, timedelta()),
+                dedupe_key=key,
+                on_conflict="skip",
+            )
+            if job_id is None:
+                existing = await connection.fetchrow(
+                    f"""
+                    SELECT id, payload
+                    FROM {PGQUEUER_SETTINGS.queue_table}
+                    WHERE dedupe_key = $1
+                      AND status IN ('queued', 'picked')
+                    """,
+                    key,
+                )
+                if existing is None:
+                    raise RuntimeError(
+                        "Activation wake-up was neither enqueued nor already present"
+                    )
+                existing_message = decode_message(bytes(existing["payload"]))
+                if (
+                    existing_message.subject_id != publication_id
+                    or existing_message.workflow_revision != revision
+                ):
+                    raise RuntimeError(
+                        "Activation wake-up dedupe key is bound to another message"
+                    )
+                return PublicationActivationWakeup(
+                    outcome=PublicationActivationWakeupOutcome.EXISTING,
+                    state=state,
+                    workflow_revision=revision,
+                    active_jobs=1,
+                    eligible=run_after <= now,
+                    job_id=int(existing["id"]),
+                )
+            return PublicationActivationWakeup(
+                outcome=PublicationActivationWakeupOutcome.ENQUEUED,
+                state=state,
+                workflow_revision=revision,
+                active_jobs=1,
+                eligible=run_after <= now,
+                job_id=int(job_id),
+            )
 
 
 class PgQueuerRoleDriver:
@@ -204,8 +377,13 @@ async def create_publication_role_driver(
                 clock=lambda: datetime.now(UTC),
             )
             resolved_adapters = prepared.runtime.adapters
-    manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
-    budget = manifest.active_role_budget(ProcessRole.PUBLICATION)
+    try:
+        manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
+        budget = manifest.active_role_budget(ProcessRole.PUBLICATION)
+    except BaseException:
+        if prepared is not None:
+            await prepared.aclose()
+        raise
     try:
         pool = await asyncpg.create_pool(
             dsn=asyncpg_dsn(configured.process_database_url(ProcessRole.PUBLICATION)),
@@ -227,14 +405,35 @@ async def create_publication_role_driver(
         if prepared is not None:
             await prepared.aclose()
         raise RuntimeError("asyncpg did not create the publication pool")
-    if prepared is not None:
-        try:
-            resolved_adapters = prepared.bind_pool(pool)
-        except BaseException:
-            await pool.close()
-            await prepared.aclose()
-            raise
     try:
+        if prepared is not None:
+            resolved_adapters = prepared.bind_pool(pool)
+        if (
+            configured.app_environment == "production"
+            and configured.publication_claims_enabled
+        ):
+            activation_id = configured.publication_activation_id
+            if activation_id is None:
+                raise RuntimeError("Publication claims require one activation intent")
+            wakeup = await ensure_publication_activation_wakeup(
+                pool,
+                activation_id,
+                now=datetime.now(UTC),
+            )
+            logger.warning(
+                "Publication activation wake-up ready: outcome=%s state=%s "
+                "revision=%s active_jobs=%s eligible=%s",
+                wakeup.outcome.value,
+                wakeup.state.value,
+                wakeup.workflow_revision,
+                wakeup.active_jobs,
+                wakeup.eligible,
+            )
+            if wakeup.outcome is PublicationActivationWakeupOutcome.TERMINAL:
+                raise RuntimeError(
+                    "Configured publication activation is already terminal: "
+                    f"{wakeup.state.value}"
+                )
         return _assemble_publication_role_driver(
             configured=configured,
             adapters=resolved_adapters,
