@@ -29,6 +29,7 @@ from deploy.render_runtime import (
     run_api,
     run_predeploy,
     run_publication,
+    run_publication_readiness,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -322,17 +323,14 @@ def test_render_combined_environment_uses_only_the_worker_database_identity() ->
             "MIGRATION_DATABASE_URL": "postgresql+asyncpg://migration:secret@db/opennosh",
         }
     )
-    environment = publication_environment(
-        source
-    )
+    environment = publication_environment(source)
 
     assert environment["APP_ENVIRONMENT"] == "production"
     assert environment["PROCESS_ROLE"] == "publication"
     assert environment["PUBLICATION_CLAIMS_ENABLED"] == "true"
+    assert environment.get("PUBLICATION_CONTINUOUS_CLAIMS_ENABLED", "false") == "false"
     assert environment["LATEST_REFRESH_ENABLED"] == "true"
-    assert environment["PUBLICATION_ACTIVATION_IDS"] == (
-        "00000000-0000-4000-8000-000000000001"
-    )
+    assert environment["PUBLICATION_ACTIVATION_IDS"] == ("00000000-0000-4000-8000-000000000001")
     assert environment["PATH"] == "/usr/local/bin:/usr/bin"
     assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
     assert environment["GITHUB_FORGE_PRIVATE_KEY"] == "forge-private"
@@ -407,6 +405,38 @@ def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> 
         assert excluded not in environment
 
 
+def test_render_readiness_uses_publication_role_without_enabling_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    captured: dict[str, object] = {}
+
+    def run(command: list[str], **options: object) -> None:
+        captured["command"] = command
+        captured["options"] = options
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+
+    run_publication_readiness(source)
+
+    assert captured["command"] == [
+        "opennosh",
+        "commons",
+        "production-claims-readiness",
+        "--json",
+    ]
+    options = captured["options"]
+    assert isinstance(options, dict)
+    environment = options["env"]
+    assert isinstance(environment, dict)
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert "RENDER_DATABASE_URL" not in environment
+    assert options["check"] is True
+
+
 def test_render_preactivation_smoke_keeps_live_adapters_but_no_claim_identity() -> None:
     source = _claims_environment()
     source.update(
@@ -456,6 +486,49 @@ def test_render_claims_fail_closed_without_one_canonical_activation_id(
         source["PUBLICATION_ACTIVATION_IDS"] = activation_id
     with pytest.raises(ValueError, match="PUBLICATION_ACTIVATION_IDS"):
         publication_environment(source)
+
+
+def test_render_continuous_claims_require_no_activation_id() -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CONTINUOUS_CLAIMS_ENABLED"] = "true"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+
+    environment = publication_environment(source)
+
+    assert environment["PUBLICATION_CONTINUOUS_CLAIMS_ENABLED"] == "true"
+    assert "PUBLICATION_ACTIVATION_IDS" not in environment
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+
+
+def test_render_continuous_claims_reject_activation_id() -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CONTINUOUS_CLAIMS_ENABLED"] = "true"
+
+    with pytest.raises(ValueError, match="require PUBLICATION_ACTIVATION_IDS absent"):
+        publication_environment(source)
+
+
+def test_render_continuous_claims_require_master_switch() -> None:
+    with pytest.raises(ValueError, match="require claims to be enabled"):
+        publication_environment(
+            {
+                "PUBLICATION_CLAIMS_ENABLED": "false",
+                "PUBLICATION_CONTINUOUS_CLAIMS_ENABLED": "true",
+                "LATEST_REFRESH_ENABLED": "true",
+            }
+        )
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-an-integer"])
+def test_render_claim_concurrency_must_be_positive(value: str) -> None:
+    with pytest.raises(ValueError, match="PUBLICATION_CLAIM_CONCURRENCY"):
+        publication_environment(
+            {
+                "PUBLICATION_CLAIMS_ENABLED": "false",
+                "PUBLICATION_CLAIM_CONCURRENCY": value,
+                "LATEST_REFRESH_ENABLED": "true",
+            }
+        )
 
 
 def test_render_claims_cannot_disable_latest_refresh() -> None:

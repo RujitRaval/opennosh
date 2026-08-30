@@ -63,6 +63,7 @@ PROCESS_RUNTIME_ENVIRONMENT_KEYS = (
     "LANG",
     "LC_ALL",
     "TZ",
+    "RENDER_GIT_COMMIT",
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
 )
@@ -71,6 +72,8 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "APP_ENVIRONMENT",
     "DATABASE_CAPACITY_MANIFEST_PATH",
     "PUBLICATION_CLAIMS_ENABLED",
+    "PUBLICATION_CONTINUOUS_CLAIMS_ENABLED",
+    "PUBLICATION_CLAIM_CONCURRENCY",
     "PUBLICATION_PREACTIVATION_SMOKE_ENABLED",
     "LATEST_REFRESH_ENABLED",
     "PUBLICATION_ACTIVATION_IDS",
@@ -195,9 +198,11 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         key: value for key in PUBLICATION_ENVIRONMENT_KEYS if (value := source.get(key)) is not None
     }
     claims_enabled = environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true"
+    continuous_claims_enabled = (
+        environment.get("PUBLICATION_CONTINUOUS_CLAIMS_ENABLED", "false").casefold() == "true"
+    )
     smoke_enabled = (
-        environment.get("PUBLICATION_PREACTIVATION_SMOKE_ENABLED", "false").casefold()
-        == "true"
+        environment.get("PUBLICATION_PREACTIVATION_SMOKE_ENABLED", "false").casefold() == "true"
     )
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
     if not claims_enabled and not refresh_enabled:
@@ -206,18 +211,34 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("Publication claims require latest refresh to remain enabled")
     if claims_enabled and smoke_enabled:
         raise ValueError("Publication preactivation smoke requires claims disabled")
+    if continuous_claims_enabled and not claims_enabled:
+        raise ValueError("Continuous publication claims require claims to be enabled")
+    try:
+        claim_concurrency = int(environment.get("PUBLICATION_CLAIM_CONCURRENCY", "1"))
+    except ValueError as error:
+        raise ValueError("PUBLICATION_CLAIM_CONCURRENCY must be a positive integer") from error
+    if claim_concurrency < 1:
+        raise ValueError("PUBLICATION_CLAIM_CONCURRENCY must be a positive integer")
     environment["PROCESS_ROLE"] = "publication"
     if claims_enabled or smoke_enabled:
         if not refresh_enabled:
             raise ValueError("Publication activation requires latest refresh enabled")
     if claims_enabled:
-        activation_id = _required(source, "PUBLICATION_ACTIVATION_IDS")
-        try:
-            parsed_activation_id = UUID(activation_id)
-        except ValueError as error:
-            raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
-        if str(parsed_activation_id) != activation_id:
-            raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
+        activation_id = source.get("PUBLICATION_ACTIVATION_IDS", "")
+        if continuous_claims_enabled:
+            if activation_id:
+                raise ValueError(
+                    "Continuous publication claims require PUBLICATION_ACTIVATION_IDS absent"
+                )
+        else:
+            if not activation_id:
+                raise ValueError("PUBLICATION_ACTIVATION_IDS is required")
+            try:
+                parsed_activation_id = UUID(activation_id)
+            except ValueError as error:
+                raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
+            if str(parsed_activation_id) != activation_id:
+                raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
     if claims_enabled or smoke_enabled:
         for key in (
             "GITHUB_FORGE_REPOSITORY_ID",
@@ -436,14 +457,38 @@ def run_publication(source: Mapping[str, str]) -> None:
     )
 
 
+def run_publication_readiness(source: Mapping[str, str]) -> None:
+    """Run the read-only readiness CLI with the least-privilege publication role."""
+
+    environment = publication_environment(source)
+    if environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true":
+        raise ValueError("Production claims readiness requires claims disabled")
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        PUBLICATION_ROLE,
+        publication_password,
+    )
+    subprocess.run(
+        ["opennosh", "commons", "production-claims-readiness", "--json"],
+        check=True,
+        env=environment,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("api", "predeploy", "publication"))
+    parser.add_argument(
+        "mode", choices=("api", "predeploy", "publication", "publication-readiness")
+    )
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
         run_predeploy(os.environ)
     elif arguments.mode == "api":
         run_api(os.environ)
+    elif arguments.mode == "publication-readiness":
+        run_publication_readiness(os.environ)
     else:
         run_publication(os.environ)
     return 0

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "t33_5": {
+    "issue": 130,
+    "proof_sha256": "1b3fbf82e1b18ae0f36d8c187e1c0f63f677ac6f6ac6b859f6e1a17dc8cce47d"
+  },
+  "baseline": {
+    "source_commit": "56633741ccaa6ce8f9193830c7a733fc78935fce",
+    "public_origin": "https://opennosh.org",
+    "release_version": "1.1787978335.2679268334.4110916185",
+    "publication_id": "9fb263ee-c37f-402b-91ab-6e65f5079a59",
+    "manifest_sha256": "e72956320d7b30cb88d65c79dd0a4810a94af70a1248986fca43a61e787b9395",
+    "receipt_sha256": "1f544742a128498359336953ed1bd53277e32898c84962738d0521ddcab19cfb",
+    "pointer_key_id": "manifest-online-2026-08-27-v1"
+  },
+  "activation": {
+    "mode": "continuous",
+    "replicas": 1,
+    "claim_concurrency": 1,
+    "observation_seconds": 1800
+  },
+  "rollback": {
+    "claims_enabled": false,
+    "continuous_claims_enabled": false,
+    "activation_id_present": false,
+    "latest_refresh_enabled": true,
+    "recovery_seconds": 300
+  }
+}

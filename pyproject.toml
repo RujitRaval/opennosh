@@ -79,6 +79,7 @@ packages = ["api/opennosh_api"]
 "schemas/food-pack.schema.json" = "opennosh_api/foodpacks/food-pack.schema.json"
 "config/database-capacity.v1.json" = "opennosh_api/database-capacity.v1.json"
 "config/federation-failure-drills.v1.json" = "opennosh_api/federation-failure-drills.v1.json"
+"config/publication-claims-activation.v1.json" = "opennosh_api/publication-claims-activation.v1.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -86,6 +87,7 @@ include = [
   "schemas/food-pack.schema.json",
   "config/database-capacity.v1.json",
   "config/federation-failure-drills.v1.json",
+  "config/publication-claims-activation.v1.json",
   "AUTHORS.md",
   "LICENSE",
   "LICENSES.md",
