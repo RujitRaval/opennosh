@@ -122,7 +122,7 @@ class ProductionPublicationObjectSources:
 class ProductionPublicationRuntime:
     """Validated, immutable publication wiring constructed before database access."""
 
-    activation_id: UUID
+    activation_id: UUID | None
     adapters: Mapping[PublicationStepName, PublicationEffectAdapter]
 
     def __post_init__(self) -> None:
@@ -137,8 +137,7 @@ class ProductionPublicationRuntime:
             if extra:
                 details.append(f"extra={','.join(extra)}")
             raise RuntimeError(
-                "Production publication adapter registry is invalid: "
-                + "; ".join(details)
+                "Production publication adapter registry is invalid: " + "; ".join(details)
             )
         normalized = dict(self.adapters)
         for step, adapter in normalized.items():
@@ -161,7 +160,7 @@ class ProductionPublicationRuntime:
     def build(
         cls,
         *,
-        activation_id: UUID,
+        activation_id: UUID | None,
         commit_record: PublicationEffectAdapter,
         copy_commit: PublicationEffectAdapter,
         copy_evidence: PublicationEffectAdapter,
@@ -209,7 +208,9 @@ class ProductionPublicationRuntime:
         activation_id = settings.publication_activation_id
         if zero_claim_preflight:
             activation_id = UUID(int=0)
-        if activation_id is None:
+        if activation_id is None and not getattr(
+            settings, "publication_continuous_claims_enabled", False
+        ):
             raise RuntimeError("Production publication runtime requires one activation ID")
         if settings.publication_artifact_bucket != clients.identity.artifact_bucket:
             raise RuntimeError("Publication client identity does not match configured R2 bucket")
@@ -264,9 +265,7 @@ class ProductionPublicationRuntime:
             key_ring=clients.receipt_key_ring,
             clock=clock,
             object_key_factory=(
-                lambda _publication_id, digest: (
-                    f"durability/receipts/{digest}.json"
-                )
+                lambda _publication_id, digest: f"durability/receipts/{digest}.json"
             ),
         )
         return cls.build(
@@ -289,9 +288,7 @@ class ProductionPublicationRuntime:
                 key_ring=clients.receipt_key_ring,
                 clock=clock,
                 object_key_factory=(
-                    lambda publication_id: (
-                        f"signatures/receipts/v1/{publication_id}.json"
-                    )
+                    lambda publication_id: f"signatures/receipts/v1/{publication_id}.json"
                 ),
             ),
             publish_receipt_registry=ReceiptReplicationAdapter(
@@ -304,9 +301,7 @@ class ProductionPublicationRuntime:
                 receipt_copy=receipt_copy,
                 writer=clients.r2_writer,
                 bucket=clients.identity.artifact_bucket,
-                manifest_keys=ManifestKeyRing.from_config(
-                    settings.public_commons_verifying_keys
-                ),
+                manifest_keys=ManifestKeyRing.from_config(settings.public_commons_verifying_keys),
                 receipt_keys=clients.receipt_key_ring,
                 signing_key_id=clients.identity.manifest_key_id,
                 signing_key=clients.manifest_signing_key,
@@ -345,9 +340,7 @@ class PreparedProductionPublicationRuntime:
                     settings.public_artifact_base_url,
                     timeout_seconds=settings.public_artifact_timeout_seconds,
                 ),
-                manifest_keys=ManifestKeyRing.from_config(
-                    settings.public_commons_verifying_keys
-                ),
+                manifest_keys=ManifestKeyRing.from_config(settings.public_commons_verifying_keys),
                 receipt_keys=clients.receipt_key_ring,
                 max_cached_releases=2,
             )
@@ -358,17 +351,13 @@ class PreparedProductionPublicationRuntime:
                 current_release=reader,
                 writer=clients.r2_writer,
                 bucket=clients.identity.artifact_bucket,
-                manifest_keys=ManifestKeyRing.from_config(
-                    settings.public_commons_verifying_keys
-                ),
+                manifest_keys=ManifestKeyRing.from_config(settings.public_commons_verifying_keys),
             )
             runtime = ProductionPublicationRuntime.from_production_providers(
                 settings=settings,
                 clients=clients,
                 governance_gate=gate,
-                object_sources=ProductionPublicationObjectSources.from_authority(
-                    authority
-                ),
+                object_sources=ProductionPublicationObjectSources.from_authority(authority),
                 clock=clock,
                 zero_claim_preflight=zero_claim_preflight,
             )

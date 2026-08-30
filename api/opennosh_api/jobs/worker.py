@@ -131,10 +131,7 @@ async def ensure_publication_activation_wakeup(
                 str(publication_id),
             )
             eligible = any(
-                (
-                    str(row["status"]) == "queued"
-                    and row["execute_after"] < now
-                )
+                (str(row["status"]) == "queued" and row["execute_after"] < now)
                 or (
                     str(row["status"]) == "picked"
                     and row["execute_after"] < now
@@ -209,9 +206,7 @@ async def ensure_publication_activation_wakeup(
                     existing_message.subject_id != publication_id
                     or existing_message.workflow_revision != revision
                 ):
-                    raise RuntimeError(
-                        "Activation wake-up dedupe key is bound to another message"
-                    )
+                    raise RuntimeError("Activation wake-up dedupe key is bound to another message")
                 return PublicationActivationWakeup(
                     outcome=PublicationActivationWakeupOutcome.EXISTING,
                     state=state,
@@ -317,9 +312,7 @@ async def supervise_publication_claims(
             raise RuntimeError("Publication claims loop exited before shutdown")
     finally:
         pending = [
-            task
-            for task in (drain_task, shutdown_task)
-            if task is not None and not task.done()
+            task for task in (drain_task, shutdown_task) if task is not None and not task.done()
         ]
         for task in pending:
             task.cancel()
@@ -380,6 +373,12 @@ async def create_publication_role_driver(
     try:
         manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
         budget = manifest.active_role_budget(ProcessRole.PUBLICATION)
+        claim_concurrency = getattr(configured, "publication_claim_concurrency", 1)
+        capacity_limit = getattr(budget, "max_in_flight_database_sections", claim_concurrency)
+        if claim_concurrency > capacity_limit:
+            raise ValueError(
+                "Publication claim concurrency exceeds the publication database capacity budget"
+            )
     except BaseException:
         if prepared is not None:
             await prepared.aclose()
@@ -411,6 +410,7 @@ async def create_publication_role_driver(
         if (
             configured.app_environment == "production"
             and configured.publication_claims_enabled
+            and not getattr(configured, "publication_continuous_claims_enabled", False)
         ):
             activation_id = configured.publication_activation_id
             if activation_id is None:
@@ -431,8 +431,7 @@ async def create_publication_role_driver(
             )
             if wakeup.outcome is PublicationActivationWakeupOutcome.TERMINAL:
                 raise RuntimeError(
-                    "Configured publication activation is already terminal: "
-                    f"{wakeup.state.value}"
+                    f"Configured publication activation is already terminal: {wakeup.state.value}"
                 )
         return _assemble_publication_role_driver(
             configured=configured,
@@ -458,9 +457,7 @@ def _assemble_publication_role_driver(
 ) -> PgQueuerRoleDriver:
     driver = AsyncpgPoolDriver(pool)
     activation_id = (
-        configured.publication_activation_id
-        if configured.publication_claims_enabled
-        else None
+        configured.publication_activation_id if configured.publication_claims_enabled else None
     )
     queue = PgQueuer(
         connection=driver,
@@ -475,7 +472,7 @@ def _assemble_publication_role_driver(
 
     @queue.entrypoint(
         PUBLICATION_ENTRYPOINT,
-        concurrency_limit=max(1, budget.max_in_flight_database_sections),
+        concurrency_limit=getattr(configured, "publication_claim_concurrency", 1),
         on_failure="hold",
     )
     async def publication_wakeup(job: Job) -> None:

@@ -323,13 +323,9 @@ async def test_production_claims_build_live_registry_before_pool_and_own_resourc
     settings = SimpleNamespace(
         app_environment="production",
         publication_claims_enabled=True,
-        publication_activation_id=UUID(
-            "00000000-0000-4000-8000-000000000001"
-        ),
+        publication_activation_id=UUID("00000000-0000-4000-8000-000000000001"),
         database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
-        process_database_url=lambda _role: (
-            "postgresql+asyncpg://publication:secret@db/opennosh"
-        ),
+        process_database_url=lambda _role: "postgresql+asyncpg://publication:secret@db/opennosh",
     )
 
     driver = await create_publication_role_driver(cast(Any, settings))
@@ -342,6 +338,73 @@ async def test_production_claims_build_live_registry_before_pool_and_own_resourc
     ]
     await driver.close()
     assert lifecycle[-2:] == ["pool:close", "providers:close"]
+
+
+@pytest.mark.asyncio
+async def test_continuous_claims_skip_single_activation_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = complete_registry()
+
+    class Pool:
+        async def close(self) -> None:
+            return None
+
+    pool = Pool()
+
+    class Prepared:
+        runtime = SimpleNamespace(adapters=registry)
+
+        def bind_pool(self, supplied_pool: object) -> object:
+            assert supplied_pool is pool
+            return registry
+
+        async def aclose(self) -> None:
+            return None
+
+    async def prepare(_settings: object, *, clock: object) -> Prepared:
+        assert callable(clock)
+        return Prepared()
+
+    async def create_pool(**_arguments: object) -> Pool:
+        return pool
+
+    async def forbidden_wakeup(*_arguments: object, **_options: object) -> None:
+        raise AssertionError("continuous claims attempted single-activation recovery")
+
+    sentinel = object()
+
+    def assemble(**arguments: object) -> object:
+        assert arguments["pool"] is pool
+        assert arguments["adapters"] is registry
+        return sentinel
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
+        prepare,
+    )
+    monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", create_pool)
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.ensure_publication_activation_wakeup",
+        forbidden_wakeup,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker._assemble_publication_role_driver",
+        assemble,
+    )
+    settings = SimpleNamespace(
+        app_environment="production",
+        publication_claims_enabled=True,
+        publication_continuous_claims_enabled=True,
+        publication_claim_concurrency=1,
+        publication_activation_id=None,
+        database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
+        process_database_url=lambda _role: "postgresql+asyncpg://publication:secret@db/opennosh",
+    )
+
+    driver = await create_publication_role_driver(cast(Any, settings))
+
+    assert driver is sentinel
 
 
 @pytest.mark.parametrize(
@@ -429,9 +492,7 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
                 else PublicationActivationWakeupOutcome.EXISTING
             ),
             state=(
-                PublicationState.PUBLISHED
-                if failure == "terminal"
-                else PublicationState.PENDING
+                PublicationState.PUBLISHED if failure == "terminal" else PublicationState.PENDING
             ),
             workflow_revision=0,
             active_jobs=1,
@@ -464,14 +525,10 @@ async def test_production_claim_startup_failure_closes_every_created_resource(
         app_environment="production",
         publication_claims_enabled=True,
         publication_activation_id=(
-            None
-            if failure == "activation"
-            else UUID("00000000-0000-4000-8000-000000000001")
+            None if failure == "activation" else UUID("00000000-0000-4000-8000-000000000001")
         ),
         database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
-        process_database_url=lambda _role: (
-            "postgresql+asyncpg://publication:secret@db/opennosh"
-        ),
+        process_database_url=lambda _role: "postgresql+asyncpg://publication:secret@db/opennosh",
     )
 
     with pytest.raises(RuntimeError, match=failure):
