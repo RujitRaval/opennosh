@@ -28,8 +28,8 @@
     }
   },
   "classifiers": {
-    "trust_protocol": [".github/workflows/**", "api/opennosh_api/evidence/**", "api/opennosh_api/governance/**", "api/opennosh_api/jobs/**", "api/opennosh_api/publication/**", "api/tests/workflow_testkit/**", "config/forge-policy.v1.json", "config/trust-gate*.json", "scripts/check_trust_gates.py"],
-    "security_policy": [".github/workflows/**", "api/opennosh_api/auth/**", "api/opennosh_api/settings.py", "api/opennosh_api/publication/forge/**", "config/forge-policy.v1.json"],
+    "trust_protocol": [".github/workflows/**", "api/opennosh_api/evidence/**", "api/opennosh_api/federation/**", "api/opennosh_api/governance/**", "api/opennosh_api/jobs/**", "api/opennosh_api/publication/**", "api/tests/federation/**", "api/tests/workflow_testkit/**", "config/federation-failure-drills.v1.json", "config/forge-policy.v1.json", "config/trust-gate*.json", "scripts/build_federation_failure_drill_report.py", "scripts/check_trust_gates.py"],
+    "security_policy": [".github/workflows/**", "api/opennosh_api/auth/**", "api/opennosh_api/federation/**", "api/opennosh_api/settings.py", "api/opennosh_api/publication/forge/**", "api/tests/federation/**", "config/federation-failure-drills.v1.json", "config/forge-policy.v1.json"],
     "production": ["api/opennosh_api/**", "web/app/**", "web/components/**", "web/lib/**"]
   },
   "coverage": {
@@ -72,6 +72,7 @@
     "signer_registry": "api/tests/publication/test_receipts.py",
     "backup_restore": "api/tests/workflow_testkit/test_publication_matrix.py",
     "paired_outages": "api/tests/publication/test_reconciliation_integration.py",
+    "federation_failure_matrix": "api/tests/federation",
     "representative_load": "api/tests/foods/test_search_integration.py::test_representative_search_meets_the_explain_plan_budget + api/tests/test_database_capacity_integration.py::test_mixed_load_stays_inside_pool_and_recovers_after_saturation",
     "ocr": "not-supported-in-first-vertical"
   },

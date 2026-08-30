@@ -776,6 +776,7 @@ diagnostic reruns only collect evidence. See [Testing](docs/testing.md#risk-tier
 | `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
 | `docs/operations/governed-forge.md` | Steward approval, protected-merge trust boundary, two-App permissions, activation, intervention, and recovery runbook | Operators + security reviewers |
+| `docs/operations/render-production.md` | Render deployment, isolated worker credentials, publication activation, federation enrollment, and live failure-drill ceremonies | Operators + security reviewers |
 | `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
 | `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
 | `docs/designs/t22-living-commons-reference-evidence.md` | Refreshed Living Commons reference acceptance map, responsive audit, and source hashes | Designers + release reviewers |
