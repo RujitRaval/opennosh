@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.67.0.0] - 2026-08-30
+
+### Added
+
+- Add an explicit continuous publication-claims mode, bounded claim concurrency, and a deterministic
+  read-only production readiness report pinned to the T33.5 proof and last verified public release.
+- Add the non-secret activation candidate contract, Render readiness wrapper, and digest-bound
+  operator approval ceremony with a 30-minute canary and five-minute rollback objective.
+
+### Security
+
+- Keep production claims disabled in the committed blueprint and reject every ambiguous combination
+  of master claims, continuous claims, and single-activation IDs before external I/O.
+- Require concurrency one, zero picked work, complete isolated credentials, an exact deployed commit,
+  and a new approval for every changed readiness digest before production activation.
+
 ## [0.66.0.0] - 2026-08-29
 
 ### Added
