@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -10,8 +11,10 @@ import pytest
 from opennosh_api.capacity import ProcessRole
 from opennosh_api.jobs.contracts import JobLane, JobMessage
 from opennosh_api.jobs.pgqueuer import encode_message
+from opennosh_api.publication import readiness as readiness_module
 from opennosh_api.publication.readiness import (
     build_production_claims_readiness,
+    default_activation_contract_path,
     load_activation_contract,
     readiness_digest,
 )
@@ -28,10 +31,15 @@ class FakeReadinessConnection:
         picked: bool = False,
         payload: bytes | None = None,
         queue_state: str | None = None,
+        job_type: str = "publication.wake",
+        intent_state: str = "pending",
+        federation_state: str | None = None,
     ) -> None:
         message = JobMessage(
-            lane=JobLane.PUBLICATION,
-            job_type="publication.wake",
+            lane=(
+                JobLane.EVIDENCE if job_type == "evidence.preserve" else JobLane.PUBLICATION
+            ),
+            job_type=job_type,
             subject_id=uuid4(),
             idempotency_key="readiness:test:wakeup",
             workflow_revision=0,
@@ -44,6 +52,8 @@ class FakeReadinessConnection:
                 "payload": payload if payload is not None else encode_message(message),
             }
         ]
+        self.intent_state = intent_state
+        self.federation_state = federation_state
         self.queries: list[str] = []
 
     async def fetch(self, query: str, *_arguments: object) -> list[dict[str, Any]]:
@@ -53,8 +63,10 @@ class FakeReadinessConnection:
         if "FROM opennosh_pgqueuer" in query:
             return self.active
         if "FROM publication_intents" in query:
-            return [{"state": "pending", "count": 1}]
+            return [{"state": self.intent_state, "count": 1}]
         if "FROM federation_maintainers" in query:
+            if self.federation_state is not None:
+                return [{"state": self.federation_state, "count": 1}]
             return [
                 {"state": "active", "count": 1},
                 {"state": "quarantined", "count": 1},
@@ -284,3 +296,190 @@ def test_activation_contract_pins_disabled_rollback_and_concurrency_one() -> Non
     assert contract.activation.claim_concurrency == 1
     assert contract.rollback.claims_enabled is False
     assert contract.rollback.latest_refresh_enabled is True
+
+
+def test_default_activation_contract_path_prefers_packaged_copy(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    packaged = tmp_path / "publication-claims-activation.v1.json"
+    packaged.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(readiness_module.resources, "files", lambda _package: tmp_path)
+
+    assert default_activation_contract_path() == packaged
+
+
+def test_default_activation_contract_path_falls_back_to_repository_config(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(readiness_module.resources, "files", lambda _package: tmp_path)
+
+    assert default_activation_contract_path() == (
+        Path(readiness_module.__file__).resolve().parents[3]
+        / "config/publication-claims-activation.v1.json"
+    )
+
+
+def test_postgres_dsn_normalizes_async_driver_and_rejects_other_backends() -> None:
+    assert readiness_module._postgres_dsn(
+        "postgresql+asyncpg://publication@db/opennosh"
+    ) == "postgresql://publication@db/opennosh"
+
+    with pytest.raises(ValueError, match="requires PostgreSQL"):
+        readiness_module._postgres_dsn("sqlite:///tmp/opennosh.db")
+
+
+@pytest.mark.asyncio
+async def test_readiness_rejects_a_naive_observation_before_database_access() -> None:
+    class ForbiddenConnection:
+        async def fetch(self, _query: str, *_arguments: object) -> list[dict[str, Any]]:
+            raise AssertionError("naive observation reached the database")
+
+    with pytest.raises(ValueError, match="timezone"):
+        await build_production_claims_readiness(
+            ForbiddenConnection(),
+            _settings(),
+            load_activation_contract(ROOT / "config/publication-claims-activation.v1.json"),
+            observed_at=datetime(2026, 8, 30, 18),
+        )
+
+
+@pytest.mark.asyncio
+async def test_readiness_blocks_capacity_contract_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Manifest:
+        def active_role_budget(self, _role: ProcessRole) -> object:
+            return SimpleNamespace(max_in_flight_database_sections=0, replicas=2)
+
+    monkeypatch.setattr(readiness_module, "load_capacity_manifest", lambda _path: Manifest())
+    monkeypatch.setattr(
+        readiness_module,
+        "validate_publication_claim_credentials",
+        lambda _settings: object(),
+    )
+
+    report = await build_production_claims_readiness(
+        FakeReadinessConnection(),
+        _settings(),
+        load_activation_contract(ROOT / "config/publication-claims-activation.v1.json"),
+        observed_at=OBSERVED_AT,
+    )
+
+    assert report["status"] == "blocked"
+    assert "claim_concurrency_exceeds_capacity" in report["failures"]
+    assert "publication_replica_count_not_pinned" in report["failures"]
+
+
+@pytest.mark.parametrize(
+    ("connection", "failure"),
+    [
+        (
+            FakeReadinessConnection(job_type="evidence.preserve"),
+            "unexpected_active_queue_job_type",
+        ),
+        (
+            FakeReadinessConnection(intent_state="unknown"),
+            "unknown_publication_state",
+        ),
+        (
+            FakeReadinessConnection(federation_state="unknown"),
+            "unknown_federation_state",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_readiness_blocks_unknown_active_work_and_domain_states(
+    monkeypatch: pytest.MonkeyPatch,
+    connection: FakeReadinessConnection,
+    failure: str,
+) -> None:
+    monkeypatch.setattr(
+        readiness_module,
+        "validate_publication_claim_credentials",
+        lambda _settings: object(),
+    )
+
+    report = await build_production_claims_readiness(
+        connection,
+        _settings(),
+        load_activation_contract(ROOT / "config/publication-claims-activation.v1.json"),
+        observed_at=OBSERVED_AT,
+    )
+
+    assert report["status"] == "blocked"
+    assert failure in report["failures"]
+
+
+@pytest.mark.parametrize("build_fails", [False, True])
+@pytest.mark.asyncio
+async def test_collect_readiness_uses_default_contract_and_always_closes_connection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    build_fails: bool,
+) -> None:
+    contract = load_activation_contract(ROOT / "config/publication-claims-activation.v1.json")
+    resolved_contract = tmp_path / "packaged-activation.json"
+    closed = False
+    observed: list[datetime] = []
+
+    class Connection:
+        async def close(self) -> None:
+            nonlocal closed
+            closed = True
+
+    connection = Connection()
+
+    async def connect(dsn: str) -> Connection:
+        assert dsn == "postgresql://publication@db/opennosh"
+        return connection
+
+    async def build(
+        supplied_connection: object,
+        supplied_settings: object,
+        supplied_contract: object,
+        *,
+        observed_at: datetime,
+    ) -> dict[str, object]:
+        assert supplied_connection is connection
+        assert supplied_settings is settings
+        assert supplied_contract is contract
+        observed.append(observed_at)
+        if build_fails:
+            raise RuntimeError("readiness build failed")
+        return {"status": "ready"}
+
+    def load(path: str | Path) -> object:
+        assert Path(path) == resolved_contract
+        return contract
+
+    monkeypatch.setattr(
+        readiness_module,
+        "default_activation_contract_path",
+        lambda: resolved_contract,
+    )
+    monkeypatch.setattr(readiness_module, "load_activation_contract", load)
+    monkeypatch.setattr(readiness_module.asyncpg, "connect", connect)
+    monkeypatch.setattr(readiness_module, "build_production_claims_readiness", build)
+    settings = SimpleNamespace(
+        publication_claims_activation_contract_path=Path(
+            "config/publication-claims-activation.v1.json"
+        ),
+        process_database_url=lambda role: (
+            "postgresql+asyncpg://publication@db/opennosh"
+            if role is ProcessRole.PUBLICATION
+            else ""
+        ),
+    )
+
+    if build_fails:
+        with pytest.raises(RuntimeError, match="readiness build failed"):
+            await readiness_module.collect_production_claims_readiness(settings)
+    else:
+        assert await readiness_module.collect_production_claims_readiness(settings) == {
+            "status": "ready"
+        }
+
+    assert closed is True
+    assert observed and observed[0].tzinfo is UTC

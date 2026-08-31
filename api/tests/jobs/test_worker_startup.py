@@ -793,3 +793,55 @@ async def test_claims_construction_failure_closes_prepared_refresh_service(
         )
 
     assert service.closed is True
+
+
+@pytest.mark.asyncio
+async def test_claim_concurrency_above_capacity_fails_before_pool_and_closes_providers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lifecycle: list[str] = []
+
+    class Prepared:
+        runtime = SimpleNamespace(adapters=complete_registry())
+
+        async def aclose(self) -> None:
+            lifecycle.append("providers:close")
+
+    async def prepare(_settings: object, *, clock: object) -> Prepared:
+        assert callable(clock)
+        return Prepared()
+
+    class Manifest:
+        deployment_id = "test"
+
+        def active_role_budget(self, _role: object) -> object:
+            return SimpleNamespace(
+                pool_size=1,
+                acquisition_timeout_ms=1000,
+                statement_timeout_ms=1000,
+                max_in_flight_database_sections=0,
+            )
+
+    async def forbidden_pool(**_arguments: object) -> None:
+        raise AssertionError("capacity violation opened a database pool")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.PreparedProductionPublicationRuntime.from_settings",
+        prepare,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.load_capacity_manifest",
+        lambda _path: Manifest(),
+    )
+    monkeypatch.setattr("opennosh_api.jobs.worker.asyncpg.create_pool", forbidden_pool)
+    settings = SimpleNamespace(
+        app_environment="production",
+        publication_claims_enabled=True,
+        publication_claim_concurrency=1,
+        database_capacity_manifest_path=ROOT / "config/database-capacity.v1.json",
+    )
+
+    with pytest.raises(ValueError, match="exceeds the publication database capacity"):
+        await create_publication_role_driver(cast(Any, settings))
+
+    assert lifecycle == ["providers:close"]
