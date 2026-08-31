@@ -50,9 +50,7 @@ def _refresh_settings(**overrides: object) -> Settings:
         "online_manifest_signing_key_id": "manifest-online",
         "online_manifest_signing_key": encoded_online_key,
         "online_receipt_signing_key_id": "receipt-production",
-        "online_receipt_signing_key": (
-            base64.urlsafe_b64encode(b"r" * 32).decode().rstrip("=")
-        ),
+        "online_receipt_signing_key": (base64.urlsafe_b64encode(b"r" * 32).decode().rstrip("=")),
         "github_forge_repository_id": 1,
         "github_forge_app_id": 2,
         "github_forge_installation_id": 3,
@@ -121,9 +119,7 @@ def test_refresh_only_settings_require_independent_online_and_offline_keys() -> 
     shared = public_key_text(ONLINE_MANIFEST_KEY)
     with pytest.raises(ValidationError, match="independent from offline"):
         _refresh_settings(
-            public_commons_verifying_keys=(
-                f"manifest-offline:{shared},manifest-online:{shared}"
-            )
+            public_commons_verifying_keys=(f"manifest-offline:{shared},manifest-online:{shared}")
         )
 
 
@@ -131,9 +127,7 @@ def test_refresh_only_settings_compare_decoded_manifest_key_material() -> None:
     shared = public_key_text(ONLINE_MANIFEST_KEY)
     with pytest.raises(ValidationError, match="independent from offline"):
         _refresh_settings(
-            public_commons_verifying_keys=(
-                f"manifest-offline:{shared}=,manifest-online:{shared}"
-            )
+            public_commons_verifying_keys=(f"manifest-offline:{shared}=,manifest-online:{shared}")
         )
 
 
@@ -149,9 +143,7 @@ def test_refresh_only_settings_compare_decoded_receipt_key_material() -> None:
     shared = public_key_text(ONLINE_MANIFEST_KEY)
     with pytest.raises(ValidationError, match="independent from offline"):
         _refresh_settings(
-            publication_receipt_verifying_keys=json.dumps(
-                {"receipt-production": shared + "="}
-            )
+            publication_receipt_verifying_keys=json.dumps({"receipt-production": shared + "="})
         )
 
 
@@ -216,8 +208,7 @@ def test_production_publication_worker_requires_one_runtime_mode() -> None:
         "not-a-uuid",
         "00000000-0000-4000-8000-000000000001,",
         " 00000000-0000-4000-8000-000000000001",
-        "00000000-0000-4000-8000-000000000001,"
-        "00000000-0000-4000-8000-000000000002",
+        "00000000-0000-4000-8000-000000000001,00000000-0000-4000-8000-000000000002",
         "aaaaaaaa-0000-4000-8000-000000000001".upper(),
     ],
 )
@@ -246,9 +237,37 @@ def test_combined_claims_and_refresh_accept_one_activation_id() -> None:
         publication_activation_ids="00000000-0000-4000-8000-000000000001",
     )
 
-    assert str(settings.publication_activation_id) == (
-        "00000000-0000-4000-8000-000000000001"
+    assert str(settings.publication_activation_id) == ("00000000-0000-4000-8000-000000000001")
+
+
+def test_continuous_claims_are_explicit_and_have_no_activation_id() -> None:
+    settings = _refresh_settings(
+        publication_claims_enabled=True,
+        publication_continuous_claims_enabled=True,
+        publication_claim_concurrency=1,
     )
+
+    assert settings.publication_continuous_claims_enabled is True
+    assert settings.publication_activation_id is None
+
+
+def test_continuous_claims_require_master_claim_switch() -> None:
+    with pytest.raises(ValidationError, match="require claims to be enabled"):
+        _refresh_settings(publication_continuous_claims_enabled=True)
+
+
+def test_continuous_claims_reject_single_activation_id() -> None:
+    with pytest.raises(ValidationError, match="require PUBLICATION_ACTIVATION_IDS"):
+        _refresh_settings(
+            publication_claims_enabled=True,
+            publication_continuous_claims_enabled=True,
+            publication_activation_ids="00000000-0000-4000-8000-000000000001",
+        )
+
+
+def test_publication_claim_concurrency_must_be_positive() -> None:
+    with pytest.raises(ValidationError, match="greater than 0"):
+        _refresh_settings(publication_claim_concurrency=0)
 
 
 def test_preactivation_smoke_accepts_complete_credentials_without_claims_or_database() -> None:

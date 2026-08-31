@@ -61,17 +61,12 @@ class ManifestSource:
     identity = "production-manifest"
     version = "1.0"
 
-    async def materialize_manifest(
-        self, _intent: EffectIntent
-    ) -> PublicReadReleaseManifest:
+    async def materialize_manifest(self, _intent: EffectIntent) -> PublicReadReleaseManifest:
         raise AssertionError("runtime construction must not call providers")
 
 
 def _runtime() -> ProductionPublicationRuntime:
-    adapters = {
-        step: Adapter(f"production:{step.value}")
-        for step in PublicationStepName
-    }
+    adapters = {step: Adapter(f"production:{step.value}") for step in PublicationStepName}
     return ProductionPublicationRuntime.build(
         activation_id=uuid4(),
         commit_record=adapters[PublicationStepName.COMMIT_RECORD],
@@ -82,9 +77,7 @@ def _runtime() -> ProductionPublicationRuntime:
         copy_release=adapters[PublicationStepName.COPY_RELEASE],
         confirm_registry=adapters[PublicationStepName.CONFIRM_REGISTRY],
         sign_receipt=adapters[PublicationStepName.SIGN_RECEIPT],
-        publish_receipt_registry=adapters[
-            PublicationStepName.PUBLISH_RECEIPT_REGISTRY
-        ],
+        publish_receipt_registry=adapters[PublicationStepName.PUBLISH_RECEIPT_REGISTRY],
         copy_receipt=adapters[PublicationStepName.COPY_RECEIPT],
     )
 
@@ -93,9 +86,7 @@ def test_production_runtime_builds_exact_canonical_registry() -> None:
     runtime = _runtime()
 
     assert tuple(runtime.adapters) == tuple(PublicationStepName)
-    assert {
-        adapter.identity for adapter in runtime.adapters.values()
-    } == {
+    assert {adapter.identity for adapter in runtime.adapters.values()} == {
         f"production:{step.value}" for step in PublicationStepName
     }
 
@@ -130,12 +121,15 @@ async def test_deferred_governance_gate_binds_once_and_forwards_both_operations(
 
     gate.bind(cast(GovernanceGate, Delegate()))
     assert await gate.binding_for(publication_id) is binding
-    assert await gate.authorize_merge(
-        publication_id,
-        head_commit="a" * 40,
-        expected_payload_digest="b" * 64,
-        now=datetime(2026, 8, 28, 1, tzinfo=UTC),
-    ) is binding
+    assert (
+        await gate.authorize_merge(
+            publication_id,
+            head_commit="a" * 40,
+            expected_payload_digest="b" * 64,
+            now=datetime(2026, 8, 28, 1, tzinfo=UTC),
+        )
+        is binding
+    )
     with pytest.raises(RuntimeError, match="already bound"):
         gate.bind(cast(GovernanceGate, Delegate()))
 
@@ -227,9 +221,7 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
             publication_claims_enabled=False,
             publication_activation_id=None,
             publication_artifact_bucket="opennosh-public-commons",
-            public_commons_verifying_keys=(
-                f"manifest-online:{public_key_text(manifest_key)}"
-            ),
+            public_commons_verifying_keys=(f"manifest-online:{public_key_text(manifest_key)}"),
             latest_pointer_lifetime_seconds=82_800,
         ),
     )
@@ -249,8 +241,7 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
         "opennosh-governed-forge"
     )
     assert runtime.adapters[PublicationStepName.SIGN_RELEASE].identity == (
-        "opennosh.r2.sign_release."
-        "opennosh.ed25519-release-signer.production-manifest"
+        "opennosh.r2.sign_release.opennosh.ed25519-release-signer.production-manifest"
     )
     assert runtime.adapters[PublicationStepName.COPY_RECEIPT].identity == (
         "opennosh.receipt-gated-pointer-activation"
@@ -263,9 +254,7 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
                 publication_claims_enabled=True,
                 publication_activation_id=activation_id,
                 publication_artifact_bucket="opennosh-public-commons",
-                public_commons_verifying_keys=(
-                    f"manifest-online:{public_key_text(manifest_key)}"
-                ),
+                public_commons_verifying_keys=(f"manifest-online:{public_key_text(manifest_key)}"),
                 latest_pointer_lifetime_seconds=82_800,
             ),
         ),
@@ -276,6 +265,25 @@ def test_production_provider_factory_constructs_all_ten_without_provider_calls()
     )
     assert armed.activation_id == activation_id
     assert tuple(armed.adapters) == tuple(PublicationStepName)
+    continuous = ProductionPublicationRuntime.from_production_providers(
+        settings=cast(
+            Any,
+            SimpleNamespace(
+                publication_claims_enabled=True,
+                publication_continuous_claims_enabled=True,
+                publication_activation_id=None,
+                publication_artifact_bucket="opennosh-public-commons",
+                public_commons_verifying_keys=(f"manifest-online:{public_key_text(manifest_key)}"),
+                latest_pointer_lifetime_seconds=82_800,
+            ),
+        ),
+        clients=clients,
+        governance_gate=cast(GovernanceGate, SimpleNamespace()),
+        object_sources=sources,
+        clock=lambda: datetime(2026, 8, 28, 1, tzinfo=UTC),
+    )
+    assert continuous.activation_id is None
+    assert tuple(continuous.adapters) == tuple(PublicationStepName)
 
 
 def test_production_provider_factory_rejects_unarmed_or_mismatched_runtime() -> None:

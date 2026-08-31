@@ -85,6 +85,10 @@ services:
           envVarKey: PUBLICATION_DATABASE_PASSWORD
       - key: PUBLICATION_CLAIMS_ENABLED
         value: "false"
+      - key: PUBLICATION_CONTINUOUS_CLAIMS_ENABLED
+        value: "false"
+      - key: PUBLICATION_CLAIM_CONCURRENCY
+        value: "1"
       - key: PUBLICATION_PREACTIVATION_SMOKE_ENABLED
         value: "false"
       - key: LATEST_REFRESH_ENABLED

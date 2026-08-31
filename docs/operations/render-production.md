@@ -615,6 +615,74 @@ a healthy refresh-only worker, unchanged public identity, all protected checks g
 operator approval. The code PR, scheduled synthetic matrix, or a partial live report cannot satisfy
 that gate.
 
+### T33.6 bounded continuous-claims activation gate
+
+T33.6 adds the ability to claim every eligible publication wake-up, but it does not enable that
+ability. Merge and deploy the implementation with exactly this refresh-only state:
+
+```text
+PUBLICATION_CLAIMS_ENABLED=false
+PUBLICATION_CONTINUOUS_CLAIMS_ENABLED=false
+PUBLICATION_ACTIVATION_IDS absent
+PUBLICATION_CLAIM_CONCURRENCY=1
+PUBLICATION_PREACTIVATION_SMOKE_ENABLED=false
+LATEST_REFRESH_ENABLED=true
+```
+
+The only valid claim states are refresh-only, single activation with exactly one canonical UUID,
+and explicit continuous claims with no activation UUID. Any other combination must fail before a
+database pool or provider client is opened. Keep one `opennosh-publication` replica. Do not increase
+claim concurrency above one during this activation phase.
+
+After the disabled deployment is live, require a fresh healthy worker instance with no restart or
+startup-error event for five minutes. Run the ten-adapter zero-claim smoke with claims disabled,
+then open a Render Shell for only `opennosh-publication` and run:
+
+```bash
+python deploy/render_runtime.py publication-readiness
+```
+
+This wrapper derives the least-privilege publication database URL without printing it and runs
+`opennosh commons production-claims-readiness --json`. Save only the JSON report. A passing report
+has `status=ready`, an empty `failures` array, `credentials_complete=true`, `picked=0`, a valid
+`RENDER_GIT_COMMIT`, the pre-activation smoke switch off, one replica, claim concurrency one, and
+the expected T33.5 and public-release pins. Queue and federation counts may be nonzero; they are
+evidence, not identifiers. The report
+must contain no URLs with credentials, environment dumps, tokens, private keys, emails, GitHub
+logins, contribution content, or database row payloads.
+
+The `readiness_sha256` is SHA-256 over UTF-8 canonical JSON with sorted keys and compact separators,
+excluding only the `readiness_sha256` field itself. It binds the observation time, deployed commit,
+queue state, federation-state counts, runtime mode, capacity, and activation candidate. Any change
+requires a fresh report and a new approval. Post the redacted report and ask for this exact, separate
+message:
+
+```text
+I approve T33.6 production-claims activation for readiness digest <sha256>, continuous mode, concurrency 1.
+```
+
+Approval of the issue, implementation PR, disabled deployment, smoke test, or a different readiness
+digest is not activation approval. Do not change Render before the exact message exists.
+
+After approval, change only `opennosh-publication` to claims enabled, continuous claims enabled,
+activation IDs absent, concurrency one, and refresh enabled. Deploy only that worker. For 30 minutes:
+
+1. Require one live instance, no restart loop, and no startup, signature, receipt, immutable-object,
+   federation-scope, duplicate-effect, or pointer-activation error.
+2. Sample queue counts at least every five minutes. Roll back if active publication wake-ups grow on
+   three consecutive samples without matching newly accepted contributions.
+3. Verify the public origin, release lineage, manifest digest, receipt digest, and pointer key remain
+   the approved baseline or advance together through one receipt-gated publication. An older release
+   or same release version with a different manifest is pointer regression.
+4. If a natural eligible contribution exists, capture one redacted end-to-end proof. If none exists,
+   record a healthy zero-claim canary; never create synthetic production data for this proof.
+
+Rollback immediately on any stop condition. Set both claim switches false, remove activation IDs,
+keep refresh enabled, and deploy only `opennosh-publication`. Do not edit or delete queue, publication,
+governance, receipt, or federation rows. A successful rollback has a fresh live instance within five
+minutes, zero picked publication wake-ups, healthy latest refresh, all seven T33.5 public checks at
+HTTP 200, and unchanged last verified public identity.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:

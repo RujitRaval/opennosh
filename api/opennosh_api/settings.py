@@ -94,8 +94,14 @@ class Settings(BaseSettings):
     public_artifact_cache_directory: Path | None = None
     public_artifact_timeout_seconds: PositiveFloat = 3.0
     publication_claims_enabled: bool = False
+    publication_continuous_claims_enabled: bool = False
+    publication_claim_concurrency: PositiveInt = 1
     publication_preactivation_smoke_enabled: bool = False
     publication_activation_ids: str = ""
+    publication_claims_activation_contract_path: Path = Path(
+        "config/publication-claims-activation.v1.json"
+    )
+    render_git_commit: str | None = None
     latest_refresh_enabled: bool = False
     latest_refresh_interval_seconds: PositiveFloat = 3_600.0
     latest_refresh_after_seconds: PositiveInt = 72_000
@@ -304,32 +310,34 @@ class Settings(BaseSettings):
         has_publication_secrets = any(value is not None for value in publication_secret_values)
         activation_ids = self.publication_activation_ids.split(",")
         if self.publication_claims_enabled:
-            if len(activation_ids) != 1 or not activation_ids[0]:
+            if self.publication_continuous_claims_enabled:
+                if self.publication_activation_ids:
+                    raise ValueError(
+                        "Continuous publication claims require "
+                        "PUBLICATION_ACTIVATION_IDS to be absent"
+                    )
+            elif len(activation_ids) != 1 or not activation_ids[0]:
                 raise ValueError(
                     "Publication claims require exactly one PUBLICATION_ACTIVATION_IDS value"
                 )
-            try:
-                activation_id = UUID(activation_ids[0])
-            except ValueError as error:
-                raise ValueError(
-                    "PUBLICATION_ACTIVATION_IDS must contain one canonical UUID"
-                ) from error
-            if str(activation_id) != activation_ids[0]:
-                raise ValueError(
-                    "PUBLICATION_ACTIVATION_IDS must contain one canonical UUID"
-                )
+            if not self.publication_continuous_claims_enabled:
+                try:
+                    activation_id = UUID(activation_ids[0])
+                except ValueError as error:
+                    raise ValueError(
+                        "PUBLICATION_ACTIVATION_IDS must contain one canonical UUID"
+                    ) from error
+                if str(activation_id) != activation_ids[0]:
+                    raise ValueError("PUBLICATION_ACTIVATION_IDS must contain one canonical UUID")
         elif self.publication_activation_ids:
             raise ValueError("Publication activation IDs require claims to be enabled")
+        elif self.publication_continuous_claims_enabled:
+            raise ValueError("Continuous publication claims require claims to be enabled")
         if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
             if not self.publication_claims_enabled and not self.latest_refresh_enabled:
                 raise ValueError("Production publication workers require an enabled runtime mode")
-            if (
-                self.publication_preactivation_smoke_enabled
-                and self.publication_claims_enabled
-            ):
-                raise ValueError(
-                    "Publication preactivation smoke requires claims disabled"
-                )
+            if self.publication_preactivation_smoke_enabled and self.publication_claims_enabled:
+                raise ValueError("Publication preactivation smoke requires claims disabled")
             if self.publication_claims_enabled or self.publication_preactivation_smoke_enabled:
                 if not self.latest_refresh_enabled:
                     raise ValueError(
@@ -609,7 +617,7 @@ class Settings(BaseSettings):
 
     @property
     def publication_activation_id(self) -> UUID | None:
-        if not self.publication_claims_enabled:
+        if not self.publication_claims_enabled or self.publication_continuous_claims_enabled:
             return None
         return UUID(self.publication_activation_ids)
 

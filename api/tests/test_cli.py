@@ -10,6 +10,50 @@ import opennosh_api.importers.wger as standalone_wger
 import pytest
 
 
+def _claims_readiness_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(["commons", "production-claims-readiness", "--json"])
+
+
+def test_production_claims_readiness_command_parses() -> None:
+    arguments = _claims_readiness_arguments()
+
+    assert arguments.commons_command == "production-claims-readiness"
+    assert arguments.json is True
+
+
+def test_production_claims_readiness_reports_ready_digest(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def collect(_settings: object) -> dict[str, object]:
+        return {"schema_version": "1.0", "status": "ready", "readiness_sha256": "a" * 64}
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_production_claims_readiness", collect)
+
+    assert cli.run_commons_command(_claims_readiness_arguments()) == 0
+    output = capsys.readouterr()
+    assert '"readiness_sha256":' in output.out
+    assert output.err == ""
+
+
+def test_production_claims_readiness_blocks_without_leaking_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def reject(_settings: object) -> dict[str, object]:
+        raise ValueError("sensitive database configuration")
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_production_claims_readiness", reject)
+
+    assert cli.run_commons_command(_claims_readiness_arguments()) == 5
+    output = capsys.readouterr()
+    assert "configuration or database probe failed" in output.err
+    assert "sensitive" not in output.err
+    assert output.out == ""
+
+
 def test_exercise_import_command_parses_offline_paths() -> None:
     arguments = cli.build_parser().parse_args(
         ["exercises", "import-wger", "one.json", "two.json", "--batch-size", "25", "--json"]

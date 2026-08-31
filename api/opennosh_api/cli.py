@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import cast
 from uuid import UUID
 
+import asyncpg  # type: ignore[import-untyped]
 from pydantic import ValidationError
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -64,6 +65,7 @@ from opennosh_api.public.r2 import (
     WranglerR2ObjectWriter,
     publish_starter_release_to_r2,
 )
+from opennosh_api.publication.readiness import collect_production_claims_readiness
 from opennosh_api.settings import get_settings
 
 
@@ -154,6 +156,11 @@ def build_parser() -> argparse.ArgumentParser:
     resubmit.add_argument("--expected-base-commit", required=True)
     resubmit.add_argument("--reason", required=True)
     resubmit.add_argument("--json", action="store_true")
+    readiness = commons_commands.add_parser(
+        "production-claims-readiness",
+        help="Build the read-only production claims activation report",
+    )
+    readiness.add_argument("--json", action="store_true")
     add_federation_parser(commands)
     return parser
 
@@ -249,6 +256,8 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
         return _run_commit_first_contribution(arguments)
     if arguments.commons_command == "resubmit-publication":
         return _run_resubmit_publication(arguments)
+    if arguments.commons_command == "production-claims-readiness":
+        return _run_production_claims_readiness(arguments)
     try:
         if arguments.commons_command == "build-starter-release":
             inventory = build_starter_release(
@@ -528,6 +537,19 @@ def _run_resubmit_publication(arguments: argparse.Namespace) -> int:
             f"{summary['prior_publication_intent_id']}"
         )
     return 0
+
+
+def _run_production_claims_readiness(arguments: argparse.Namespace) -> int:
+    try:
+        report = asyncio.run(collect_production_claims_readiness(get_settings()))
+    except (OSError, ValueError, ValidationError, asyncpg.PostgresError):
+        print(
+            "Production claims readiness failed: configuration or database probe failed",
+            file=sys.stderr,
+        )
+        return 5
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["status"] == "ready" else 2
 
 
 def main(argv: Sequence[str] | None = None) -> int:
