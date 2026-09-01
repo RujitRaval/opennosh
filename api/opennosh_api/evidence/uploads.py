@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -9,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,9 +23,12 @@ from opennosh_api.evidence.storage import (
     EvidenceUploadStorageError,
     QuarantinedEvidenceObservation,
 )
+from opennosh_api.jobs import JobLane, JobMessage, JobQueue, JobRequest
 
 EVIDENCE_UPLOAD_MAX_BYTES = 10_485_760
 EVIDENCE_UPLOAD_TTL_SECONDS = 600
+EVIDENCE_UPLOAD_OUTSTANDING_ACCOUNT_LIMIT = 5
+EVIDENCE_UPLOAD_OUTSTANDING_DRAFT_LIMIT = 2
 SUPPORTED_EVIDENCE_UPLOAD_MEDIA_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
 
@@ -39,6 +43,15 @@ class EvidenceUploadState(StrEnum):
     FAILED = "failed"
 
 
+_OUTSTANDING_STATES = (
+    EvidenceUploadState.INITIATED,
+    EvidenceUploadState.UPLOADED,
+    EvidenceUploadState.SANITIZING,
+    EvidenceUploadState.SANITIZED,
+    EvidenceUploadState.ATTACHED,
+)
+
+
 class EvidenceUploadFailureCode(StrEnum):
     OBJECT_MISSING = "object_missing"
     SIZE_MISMATCH = "size_mismatch"
@@ -48,6 +61,16 @@ class EvidenceUploadFailureCode(StrEnum):
     CAPABILITY_INVALID = "capability_invalid"
     EXPIRED = "expired"
     STORAGE_UNAVAILABLE = "storage_unavailable"
+    SIGNATURE_MISMATCH = "signature_mismatch"
+    DECODE_FAILED = "decode_failed"
+    PIXEL_LIMIT_EXCEEDED = "pixel_limit_exceeded"
+    ANIMATION_UNSUPPORTED = "animation_unsupported"
+    METADATA_REWRITE_FAILED = "metadata_rewrite_failed"
+    SANITIZED_SIZE_EXCEEDED = "sanitized_size_exceeded"
+    MALWARE_DETECTED = "malware_detected"
+    SCANNER_UNAVAILABLE = "scanner_unavailable"
+    SANITIZED_STORAGE_UNAVAILABLE = "sanitized_storage_unavailable"
+    SANITIZED_STORAGE_CONFLICT = "sanitized_storage_conflict"
 
 
 class EvidenceUploadPolicyError(ValueError):
@@ -75,6 +98,10 @@ class EvidenceUploadSessionView:
     expires_at: datetime
     uploaded_at: datetime | None
     failure_code: EvidenceUploadFailureCode | None
+    evidence_id: UUID | None
+    sanitized_at: datetime | None
+    attached_at: datetime | None
+    preserved_at: datetime | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +125,10 @@ class EvidenceUploadExpiredError(Exception):
 
 
 class EvidenceUploadUnavailableError(Exception):
+    pass
+
+
+class EvidenceUploadQuotaError(Exception):
     pass
 
 
@@ -139,7 +170,7 @@ def hash_secret(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _session_view(record: EvidenceUploadSession) -> EvidenceUploadSessionView:
+def upload_session_view(record: EvidenceUploadSession) -> EvidenceUploadSessionView:
     failure = (
         None if record.failure_code is None else EvidenceUploadFailureCode(record.failure_code)
     )
@@ -155,6 +186,10 @@ def _session_view(record: EvidenceUploadSession) -> EvidenceUploadSessionView:
         expires_at=record.expires_at,
         uploaded_at=record.uploaded_at,
         failure_code=failure,
+        evidence_id=record.attached_evidence_id,
+        sanitized_at=record.sanitized_at,
+        attached_at=record.attached_at,
+        preserved_at=record.preserved_at,
     )
 
 
@@ -232,6 +267,8 @@ async def create_upload_session(
     now: datetime,
     ttl_seconds: int = EVIDENCE_UPLOAD_TTL_SECONDS,
     max_bytes: int = EVIDENCE_UPLOAD_MAX_BYTES,
+    outstanding_account_limit: int = EVIDENCE_UPLOAD_OUTSTANDING_ACCOUNT_LIMIT,
+    outstanding_draft_limit: int = EVIDENCE_UPLOAD_OUTSTANDING_DRAFT_LIMIT,
 ) -> EvidenceUploadCreation:
     if not 1 <= ttl_seconds <= EVIDENCE_UPLOAD_TTL_SECONDS:
         raise EvidenceUploadPolicyError("upload_ttl_out_of_range")
@@ -259,19 +296,20 @@ async def create_upload_session(
         if existing.request_hash != request_digest:
             raise EvidenceUploadConflictError
         return EvidenceUploadCreation(
-            session=_session_view(existing),
+            session=upload_session_view(existing),
             instruction=None,
             completion_capability=None,
             replayed=True,
         )
 
-    draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
+    draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id)
     if draft.draft_version != source_draft_version or draft.review_state not in {
         "draft",
         "in_review",
         "changes_requested",
     }:
         raise EvidenceUploadConflictError
+    await database.rollback()
 
     upload_id = uuid4()
     capability = issue_upload_capability()
@@ -288,6 +326,46 @@ async def create_upload_session(
     except EvidenceUploadStorageError as error:
         await database.rollback()
         raise EvidenceUploadUnavailableError from error
+    await _lock_upload_quota(database, user_id=user_id, draft_id=draft_id)
+    draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
+    if draft.draft_version != source_draft_version or draft.review_state not in {
+        "draft",
+        "in_review",
+        "changes_requested",
+    }:
+        await database.rollback()
+        raise EvidenceUploadConflictError
+    existing = (
+        await database.execute(
+            select(EvidenceUploadSession).where(
+                EvidenceUploadSession.user_id == user_id,
+                EvidenceUploadSession.draft_id == draft_id,
+                EvidenceUploadSession.idempotency_key_hash == idempotency_hash,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if existing.request_hash != request_digest:
+            await database.rollback()
+            raise EvidenceUploadConflictError
+        await database.rollback()
+        return EvidenceUploadCreation(
+            session=upload_session_view(existing),
+            instruction=None,
+            completion_capability=None,
+            replayed=True,
+        )
+    try:
+        await _enforce_upload_quota(
+            database,
+            user_id=user_id,
+            draft_id=draft_id,
+            account_limit=outstanding_account_limit,
+            draft_limit=outstanding_draft_limit,
+        )
+    except EvidenceUploadQuotaError:
+        await database.rollback()
+        raise
     record = EvidenceUploadSession(
         id=upload_id,
         user_id=user_id,
@@ -320,13 +398,13 @@ async def create_upload_session(
         if existing is None or existing.request_hash != request_digest:
             raise EvidenceUploadConflictError from None
         return EvidenceUploadCreation(
-            session=_session_view(existing),
+            session=upload_session_view(existing),
             instruction=None,
             completion_capability=None,
             replayed=True,
         )
     return EvidenceUploadCreation(
-        session=_session_view(record),
+        session=upload_session_view(record),
         instruction=instruction,
         completion_capability=capability.value,
         replayed=False,
@@ -362,13 +440,15 @@ async def complete_upload_session(
     completion_capability: str,
     now: datetime,
     max_bytes: int = EVIDENCE_UPLOAD_MAX_BYTES,
+    queue: JobQueue | None = None,
+    observation_semaphore: asyncio.Semaphore | None = None,
 ) -> EvidenceUploadSessionView:
     record = await _owned_upload(database, upload_id=upload_id, draft_id=draft_id, user_id=user_id)
     if not hmac.compare_digest(record.capability_hash, hash_secret(completion_capability)):
         raise EvidenceUploadNotFoundError
     state = EvidenceUploadState(record.state)
     if state is EvidenceUploadState.UPLOADED:
-        return _session_view(record)
+        return upload_session_view(record)
     if state is EvidenceUploadState.EXPIRED:
         raise EvidenceUploadExpiredError
     if state is not EvidenceUploadState.INITIATED:
@@ -383,7 +463,7 @@ async def complete_upload_session(
         )
         locked_state = EvidenceUploadState(locked.state)
         if locked_state is EvidenceUploadState.UPLOADED:
-            return _session_view(locked)
+            return upload_session_view(locked)
         if locked_state is EvidenceUploadState.EXPIRED:
             raise EvidenceUploadExpiredError
         if locked_state is not EvidenceUploadState.INITIATED:
@@ -399,8 +479,13 @@ async def complete_upload_session(
     object_key = record.object_key
     await database.rollback()
     try:
-        first = await broker.observe(object_key, max_bytes=max_bytes)
-        second = await broker.observe(object_key, max_bytes=max_bytes)
+        if observation_semaphore is None:
+            first = await broker.observe(object_key, max_bytes=max_bytes)
+            second = await broker.observe(object_key, max_bytes=max_bytes)
+        else:
+            async with observation_semaphore:
+                first = await broker.observe(object_key, max_bytes=max_bytes)
+                second = await broker.observe(object_key, max_bytes=max_bytes)
     except EvidenceUploadObjectTooLargeError:
         draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
         locked = await _owned_upload(
@@ -430,7 +515,7 @@ async def complete_upload_session(
         for_update=True,
     )
     if EvidenceUploadState(locked.state) is EvidenceUploadState.UPLOADED:
-        return _session_view(locked)
+        return upload_session_view(locked)
     if locked.version != snapshot_version or locked.state != EvidenceUploadState.INITIATED.value:
         raise EvidenceUploadConflictError
     if draft.draft_version != locked.source_draft_version:
@@ -455,11 +540,24 @@ async def complete_upload_session(
     locked.state = EvidenceUploadState.UPLOADED.value
     locked.observed_byte_length = first.size_bytes
     locked.observed_sha256 = first.content_digest
+    locked.observed_revision_sha256 = hashlib.sha256(
+        first.revision.encode("utf-8")
+    ).hexdigest()
     locked.uploaded_at = now
     locked.version += 1
     locked.updated_at = now
+    if queue is not None:
+        connection = await database.connection()
+        await queue.enqueue(
+            connection,
+            sanitization_request(
+                locked.id,
+                workflow_revision=locked.version,
+                run_after=now,
+            ),
+        )
     await database.commit()
-    return _session_view(locked)
+    return upload_session_view(locked)
 
 
 async def get_upload_session(
@@ -483,7 +581,52 @@ async def get_upload_session(
     ):
         _expire(record, now=now)
         await database.commit()
-    return _session_view(record)
+    return upload_session_view(record)
+
+
+async def _lock_upload_quota(
+    database: AsyncSession,
+    *,
+    user_id: UUID,
+    draft_id: UUID,
+) -> None:
+    for key in (f"evidence-upload:{user_id}", f"evidence-upload:{user_id}:{draft_id}"):
+        await database.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": key},
+        )
+
+
+async def _enforce_upload_quota(
+    database: AsyncSession,
+    *,
+    user_id: UUID,
+    draft_id: UUID,
+    account_limit: int,
+    draft_limit: int,
+) -> None:
+    if account_limit < 1 or draft_limit < 1 or draft_limit > account_limit:
+        raise EvidenceUploadPolicyError("upload_quota_out_of_range")
+    states = tuple(state.value for state in _OUTSTANDING_STATES)
+    account_count = await database.scalar(
+        select(func.count())
+        .select_from(EvidenceUploadSession)
+        .where(
+            EvidenceUploadSession.user_id == user_id,
+            EvidenceUploadSession.state.in_(states),
+        )
+    )
+    draft_count = await database.scalar(
+        select(func.count())
+        .select_from(EvidenceUploadSession)
+        .where(
+            EvidenceUploadSession.user_id == user_id,
+            EvidenceUploadSession.draft_id == draft_id,
+            EvidenceUploadSession.state.in_(states),
+        )
+    )
+    if int(account_count or 0) >= account_limit or int(draft_count or 0) >= draft_limit:
+        raise EvidenceUploadQuotaError
 
 
 def upload_request_hash(
@@ -517,3 +660,24 @@ def require_t34_1_transition(
 ) -> None:
     if target not in _T34_1_TRANSITIONS.get(current, frozenset()):
         raise EvidenceUploadPolicyError("state_transition_invalid")
+
+
+def sanitization_request(
+    upload_id: UUID,
+    *,
+    workflow_revision: int,
+    run_after: datetime,
+) -> JobRequest:
+    key = f"evidence-sanitize:{upload_id}:{workflow_revision}"
+    return JobRequest(
+        message=JobMessage(
+            lane=JobLane.EVIDENCE,
+            job_type="evidence.sanitize",
+            subject_id=upload_id,
+            workflow_revision=workflow_revision,
+            idempotency_key=key,
+        ),
+        run_after=run_after,
+        priority=9,
+        deduplication_key=key,
+    )

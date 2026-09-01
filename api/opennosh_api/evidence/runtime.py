@@ -23,15 +23,28 @@ from opennosh_api.evidence.contracts import (
     parse_manifest,
 )
 from opennosh_api.evidence.policy import verify_durability
+from opennosh_api.evidence.sanitization import (
+    DeterministicAllowEvidenceScanner,
+    EvidenceContentScanner,
+    HttpEvidenceScanner,
+)
+from opennosh_api.evidence.sanitizer_worker import (
+    EvidenceSanitizationJobError,
+    EvidenceSanitizationJobProcessor,
+    EvidenceSanitizationRepository,
+)
 from opennosh_api.evidence.signing import EvidenceSignatureError, EvidenceVerificationKeyRing
 from opennosh_api.evidence.storage import (
+    EvidenceQuarantineSource,
     EvidenceSource,
     EvidenceStore,
     ImmutableObjectConflictError,
     LocalImmutableEvidenceStore,
     LocalPrivateEvidenceSource,
+    S3EvidenceQuarantineSource,
     S3ImmutableEvidenceStore,
     S3PrivateEvidenceSource,
+    S3SanitizedEvidenceStore,
 )
 from opennosh_api.evidence.worker import (
     EvidencePreservationWorker,
@@ -120,6 +133,21 @@ class EvidenceWorkerRepository:
                     "UPDATE evidence_manifests SET public_state = $2 WHERE id = $1",
                     manifest.evidence_id,
                     public_state.value,
+                )
+                preserved_at = max(
+                    acknowledgement.verified_at for acknowledgement in acknowledgements
+                )
+                await connection.execute(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'preserved',
+                        preserved_at = GREATEST($2, attached_at, updated_at),
+                        version = version + 1,
+                        updated_at = GREATEST($2, attached_at, updated_at)
+                    WHERE attached_evidence_id = $1 AND state = 'attached'
+                    """,
+                    manifest.evidence_id,
+                    preserved_at,
                 )
                 return public_state
 
@@ -240,8 +268,35 @@ class EvidenceJobProcessor:
         )
 
 
-async def process_evidence_wakeup(processor: EvidenceJobProcessor, job: Job) -> None:
+async def process_evidence_wakeup(
+    processor: EvidenceJobProcessor,
+    job: Job,
+    *,
+    sanitizer: EvidenceSanitizationJobProcessor | None = None,
+) -> None:
     message = decode_message(job.payload)
+    if message.job_type == "evidence.sanitize":
+        if sanitizer is None or message.workflow_revision is None:
+            raise ValueError("Evidence sanitization job has no configured processor or revision")
+        try:
+            await sanitizer.process(
+                message.subject_id,
+                workflow_revision=message.workflow_revision,
+            )
+        except asyncio.CancelledError as error:
+            raise RetryRequested(
+                delay=EVIDENCE_FAILURE_RETRY_DELAY,
+                reason="evidence sanitization recovery after worker cancellation",
+            ) from error
+        except EvidenceSanitizationJobError as error:
+            if error.retryable and int(job.attempts) < EVIDENCE_MAX_UNEXPECTED_ATTEMPTS:
+                raise RetryRequested(
+                    delay=EVIDENCE_FAILURE_RETRY_DELAY,
+                    reason=f"evidence sanitization recovery after {error.failure_code.value}",
+                ) from error
+            await sanitizer.record_terminal_failure(error)
+            raise
+        return
     if message.job_type != "evidence.preserve":
         raise ValueError("Evidence worker received a non-evidence job")
     try:
@@ -278,6 +333,9 @@ async def create_evidence_role_driver(
     *,
     source: EvidenceSource | None = None,
     store: EvidenceStore | None = None,
+    quarantine_source: EvidenceQuarantineSource | None = None,
+    sanitized_store: EvidenceStore | None = None,
+    scanner: EvidenceContentScanner | None = None,
 ) -> PgQueuerRoleDriver:
     configured = settings or get_settings()
     manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
@@ -322,6 +380,57 @@ async def create_evidence_role_driver(
             store = LocalImmutableEvidenceStore(configured.evidence_immutable_directory)
         else:
             raise ValueError("Evidence worker requires an immutable destination adapter")
+    if configured.evidence_sanitization_enabled:
+        if quarantine_source is None:
+            assert configured.evidence_quarantine_endpoint is not None
+            assert configured.evidence_quarantine_region is not None
+            assert configured.evidence_quarantine_bucket is not None
+            assert configured.evidence_quarantine_access_key_id is not None
+            assert configured.evidence_quarantine_secret_access_key is not None
+            quarantine_source = S3EvidenceQuarantineSource(
+                endpoint=configured.evidence_quarantine_endpoint,
+                region=configured.evidence_quarantine_region,
+                bucket=configured.evidence_quarantine_bucket,
+                access_key_id=(
+                    configured.evidence_quarantine_access_key_id.get_secret_value()
+                ),
+                secret_access_key=(
+                    configured.evidence_quarantine_secret_access_key.get_secret_value()
+                ),
+            )
+        if sanitized_store is None:
+            assert configured.evidence_sanitized_endpoint is not None
+            assert configured.evidence_sanitized_region is not None
+            assert configured.evidence_sanitized_bucket is not None
+            assert configured.evidence_sanitized_access_key_id is not None
+            assert configured.evidence_sanitized_secret_access_key is not None
+            sanitized_store = S3SanitizedEvidenceStore(
+                endpoint=configured.evidence_sanitized_endpoint,
+                region=configured.evidence_sanitized_region,
+                bucket=configured.evidence_sanitized_bucket,
+                access_key_id=(
+                    configured.evidence_sanitized_access_key_id.get_secret_value()
+                ),
+                secret_access_key=(
+                    configured.evidence_sanitized_secret_access_key.get_secret_value()
+                ),
+                max_bytes=configured.evidence_upload_max_bytes,
+            )
+        if scanner is None:
+            if configured.evidence_scanner_adapter == "deterministic_allow":
+                scanner = DeterministicAllowEvidenceScanner()
+            elif configured.evidence_scanner_adapter == "http":
+                assert configured.evidence_scanner_endpoint is not None
+                assert configured.evidence_scanner_bearer_token is not None
+                scanner = HttpEvidenceScanner(
+                    endpoint=configured.evidence_scanner_endpoint,
+                    bearer_token=(
+                        configured.evidence_scanner_bearer_token.get_secret_value()
+                    ),
+                    timeout_seconds=configured.evidence_scanner_timeout_seconds,
+                )
+            else:
+                raise ValueError("Evidence worker requires a named scanner adapter")
     pool = await asyncpg.create_pool(
         dsn=asyncpg_dsn(configured.process_database_url(ProcessRole.EVIDENCE)),
         min_size=1,
@@ -350,6 +459,21 @@ async def create_evidence_role_driver(
             configured.evidence_verifying_keys.get_secret_value()
         ),
     )
+    sanitizer = (
+        EvidenceSanitizationJobProcessor(
+            EvidenceSanitizationRepository(pool),
+            quarantine_source,
+            sanitized_store,
+            scanner,
+            clock=lambda: datetime.now(UTC),
+            max_bytes=configured.evidence_upload_max_bytes,
+        )
+        if configured.evidence_sanitization_enabled
+        and quarantine_source is not None
+        and sanitized_store is not None
+        and scanner is not None
+        else None
+    )
 
     @queue.entrypoint(
         EVIDENCE_ENTRYPOINT,
@@ -363,7 +487,7 @@ async def create_evidence_role_driver(
         on_failure="hold",
     )
     async def evidence_preservation(job: Job) -> None:
-        await process_evidence_wakeup(processor, job)
+        await process_evidence_wakeup(processor, job, sanitizer=sanitizer)
 
     return PgQueuerRoleDriver(
         queue,

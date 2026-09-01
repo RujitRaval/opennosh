@@ -13,9 +13,11 @@ from opennosh_api.evidence.storage import (
     EvidenceUploadStorageError,
     ImmutableObjectConflictError,
     MemoryEvidenceUploadBroker,
+    S3EvidenceQuarantineSource,
     S3EvidenceUploadBroker,
     S3ImmutableEvidenceStore,
     S3PrivateEvidenceSource,
+    S3SanitizedEvidenceStore,
 )
 
 
@@ -79,8 +81,13 @@ async def test_memory_upload_broker_is_private_bounded_and_deletable() -> None:
     assert instruction.url.startswith("https://")
     assert observed is not None
     assert observed.content_digest == hashlib.sha256(b"test").hexdigest()
+    private = await broker.read(key, max_bytes=4)
+    assert private is not None
+    assert private.payload == b"test"
+    assert private.observation == observed
     await broker.delete(key)
     assert await broker.observe(key, max_bytes=4) is None
+    assert await broker.read(key, max_bytes=4) is None
 
 
 @pytest.mark.asyncio
@@ -306,6 +313,60 @@ async def test_s3_upload_delete_is_bucket_and_key_bounded() -> None:
     assert client.delete_calls == [{"Bucket": "opennosh-evidence-quarantine", "Key": key}]
 
 
+@pytest.mark.asyncio
+async def test_s3_quarantine_source_has_read_delete_but_no_upload_authority() -> None:
+    client = FakeS3Client()
+    source = S3EvidenceQuarantineSource(
+        endpoint="https://account.r2.cloudflarestorage.com",
+        region="auto",
+        bucket="opennosh-evidence-quarantine",
+        access_key_id="worker-read-access",
+        secret_access_key="worker-read-secret",
+        client=client,
+    )
+    key = "quarantine/00000000-0000-4000-8000-000000000001"
+
+    private = await source.read(key, max_bytes=100)
+    assert private is not None
+    assert private.payload == client.payload
+    assert private.observation.content_digest == hashlib.sha256(client.payload).hexdigest()
+    assert not hasattr(source, "create_upload")
+
+    await source.delete(key)
+    assert client.delete_calls == [{"Bucket": "opennosh-evidence-quarantine", "Key": key}]
+
+
+@pytest.mark.asyncio
+async def test_s3_quarantine_source_maps_missing_and_delete_failure() -> None:
+    class MissingAndFailingClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "NoSuchKey", "Message": "missing"},
+                    "ResponseMetadata": {"HTTPStatusCode": 404},
+                },
+                "GetObject",
+            )
+
+        def delete_object(self, **arguments: object) -> None:
+            del arguments
+            raise OSError("delete unavailable")
+
+    source = S3EvidenceQuarantineSource(
+        endpoint="https://account.r2.cloudflarestorage.com",
+        region="auto",
+        bucket="opennosh-evidence-quarantine",
+        access_key_id="worker-read-access",
+        secret_access_key="worker-read-secret",
+        client=MissingAndFailingClient(),
+    )
+    key = "quarantine/00000000-0000-4000-8000-000000000001"
+    assert await source.read(key, max_bytes=100) is None
+    with pytest.raises(EvidenceUploadStorageError, match="delete quarantined"):
+        await source.delete(key)
+
+
 @pytest.mark.parametrize(
     ("argument", "value", "message"),
     [
@@ -421,6 +482,29 @@ async def test_s3_immutable_store_conditionally_writes_and_independently_observe
     assert client.put_calls[0]["IfNoneMatch"] == "*"
     assert client.get_calls == [{"Bucket": "opennosh-evidence-immutable", "Key": "sha256/example"}]
     observation = await store.observe("sha256/example")
+    assert observation is not None
+    assert observation.content_digest == digest
+
+
+@pytest.mark.asyncio
+async def test_sanitized_store_has_distinct_identity_and_verified_conditional_write() -> None:
+    client = FakeS3Client()
+    store = S3SanitizedEvidenceStore(
+        endpoint="https://account.r2.cloudflarestorage.com",
+        region="auto",
+        bucket="opennosh-evidence-sanitized",
+        access_key_id="sanitized-access",
+        secret_access_key="sanitized-secret",
+        client=client,
+    )
+    payload = b"safe rewritten image"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    await store.put_immutable(f"sanitized/{digest}.png", payload, expected_digest=digest)
+
+    assert store.identity == "opennosh.s3-sanitized-evidence"
+    assert client.put_calls[0]["IfNoneMatch"] == "*"
+    observation = await store.observe(f"sanitized/{digest}.png")
     assert observation is not None
     assert observation.content_digest == digest
 

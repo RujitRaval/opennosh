@@ -242,3 +242,15 @@ same path returns the evidence ID and class, exact draft version, honest public 
 consistent `preservation_pending`, `preservation_failed`, and `preservation_failure_code` fields.
 An exhausted worker retry records a safe terminal code rather than remaining pending forever.
 Missing, incomplete, failed, stale, or tombstoned evidence cannot pass steward approval.
+
+Hosted packaging-label intake is a separate, disabled-by-default capability. An authenticated,
+CSRF-protected client creates a declaration-bound session at
+`POST /api/v1/contribution-drafts/{draft_id}/evidence-uploads`, uploads directly with the returned
+one-time HTTPS `PUT` instruction, and presents the separate completion capability to
+`POST .../{upload_id}/complete`. `GET .../{upload_id}` exposes only the safe state, declared and
+observed metadata, exact draft version, typed failure, and transition times. Once the evidence
+worker reports `sanitized`, `POST .../{upload_id}/attach` accepts the source description, rights
+acknowledgement, and redaction state and creates a server-authored sanitized-media manifest. The
+upload URL and completion capability are never returned again. Exact retries are idempotent;
+changed declarations, draft versions, attachment facts, object revisions, or owners fail closed.
+All routes are indistinguishable generic `404`s while either production gate is disabled.

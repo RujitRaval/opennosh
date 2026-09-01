@@ -1756,3 +1756,213 @@ def test_evidence_upload_migration_enforces_insert_shape_and_downgrades() -> Non
         assert "evidence_upload_sessions" not in tables
     finally:
         command.downgrade(config, "base")
+
+
+async def seed_uploaded_evidence_session(database_url: str) -> str:
+    engine = create_async_engine(database_url)
+    upload_id = "00000000-0000-4000-8000-000000000023"
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    "INSERT INTO users (email, password_hash) "
+                    "VALUES ('sanitization-migration@example.test', 'hash') RETURNING id"
+                )
+            )
+            draft_id = await connection.scalar(
+                text(
+                    "INSERT INTO contribution_drafts (user_id, client_draft_id) "
+                    "VALUES (:user_id, 'sanitization-migration') RETURNING id"
+                ),
+                {"user_id": user_id},
+            )
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO evidence_upload_sessions (
+                        id, user_id, draft_id, source_draft_version, object_key,
+                        declared_media_type, declared_byte_length, capability_hash,
+                        idempotency_key_hash, request_hash, expires_at
+                    ) VALUES (
+                        :upload_id, :user_id, :draft_id, 1,
+                        'quarantine/00000000-0000-4000-8000-000000000023',
+                        'image/png', 8, repeat('a', 64), repeat('b', 64),
+                        repeat('c', 64), now() + interval '5 minutes'
+                    )
+                    """
+                ),
+                {"upload_id": upload_id, "user_id": user_id, "draft_id": draft_id},
+            )
+            await connection.execute(
+                text(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'uploaded', observed_byte_length = 8,
+                        observed_sha256 = repeat('d', 64), uploaded_at = now(),
+                        version = version + 1, updated_at = now()
+                    WHERE id = :upload_id
+                    """
+                ),
+                {"upload_id": upload_id},
+            )
+        return upload_id
+    finally:
+        await engine.dispose()
+
+
+async def assert_evidence_sanitization_workflow(database_url: str, upload_id: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'sanitizing', version = version + 1, updated_at = now()
+                    WHERE id = :upload_id
+                    """
+                ),
+                {"upload_id": upload_id},
+            )
+
+        with pytest.raises(DBAPIError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        UPDATE evidence_upload_sessions
+                        SET state = 'sanitized', observed_byte_length = 9,
+                            sanitized_object_key = 'sanitized/' || repeat('e', 64) || '.png',
+                            sanitized_media_type = 'image/png', sanitized_byte_length = 7,
+                            sanitized_sha256 = repeat('e', 64), sanitized_width = 1,
+                            sanitized_height = 1, sanitized_at = now(),
+                            version = version + 1, updated_at = now()
+                        WHERE id = :upload_id
+                        """
+                    ),
+                    {"upload_id": upload_id},
+                )
+
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO evidence_upload_sessions (
+                            id, user_id, draft_id, source_draft_version, state, object_key,
+                            declared_media_type, declared_byte_length, capability_hash,
+                            idempotency_key_hash, request_hash, expires_at, preserved_at
+                        )
+                        SELECT '00000000-0000-4000-8000-000000000024', user_id, draft_id, 1,
+                            'initiated',
+                            'quarantine/00000000-0000-4000-8000-000000000024',
+                            'image/png', 8, repeat('1', 64), repeat('2', 64),
+                            repeat('3', 64), now() + interval '5 minutes', now()
+                        FROM evidence_upload_sessions WHERE id = :upload_id
+                        """
+                    ),
+                    {"upload_id": upload_id},
+                )
+
+        async with engine.begin() as connection:
+            row = await connection.execute(
+                text(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'sanitized',
+                        sanitized_object_key = 'sanitized/' || repeat('e', 64) || '.png',
+                        sanitized_media_type = 'image/png', sanitized_byte_length = 7,
+                        sanitized_sha256 = repeat('e', 64), sanitized_width = 1,
+                        sanitized_height = 1, sanitized_at = now(),
+                        version = version + 1, updated_at = now()
+                    WHERE id = :upload_id
+                    RETURNING draft_id, sanitized_at
+                    """
+                ),
+                {"upload_id": upload_id},
+            )
+            draft_id, sanitized_at = row.one()
+            evidence_id = await connection.scalar(
+                text(
+                    """
+                    INSERT INTO evidence_manifests (
+                        source_draft_id, source_draft_version, schema_version,
+                        evidence_class, manifest_digest, manifest_json
+                    ) VALUES (
+                        :draft_id, 1, '1.0', 'sanitized_media', repeat('f', 64), '{}'::jsonb
+                    ) RETURNING id
+                    """
+                ),
+                {"draft_id": draft_id},
+            )
+            await connection.execute(
+                text(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'attached', attached_evidence_id = :evidence_id,
+                        attached_at = :sanitized_at, version = version + 1,
+                        updated_at = :sanitized_at
+                    WHERE id = :upload_id
+                    """
+                ),
+                {
+                    "upload_id": upload_id,
+                    "evidence_id": evidence_id,
+                    "sanitized_at": sanitized_at,
+                },
+            )
+            state = await connection.scalar(
+                text(
+                    """
+                    UPDATE evidence_upload_sessions
+                    SET state = 'preserved', preserved_at = :sanitized_at,
+                        version = version + 1, updated_at = :sanitized_at
+                    WHERE id = :upload_id RETURNING state
+                    """
+                ),
+                {"upload_id": upload_id, "sanitized_at": sanitized_at},
+            )
+            assert state == "preserved"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_evidence_sanitization_migration_preserves_uploaded_rows_and_downgrades() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260831_0022")
+        upload_id = asyncio.run(seed_uploaded_evidence_session(INTEGRATION_DATABASE_URL))
+        command.upgrade(config, "20260901_0023")
+        columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    column["name"]
+                    for column in inspector.get_columns("evidence_upload_sessions")
+                },
+            )
+        )
+        assert {
+            "sanitized_object_key",
+            "sanitized_sha256",
+            "attached_evidence_id",
+            "preserved_at",
+        }.issubset(columns)
+        asyncio.run(assert_evidence_sanitization_workflow(INTEGRATION_DATABASE_URL, upload_id))
+        command.downgrade(config, "20260831_0022")
+        columns = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: {
+                    column["name"]
+                    for column in inspector.get_columns("evidence_upload_sessions")
+                },
+            )
+        )
+        assert "sanitized_object_key" not in columns
+        assert "attached_evidence_id" not in columns
+    finally:
+        command.downgrade(config, "base")

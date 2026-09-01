@@ -108,6 +108,18 @@ def test_manifest_round_trip_and_digest_are_canonical(manifest: object) -> None:
     assert manifest_digest(parsed) == _digest(canonical_manifest_bytes(parsed))
 
 
+def test_sanitized_media_normalizes_and_rejects_blank_source_descriptions() -> None:
+    media = manifests()[0]
+    reparsed = SanitizedMediaManifest.model_validate(
+        {**media.model_dump(), "source_description": "  Package label  "}
+    )
+    assert reparsed.source_description == "Package label"
+    with pytest.raises(ValueError, match="Source description cannot be blank"):
+        SanitizedMediaManifest.model_validate(
+            {**media.model_dump(), "source_description": "   "}
+        )
+
+
 @pytest.mark.parametrize(
     ("manifest", "kind", "content_digest", "expected_state"),
     [

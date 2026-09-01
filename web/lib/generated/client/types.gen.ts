@@ -921,6 +921,25 @@ export type EvidenceClass = 'sanitized_media' | 'versioned_public_dataset' | 'pu
 export type EvidencePublicState = 'evidence_preserved' | 'source_verified' | 'reference_preserved' | 'reference_only' | 'attested' | 'tombstoned';
 
 /**
+ * EvidenceUploadAttachRequest
+ */
+export type EvidenceUploadAttachRequest = {
+    redaction_state: RedactionState;
+    /**
+     * Rights Acknowledged
+     */
+    rights_acknowledged: true;
+    /**
+     * Source Description
+     */
+    source_description: string;
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+};
+
+/**
  * EvidenceUploadCompleteRequest
  */
 export type EvidenceUploadCompleteRequest = {
@@ -975,7 +994,7 @@ export type EvidenceUploadCreateResponse = {
 /**
  * EvidenceUploadFailureCode
  */
-export type EvidenceUploadFailureCode = 'object_missing' | 'size_mismatch' | 'size_exceeded' | 'media_type_mismatch' | 'object_changed' | 'capability_invalid' | 'expired' | 'storage_unavailable';
+export type EvidenceUploadFailureCode = 'object_missing' | 'size_mismatch' | 'size_exceeded' | 'media_type_mismatch' | 'object_changed' | 'capability_invalid' | 'expired' | 'storage_unavailable' | 'signature_mismatch' | 'decode_failed' | 'pixel_limit_exceeded' | 'animation_unsupported' | 'metadata_rewrite_failed' | 'sanitized_size_exceeded' | 'malware_detected' | 'scanner_unavailable' | 'sanitized_storage_unavailable' | 'sanitized_storage_conflict';
 
 /**
  * EvidenceUploadInstructionResponse
@@ -1002,9 +1021,17 @@ export type EvidenceUploadInstructionResponse = {
  */
 export type EvidenceUploadSessionResponse = {
     /**
+     * Attached At
+     */
+    attached_at?: string | null;
+    /**
      * Declared Byte Length
      */
     declared_byte_length: number;
+    /**
+     * Evidence Id
+     */
+    evidence_id?: string | null;
     /**
      * Expires At
      */
@@ -1022,6 +1049,14 @@ export type EvidenceUploadSessionResponse = {
      * Observed Sha256
      */
     observed_sha256: string | null;
+    /**
+     * Preserved At
+     */
+    preserved_at?: string | null;
+    /**
+     * Sanitized At
+     */
+    sanitized_at?: string | null;
     /**
      * Source Draft Version
      */
@@ -4644,6 +4679,80 @@ export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploa
 };
 
 export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponse = ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponses[keyof ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponses];
+
+export type AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostData = {
+    body: EvidenceUploadAttachRequest;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+        /**
+         * Upload Id
+         */
+        upload_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence-uploads/{upload_id}/attach';
+};
+
+export type AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostError = AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostErrors[keyof AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostErrors];
+
+export type AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: EvidenceUploadSessionResponse;
+};
+
+export type AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostResponse = AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostResponses[keyof AttachEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdAttachPostResponses];
 
 export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostData = {
     body: EvidenceUploadCompleteRequest;

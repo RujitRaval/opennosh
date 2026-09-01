@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "@/lib/api";
+import { uploadEvidenceBytes } from "@/lib/api/evidence-upload";
 import foodDetailFixture from "@/tests/fixtures/contracts/foods/v1-detail-community.json";
 
 afterEach(() => {
@@ -206,5 +207,97 @@ describe("browser API client", () => {
     const url = new URL(String(fetchMock.mock.calls[0][0]), "https://opennosh.test");
     expect(url.pathname).toBe("/api/v1/contribution-drafts/018f5316-4f4e-7d79-b9f6-88c11a68a497");
     expect(url.searchParams.get("requested_stage")).toBe("evidence");
+  });
+
+  it("uses the private evidence create, complete, status, and attach routes", async () => {
+    const uploadId = "018f5316-4f4e-7d79-b9f6-88c11a68a498";
+    const session = {
+      upload_id: uploadId, state: "sanitized", source_draft_version: 3,
+      media_type: "image/png", declared_byte_length: 8, observed_byte_length: 8,
+      observed_sha256: "a".repeat(64), expires_at: "2026-09-01T12:00:00Z",
+      uploaded_at: "2026-09-01T11:55:00Z", sanitized_at: "2026-09-01T11:56:00Z",
+      attached_at: null, preserved_at: null, evidence_id: null, failure_code: null,
+    };
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({
+        upload_id: uploadId, state: "initiated", expires_at: "2026-09-01T12:00:00Z",
+        max_byte_length: 10_485_760, completion_capability: "a".repeat(43),
+        upload: { method: "PUT", url: "https://uploads.example.test/private", headers: { "Content-Type": "image/png" } },
+      }, { status: 201 }))
+      .mockResolvedValueOnce(Response.json(session))
+      .mockResolvedValueOnce(Response.json(session))
+      .mockResolvedValueOnce(Response.json({ ...session, state: "attached", attached_at: "2026-09-01T11:57:00Z", evidence_id: uploadId }));
+    vi.stubGlobal("fetch", fetchMock);
+    const draftId = "018f5316-4f4e-7d79-b9f6-88c11a68a497";
+
+    await api.createEvidenceUpload(draftId, { source_draft_version: 3, media_type: "image/png", byte_length: 8 }, "attempt-1");
+    await api.completeEvidenceUpload(draftId, uploadId, { completion_capability: "a".repeat(43) });
+    await api.evidenceUpload(draftId, uploadId);
+    await api.attachEvidenceUpload(draftId, uploadId, {
+      source_draft_version: 3, source_description: "Front label", rights_acknowledged: true, redaction_state: "reviewed",
+    });
+
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      `/api/v1/contribution-drafts/${draftId}/evidence-uploads`,
+      `/api/v1/contribution-drafts/${draftId}/evidence-uploads/${uploadId}/complete`,
+      `/api/v1/contribution-drafts/${draftId}/evidence-uploads/${uploadId}`,
+      `/api/v1/contribution-drafts/${draftId}/evidence-uploads/${uploadId}/attach`,
+    ]);
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("Idempotency-Key")).toBe("attempt-1");
+  });
+
+  it("accepts an older safe upload-session response without newer lifecycle fields", async () => {
+    const uploadId = "018f5316-4f4e-7d79-b9f6-88c11a68a498";
+    const draftId = "018f5316-4f4e-7d79-b9f6-88c11a68a497";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      upload_id: uploadId, state: "uploaded", source_draft_version: 3,
+      media_type: "image/png", declared_byte_length: 8, observed_byte_length: 8,
+      observed_sha256: "a".repeat(64), expires_at: "2026-09-01T12:00:00Z",
+      uploaded_at: "2026-09-01T11:55:00Z", failure_code: null,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.evidenceUpload(draftId, uploadId)).resolves.toMatchObject({
+      upload_id: uploadId,
+      state: "uploaded",
+    });
+  });
+
+  it("reads the safe contribution evidence status", async () => {
+    const draftId = "018f5316-4f4e-7d79-b9f6-88c11a68a497";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      evidence_id: "018f5316-4f4e-7d79-b9f6-88c11a68a498",
+      evidence_class: "sanitized_media", source_draft_version: 3,
+      public_state: null, preservation_pending: true, preservation_failed: false,
+      preservation_failure_code: null,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.contributionEvidence(draftId)).resolves.toMatchObject({
+      evidence_class: "sanitized_media", preservation_pending: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/contribution-drafts/${draftId}/evidence`,
+      expect.any(Object),
+    );
+  });
+
+  it("uploads bytes without ambient credentials or a browser-forbidden length header", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["evidence"], "private-label.png", { type: "image/png" });
+
+    await uploadEvidenceBytes({
+      method: "PUT",
+      url: "https://uploads.example.test/opaque-capability",
+      headers: { "Content-Type": "image/png", "Content-Length": String(file.size), "If-None-Match": "*" },
+    }, file);
+
+    const options = fetchMock.mock.calls[0][1];
+    const headers = new Headers(options?.headers);
+    expect(options).toMatchObject({ method: "PUT", credentials: "omit", redirect: "error", cache: "no-store" });
+    expect(headers.get("Content-Length")).toBeNull();
+    expect(headers.get("Content-Type")).toBe("image/png");
+    expect(headers.get("If-None-Match")).toBe("*");
   });
 });

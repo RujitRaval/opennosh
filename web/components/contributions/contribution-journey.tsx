@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
+import { EvidenceUploadPanel } from "@/components/contributions/evidence-upload-panel";
 import { api, ApiError } from "@/lib/api";
 import {
   browserAutosaveMetric,
@@ -32,7 +33,8 @@ import { fallbackLanguage, formatMessage, pseudoLanguage } from "@/lib/i18n/cata
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
 
 // Opens only with the separately approved trusted upload/source adapters and worker replicas.
-const TYPED_EVIDENCE_HANDOFF_ENABLED = false;
+const TYPED_EVIDENCE_HANDOFF_ENABLED =
+  process.env.NEXT_PUBLIC_OPENNOSH_EVIDENCE_UPLOADS_ENABLED === "true";
 
 const evidenceTrustKey = {
   packaging_label: "packaging",
@@ -351,6 +353,28 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           }],
         });
       }
+      if (remote.fields.evidence_type !== "packaging_label") {
+        showErrors([copy.evidenceUpload.packagingOnly]);
+        router.replace(contributionStageHref(language, remote.draftId, "evidence"));
+        return;
+      }
+      try {
+        const evidence = await api.contributionEvidence(remote.draftId);
+        if (
+          evidence.source_draft_version !== remote.draftVersion ||
+          evidence.evidence_class !== "sanitized_media" ||
+          evidence.preservation_failed
+        ) {
+          throw new Error(copy.evidenceUpload.attachBeforeReview);
+        }
+      } catch (caught) {
+        if (!(caught instanceof ApiError) || caught.status !== 404) throw caught;
+        if (routeDraftId === "local") {
+          window.localStorage.removeItem(contributionDraftStorageKey(routeDraftId));
+        }
+        router.replace(contributionStageHref(language, remote.draftId, "evidence"));
+        return;
+      }
       const submitted = await api.submitContributionDraft(remote.draftId, {
         expected_draft_version: remote.draftVersion, idempotency_key: crypto.randomUUID(),
       });
@@ -441,6 +465,13 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           </p>
           <Field name="source_uri" label={copy.sourceUrl} hint={copy.sourceUrlHint}><input id="contribution-source_uri" type="url" inputMode="url" value={fields.source_uri} onChange={(event) => update("source_uri", event.target.value)} {...described("source_uri")} /></Field>
           <label className="contribution-check"><input id="contribution-rights_acknowledged" type="checkbox" checked={fields.rights_acknowledged} onChange={(event) => update("rights_acknowledged", event.target.checked)} /><span>{copy.rights}</span></label>
+          {fields.evidence_type === "packaging_label" ? <EvidenceUploadPanel
+            enabled={TYPED_EVIDENCE_HANDOFF_ENABLED}
+            draftId={routeDraftId}
+            sourceDraftVersion={draft.serverVersion ?? 1}
+            rightsAcknowledged={fields.rights_acknowledged}
+            language={language}
+          /> : null}
         </> : null}
 
         {stage === "details" ? <>

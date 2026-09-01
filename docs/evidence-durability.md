@@ -72,34 +72,49 @@ run `opennosh-evidence-worker` with `EVIDENCE_DATABASE_URL`,
 `EVIDENCE_VERIFYING_KEYS`. The two directories are required together, must be distinct, and must
 not be used to make a hosted-production durability claim.
 
-T34.1 adds a provider-neutral hosted intake foundation but does not activate it. With
-`EVIDENCE_UPLOADS_ENABLED=false` (the committed default), all three upload-session routes return the
-same generic `404` before object-store or queue I/O. The database can represent only the reviewed
-`initiated -> uploaded|expired|failed` transitions; sanitization and attachment remain unavailable.
+T34.2 completes the provider-neutral hosted intake, sanitization, attachment, and preservation code
+without activating it. With `EVIDENCE_UPLOADS_ENABLED=false` and
+`EVIDENCE_SANITIZATION_ENABLED=false` (the committed production defaults), every upload-session
+route returns the same generic `404` before object-store or queue I/O and the browser upload panel is
+absent unless `NEXT_PUBLIC_OPENNOSH_EVIDENCE_UPLOADS_ENABLED=true` is set at build time.
 
-When a later reviewed deployment enables intake, the API may receive only the quarantine
+When a later separately approved deployment enables intake, the API may receive only the quarantine
 create/observe credential. It issues a conditional, declaration-bound upload URL and a separate
 32-byte completion capability for at most 600 seconds. PostgreSQL stores only hashes, an opaque
 `quarantine/{uuid}` key, bounded declarations, and independently read-back size/digest metadata.
 It never stores bytes, filenames, EXIF, presigned URLs, or raw capabilities. Identical create
 retries return the safe session without recovering either one-time secret.
 
+The sanitizer accepts only exact JPEG, PNG, or WebP signatures, one decoded frame, the configured
+byte and pixel bounds, and stable read-back observations. It applies EXIF orientation in memory,
+copies pixels into a fresh image, emits a metadata-free PNG, reopens that output, and requires the
+configured malware scanner to allow it. Terminal malformed or unsafe input is recorded with a typed
+failure; transient scanner or storage faults retry without attaching stale work. The exact upload
+revision must still be current when the result is committed.
+
 Quarantine, sanitized-source, and immutable-destination stores must use distinct buckets and
-credentials in production. Provider provisioning must enforce a maximum 24-hour lifecycle for raw
-quarantine objects. The future evidence worker is the only role allowed to receive quarantine
-read/delete, sanitized read/write, immutable read/write, its database role, and verifying keys.
+credentials in production. Provider provisioning must enforce deletion of raw quarantine objects
+within 24 hours. The evidence worker is the only role allowed to receive quarantine read/delete,
+sanitized read/write, immutable read/write, its database role, and scanner access.
 Migration, publication, projection, reconciliation, scheduler, and public web runtimes strip all
 evidence authority. The Render Blueprint still declares no evidence worker, evidence capacity
 remains zero, and public navigation remains unchanged.
 
-Activation requires the T34.2 safe image rewrite and metadata-removal worker, reviewed provider
-residency/CORS/lifecycle controls, isolated production credentials, worker capacity and health
-proof, end-to-end digest verification, rollback rehearsal, and a separate explicit production
-approval. Activation also requires per-account and per-draft issuance/completion rate limits, a
-bounded outstanding-session quota, and a process-wide observation-concurrency bound; the disabled
-T34.1 surface intentionally does not claim those controls. OCR is a later boundary. Until those
-gates pass, the public contribution journey keeps review handoff visibly closed instead of creating
-submissions that cannot satisfy the evidence gate. See
+Activation still requires reviewed provider residency, CORS, conditional-write, versioning or
+object-lock, lifecycle, cost, and credential-rotation evidence; three isolated credentials; scanner
+configuration; nonzero evidence capacity and health proof; an end-to-end digest check; and a
+rollback rehearsal. Produce a non-secret readiness report that binds the exact deployed commit,
+configuration fingerprint, bucket identities, scanner identity, capacity, lifecycle proof, and
+end-to-end evidence digest. A human must approve that exact report digest in a separate change
+window. After activation, verify worker health and one complete private upload for five minutes;
+rollback by disabling the two server flags and the public web build flag and scaling the evidence
+worker to zero. Do not delete quarantine or immutable history during rollback.
+
+Account and draft issuance/completion/attach rate limits, race-safe limits of five outstanding
+sessions per account and two per draft, and a process-wide observation semaphore are enforced in
+the implementation. OCR remains a later boundary and is not performed by either the browser or
+worker. Until every activation gate passes, the public contribution journey keeps review handoff
+visibly closed instead of creating submissions that cannot satisfy the evidence gate. See
 [T34](https://github.com/RujitRaval/opennosh/issues/134) for the remaining sequence.
 
 ## Replay, tamper, and removal behavior
@@ -118,5 +133,6 @@ submissions that cannot satisfy the evidence gate. See
   `tombstoned`; new acknowledgements are rejected. Removal cannot race an active merge authority.
 
 The migrations add `evidence_manifests`, `evidence_durable_acknowledgements`,
-`evidence_removal_tombstones`, and disabled `evidence_upload_sessions`. These rows preserve
-workflow and audit metadata only. Evidence bytes remain outside PostgreSQL and Git.
+`evidence_removal_tombstones`, and disabled `evidence_upload_sessions`. Upload rows include only
+declarations, hashes, opaque object keys, safe states, exact revisions, typed failures, and
+transition times. Evidence bytes remain outside PostgreSQL, Git, and browser persistence.

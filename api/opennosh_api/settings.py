@@ -53,8 +53,19 @@ class Settings(BaseSettings):
     evidence_immutable_directory: Path | None = None
     evidence_verifying_keys: SecretStr = SecretStr("{}")
     evidence_uploads_enabled: bool = False
+    evidence_sanitization_enabled: bool = False
     evidence_upload_max_bytes: PositiveInt = Field(default=10_485_760, le=10_485_760)
     evidence_upload_ttl_seconds: PositiveInt = Field(default=600, le=600)
+    evidence_upload_observation_concurrency: PositiveInt = Field(default=4, le=8)
+    evidence_upload_issue_account_attempts: PositiveInt = Field(default=20, le=20)
+    evidence_upload_issue_draft_attempts: PositiveInt = Field(default=6, le=6)
+    evidence_upload_complete_account_attempts: PositiveInt = Field(default=30, le=30)
+    evidence_upload_complete_draft_attempts: PositiveInt = Field(default=12, le=12)
+    evidence_upload_attach_account_attempts: PositiveInt = Field(default=12, le=12)
+    evidence_upload_attach_draft_attempts: PositiveInt = Field(default=6, le=6)
+    evidence_upload_outstanding_account_limit: PositiveInt = Field(default=5, le=5)
+    evidence_upload_outstanding_draft_limit: PositiveInt = Field(default=2, le=2)
+    evidence_upload_rate_limit_window_seconds: PositiveInt = Field(default=3600, le=3600)
     evidence_quarantine_endpoint: str | None = None
     evidence_quarantine_region: str | None = None
     evidence_quarantine_bucket: str | None = None
@@ -65,6 +76,10 @@ class Settings(BaseSettings):
     evidence_sanitized_bucket: str | None = None
     evidence_sanitized_access_key_id: SecretStr | None = None
     evidence_sanitized_secret_access_key: SecretStr | None = None
+    evidence_scanner_adapter: Literal["deterministic_allow", "http"] | None = None
+    evidence_scanner_endpoint: str | None = None
+    evidence_scanner_bearer_token: SecretStr | None = None
+    evidence_scanner_timeout_seconds: PositiveFloat = Field(default=5.0, le=10.0)
     evidence_immutable_endpoint: str | None = None
     evidence_immutable_region: str | None = None
     evidence_immutable_bucket: str | None = None
@@ -264,6 +279,28 @@ class Settings(BaseSettings):
     def validate_evidence_bucket(cls, value: str | None) -> str | None:
         if value is not None and not _R2_BUCKET.fullmatch(value):
             raise ValueError("Evidence bucket name must match Cloudflare naming requirements")
+        return value
+
+    @field_validator("evidence_scanner_endpoint")
+    @classmethod
+    def validate_evidence_scanner_endpoint(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Evidence scanner endpoint must be a safe HTTPS URL") from error
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Evidence scanner endpoint must be a safe HTTPS URL")
         return value
 
     @field_validator("evidence_verifying_keys")
@@ -535,6 +572,33 @@ class Settings(BaseSettings):
                 )
         if self.evidence_uploads_enabled and not all(evidence_groups["quarantine"]):
             raise ValueError("Evidence uploads require complete quarantine configuration")
+        if self.evidence_uploads_enabled and not self.evidence_sanitization_enabled:
+            raise ValueError("Evidence uploads require sanitization to be enabled")
+        scanner_http_configured = (
+            self.evidence_scanner_endpoint is not None
+            and self.evidence_scanner_bearer_token is not None
+        )
+        if self.evidence_scanner_adapter == "http" and not scanner_http_configured:
+            raise ValueError("HTTP evidence scanner configuration is incomplete")
+        if self.evidence_scanner_adapter != "http" and (
+            self.evidence_scanner_endpoint is not None
+            or self.evidence_scanner_bearer_token is not None
+        ):
+            raise ValueError("Evidence scanner endpoint credentials require the HTTP adapter")
+        if (
+            self.app_environment == "production"
+            and self.evidence_scanner_adapter == "deterministic_allow"
+        ):
+            raise ValueError("Production evidence sanitization requires a named remote scanner")
+        if self.evidence_sanitization_enabled and self.process_role is ProcessRole.EVIDENCE:
+            if not all(evidence_groups["quarantine"]):
+                raise ValueError("Evidence sanitization requires complete quarantine configuration")
+            if not all(evidence_groups["sanitized"]):
+                raise ValueError("Evidence sanitization requires complete sanitized configuration")
+            if not all(evidence_groups["immutable"]):
+                raise ValueError("Evidence worker requires complete immutable configuration")
+            if self.evidence_scanner_adapter is None:
+                raise ValueError("Evidence sanitization requires a named scanner adapter")
         configured_buckets = [
             bucket
             for bucket in (
@@ -721,7 +785,7 @@ class Settings(BaseSettings):
             }
         ):
             raise ValueError("Production requires a unique trusted web proxy token")
-        longest_window = max(
+        configured_windows = [
             self.auth_rate_limit_window_seconds,
             self.food_search_rate_limit_window_seconds,
             self.open_food_facts_lookup_rate_limit_window_seconds,
@@ -732,7 +796,10 @@ class Settings(BaseSettings):
             self.community_export_rate_limit_window_seconds,
             self.private_export_rate_limit_window_seconds,
             self.contribution_patch_rate_limit_window_seconds,
-        )
+        ]
+        if self.evidence_uploads_enabled:
+            configured_windows.append(self.evidence_upload_rate_limit_window_seconds)
+        longest_window = max(configured_windows)
         if self.auth_rate_limit_retention_seconds < longest_window:
             raise ValueError("Rate-limit retention must cover every configured window")
         return self

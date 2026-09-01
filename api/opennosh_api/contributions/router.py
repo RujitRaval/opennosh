@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -19,6 +20,7 @@ from opennosh_api.contributions.schemas import (
     ContributionEvidenceAttach,
     ContributionEvidenceStatus,
     ContributionSubmit,
+    EvidenceUploadAttachRequest,
     EvidenceUploadCompleteRequest,
     EvidenceUploadCreateRequest,
     EvidenceUploadCreateResponse,
@@ -40,6 +42,7 @@ from opennosh_api.database import get_database_session
 from opennosh_api.evidence.contracts import EvidenceClass, EvidencePublicState
 from opennosh_api.evidence.models import EvidenceManifestRecord
 from opennosh_api.evidence.repository import EvidenceConflictError
+from opennosh_api.evidence.service import attach_sanitized_upload
 from opennosh_api.evidence.storage import EvidenceUploadBroker
 from opennosh_api.evidence.uploads import (
     EvidenceUploadConflictError,
@@ -47,11 +50,13 @@ from opennosh_api.evidence.uploads import (
     EvidenceUploadExpiredError,
     EvidenceUploadNotFoundError,
     EvidenceUploadPolicyError,
+    EvidenceUploadQuotaError,
     EvidenceUploadSessionView,
     EvidenceUploadUnavailableError,
     complete_upload_session,
     create_upload_session,
     get_upload_session,
+    validate_upload_declaration,
 )
 from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
 from opennosh_api.problems.handlers import ProblemException
@@ -124,6 +129,10 @@ def _upload_session_response(view: EvidenceUploadSessionView) -> EvidenceUploadS
         expires_at=view.expires_at,
         uploaded_at=view.uploaded_at,
         failure_code=view.failure_code,
+        evidence_id=view.evidence_id,
+        sanitized_at=view.sanitized_at,
+        attached_at=view.attached_at,
+        preserved_at=view.preserved_at,
     )
 
 
@@ -153,7 +162,7 @@ def _require_uploads(
     settings: Settings,
     broker: EvidenceUploadBroker | None,
 ) -> EvidenceUploadBroker:
-    if not settings.evidence_uploads_enabled:
+    if not settings.evidence_uploads_enabled or not settings.evidence_sanitization_enabled:
         raise _uploads_disabled()
     if broker is None:
         raise _upload_problem(
@@ -171,6 +180,44 @@ def require_evidence_uploads(
     """Resolve the dormant surface before request validation errors are exposed."""
 
     return _require_uploads(settings, broker)
+
+
+def get_evidence_observation_semaphore(request: Request) -> asyncio.Semaphore:
+    value = getattr(request.app.state, "evidence_upload_observation_semaphore", None)
+    if not isinstance(value, asyncio.Semaphore):
+        raise RuntimeError("Evidence observation semaphore is not configured")
+    return value
+
+
+async def _enforce_evidence_upload_limits(
+    database: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    draft_id: UUID,
+    operation: str,
+    account_attempts: int,
+    draft_attempts: int,
+) -> None:
+    detail = "Too many evidence upload requests. Try again later."
+    await enforce_rate_limit(
+        database,
+        scope=f"evidence-upload-{operation}-acct",
+        key=str(user_id),
+        attempts=account_attempts,
+        window_seconds=settings.evidence_upload_rate_limit_window_seconds,
+        retention_seconds=settings.auth_rate_limit_retention_seconds,
+        detail=detail,
+    )
+    await enforce_rate_limit(
+        database,
+        scope=f"evidence-upload-{operation}-draft",
+        key=f"{user_id}:{draft_id}",
+        attempts=draft_attempts,
+        window_seconds=settings.evidence_upload_rate_limit_window_seconds,
+        retention_seconds=settings.auth_rate_limit_retention_seconds,
+        detail=detail,
+    )
 
 
 @router.post("", response_model=ContributionCapability, status_code=status.HTTP_201_CREATED)
@@ -355,6 +402,20 @@ async def create_evidence_upload(
 ) -> EvidenceUploadCreateResponse:
     _no_store(response)
     try:
+        validate_upload_declaration(
+            payload.media_type,
+            payload.byte_length,
+            max_bytes=settings.evidence_upload_max_bytes,
+        )
+        await _enforce_evidence_upload_limits(
+            database,
+            settings,
+            user_id=current.user_id,
+            draft_id=draft_id,
+            operation="issue",
+            account_attempts=settings.evidence_upload_issue_account_attempts,
+            draft_attempts=settings.evidence_upload_issue_draft_attempts,
+        )
         created = await create_upload_session(
             database,
             upload_broker,
@@ -367,6 +428,10 @@ async def create_evidence_upload(
             now=datetime.now(UTC),
             ttl_seconds=settings.evidence_upload_ttl_seconds,
             max_bytes=settings.evidence_upload_max_bytes,
+            outstanding_account_limit=(
+                settings.evidence_upload_outstanding_account_limit
+            ),
+            outstanding_draft_limit=settings.evidence_upload_outstanding_draft_limit,
         )
     except EvidenceUploadNotFoundError as error:
         raise _uploads_disabled() from error
@@ -387,6 +452,13 @@ async def create_evidence_upload(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             code=ProblemCode.EVIDENCE_UPLOAD_UNAVAILABLE,
             detail="Evidence upload storage is temporarily unavailable.",
+        ) from error
+    except EvidenceUploadQuotaError as error:
+        raise ProblemException(
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+            code=ProblemCode.RATE_LIMITED,
+            detail="Too many unfinished evidence uploads. Finish or wait for one to expire.",
+            retry_after=60,
         ) from error
     if created.replayed:
         response.status_code = status.HTTP_200_OK
@@ -412,9 +484,22 @@ async def complete_evidence_upload(
     database: Annotated[AsyncSession, Depends(get_database_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
     upload_broker: Annotated[EvidenceUploadBroker, Depends(require_evidence_uploads)],
+    observation_semaphore: Annotated[
+        asyncio.Semaphore,
+        Depends(get_evidence_observation_semaphore),
+    ],
 ) -> EvidenceUploadSessionResponse:
     _no_store(response)
     try:
+        await _enforce_evidence_upload_limits(
+            database,
+            settings,
+            user_id=current.user_id,
+            draft_id=draft_id,
+            operation="complete",
+            account_attempts=settings.evidence_upload_complete_account_attempts,
+            draft_attempts=settings.evidence_upload_complete_draft_attempts,
+        )
         session = await complete_upload_session(
             database,
             upload_broker,
@@ -424,6 +509,8 @@ async def complete_evidence_upload(
             completion_capability=payload.completion_capability,
             now=datetime.now(UTC),
             max_bytes=settings.evidence_upload_max_bytes,
+            queue=PgQueuerJobQueue(),
+            observation_semaphore=observation_semaphore,
         )
     except EvidenceUploadNotFoundError as error:
         raise _uploads_disabled() from error
@@ -444,6 +531,55 @@ async def complete_evidence_upload(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             code=ProblemCode.EVIDENCE_UPLOAD_UNAVAILABLE,
             detail="Evidence upload storage is temporarily unavailable.",
+        ) from error
+    return _upload_session_response(session)
+
+
+@router.post(
+    "/{draft_id}/evidence-uploads/{upload_id}/attach",
+    response_model=EvidenceUploadSessionResponse,
+)
+async def attach_evidence_upload(
+    draft_id: UUID,
+    upload_id: UUID,
+    payload: EvidenceUploadAttachRequest,
+    response: Response,
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    upload_broker: Annotated[EvidenceUploadBroker, Depends(require_evidence_uploads)],
+) -> EvidenceUploadSessionResponse:
+    _no_store(response)
+    del upload_broker
+    try:
+        await _enforce_evidence_upload_limits(
+            database,
+            settings,
+            user_id=current.user_id,
+            draft_id=draft_id,
+            operation="attach",
+            account_attempts=settings.evidence_upload_attach_account_attempts,
+            draft_attempts=settings.evidence_upload_attach_draft_attempts,
+        )
+        session = await attach_sanitized_upload(
+            database,
+            PgQueuerJobQueue(),
+            upload_id=upload_id,
+            draft_id=draft_id,
+            user_id=current.user_id,
+            source_draft_version=payload.source_draft_version,
+            source_description=payload.source_description,
+            rights_acknowledged=payload.rights_acknowledged,
+            redaction_state=payload.redaction_state,
+            now=datetime.now(UTC),
+        )
+    except EvidenceUploadNotFoundError as error:
+        raise _uploads_disabled() from error
+    except (EvidenceUploadConflictError, EvidenceConflictError) as error:
+        raise _upload_problem(
+            status_code=status.HTTP_409_CONFLICT,
+            code=ProblemCode.EVIDENCE_UPLOAD_CONFLICT,
+            detail="The evidence upload conflicts with the latest draft state.",
         ) from error
     return _upload_session_response(session)
 

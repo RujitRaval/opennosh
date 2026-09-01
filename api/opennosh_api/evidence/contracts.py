@@ -67,6 +67,14 @@ class SanitizedMediaManifest(_ManifestBase):
     redaction_state: RedactionState
     storage_reference: str = Field(min_length=1, max_length=2048)
 
+    @field_validator("source_description")
+    @classmethod
+    def normalize_source_description(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Source description cannot be blank")
+        return normalized
+
     @field_validator("storage_reference")
     @classmethod
     def validate_storage_reference(cls, value: str) -> str:
