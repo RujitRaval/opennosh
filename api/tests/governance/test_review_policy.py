@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
+from opennosh_api.contributions.service import ContributionReviewResponseError
 from opennosh_api.governance import review_service
 from opennosh_api.governance.reviews import (
     ReviewCaseState,
@@ -12,6 +13,8 @@ from opennosh_api.governance.reviews import (
     transition_review_state,
     validate_reason,
 )
+from opennosh_api.governance.schemas import ReviewCaseDecision, ReviewCaseRelease
+from pydantic import ValidationError
 
 ACTOR = UUID("00000000-0000-4000-8000-000000000001")
 OTHER_ACTOR = UUID("00000000-0000-4000-8000-000000000002")
@@ -127,6 +130,24 @@ def test_queue_priority_rejects_naive_times() -> None:
             opened_at=aware.replace(tzinfo=None),
             now=aware,
         )
+    with pytest.raises(ValueError):
+        queue_priority(
+            acknowledged_at=aware,
+            next_review_at=aware.replace(tzinfo=None),
+            opened_at=aware,
+            now=aware,
+        )
+
+
+def test_review_boundary_errors_preserve_codes_and_reject_blank_reasons() -> None:
+    error = ContributionReviewResponseError("contribution_version_conflict")
+    assert str(error) == "contribution_version_conflict"
+    assert error.code == "contribution_version_conflict"
+
+    with pytest.raises(ValidationError, match="Reason cannot be blank"):
+        ReviewCaseRelease(expected_revision=1, reason="   ")
+    with pytest.raises(ValidationError, match="Reason cannot be blank"):
+        ReviewCaseDecision(expected_revision=1, outcome="rejected", reason=" \n ")
 
 
 def test_review_service_rejects_naive_times_and_illegal_transitions() -> None:
