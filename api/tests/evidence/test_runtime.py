@@ -167,7 +167,7 @@ async def test_evidence_role_requires_and_composes_local_private_adapters(
     )
     base = {
         "process_role": ProcessRole.EVIDENCE,
-        "evidence_database_url": "postgresql+asyncpg://evidence:secret@localhost/opennosh",
+        "evidence_database_url": "postgresql+asyncpg://evidence@localhost/opennosh",
         "_env_file": None,
     }
     with pytest.raises(ValueError, match="private source adapter"):
@@ -203,7 +203,7 @@ async def test_evidence_role_composes_isolated_hosted_adapters(monkeypatch) -> N
     )
     settings = Settings(
         process_role=ProcessRole.EVIDENCE,
-        evidence_database_url="postgresql+asyncpg://evidence:secret@localhost/opennosh",
+        evidence_database_url="postgresql+asyncpg://evidence@localhost/opennosh",
         evidence_upload_max_bytes=4096,
         evidence_sanitized_endpoint="https://account.r2.cloudflarestorage.com",
         evidence_sanitized_region="auto",
@@ -222,4 +222,4 @@ async def test_evidence_role_composes_isolated_hosted_adapters(monkeypatch) -> N
         await create_evidence_role_driver(settings)
 
     assert captured["min_size"] == 1
-    assert captured["dsn"] == "postgresql://evidence:secret@localhost/opennosh"
+    assert captured["dsn"] == "postgresql://evidence@localhost/opennosh"
