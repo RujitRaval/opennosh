@@ -48,7 +48,7 @@ export function ContributionStatus({ language, draftId }: { language: InterfaceL
       {received ? <div><dt>{copy.acknowledgement}</dt><dd>{acknowledgementDue}</dd></div> : null}
     </dl>
     {received ? <p>{copy.receiptBody}</p> : null}
-    {reviewCaseId ? <Link className="contribution-primary" href={routes.governanceCase(reviewCaseId)}>Open accountable review history</Link> : null}
+    {reviewCaseId ? <Link className="contribution-primary" href={routes.governanceCase(reviewCaseId)}>{copy.reviewHistory}</Link> : null}
     <Link className="contribution-primary" href={received ? routes.publicHub("commons", language) : routes.contributionDraft(language, capability.draftId, capability.resolvedStage)}>{received ? copy.governed : copy.resume}</Link>
   </section>;
 }

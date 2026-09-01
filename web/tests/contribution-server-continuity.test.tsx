@@ -210,6 +210,7 @@ describe("server-backed contribution continuity", () => {
       attribution: "Community kitchen",
       statusHref: "/en/contribute/server-draft/status",
     }));
+    apiState.contributorCase.mockResolvedValue({ review_case_id: "review-case-42" });
 
     render(<ContributionStatus language="en" draftId="server-draft" />);
 
@@ -218,5 +219,9 @@ describe("server-backed contribution continuity", () => {
     expect(screen.getByText("Community kitchen")).toBeVisible();
     expect(screen.getByText(/Acknowledgement expected/)).toBeVisible();
     expect(screen.getByText(/Publication is the separate event/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open accountable review history" })).toHaveAttribute(
+      "href",
+      "/governance/cases/review-case-42",
+    );
   });
 });

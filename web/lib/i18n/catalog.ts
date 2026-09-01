@@ -362,6 +362,7 @@ export const enCatalog = {
     draftBody: "This food record remains a draft. It has not entered review, been approved, or been published.",
     draftReference: "Draft reference",
     verifiedState: "Verified state",
+    reviewHistory: "Open accountable review history",
     governed: "How the commons is governed",
     resume: "Resume this draft",
     serverDuplicate: "The server found a possible existing record that was not in your earlier check. Review it before handing this proposal over.",
