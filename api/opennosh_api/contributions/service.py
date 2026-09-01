@@ -551,6 +551,7 @@ async def submit_draft(
     user_id: UUID,
     payload: ContributionSubmit,
     now: datetime,
+    open_governance_review: bool = False,
 ) -> ContributionCapability:
     draft = await _owned_draft(database, draft_id=draft_id, user_id=user_id, for_update=True)
     key_hash = hashlib.sha256(str(payload.idempotency_key).encode()).hexdigest()
@@ -680,6 +681,20 @@ async def submit_draft(
             source_draft_id=draft.id,
             source_draft_version=draft.draft_version,
             manifest=successor,
+            now=now,
+        )
+    if open_governance_review:
+        from opennosh_api.governance.review_service import open_review_case
+
+        pack_id = draft.fields_json.get("pack_id")
+        if not isinstance(pack_id, str):
+            raise RuntimeError("Submitted contribution is missing its governed pack ID")
+        await open_review_case(
+            database,
+            source_draft_id=draft.id,
+            source_draft_version=draft.draft_version,
+            pack_id=pack_id,
+            contributor_actor_id=draft.user_id,
             now=now,
         )
     await database.commit()

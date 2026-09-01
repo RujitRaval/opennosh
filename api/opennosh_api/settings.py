@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     evidence_upload_outstanding_account_limit: PositiveInt = Field(default=5, le=5)
     evidence_upload_outstanding_draft_limit: PositiveInt = Field(default=2, le=2)
     evidence_upload_rate_limit_window_seconds: PositiveInt = Field(default=3600, le=3600)
+    governance_steward_ui_enabled: bool = False
+    governance_mutations_enabled: bool = False
+    governance_public_decisions_enabled: bool = False
     evidence_quarantine_endpoint: str | None = None
     evidence_quarantine_region: str | None = None
     evidence_quarantine_bucket: str | None = None

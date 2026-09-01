@@ -56,6 +56,12 @@ services:
         value: "false"
       - key: EVIDENCE_SANITIZATION_ENABLED
         value: "false"
+      - key: GOVERNANCE_STEWARD_UI_ENABLED
+        value: "false"
+      - key: GOVERNANCE_MUTATIONS_ENABLED
+        value: "false"
+      - key: GOVERNANCE_PUBLIC_DECISIONS_ENABLED
+        value: "false"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
         value: /var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json
       - key: PUBLIC_ARTIFACT_CACHE_DIRECTORY
