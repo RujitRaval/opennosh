@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.69.0.0] - 2026-09-01
+
+### Added
+
+- Add a hostile-image sanitizer that enforces exact JPEG/PNG/WebP signatures, single-frame and
+  pixel bounds, applies EXIF orientation, and emits a freshly encoded metadata-free PNG that is
+  independently decoded and malware-scanned before it can be attached.
+- Add the exact-revision sanitization, attach, and immutable-preservation workflow; race-safe
+  account/draft quotas; bounded object observation; safe generated browser contracts; and a
+  disabled-by-default camera/file journey that never extracts or auto-populates nutrition facts.
+
+### Security
+
+- Keep production evidence uploads and sanitization explicitly disabled, evidence worker capacity
+  at zero, and all evidence buckets and credentials unprovisioned pending a separate digest-bound
+  activation approval and five-minute rollback rehearsal.
+- Store no source bytes, filenames, EXIF, upload URLs, raw capabilities, or object credentials in
+  PostgreSQL or browser persistence; isolate quarantine, sanitized, and immutable authorities and
+  require provider deletion of raw quarantine objects within 24 hours before activation.
+
 ## [0.68.0.0] - 2026-09-01
 
 ### Added

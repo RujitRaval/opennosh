@@ -302,12 +302,14 @@ preserved primary evidence. Authenticated clients may replay the exact manifest 
 idempotent evidence attachment endpoint and read its current public state. See the
 [evidence durability contract](docs/evidence-durability.md).
 
-The public browser can prepare and retain a device draft, but review handoff is visibly disabled
-until the separately gated trusted upload/object-storage service and evidence worker are active.
-opennosh does not place browser proposals without complete typed evidence into the review queue.
-T34.1 includes disabled upload-session API contracts and isolated hosted object-store adapters so
-clients can be generated and the security boundary reviewed before activation. The committed
-Render topology, evidence replica count, navigation, and production flags remain unchanged; see the
+The public browser can prepare and retain a device draft, but review handoff remains visibly
+disabled until the separately gated trusted upload/object-storage service and evidence worker are
+active. opennosh does not place browser proposals without complete typed evidence into the review
+queue. T34.2 adds the disabled camera/file journey, hostile-image rewrite, malware-scan port,
+exact-version attach, and immutable preservation path. Browser persistence contains only the opaque
+upload ID, safe state, source description, and redaction choice—never bytes, filenames, upload URLs,
+or capabilities. The committed Render topology, evidence replica count, navigation, and production
+flags remain unchanged; see the
 [evidence durability contract](docs/evidence-durability.md#activation-and-configuration).
 
 ### Open Food Facts barcode lookup
