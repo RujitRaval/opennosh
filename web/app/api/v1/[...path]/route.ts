@@ -2,7 +2,14 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const forwardedRequestHeaders = ["accept", "content-type", "cookie", "if-none-match", "x-csrf-token"];
+const forwardedRequestHeaders = [
+  "accept",
+  "content-type",
+  "cookie",
+  "idempotency-key",
+  "if-none-match",
+  "x-csrf-token",
+];
 
 function proxyProblem(
   status: 400 | 502,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
+import { governanceApi } from "@/lib/api/governance";
 import type { ContributionCapability } from "@/lib/contributions/domain";
 import { routes, type InterfaceLanguage } from "@/lib/routes";
 import { contributionCatalog } from "@/lib/contributions/catalog";
@@ -13,12 +14,16 @@ export function ContributionStatus({ language, draftId }: { language: InterfaceL
   const copy = contributionCatalog(language);
   const [capability, setCapability] = useState<ContributionCapability | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [reviewCaseId, setReviewCaseId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     api.contributionDraft(draftId, "review")
       .then((value) => { if (active) setCapability(value); })
       .catch((caught) => { if (active) setFailure(caught instanceof Error ? caught.message : copy.statusFallback); });
+    governanceApi.contributorCase(draftId)
+      .then((value) => { if (active) setReviewCaseId(value.review_case_id); })
+      .catch(() => undefined);
     return () => { active = false; };
   }, [copy.statusFallback, draftId]);
 
@@ -43,6 +48,7 @@ export function ContributionStatus({ language, draftId }: { language: InterfaceL
       {received ? <div><dt>{copy.acknowledgement}</dt><dd>{acknowledgementDue}</dd></div> : null}
     </dl>
     {received ? <p>{copy.receiptBody}</p> : null}
+    {reviewCaseId ? <Link className="contribution-primary" href={routes.governanceCase(reviewCaseId)}>{copy.reviewHistory}</Link> : null}
     <Link className="contribution-primary" href={received ? routes.publicHub("commons", language) : routes.contributionDraft(language, capability.draftId, capability.resolvedStage)}>{received ? copy.governed : copy.resume}</Link>
   </section>;
 }

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ContributionJourney } from "@/components/contributions/contribution-journey";
 import { ContributionStatus } from "@/components/contributions/contribution-status";
@@ -13,6 +13,7 @@ import {
 const router = { push: vi.fn(), replace: vi.fn() };
 const apiState = vi.hoisted(() => ({
   contributionDraft: vi.fn(),
+  contributorCase: vi.fn(),
   patchContributionDraft: vi.fn(),
 }));
 
@@ -23,6 +24,9 @@ vi.mock("@/lib/api", () => ({
     patchContributionDraft: apiState.patchContributionDraft,
   },
   ApiError: class ApiError extends Error {},
+}));
+vi.mock("@/lib/api/governance", () => ({
+  governanceApi: { contributorCase: apiState.contributorCase },
 }));
 
 const storageValues = new Map<string, string>();
@@ -35,6 +39,10 @@ const storage: Storage = {
   setItem: (key, value) => { storageValues.set(key, value); },
 };
 Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
+
+beforeEach(() => {
+  apiState.contributorCase.mockRejectedValue(new Error("Governance disabled"));
+});
 
 class TestIntersectionObserver {
   constructor() {}
@@ -75,6 +83,7 @@ function capability(receipt: ContributionCapability["receipt"] = null): Contribu
 afterEach(() => {
   cleanup();
   apiState.contributionDraft.mockReset();
+  apiState.contributorCase.mockReset();
   apiState.patchContributionDraft.mockReset();
   router.push.mockReset();
   router.replace.mockReset();
@@ -201,6 +210,7 @@ describe("server-backed contribution continuity", () => {
       attribution: "Community kitchen",
       statusHref: "/en/contribute/server-draft/status",
     }));
+    apiState.contributorCase.mockResolvedValue({ review_case_id: "review-case-42" });
 
     render(<ContributionStatus language="en" draftId="server-draft" />);
 
@@ -209,5 +219,9 @@ describe("server-backed contribution continuity", () => {
     expect(screen.getByText("Community kitchen")).toBeVisible();
     expect(screen.getByText(/Acknowledgement expected/)).toBeVisible();
     expect(screen.getByText(/Publication is the separate event/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open accountable review history" })).toHaveAttribute(
+      "href",
+      "/governance/cases/review-case-42",
+    );
   });
 });

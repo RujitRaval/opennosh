@@ -308,6 +308,7 @@ async def submit(
     response: Response,
     current: Annotated[CurrentSession, Depends(require_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> ContributionCapability:
     _no_store(response)
     try:
@@ -318,6 +319,7 @@ async def submit(
             user_id=current.user_id,
             payload=payload,
             now=datetime.now(UTC),
+            open_governance_review=settings.governance_mutations_enabled,
         )
     except ContributionNotFoundError as error:
         raise _not_found() from error

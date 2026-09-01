@@ -26,6 +26,7 @@ from opennosh_api.exercises.router import router as exercises_router
 from opennosh_api.exports.router import router as exports_router
 from opennosh_api.foods.router import export_router as food_export_router
 from opennosh_api.foods.router import router as foods_router
+from opennosh_api.governance.router import router as governance_router
 from opennosh_api.health import router as health_router
 from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
@@ -228,6 +229,7 @@ def create_app(
     application.include_router(public_commons_router)
     application.include_router(public_artifact_router)
     application.include_router(contributions_router)
+    application.include_router(governance_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

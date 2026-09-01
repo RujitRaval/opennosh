@@ -87,6 +87,88 @@ export type AccountSettingsUpdate = {
 };
 
 /**
+ * AppealOpenRequest
+ */
+export type AppealOpenRequest = {
+    /**
+     * Expected Case Revision
+     */
+    expected_case_revision: number;
+    /**
+     * Expected Dispute Revision
+     */
+    expected_dispute_revision: number;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Requested Remedy
+     */
+    requested_remedy: string;
+};
+
+/**
+ * AppealResolveRequest
+ */
+export type AppealResolveRequest = {
+    /**
+     * Expected Appeal Revision
+     */
+    expected_appeal_revision: number;
+    /**
+     * Expected Case Revision
+     */
+    expected_case_revision: number;
+    /**
+     * Resolution
+     */
+    resolution: string;
+};
+
+/**
+ * AppealResponse
+ */
+export type AppealResponse = {
+    /**
+     * Appeal Id
+     */
+    appeal_id: string;
+    /**
+     * Dispute Id
+     */
+    dispute_id: string;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Requested Remedy
+     */
+    requested_remedy: string;
+    /**
+     * Resolution
+     */
+    resolution: string | null;
+    /**
+     * Resolved At
+     */
+    resolved_at: string | null;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * State
+     */
+    state: 'open' | 'resolved' | 'reopened';
+};
+
+/**
  * AuthenticatedUser
  */
 export type AuthenticatedUser = {
@@ -696,7 +778,7 @@ export type ContributionReceipt = {
 /**
  * ContributionReviewState
  */
-export type ContributionReviewState = 'draft' | 'in_review' | 'changes_requested' | 'approved' | 'publication_pending' | 'published';
+export type ContributionReviewState = 'draft' | 'in_review' | 'changes_requested' | 'rejected' | 'approved' | 'publication_pending' | 'published';
 
 /**
  * ContributionSourceLicense
@@ -881,6 +963,91 @@ export type DailyTotalsResponse = {
      * Timezone
      */
     timezone: string;
+};
+
+/**
+ * DisputeCategory
+ */
+export type DisputeCategory = 'evidence' | 'accuracy' | 'rights' | 'process' | 'other';
+
+/**
+ * DisputeOpenRequest
+ */
+export type DisputeOpenRequest = {
+    category: DisputeCategory;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Requested Remedy
+     */
+    requested_remedy: string;
+};
+
+/**
+ * DisputeResolveRequest
+ */
+export type DisputeResolveRequest = {
+    /**
+     * Expected Case Revision
+     */
+    expected_case_revision: number;
+    /**
+     * Expected Dispute Revision
+     */
+    expected_dispute_revision: number;
+    /**
+     * Resolution
+     */
+    resolution: string;
+};
+
+/**
+ * DisputeResponse
+ */
+export type DisputeResponse = {
+    category: DisputeCategory;
+    /**
+     * Decision Id
+     */
+    decision_id: string;
+    /**
+     * Dispute Id
+     */
+    dispute_id: string;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Requested Remedy
+     */
+    requested_remedy: string;
+    /**
+     * Resolution
+     */
+    resolution: string | null;
+    /**
+     * Resolved At
+     */
+    resolved_at: string | null;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * State
+     */
+    state: 'open' | 'resolved';
 };
 
 /**
@@ -1521,6 +1688,11 @@ export type FoodSearchResponse = {
  * FoodSource
  */
 export type FoodSource = 'usda' | 'community';
+
+/**
+ * GovernanceDecisionOutcome
+ */
+export type GovernanceDecisionOutcome = 'approved' | 'changes_requested' | 'rejected';
 
 /**
  * HealthResponse
@@ -2229,6 +2401,37 @@ export type PublicCommonsSnapshot = {
 };
 
 /**
+ * PublicDecisionResponse
+ */
+export type PublicDecisionResponse = {
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Decision Id
+     */
+    decision_id: string;
+    outcome: GovernanceDecisionOutcome;
+    /**
+     * Pack Id
+     */
+    pack_id: string;
+    /**
+     * Publication State
+     */
+    publication_state: string | null;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+};
+
+/**
  * PublicDocumentManifest
  */
 export type PublicDocumentManifest = {
@@ -2591,6 +2794,338 @@ export type RegistrationResponse = {
      */
     recovery_code: string;
     user: AuthenticatedUser;
+};
+
+/**
+ * ReviewApprovalResponse
+ */
+export type ReviewApprovalResponse = {
+    /**
+     * Decision Id
+     */
+    decision_id: string;
+    /**
+     * Publication Intent Id
+     */
+    publication_intent_id: string;
+    review_case: ReviewCaseResponse;
+    /**
+     * Status
+     */
+    status?: 'publication_pending';
+};
+
+/**
+ * ReviewApprovedFile
+ */
+export type ReviewApprovedFile = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Path
+     */
+    path: string;
+};
+
+/**
+ * ReviewCaseAction
+ */
+export type ReviewCaseAction = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+};
+
+/**
+ * ReviewCaseApproval
+ */
+export type ReviewCaseApproval = {
+    /**
+     * Expected Base Commit
+     */
+    expected_base_commit: string;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Files
+     */
+    files: Array<ReviewApprovedFile>;
+    /**
+     * Pack Id
+     */
+    pack_id: string;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Record Id
+     */
+    record_id: string;
+};
+
+/**
+ * ReviewCaseDecision
+ */
+export type ReviewCaseDecision = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Outcome
+     */
+    outcome: 'changes_requested' | 'rejected';
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewCasePause
+ */
+export type ReviewCasePause = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Next Review At
+     */
+    next_review_at: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewCaseRecusal
+ */
+export type ReviewCaseRecusal = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewCaseRelease
+ */
+export type ReviewCaseRelease = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewCaseResponse
+ */
+export type ReviewCaseResponse = {
+    /**
+     * Acknowledged At
+     */
+    acknowledged_at: string | null;
+    /**
+     * Appeals
+     */
+    appeals?: Array<AppealResponse>;
+    /**
+     * Assigned Steward Actor Id
+     */
+    assigned_steward_actor_id: string | null;
+    /**
+     * Closed At
+     */
+    closed_at: string | null;
+    /**
+     * Disputes
+     */
+    disputes?: Array<DisputeResponse>;
+    /**
+     * Events
+     */
+    events?: Array<ReviewEventResponse>;
+    /**
+     * Next Review At
+     */
+    next_review_at: string | null;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Pack Id
+     */
+    pack_id: string;
+    /**
+     * Pause Reason
+     */
+    pause_reason: string | null;
+    /**
+     * Review Case Id
+     */
+    review_case_id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Source Draft Id
+     */
+    source_draft_id: string;
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+    state: ReviewCaseState;
+    /**
+     * Submitted Fields
+     */
+    submitted_fields: {
+        [key: string]: unknown;
+    };
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Viewer Role
+     */
+    viewer_role: 'contributor' | 'steward';
+};
+
+/**
+ * ReviewCaseResume
+ */
+export type ReviewCaseResume = {
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ReviewCaseState
+ */
+export type ReviewCaseState = 'pending' | 'in_review' | 'changes_requested' | 'approved' | 'rejected' | 'disputed' | 'appealed' | 'reopened' | 'closed';
+
+/**
+ * ReviewDecisionResponse
+ */
+export type ReviewDecisionResponse = {
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Decision Id
+     */
+    decision_id: string;
+    /**
+     * Outcome
+     */
+    outcome: 'changes_requested' | 'rejected';
+    /**
+     * Reason
+     */
+    reason: string;
+    review_case: ReviewCaseResponse;
+};
+
+/**
+ * ReviewEventResponse
+ */
+export type ReviewEventResponse = {
+    /**
+     * Actor Id
+     */
+    actor_id: string | null;
+    event_type: ReviewEventType;
+    /**
+     * Occurred At
+     */
+    occurred_at: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string | null;
+    /**
+     * Sequence
+     */
+    sequence: number;
+};
+
+/**
+ * ReviewEventType
+ */
+export type ReviewEventType = 'opened' | 'claimed' | 'released' | 'recused' | 'paused' | 'resumed' | 'changes_requested' | 'contributor_responded' | 'approved' | 'rejected' | 'dispute_opened' | 'dispute_resolved' | 'appeal_opened' | 'appeal_resolved' | 'reopened' | 'closed';
+
+/**
+ * ReviewQueueResponse
+ */
+export type ReviewQueueResponse = {
+    /**
+     * Cases
+     */
+    cases: Array<ReviewCaseResponse>;
+    /**
+     * Pack Id
+     */
+    pack_id: string;
+};
+
+/**
+ * ReviewResponseRequest
+ */
+export type ReviewResponseRequest = {
+    /**
+     * Expected Draft Version
+     */
+    expected_draft_version: number;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Patches
+     */
+    patches: Array<ContributionFieldPatch>;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+};
+
+/**
+ * ReviewResponseResult
+ */
+export type ReviewResponseResult = {
+    /**
+     * Next Draft Version
+     */
+    next_draft_version: number;
+    next_review_case: ReviewCaseResponse;
+    prior_review_case: ReviewCaseResponse;
 };
 
 /**
@@ -5739,6 +6274,1202 @@ export type DetailApiV1FoodsSourceSourceIdGetResponses = {
 };
 
 export type DetailApiV1FoodsSourceSourceIdGetResponse = DetailApiV1FoodsSourceSourceIdGetResponses[keyof DetailApiV1FoodsSourceSourceIdGetResponses];
+
+export type ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostData = {
+    body: AppealResolveRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Appeal Id
+         */
+        appeal_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/appeals/{appeal_id}/resolve';
+};
+
+export type ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostError = ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostErrors[keyof ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostErrors];
+
+export type ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostResponse = ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostResponses[keyof ResolveCaseAppealApiV1GovernanceAppealsAppealIdResolvePostResponses];
+
+export type ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    url: '/api/v1/governance/contributor/review-case';
+};
+
+export type ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetError = ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetErrors[keyof ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetErrors];
+
+export type ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetResponse = ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetResponses[keyof ContributorReviewCaseApiV1GovernanceContributorReviewCaseGetResponses];
+
+export type AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostData = {
+    body: AppealOpenRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Dispute Id
+         */
+        dispute_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/disputes/{dispute_id}/appeal';
+};
+
+export type AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostError = AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostErrors[keyof AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostErrors];
+
+export type AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostResponse = AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostResponses[keyof AppealCaseDisputeApiV1GovernanceDisputesDisputeIdAppealPostResponses];
+
+export type ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostData = {
+    body: DisputeResolveRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Dispute Id
+         */
+        dispute_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/disputes/{dispute_id}/resolve';
+};
+
+export type ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostError = ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostErrors[keyof ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostErrors];
+
+export type ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostResponse = ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostResponses[keyof ResolveCaseDisputeApiV1GovernanceDisputesDisputeIdResolvePostResponses];
+
+export type PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Decision Id
+         */
+        decision_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/public-decisions/{decision_id}';
+};
+
+export type PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetError = PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetErrors[keyof PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetErrors];
+
+export type PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicDecisionResponse;
+};
+
+export type PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetResponse = PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetResponses[keyof PublicDecisionApiV1GovernancePublicDecisionsDecisionIdGetResponses];
+
+export type ReviewQueueApiV1GovernanceReviewCasesGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Pack Id
+         */
+        pack_id: string;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/governance/review-cases';
+};
+
+export type ReviewQueueApiV1GovernanceReviewCasesGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReviewQueueApiV1GovernanceReviewCasesGetError = ReviewQueueApiV1GovernanceReviewCasesGetErrors[keyof ReviewQueueApiV1GovernanceReviewCasesGetErrors];
+
+export type ReviewQueueApiV1GovernanceReviewCasesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewQueueResponse;
+};
+
+export type ReviewQueueApiV1GovernanceReviewCasesGetResponse = ReviewQueueApiV1GovernanceReviewCasesGetResponses[keyof ReviewQueueApiV1GovernanceReviewCasesGetResponses];
+
+export type ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}';
+};
+
+export type ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetError = ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetErrors[keyof ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetErrors];
+
+export type ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetResponse = ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetResponses[keyof ReviewCaseDetailApiV1GovernanceReviewCasesReviewCaseIdGetResponses];
+
+export type ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostData = {
+    body: ReviewCaseApproval;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/approve';
+};
+
+export type ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostError = ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostErrors[keyof ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostErrors];
+
+export type ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewApprovalResponse;
+};
+
+export type ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostResponse = ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostResponses[keyof ApproveCaseApiV1GovernanceReviewCasesReviewCaseIdApprovePostResponses];
+
+export type ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostData = {
+    body: ReviewCaseAction;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/claim';
+};
+
+export type ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostError = ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostErrors[keyof ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostErrors];
+
+export type ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostResponse = ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostResponses[keyof ClaimCaseApiV1GovernanceReviewCasesReviewCaseIdClaimPostResponses];
+
+export type DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostData = {
+    body: ReviewCaseDecision;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/decision';
+};
+
+export type DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostError = DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostErrors[keyof DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostErrors];
+
+export type DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewDecisionResponse;
+};
+
+export type DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostResponse = DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostResponses[keyof DecideCaseApiV1GovernanceReviewCasesReviewCaseIdDecisionPostResponses];
+
+export type DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostData = {
+    body: DisputeOpenRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/disputes';
+};
+
+export type DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostError = DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostErrors[keyof DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostErrors];
+
+export type DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostResponse = DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostResponses[keyof DisputeCaseApiV1GovernanceReviewCasesReviewCaseIdDisputesPostResponses];
+
+export type PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostData = {
+    body: ReviewCasePause;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/pause';
+};
+
+export type PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostError = PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostErrors[keyof PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostErrors];
+
+export type PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostResponse = PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostResponses[keyof PauseCaseApiV1GovernanceReviewCasesReviewCaseIdPausePostResponses];
+
+export type RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostData = {
+    body: ReviewCaseRecusal;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/recuse';
+};
+
+export type RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostError = RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostErrors[keyof RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostErrors];
+
+export type RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostResponse = RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostResponses[keyof RecuseFromCaseApiV1GovernanceReviewCasesReviewCaseIdRecusePostResponses];
+
+export type ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostData = {
+    body: ReviewCaseRelease;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/release';
+};
+
+export type ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostError = ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostErrors[keyof ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostErrors];
+
+export type ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostResponse = ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostResponses[keyof ReleaseCaseApiV1GovernanceReviewCasesReviewCaseIdReleasePostResponses];
+
+export type RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostData = {
+    body: ReviewResponseRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/response';
+};
+
+export type RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostError = RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostErrors[keyof RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostErrors];
+
+export type RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewResponseResult;
+};
+
+export type RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostResponse = RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostResponses[keyof RespondToCaseApiV1GovernanceReviewCasesReviewCaseIdResponsePostResponses];
+
+export type ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostData = {
+    body: ReviewCaseResume;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Review Case Id
+         */
+        review_case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/governance/review-cases/{review_case_id}/resume';
+};
+
+export type ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostError = ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostErrors[keyof ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostErrors];
+
+export type ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReviewCaseResponse;
+};
+
+export type ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostResponse = ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostResponses[keyof ResumeCaseApiV1GovernanceReviewCasesReviewCaseIdResumePostResponses];
 
 export type ListEntriesApiV1LogsGetData = {
     body?: never;

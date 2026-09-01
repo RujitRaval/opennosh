@@ -333,6 +333,22 @@ the web without the public flag, and scaling evidence capacity to zero. Preserve
 and immutable evidence; provider lifecycle, not rollback, removes raw quarantine objects. A
 successful disabled deploy is not activation approval.
 
+### Disabled accountable-stewardship boundary
+
+T34.3 adds the review case, reasoned decision, dispute, appeal, contributor-response, and steward UI
+code without exposing it. Keep the API values `GOVERNANCE_STEWARD_UI_ENABLED=false`,
+`GOVERNANCE_MUTATIONS_ENABLED=false`, and `GOVERNANCE_PUBLIC_DECISIONS_ENABLED=false`, and keep the
+web value `OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=false`. Verify a malformed governance request
+returns generic `404` while disabled, and verify the Blueprint still has only API, publication, web,
+and database services. Evidence capacity remains zero and publication settings do not change.
+
+Before a later activation, follow [the accountable stewardship contract](../governance-stewardship.md):
+name each pack and steward, inspect active grants and recusals, define the fresh-auth window, capture
+the generated-contract digest and desktop/mobile canary, produce the non-secret readiness JSON, and
+obtain approval naming its exact SHA-256. Enable mutations only after the read surface and named
+roles are healthy. Roll back within five minutes by disabling mutations first and then the API/web
+surface flags; retain every review and publication record.
+
 The production registry uses separate immutable staging keys for signing and publication. Release
 signatures are self-verified under `signatures/releases/v1/` before the canonical release is
 published. Receipt signatures are read back under `signatures/receipts/v1/`; only the following

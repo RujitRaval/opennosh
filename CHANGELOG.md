@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.70.0.0] - 2026-09-01
+
+### Added
+
+- Add immutable, exact-version governance review cases, public-safe event history, reasoned changes
+  requests and rejections, disputes, independent appeals, deterministic queue ordering, pause and
+  recusal controls, and contributor responses that preserve every reviewed field snapshot.
+- Add a generated, responsive and keyboard-accessible steward browser surface with explicit
+  responsibility, evidence-safe comparison, publication truth, optimistic conflict recovery, and
+  protected approval handoff to the existing publication workflow.
+
+### Security
+
+- Keep all governance browser, mutation, and public-decision flags disabled in production; generic
+  `404` responses occur before validation or database access while internal publication gates stay
+  available.
+- Keep evidence intake and production publication claims disabled, omit private notes and provider
+  authority from API/browser state, and require a separate digest-bound activation with named
+  stewards, fresh-auth policy, five-minute canary, and rollback approval.
+
 ## [0.69.0.0] - 2026-09-01
 
 ### Added

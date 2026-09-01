@@ -28,8 +28,8 @@ class ContributionDraft(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         CheckConstraint("draft_version > 0", name="draft_version_positive"),
         CheckConstraint("workflow_version = '1'", name="workflow_version_supported"),
         CheckConstraint(
-            "review_state IN ('draft', 'in_review', 'changes_requested', 'approved', "
-            "'publication_pending', 'published')",
+            "review_state IN ('draft', 'in_review', 'changes_requested', 'rejected', "
+            "'approved', 'publication_pending', 'published')",
             name="review_state_allowed",
         ),
         UniqueConstraint(

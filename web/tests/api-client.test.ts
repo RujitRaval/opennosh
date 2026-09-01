@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "@/lib/api";
 import { uploadEvidenceBytes } from "@/lib/api/evidence-upload";
+import { governanceApi } from "@/lib/api/governance";
 import foodDetailFixture from "@/tests/fixtures/contracts/foods/v1-detail-community.json";
 
 afterEach(() => {
@@ -11,6 +12,90 @@ afterEach(() => {
 });
 
 describe("browser API client", () => {
+  it("binds every governance action to its exact encoded resource", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockImplementation(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("11111111-1111-4111-8111-111111111111");
+
+    await governanceApi.queue("starter us");
+    await governanceApi.reviewCase("case/id");
+    await governanceApi.contributorCase("draft/id");
+    await governanceApi.claim("case/id", 2);
+    await governanceApi.release("case/id", { expected_revision: 2, reason: "Release." });
+    await governanceApi.pause("case/id", {
+      expected_revision: 2,
+      reason: "Wait.",
+      next_review_at: "2026-09-02T20:00:00Z",
+    });
+    await governanceApi.resume("case/id", { expected_revision: 2, reason: "Resume." });
+    await governanceApi.recuse("case/id", { expected_revision: 2, reason: "Conflict." });
+    await governanceApi.decide("case/id", {
+      expected_revision: 2,
+      outcome: "changes_requested",
+      reason: "Clarify.",
+    });
+    await governanceApi.approve("case/id", {
+      expected_revision: 2,
+      pack_id: "starter-us",
+      record_id: "soup",
+      expected_base_commit: "a".repeat(40),
+      files: [{ path: "packs/starter-us/soup.json", content: "{}" }],
+      reason: "Verified.",
+    });
+    await governanceApi.respond("case/id", {
+      expected_revision: 2,
+      expected_draft_version: 1,
+      patches: [{ field: "name", value: "Tomato soup", base_value: null, base_version: 1 }],
+      public_reason: "Updated.",
+    });
+    await governanceApi.dispute("case/id", {
+      expected_revision: 2,
+      category: "accuracy",
+      public_reason: "Incorrect.",
+      requested_remedy: "Review it.",
+    });
+    await governanceApi.resolveDispute("dispute/id", {
+      expected_case_revision: 2,
+      expected_dispute_revision: 1,
+      resolution: "Reopened.",
+    });
+    await governanceApi.appeal("dispute/id", {
+      expected_case_revision: 2,
+      expected_dispute_revision: 2,
+      public_reason: "Missed evidence.",
+      requested_remedy: "Independent review.",
+    });
+    await governanceApi.resolveAppeal("appeal/id", {
+      expected_case_revision: 3,
+      expected_appeal_revision: 1,
+      resolution: "Upheld.",
+    });
+
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      "/api/v1/governance/review-cases?pack_id=starter%20us",
+      "/api/v1/governance/review-cases/case%2Fid",
+      "/api/v1/governance/contributor/review-case?draft_id=draft%2Fid",
+      "/api/v1/governance/review-cases/case%2Fid/claim",
+      "/api/v1/governance/review-cases/case%2Fid/release",
+      "/api/v1/governance/review-cases/case%2Fid/pause",
+      "/api/v1/governance/review-cases/case%2Fid/resume",
+      "/api/v1/governance/review-cases/case%2Fid/recuse",
+      "/api/v1/governance/review-cases/case%2Fid/decision",
+      "/api/v1/governance/review-cases/case%2Fid/approve",
+      "/api/v1/governance/review-cases/case%2Fid/response",
+      "/api/v1/governance/review-cases/case%2Fid/disputes",
+      "/api/v1/governance/disputes/dispute%2Fid/resolve",
+      "/api/v1/governance/disputes/dispute%2Fid/appeal",
+      "/api/v1/governance/appeals/appeal%2Fid/resolve",
+    ]);
+    for (const [, init] of fetchMock.mock.calls.slice(3)) {
+      expect(new Headers(init?.headers).get("Idempotency-Key")).toBe(
+        "11111111-1111-4111-8111-111111111111",
+      );
+    }
+  });
+
   it("uses a stable message for non-JSON server failures", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream unavailable", { status: 503 })));
 
