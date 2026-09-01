@@ -90,3 +90,8 @@ or replay only under `failure()`; it can never replace the primary verdict. Temp
 records require a GitHub issue, owner, reason, and expiry in
 `config/trust-gate-exceptions.v1.json`. Trust-protocol and security-policy gates cannot be
 quarantined.
+
+The non-intercepted vertical journey is deterministic test evidence, not a claim that a natural
+production contribution occurred. T34.4's live proof uses a separately approved real contributor
+and independent steward, then verifies the canonical database lineage and public artifacts with
+`opennosh commons natural-publication-proof`. Production proof data is never seeded or replayed.

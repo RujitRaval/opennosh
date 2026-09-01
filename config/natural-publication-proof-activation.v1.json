@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "activation": {
+    "evidence_uploads_enabled": true,
+    "evidence_sanitization_enabled": true,
+    "evidence_replicas": 1,
+    "governance_steward_ui_enabled": true,
+    "governance_mutations_enabled": true,
+    "governance_public_decisions_enabled": true,
+    "web_governance_ui_enabled": true,
+    "public_artifact_reads_enabled": true,
+    "publication_claims_enabled": true,
+    "publication_continuous_claims_enabled": true,
+    "publication_claim_concurrency": 1,
+    "publication_replicas": 1,
+    "observation_seconds": 1800
+  },
+  "rollback": {
+    "evidence_uploads_enabled": false,
+    "evidence_sanitization_enabled": false,
+    "evidence_replicas": 0,
+    "governance_steward_ui_enabled": false,
+    "governance_mutations_enabled": false,
+    "governance_public_decisions_enabled": false,
+    "web_governance_ui_enabled": false,
+    "public_artifact_reads_enabled": false,
+    "publication_claims_enabled": false,
+    "publication_continuous_claims_enabled": false,
+    "publication_activation_id_present": false,
+    "latest_refresh_enabled": true,
+    "recovery_seconds": 300
+  }
+}

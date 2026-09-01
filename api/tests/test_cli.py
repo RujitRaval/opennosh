@@ -54,6 +54,138 @@ def test_production_claims_readiness_blocks_without_leaking_error(
     assert output.out == ""
 
 
+def _natural_proof_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(
+        ["commons", "natural-publication-proof", "--request-file", "proof.json", "--json"]
+    )
+
+
+def test_natural_publication_proof_command_parses() -> None:
+    arguments = _natural_proof_arguments()
+
+    assert arguments.commons_command == "natural-publication-proof"
+    assert arguments.request_file == Path("proof.json")
+    assert arguments.json is True
+
+
+def test_natural_publication_proof_reports_verified_digest(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def collect(_settings: object, request: object) -> dict[str, object]:
+        assert request is sentinel
+        return {"schema_version": "1.0", "status": "verified", "proof_sha256": "a" * 64}
+
+    sentinel = object()
+    monkeypatch.setattr(cli, "load_natural_publication_proof_request", lambda _path: sentinel)
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_natural_publication_proof", collect)
+
+    assert cli.run_commons_command(_natural_proof_arguments()) == 0
+    output = capsys.readouterr()
+    assert '"proof_sha256":' in output.out
+    assert output.err == ""
+
+
+def test_natural_publication_proof_rejects_request_without_leaking_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def reject(_path: object) -> object:
+        raise cli.NaturalPublicationProofRequestError("private request content")
+
+    monkeypatch.setattr(cli, "load_natural_publication_proof_request", reject)
+
+    assert cli.run_commons_command(_natural_proof_arguments()) == 4
+    output = capsys.readouterr()
+    assert "request file is invalid" in output.err
+    assert "private" not in output.err
+    assert output.out == ""
+
+
+def test_natural_publication_proof_reports_blocked_and_probe_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    sentinel = object()
+    monkeypatch.setattr(cli, "load_natural_publication_proof_request", lambda _path: sentinel)
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+
+    async def blocked(_settings: object, _request: object) -> dict[str, object]:
+        return {"status": "blocked", "failures": ["safe_code"]}
+
+    monkeypatch.setattr(cli, "collect_natural_publication_proof", blocked)
+    assert cli.run_commons_command(_natural_proof_arguments()) == 2
+    assert '"status": "blocked"' in capsys.readouterr().out
+
+    async def failed(_settings: object, _request: object) -> dict[str, object]:
+        raise ValueError("private failure")
+
+    monkeypatch.setattr(cli, "collect_natural_publication_proof", failed)
+    assert cli.run_commons_command(_natural_proof_arguments()) == 5
+    output = capsys.readouterr()
+    assert "read-only probe failed" in output.err
+    assert "private failure" not in output.err
+
+
+def test_natural_publication_readiness_command_and_result(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    arguments = cli.build_parser().parse_args(
+        [
+            "commons",
+            "natural-publication-readiness",
+            "--blueprint",
+            "render.yaml",
+            "--json",
+        ]
+    )
+
+    async def collect(
+        _settings: object,
+        *,
+        blueprint_path: Path,
+    ) -> dict[str, object]:
+        assert blueprint_path == Path("render.yaml")
+        return {"schema_version": "1.0", "status": "ready", "readiness_sha256": "b" * 64}
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_natural_publication_readiness", collect)
+
+    assert cli.run_commons_command(arguments) == 0
+    output = capsys.readouterr()
+    assert '"readiness_sha256":' in output.out
+    assert output.err == ""
+
+
+def test_natural_publication_readiness_reports_blocked_and_probe_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    arguments = cli.build_parser().parse_args(
+        ["commons", "natural-publication-readiness", "--json"]
+    )
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+
+    async def blocked(_settings: object, *, blueprint_path: Path) -> dict[str, object]:
+        assert blueprint_path == Path("render.yaml")
+        return {"status": "blocked", "failures": ["safe_code"]}
+
+    monkeypatch.setattr(cli, "collect_natural_publication_readiness", blocked)
+    assert cli.run_commons_command(arguments) == 2
+    assert '"status": "blocked"' in capsys.readouterr().out
+
+    async def failed(_settings: object, *, blueprint_path: Path) -> dict[str, object]:
+        raise OSError("private path")
+
+    monkeypatch.setattr(cli, "collect_natural_publication_readiness", failed)
+    assert cli.run_commons_command(arguments) == 5
+    output = capsys.readouterr()
+    assert "read-only probe failed" in output.err
+    assert "private path" not in output.err
+
+
 def test_exercise_import_command_parses_offline_paths() -> None:
     arguments = cli.build_parser().parse_args(
         ["exercises", "import-wger", "one.json", "two.json", "--batch-size", "25", "--json"]

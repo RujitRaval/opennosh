@@ -22,6 +22,7 @@ WHEEL_MEMBERS = {
     "opennosh_api/foodpacks/food-pack.schema.json": b"{}",
     "opennosh_api/database-capacity.v1.json": b"{}",
     "opennosh_api/publication-claims-activation.v1.json": b"{}",
+    "opennosh_api/natural-publication-proof-activation.v1.json": b"{}",
     f"{DIST_INFO}/entry_points.txt": ENTRY_POINTS,
     f"{DIST_INFO}/licenses/AUTHORS.md": b"contributors",
     f"{DIST_INFO}/licenses/LICENSE": b"MIT",
@@ -34,6 +35,7 @@ SDIST_MEMBERS = (
     "schemas/food-pack.schema.json",
     "config/database-capacity.v1.json",
     "config/publication-claims-activation.v1.json",
+    "config/natural-publication-proof-activation.v1.json",
     "NOTICE.md",
     "LICENSES.md",
 )

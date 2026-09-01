@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.71.0.0] - 2026-09-01
+
+### Added
+
+- Add a read-only, redacted natural browser-to-receipt proof contract that binds one exact draft,
+  independent steward decision, publication intent, ten acknowledged effects, signed receipt,
+  accepted event, latest/immutable public record, provenance, and signed manifest.
+- Add disabled-deployment readiness and activation contracts, least-privilege Render shell wrappers,
+  canonical report digests, and the separately approved natural-contribution canary and rollback
+  runbook.
+
+### Security
+
+- Keep evidence, governance, public-read, and publication-claim flags false, evidence capacity zero,
+  and the deployed topology unchanged; proof operations require claims disabled and PostgreSQL
+  repeatable-read/read-only mode.
+- Reject unsafe request files, duplicate or inconsistent lineage, untrusted signatures, mismatched
+  artifacts, and synthetic production proof data while omitting actor IDs and private evidence from
+  reports.
+
 ## [0.70.0.1] - 2026-09-01
 
 ### Fixed

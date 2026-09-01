@@ -36,12 +36,26 @@ PUBLICATION_TABLE_PRIVILEGES = {
     "opennosh_pgqueuer_schedules": "SELECT, INSERT, UPDATE, DELETE",
     "opennosh_pgqueuer_statistics": "SELECT, INSERT, UPDATE",
 }
-# PostgreSQL row-locking clauses require UPDATE privilege on at least one
-# selected column.  The governance gate locks the immutable evidence row while
-# authorizing a merge, so grant only the primary-key column needed for that
-# lock instead of table-wide UPDATE access.
-PUBLICATION_COLUMN_PRIVILEGES = {
+# Column grants keep natural-proof reads away from raw fields and private notes.
+# PostgreSQL row-locking also requires UPDATE privilege on one selected evidence
+# column, so the publication gate retains only that primary-key capability.
+PUBLICATION_COLUMN_PRIVILEGES: dict[str, dict[str, tuple[str, ...]]] = {
+    "contribution_drafts": {
+        "SELECT": ("id", "draft_version", "review_state", "user_id", "submitted_at"),
+    },
     "evidence_manifests": {"UPDATE": ("id",)},
+    "governance_review_cases": {
+        "SELECT": (
+            "id",
+            "source_draft_id",
+            "source_draft_version",
+            "pack_id",
+            "contributor_actor_id",
+            "state",
+            "assigned_steward_actor_id",
+            "opened_at",
+        ),
+    },
 }
 PUBLICATION_SEQUENCES = (
     "opennosh_pgqueuer_id_seq",
@@ -596,11 +610,78 @@ def run_publication_readiness(source: Mapping[str, str]) -> None:
     )
 
 
+def run_natural_publication_proof(
+    source: Mapping[str, str],
+    *,
+    request_file: str,
+) -> None:
+    """Verify one lineage without enabling claims or retaining owner credentials."""
+
+    environment = publication_environment(source)
+    if environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true":
+        raise ValueError("Natural publication proof requires claims disabled")
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        PUBLICATION_ROLE,
+        publication_password,
+    )
+    subprocess.run(
+        [
+            "opennosh",
+            "commons",
+            "natural-publication-proof",
+            "--request-file",
+            request_file,
+            "--json",
+        ],
+        check=True,
+        env=environment,
+    )
+
+
+def run_natural_publication_readiness(source: Mapping[str, str]) -> None:
+    """Build the T34.4 disabled activation digest without enabling any feature."""
+
+    environment = publication_environment(source)
+    if environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true":
+        raise ValueError("Natural publication readiness requires claims disabled")
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        PUBLICATION_ROLE,
+        publication_password,
+    )
+    subprocess.run(
+        [
+            "opennosh",
+            "commons",
+            "natural-publication-readiness",
+            "--blueprint",
+            "/app/render.yaml",
+            "--json",
+        ],
+        check=True,
+        env=environment,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "mode", choices=("api", "predeploy", "publication", "publication-readiness")
+        "mode",
+        choices=(
+            "api",
+            "predeploy",
+            "publication",
+            "publication-readiness",
+            "natural-publication-readiness",
+            "natural-publication-proof",
+        ),
     )
+    parser.add_argument("--request-file")
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
         run_predeploy(os.environ)
@@ -608,6 +689,12 @@ def main() -> int:
         run_api(os.environ)
     elif arguments.mode == "publication-readiness":
         run_publication_readiness(os.environ)
+    elif arguments.mode == "natural-publication-proof":
+        if arguments.request_file is None:
+            parser.error("natural-publication-proof requires --request-file")
+        run_natural_publication_proof(os.environ, request_file=arguments.request_file)
+    elif arguments.mode == "natural-publication-readiness":
+        run_natural_publication_readiness(os.environ)
     else:
         run_publication(os.environ)
     return 0

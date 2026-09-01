@@ -349,6 +349,20 @@ obtain approval naming its exact SHA-256. Enable mutations only after the read s
 roles are healthy. Roll back within five minutes by disabling mutations first and then the API/web
 surface flags; retain every review and publication record.
 
+### Disabled natural-publication proof boundary
+
+T34.4 adds only read-only readiness and proof tooling. Keep every evidence, governance, public-read,
+and publication-claim flag false, keep evidence capacity at zero, and do not add a service or
+credential group. After the disabled deployment and five-minute worker canary, run
+`python deploy/render_runtime.py natural-publication-readiness` in the publication shell. A passing
+digest is evidence of a safe disabled starting point, not activation approval.
+
+The later real contribution ceremony, exact approval message, mode-`0600` request, 30-minute canary,
+proof command, stop conditions, and five-minute rollback are defined in
+[Natural browser-to-receipt publication proof](natural-publication-proof.md). The production proof
+must come from an ordinary contributor and independent steward; synthetic or operator-created data
+cannot satisfy it.
+
 The production registry uses separate immutable staging keys for signing and publication. Release
 signatures are self-verified under `signatures/releases/v1/` before the canonical release is
 published. Receipt signatures are read back under `signatures/receipts/v1/`; only the following
