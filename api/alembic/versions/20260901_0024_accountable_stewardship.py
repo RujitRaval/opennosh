@@ -48,6 +48,11 @@ def upgrade() -> None:
         sa.Column("source_draft_version", sa.Integer(), nullable=False),
         sa.Column("pack_id", sa.String(length=160), nullable=False),
         sa.Column("contributor_actor_id", sa.Uuid(), nullable=False),
+        sa.Column(
+            "submitted_fields_json",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
         sa.Column("state", sa.String(length=32), nullable=False),
         sa.Column("revision", sa.Integer(), server_default="1", nullable=False),
         sa.Column("assigned_steward_actor_id", sa.Uuid(), nullable=True),

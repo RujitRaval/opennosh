@@ -31,10 +31,14 @@ from opennosh_api.governance.review_service import (
     list_review_events,
     open_appeal,
     open_dispute,
+    pause_review_case,
     record_nonapproval_decision,
+    recuse_review_case,
     release_review_case,
     resolve_appeal,
     resolve_dispute,
+    respond_to_changes_request,
+    resume_review_case,
 )
 from opennosh_api.governance.reviews import DisputeCategory, ReviewCaseState, ReviewEventType
 from opennosh_api.governance.schemas import (
@@ -48,11 +52,16 @@ from opennosh_api.governance.schemas import (
     ReviewCaseAction,
     ReviewCaseApproval,
     ReviewCaseDecision,
+    ReviewCasePause,
+    ReviewCaseRecusal,
     ReviewCaseRelease,
     ReviewCaseResponse,
+    ReviewCaseResume,
     ReviewDecisionResponse,
     ReviewEventResponse,
     ReviewQueueResponse,
+    ReviewResponseRequest,
+    ReviewResponseResult,
 )
 from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
 from opennosh_api.settings import Settings
@@ -107,6 +116,7 @@ def _case_response(
         source_draft_id=review_case.source_draft_id,
         source_draft_version=review_case.source_draft_version,
         pack_id=review_case.pack_id,
+        submitted_fields=review_case.submitted_fields_json,
         state=ReviewCaseState(review_case.state),
         revision=review_case.revision,
         assigned_steward_actor_id=review_case.assigned_steward_actor_id,
@@ -184,6 +194,7 @@ def _raise_review_error(error: ReviewCaseError) -> Never:
         "review_case_draft_version_stale",
         "contribution_not_in_review",
         "review_case_not_assigned_to_actor",
+        "review_case_not_paused",
         "acknowledgement_evidence_mismatch",
         "acknowledgement_class_mismatch",
         "acknowledgement_manifest_digest_mismatch",
@@ -197,6 +208,9 @@ def _raise_review_error(error: ReviewCaseError) -> Never:
         "attestation_manifest_digest_mismatch",
         "publication_paused",
         "review_approval_not_found",
+        "review_response_not_found",
+        "contribution_not_awaiting_response",
+        "contribution_version_conflict",
     }:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error.code) from error
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error.code) from error
@@ -320,6 +334,109 @@ async def release_case(
 
 
 @router.post(
+    "/review-cases/{review_case_id}/pause",
+    response_model=ReviewCaseResponse,
+    dependencies=[Depends(require_governance_mutations)],
+)
+async def pause_case(
+    review_case_id: UUID,
+    payload: ReviewCasePause,
+    response: Response,
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReviewCaseResponse:
+    _no_store(response)
+    try:
+        review_case = await pause_review_case(
+            database,
+            review_case_id=review_case_id,
+            actor_id=current.user_id,
+            expected_revision=payload.expected_revision,
+            idempotency_key=idempotency_key,
+            reason=payload.reason,
+            next_review_at=payload.next_review_at,
+            now=datetime.now(UTC),
+        )
+        await database.commit()
+        result = await _complete_case_response(database, review_case)
+    except ReviewCaseError as error:
+        await database.rollback()
+        _raise_review_error(error)
+    except ValueError as error:
+        await database.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return result
+
+
+@router.post(
+    "/review-cases/{review_case_id}/resume",
+    response_model=ReviewCaseResponse,
+    dependencies=[Depends(require_governance_mutations)],
+)
+async def resume_case(
+    review_case_id: UUID,
+    payload: ReviewCaseResume,
+    response: Response,
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReviewCaseResponse:
+    _no_store(response)
+    try:
+        review_case = await resume_review_case(
+            database,
+            review_case_id=review_case_id,
+            actor_id=current.user_id,
+            expected_revision=payload.expected_revision,
+            idempotency_key=idempotency_key,
+            reason=payload.reason,
+            now=datetime.now(UTC),
+        )
+        await database.commit()
+        result = await _complete_case_response(database, review_case)
+    except ReviewCaseError as error:
+        await database.rollback()
+        _raise_review_error(error)
+    return result
+
+
+@router.post(
+    "/review-cases/{review_case_id}/recuse",
+    response_model=ReviewCaseResponse,
+    dependencies=[Depends(require_governance_mutations)],
+)
+async def recuse_from_case(
+    review_case_id: UUID,
+    payload: ReviewCaseRecusal,
+    response: Response,
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReviewCaseResponse:
+    _no_store(response)
+    try:
+        review_case = await recuse_review_case(
+            database,
+            review_case_id=review_case_id,
+            actor_id=current.user_id,
+            expected_revision=payload.expected_revision,
+            idempotency_key=idempotency_key,
+            reason=payload.reason,
+            now=datetime.now(UTC),
+        )
+        await database.commit()
+        result = await _complete_case_response(database, review_case)
+    except ReviewCaseError as error:
+        await database.rollback()
+        _raise_review_error(error)
+    return result
+
+
+@router.post(
     "/review-cases/{review_case_id}/decision",
     response_model=ReviewDecisionResponse,
     dependencies=[Depends(require_governance_mutations)],
@@ -407,6 +524,51 @@ async def approve_case(
         review_case=result,
         decision_id=decision.id,
         publication_intent_id=publication_intent.id,
+    )
+
+
+@router.post(
+    "/review-cases/{review_case_id}/response",
+    response_model=ReviewResponseResult,
+    dependencies=[Depends(require_governance_mutations)],
+)
+async def respond_to_case(
+    review_case_id: UUID,
+    payload: ReviewResponseRequest,
+    response: Response,
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReviewResponseResult:
+    _no_store(response)
+    try:
+        prior_case, next_case, draft = await respond_to_changes_request(
+            database,
+            review_case_id=review_case_id,
+            actor_id=current.user_id,
+            patches=tuple(payload.patches),
+            expected_revision=payload.expected_revision,
+            expected_draft_version=payload.expected_draft_version,
+            idempotency_key=idempotency_key,
+            public_reason=payload.public_reason,
+            now=datetime.now(UTC),
+        )
+        await database.commit()
+        prior_result = await _complete_case_response(database, prior_case)
+        next_result = await _complete_case_response(database, next_case)
+    except ReviewCaseError as error:
+        await database.rollback()
+        _raise_review_error(error)
+    except ValueError as error:
+        await database.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return ReviewResponseResult(
+        prior_review_case=prior_result,
+        next_review_case=next_result,
+        next_draft_version=draft.draft_version,
     )
 
 

@@ -76,6 +76,12 @@ class ContributionConflictError(Exception):
         self.capability = capability
 
 
+class ContributionReviewResponseError(RuntimeError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 class ContributionValidationError(Exception):
     def __init__(self, blockers: list[ContributionBlocker]) -> None:
         super().__init__("The contribution is not ready for this action.")
@@ -541,6 +547,52 @@ async def patch_draft(
     await database.commit()
     await database.refresh(draft)
     return build_capability(draft, payload.requested_stage)
+
+
+async def apply_review_response(
+    database: AsyncSession,
+    *,
+    draft_id: UUID,
+    user_id: UUID,
+    expected_draft_version: int,
+    patches: tuple[ContributionFieldPatch, ...],
+    submission_key_hash: str,
+    submission_request_hash: str,
+    now: datetime,
+) -> ContributionDraft:
+    """Create the next exact draft version without committing the review transaction."""
+
+    draft = await database.scalar(
+        select(ContributionDraft)
+        .where(ContributionDraft.id == draft_id, ContributionDraft.user_id == user_id)
+        .with_for_update()
+    )
+    if draft is None:
+        raise ContributionReviewResponseError("contribution_not_found")
+    if draft.review_state != ContributionReviewState.CHANGES_REQUESTED.value:
+        raise ContributionReviewResponseError("contribution_not_awaiting_response")
+    if draft.draft_version != expected_draft_version:
+        raise ContributionReviewResponseError("contribution_version_conflict")
+    if not patches or len(patches) > 25:
+        raise ValueError("A review response requires between one and 25 field changes")
+
+    fields = dict(draft.fields_json)
+    for patch in patches:
+        fields[patch.field.value] = _normalize_patch(patch)
+    validated = ContributionDraftFields.model_validate(fields)
+    if any(patch.field is ContributionFieldName.NAME for patch in patches):
+        draft.duplicate_candidates_json = await _duplicate_candidates(database, validated.name)
+        validated.duplicates_resolved = False
+    draft.fields_json = validated.model_dump(mode="json")
+    draft.draft_version += 1
+    draft.review_state = ContributionReviewState.IN_REVIEW.value
+    draft.submission_id = uuid4()
+    draft.submission_key_hash = submission_key_hash
+    draft.submission_request_hash = submission_request_hash
+    draft.submitted_at = now
+    draft.updated_at = now
+    await database.flush()
+    return draft
 
 
 async def submit_draft(

@@ -44,12 +44,19 @@ def test_governance_surfaces_are_disabled_before_validation_or_database_io() -> 
             f"/api/v1/governance/review-cases/{CASE_ID}/release",
             json={"expected_revision": 0, "reason": ""},
         ),
+        client.post(f"/api/v1/governance/review-cases/{CASE_ID}/pause", json={}),
+        client.post(f"/api/v1/governance/review-cases/{CASE_ID}/resume", json={}),
+        client.post(f"/api/v1/governance/review-cases/{CASE_ID}/recuse", json={}),
         client.post(
             f"/api/v1/governance/review-cases/{CASE_ID}/decision",
             json={"outcome": "approved", "reason": ""},
         ),
         client.post(
             f"/api/v1/governance/review-cases/{CASE_ID}/approve",
+            json={},
+        ),
+        client.post(
+            f"/api/v1/governance/review-cases/{CASE_ID}/response",
             json={},
         ),
         client.post(
@@ -60,7 +67,7 @@ def test_governance_surfaces_are_disabled_before_validation_or_database_io() -> 
         client.post("/api/v1/governance/disputes/not-a-uuid/appeal", json={}),
         client.post("/api/v1/governance/appeals/not-a-uuid/resolve", json={}),
     ]
-    assert [response.status_code for response in responses] == [404] * 10
+    assert [response.status_code for response in responses] == [404] * 14
     assert {response.json()["detail"] for response in responses} == {
         "The requested resource was not found."
     }
@@ -73,8 +80,12 @@ def test_governance_openapi_contract_omits_private_notes_and_provider_material()
     assert "/api/v1/governance/review-cases/{review_case_id}" in paths
     assert "/api/v1/governance/review-cases/{review_case_id}/claim" in paths
     assert "/api/v1/governance/review-cases/{review_case_id}/release" in paths
+    assert "/api/v1/governance/review-cases/{review_case_id}/pause" in paths
+    assert "/api/v1/governance/review-cases/{review_case_id}/resume" in paths
+    assert "/api/v1/governance/review-cases/{review_case_id}/recuse" in paths
     assert "/api/v1/governance/review-cases/{review_case_id}/decision" in paths
     assert "/api/v1/governance/review-cases/{review_case_id}/approve" in paths
+    assert "/api/v1/governance/review-cases/{review_case_id}/response" in paths
     assert "/api/v1/governance/review-cases/{review_case_id}/disputes" in paths
     assert "/api/v1/governance/disputes/{dispute_id}/resolve" in paths
     assert "/api/v1/governance/disputes/{dispute_id}/appeal" in paths

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from opennosh_api.contributions.schemas import ContributionFieldPatch
 from opennosh_api.governance.contracts import GovernanceDecisionOutcome
 from opennosh_api.governance.reviews import (
     DisputeCategory,
@@ -30,6 +31,18 @@ class ReviewCaseRelease(ReviewCaseAction):
         if not normalized:
             raise ValueError("Reason cannot be blank")
         return normalized
+
+
+class ReviewCasePause(ReviewCaseRelease):
+    next_review_at: datetime
+
+
+class ReviewCaseResume(ReviewCaseRelease):
+    pass
+
+
+class ReviewCaseRecusal(ReviewCaseRelease):
+    pass
 
 
 class ReviewCaseDecision(ReviewCaseAction):
@@ -109,6 +122,7 @@ class ReviewCaseResponse(BaseModel):
     source_draft_id: UUID
     source_draft_version: Annotated[int, Field(ge=1)]
     pack_id: Annotated[str, Field(min_length=1, max_length=160)]
+    submitted_fields: dict[str, Any]
     state: ReviewCaseState
     revision: Annotated[int, Field(ge=1)]
     assigned_steward_actor_id: UUID | None
@@ -150,6 +164,20 @@ class ReviewApprovalResponse(BaseModel):
     decision_id: UUID
     publication_intent_id: UUID
     status: Literal["publication_pending"] = "publication_pending"
+
+
+class ReviewResponseRequest(ReviewCaseAction):
+    expected_draft_version: Annotated[int, Field(ge=1)]
+    patches: Annotated[list[ContributionFieldPatch], Field(min_length=1, max_length=25)]
+    public_reason: Annotated[str, Field(min_length=1, max_length=2000)]
+
+
+class ReviewResponseResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prior_review_case: ReviewCaseResponse
+    next_review_case: ReviewCaseResponse
+    next_draft_version: Annotated[int, Field(ge=1)]
 
 
 class DisputeOpenRequest(ReviewCaseAction):
@@ -195,9 +223,14 @@ __all__ = [
     "ReviewApprovedFile",
     "ReviewCaseApproval",
     "ReviewCaseDecision",
+    "ReviewCasePause",
+    "ReviewCaseRecusal",
     "ReviewCaseRelease",
+    "ReviewCaseResume",
     "ReviewCaseResponse",
     "ReviewDecisionResponse",
     "ReviewEventResponse",
     "ReviewQueueResponse",
+    "ReviewResponseRequest",
+    "ReviewResponseResult",
 ]

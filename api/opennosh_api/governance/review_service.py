@@ -3,13 +3,18 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import case, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.contributions.models import ContributionDraft
+from opennosh_api.contributions.schemas import ContributionFieldPatch
+from opennosh_api.contributions.service import (
+    ContributionReviewResponseError,
+    apply_review_response,
+)
 from opennosh_api.governance.contracts import (
     CANONICAL_FORGE_TARGET,
     PROTECTED_STATUS_CHECKS,
@@ -206,6 +211,15 @@ async def open_review_case(
         raise ValueError("Review case requires a positive draft version")
     if not pack_id or len(pack_id) > 160:
         raise ValueError("Review case requires a bounded pack ID")
+    draft = await session.scalar(
+        select(ContributionDraft).where(ContributionDraft.id == source_draft_id).with_for_update()
+    )
+    if draft is None:
+        raise ReviewCaseError("contribution_not_found")
+    if draft.draft_version != source_draft_version:
+        raise ReviewCaseError("review_case_draft_version_stale")
+    if draft.user_id != contributor_actor_id or draft.fields_json.get("pack_id") != pack_id:
+        raise ReviewCaseError("review_case_binding_mismatch")
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
         {"scope": f"opennosh.review-case:{source_draft_id}:{source_draft_version}"},
@@ -226,6 +240,7 @@ async def open_review_case(
         source_draft_version=source_draft_version,
         pack_id=pack_id,
         contributor_actor_id=contributor_actor_id,
+        submitted_fields_json=dict(draft.fields_json),
         state=ReviewCaseState.PENDING.value,
         revision=1,
         opened_at=now,
@@ -337,6 +352,191 @@ async def release_review_case(
         session,
         review_case=review_case,
         event_type=ReviewEventType.RELEASED,
+        actor_id=actor_id,
+        public_reason=normalized_reason,
+        now=now,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    )
+    await session.flush()
+    return review_case
+
+
+async def pause_review_case(
+    session: AsyncSession,
+    *,
+    review_case_id: UUID,
+    actor_id: UUID,
+    expected_revision: int,
+    idempotency_key: UUID,
+    reason: str,
+    next_review_at: datetime,
+    now: datetime,
+) -> GovernanceReviewCase:
+    _require_aware(now)
+    _require_aware(next_review_at)
+    normalized_reason = validate_reason(reason, maximum=1000)
+    if not now < next_review_at <= now + timedelta(days=30):
+        raise ValueError("Next review must be within 30 days")
+    key_hash = _hash_idempotency_key(idempotency_key)
+    request_hash = _request_hash(
+        {
+            "action": "pause",
+            "actor_id": actor_id,
+            "expected_revision": expected_revision,
+            "reason": normalized_reason,
+            "next_review_at": next_review_at,
+        }
+    )
+    review_case = await _load_case(session, review_case_id, for_update=True)
+    if await _idempotent_event(
+        session,
+        review_case_id=review_case.id,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    ):
+        return review_case
+    if review_case.revision != expected_revision:
+        raise ReviewCaseError("review_case_revision_conflict")
+    await _require_steward_can_review(session, review_case=review_case, actor_id=actor_id, now=now)
+    if review_case.assigned_steward_actor_id != actor_id:
+        raise ReviewCaseError("review_case_not_assigned_to_actor")
+    review_case.state = _transition(review_case.state, ReviewEventType.PAUSED).value
+    review_case.pause_reason = normalized_reason
+    review_case.next_review_at = next_review_at
+    review_case.revision += 1
+    review_case.updated_at = now
+    _append_event(
+        session,
+        review_case=review_case,
+        event_type=ReviewEventType.PAUSED,
+        actor_id=actor_id,
+        public_reason=normalized_reason,
+        now=now,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+        details={"next_review_at": next_review_at.isoformat()},
+    )
+    await session.flush()
+    return review_case
+
+
+async def resume_review_case(
+    session: AsyncSession,
+    *,
+    review_case_id: UUID,
+    actor_id: UUID,
+    expected_revision: int,
+    idempotency_key: UUID,
+    reason: str,
+    now: datetime,
+) -> GovernanceReviewCase:
+    _require_aware(now)
+    normalized_reason = validate_reason(reason, maximum=1000)
+    key_hash = _hash_idempotency_key(idempotency_key)
+    request_hash = _request_hash(
+        {
+            "action": "resume",
+            "actor_id": actor_id,
+            "expected_revision": expected_revision,
+            "reason": normalized_reason,
+        }
+    )
+    review_case = await _load_case(session, review_case_id, for_update=True)
+    if await _idempotent_event(
+        session,
+        review_case_id=review_case.id,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    ):
+        return review_case
+    if review_case.revision != expected_revision:
+        raise ReviewCaseError("review_case_revision_conflict")
+    await _require_steward_can_review(session, review_case=review_case, actor_id=actor_id, now=now)
+    if review_case.assigned_steward_actor_id != actor_id:
+        raise ReviewCaseError("review_case_not_assigned_to_actor")
+    if review_case.pause_reason is None or review_case.next_review_at is None:
+        raise ReviewCaseError("review_case_not_paused")
+    review_case.state = _transition(review_case.state, ReviewEventType.RESUMED).value
+    review_case.pause_reason = None
+    review_case.next_review_at = None
+    review_case.revision += 1
+    review_case.updated_at = now
+    _append_event(
+        session,
+        review_case=review_case,
+        event_type=ReviewEventType.RESUMED,
+        actor_id=actor_id,
+        public_reason=normalized_reason,
+        now=now,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    )
+    await session.flush()
+    return review_case
+
+
+async def recuse_review_case(
+    session: AsyncSession,
+    *,
+    review_case_id: UUID,
+    actor_id: UUID,
+    expected_revision: int,
+    idempotency_key: UUID,
+    reason: str,
+    now: datetime,
+    recusal_id_generator: Callable[[], UUID] = uuid4,
+) -> GovernanceReviewCase:
+    _require_aware(now)
+    normalized_reason = validate_reason(reason, maximum=1000)
+    key_hash = _hash_idempotency_key(idempotency_key)
+    request_hash = _request_hash(
+        {
+            "action": "recuse",
+            "actor_id": actor_id,
+            "expected_revision": expected_revision,
+            "reason": normalized_reason,
+        }
+    )
+    review_case = await _load_case(session, review_case_id, for_update=True)
+    if await _idempotent_event(
+        session,
+        review_case_id=review_case.id,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    ):
+        return review_case
+    if review_case.revision != expected_revision:
+        raise ReviewCaseError("review_case_revision_conflict")
+    await _require_active_steward(
+        session,
+        pack_id=review_case.pack_id,
+        actor_id=actor_id,
+        now=now,
+    )
+    if review_case.assigned_steward_actor_id != actor_id:
+        raise ReviewCaseError("review_case_not_assigned_to_actor")
+    review_case.state = _transition(review_case.state, ReviewEventType.RECUSED).value
+    session.add(
+        GovernanceRecusal(
+            id=recusal_id_generator(),
+            pack_id=review_case.pack_id,
+            source_draft_id=review_case.source_draft_id,
+            actor_id=actor_id,
+            reason=normalized_reason,
+            recused_at=now,
+        )
+    )
+    review_case.assigned_steward_actor_id = None
+    review_case.acknowledged_at = None
+    review_case.pause_reason = None
+    review_case.next_review_at = None
+    review_case.revision += 1
+    review_case.updated_at = now
+    _append_event(
+        session,
+        review_case=review_case,
+        event_type=ReviewEventType.RECUSED,
         actor_id=actor_id,
         public_reason=normalized_reason,
         now=now,
@@ -542,6 +742,112 @@ async def approve_review_case(
     )
     await session.flush()
     return review_case, decision, publication_intent
+
+
+async def respond_to_changes_request(
+    session: AsyncSession,
+    *,
+    review_case_id: UUID,
+    actor_id: UUID,
+    patches: tuple[ContributionFieldPatch, ...],
+    expected_revision: int,
+    expected_draft_version: int,
+    idempotency_key: UUID,
+    public_reason: str,
+    now: datetime,
+) -> tuple[GovernanceReviewCase, GovernanceReviewCase, ContributionDraft]:
+    _require_aware(now)
+    normalized_reason = validate_reason(public_reason)
+    key_hash = _hash_idempotency_key(idempotency_key)
+    request_hash = _request_hash(
+        {
+            "action": "contributor_responded",
+            "actor_id": actor_id,
+            "expected_revision": expected_revision,
+            "expected_draft_version": expected_draft_version,
+            "patches": [patch.model_dump(mode="json") for patch in patches],
+            "public_reason": normalized_reason,
+        }
+    )
+    review_case = await _load_case(session, review_case_id, for_update=True)
+    existing_event = await _idempotent_event(
+        session,
+        review_case_id=review_case.id,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    )
+    if existing_event is not None:
+        next_case_id = existing_event.details_json.get("next_review_case_id")
+        next_case = (
+            None
+            if not isinstance(next_case_id, str)
+            else await session.get(GovernanceReviewCase, UUID(next_case_id))
+        )
+        draft = await session.get(ContributionDraft, review_case.source_draft_id)
+        if next_case is None or draft is None:
+            raise ReviewCaseError("review_response_not_found")
+        return review_case, next_case, draft
+    if review_case.revision != expected_revision:
+        raise ReviewCaseError("review_case_revision_conflict")
+    if review_case.contributor_actor_id != actor_id:
+        raise ReviewCaseError("review_case_not_found")
+    next_state = _transition(review_case.state, ReviewEventType.CONTRIBUTOR_RESPONDED)
+    try:
+        draft = await apply_review_response(
+            session,
+            draft_id=review_case.source_draft_id,
+            user_id=actor_id,
+            expected_draft_version=expected_draft_version,
+            patches=patches,
+            submission_key_hash=key_hash,
+            submission_request_hash=request_hash,
+            now=now,
+        )
+    except ContributionReviewResponseError as error:
+        raise ReviewCaseError(error.code) from error
+    next_case = await open_review_case(
+        session,
+        source_draft_id=draft.id,
+        source_draft_version=draft.draft_version,
+        pack_id=review_case.pack_id,
+        contributor_actor_id=actor_id,
+        now=now,
+    )
+    review_case.state = next_state.value
+    review_case.revision += 1
+    review_case.updated_at = now
+    _append_event(
+        session,
+        review_case=review_case,
+        event_type=ReviewEventType.CONTRIBUTOR_RESPONDED,
+        actor_id=actor_id,
+        public_reason=normalized_reason,
+        now=now,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+        details={
+            "next_review_case_id": str(next_case.id),
+            "next_draft_version": draft.draft_version,
+        },
+    )
+    review_case.state = _transition(review_case.state, ReviewEventType.CLOSED).value
+    review_case.revision += 1
+    review_case.assigned_steward_actor_id = None
+    review_case.acknowledged_at = None
+    review_case.pause_reason = None
+    review_case.next_review_at = None
+    review_case.closed_at = now
+    _append_event(
+        session,
+        review_case=review_case,
+        event_type=ReviewEventType.CLOSED,
+        actor_id=actor_id,
+        public_reason="Superseded by the contributor's next exact draft version.",
+        now=now,
+        details={"next_review_case_id": str(next_case.id)},
+    )
+    await session.flush()
+    return review_case, next_case, draft
 
 
 async def list_review_cases_for_steward(
@@ -982,8 +1288,12 @@ __all__ = [
     "open_review_case",
     "open_appeal",
     "open_dispute",
+    "pause_review_case",
+    "recuse_review_case",
     "record_nonapproval_decision",
     "release_review_case",
+    "resume_review_case",
+    "respond_to_changes_request",
     "resolve_appeal",
     "resolve_dispute",
 ]

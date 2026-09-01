@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
 from opennosh_api.contributions.models import ContributionDraft
+from opennosh_api.contributions.schemas import ContributionFieldName, ContributionFieldPatch
 from opennosh_api.governance.contracts import (
     ApprovedChangeSet,
     ApprovedFileChange,
@@ -18,6 +19,7 @@ from opennosh_api.governance.models import (
     GovernanceAppeal,
     GovernanceDecision,
     GovernanceDispute,
+    GovernanceRecusal,
     GovernanceReviewCase,
     GovernanceReviewEvent,
 )
@@ -28,9 +30,13 @@ from opennosh_api.governance.review_service import (
     open_appeal,
     open_dispute,
     open_review_case,
+    pause_review_case,
     record_nonapproval_decision,
+    recuse_review_case,
     resolve_appeal,
     resolve_dispute,
+    respond_to_changes_request,
+    resume_review_case,
 )
 from opennosh_api.governance.reviews import DisputeCategory
 from opennosh_api.jobs.pgqueuer import PGQUEUER_SETTINGS, PgQueuerJobQueue
@@ -409,6 +415,224 @@ async def _exercise_approval_path(database_url: str) -> None:
         await engine.dispose()
 
 
+async def _exercise_contributor_response(database_url: str) -> None:
+    await _seed(database_url)
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session, session.begin():
+            first_case = await open_review_case(
+                session,
+                source_draft_id=DRAFT,
+                source_draft_version=1,
+                pack_id="global-core",
+                contributor_actor_id=CONTRIBUTOR,
+                now=NOW,
+                review_case_id_generator=lambda: CASE,
+            )
+            assert first_case.submitted_fields_json["pack_id"] == "global-core"
+
+        async with sessions() as session, session.begin():
+            await claim_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                expected_revision=1,
+                idempotency_key=CLAIM_KEY,
+                now=NOW,
+            )
+            await record_nonapproval_decision(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                outcome=GovernanceDecisionOutcome.CHANGES_REQUESTED,
+                expected_revision=2,
+                idempotency_key=DECISION_KEY,
+                reason="Use the corrected product name.",
+                now=NOW,
+            )
+
+        response_key = UUID("13131313-1313-4313-8313-131313131313")
+        patches = (
+            ContributionFieldPatch(
+                field=ContributionFieldName.NAME,
+                value="Lentils, revised",
+            ),
+        )
+        async with sessions() as session, session.begin():
+            prior_case, next_case, draft = await respond_to_changes_request(
+                session,
+                review_case_id=CASE,
+                actor_id=CONTRIBUTOR,
+                patches=patches,
+                expected_revision=3,
+                expected_draft_version=1,
+                idempotency_key=response_key,
+                public_reason="Updated the product name as requested.",
+                now=NOW,
+            )
+            next_case_id = next_case.id
+            assert prior_case.state == "closed"
+            assert prior_case.revision == 5
+            assert next_case.source_draft_version == 2
+            assert next_case.submitted_fields_json["name"] == "Lentils, revised"
+            assert draft.draft_version == 2
+            assert draft.review_state == "in_review"
+
+        async with sessions() as session, session.begin():
+            replayed_prior, replayed_next, replayed_draft = await respond_to_changes_request(
+                session,
+                review_case_id=CASE,
+                actor_id=CONTRIBUTOR,
+                patches=patches,
+                expected_revision=3,
+                expected_draft_version=1,
+                idempotency_key=response_key,
+                public_reason="Updated the product name as requested.",
+                now=NOW,
+            )
+            assert replayed_prior.revision == 5
+            assert replayed_next.id == next_case_id
+            assert replayed_draft.draft_version == 2
+
+        async with sessions() as session, session.begin():
+            await claim_review_case(
+                session,
+                review_case_id=next_case_id,
+                actor_id=STEWARD,
+                expected_revision=1,
+                idempotency_key=UUID("14141414-1414-4414-8414-141414141414"),
+                now=NOW,
+            )
+            with pytest.raises(ReviewCaseError, match="evidence_manifest_missing"):
+                await approve_review_case(
+                    session,
+                    PgQueuerJobQueue(clock=lambda: NOW),
+                    review_case_id=next_case_id,
+                    actor_id=STEWARD,
+                    approved_changes=ApprovedChangeSet.build(
+                        pack_id="global-core",
+                        files=(
+                            ApprovedFileChange(
+                                path="packs/global-core/foods/lentils.json",
+                                content='{"name":"Lentils, revised"}\n',
+                            ),
+                        ),
+                    ),
+                    record_id="lentils",
+                    expected_base_commit="a" * 40,
+                    expected_revision=2,
+                    idempotency_key=UUID("15151515-1515-4515-8515-151515151515"),
+                    reason="Reviewed the revised name.",
+                    now=NOW,
+                )
+
+        async with sessions() as session:
+            publication_count = await session.scalar(
+                select(func.count()).select_from(PublicationIntent)
+            )
+            queue_count = await session.scalar(
+                select(func.count()).select_from(text(PGQUEUER_SETTINGS.queue_table))
+            )
+            assert publication_count == 0
+            assert queue_count == 0
+    finally:
+        await engine.dispose()
+
+
+async def _exercise_steward_controls(database_url: str) -> None:
+    await _seed(database_url)
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session, session.begin():
+            await open_review_case(
+                session,
+                source_draft_id=DRAFT,
+                source_draft_version=1,
+                pack_id="global-core",
+                contributor_actor_id=CONTRIBUTOR,
+                now=NOW,
+                review_case_id_generator=lambda: CASE,
+            )
+            await claim_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                expected_revision=1,
+                idempotency_key=CLAIM_KEY,
+                now=NOW,
+            )
+            paused = await pause_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                expected_revision=2,
+                idempotency_key=UUID("16161616-1616-4616-8616-161616161616"),
+                reason="Waiting for a second source comparison.",
+                next_review_at=NOW + timedelta(days=1),
+                now=NOW,
+            )
+            assert paused.state == "in_review"
+            assert paused.next_review_at == NOW + timedelta(days=1)
+
+            resumed = await resume_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                expected_revision=3,
+                idempotency_key=UUID("17171717-1717-4717-8717-171717171717"),
+                reason="The second source is now available.",
+                now=NOW,
+            )
+            assert resumed.pause_reason is None
+            assert resumed.next_review_at is None
+
+            recused = await recuse_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=STEWARD,
+                expected_revision=4,
+                idempotency_key=UUID("18181818-1818-4818-8818-181818181818"),
+                reason="I contributed to the source data set.",
+                now=NOW,
+            )
+            assert recused.state == "pending"
+            assert recused.assigned_steward_actor_id is None
+
+        async with sessions() as session, session.begin():
+            with pytest.raises(ReviewCaseError, match="steward_recused"):
+                await claim_review_case(
+                    session,
+                    review_case_id=CASE,
+                    actor_id=STEWARD,
+                    expected_revision=5,
+                    idempotency_key=UUID("19191919-1919-4919-8919-191919191919"),
+                    now=NOW,
+                )
+            claimed = await claim_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=OTHER_STEWARD,
+                expected_revision=5,
+                idempotency_key=UUID("20202020-2020-4020-8020-202020202020"),
+                now=NOW,
+            )
+            assert claimed.assigned_steward_actor_id == OTHER_STEWARD
+
+        async with sessions() as session:
+            event_count = await session.scalar(
+                select(func.count()).select_from(GovernanceReviewEvent)
+            )
+            recusal_count = await session.scalar(
+                select(func.count()).select_from(GovernanceRecusal)
+            )
+            assert event_count == 6
+            assert recusal_count == 1
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(
     INTEGRATION_DATABASE_URL is None,
     reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
@@ -437,3 +661,23 @@ def test_review_approval_delegates_to_the_existing_publication_path() -> None:
     assert INTEGRATION_DATABASE_URL is not None
     alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
     asyncio.run(_exercise_approval_path(INTEGRATION_DATABASE_URL))
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_contributor_response_preserves_versions_and_requires_fresh_evidence() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_exercise_contributor_response(INTEGRATION_DATABASE_URL))
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_steward_pause_resume_and_recusal_are_audited() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_exercise_steward_controls(INTEGRATION_DATABASE_URL))

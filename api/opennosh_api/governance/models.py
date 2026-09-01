@@ -288,6 +288,7 @@ class GovernanceReviewCase(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     contributor_actor_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
+    submitted_fields_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     assigned_steward_actor_id: Mapped[UUID | None] = mapped_column(
