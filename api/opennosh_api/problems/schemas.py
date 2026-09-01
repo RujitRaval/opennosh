@@ -22,6 +22,9 @@ class ProblemCode(StrEnum):
     INTERNAL_ERROR = "internal_error"
     SEARCH_CURSOR_INVALID = "search_cursor_invalid"
     SEARCH_CURSOR_RESTART = "search_cursor_restart"
+    EVIDENCE_UPLOAD_CONFLICT = "evidence_upload_conflict"
+    EVIDENCE_UPLOAD_EXPIRED = "evidence_upload_expired"
+    EVIDENCE_UPLOAD_UNAVAILABLE = "evidence_upload_unavailable"
 
 
 class FieldError(BaseModel):
@@ -35,9 +38,7 @@ class FieldError(BaseModel):
 class RecoveryAction(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    id: Literal[
-        "retry", "sign_in", "reload", "review_fields", "restart_search"
-    ]
+    id: Literal["retry", "sign_in", "reload", "review_fields", "restart_search"]
     label: str = Field(min_length=1, max_length=120)
     href: str | None = Field(default=None, pattern=r"^/(?:$|[^/\x00][^\x00]*)$")
 

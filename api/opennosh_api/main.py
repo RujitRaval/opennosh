@@ -20,6 +20,7 @@ from opennosh_api.database import (
     build_engine,
 )
 from opennosh_api.database_metrics import router as database_metrics_router
+from opennosh_api.evidence.storage import S3EvidenceUploadBroker
 from opennosh_api.exercises.router import export_router as exercise_export_router
 from opennosh_api.exercises.router import router as exercises_router
 from opennosh_api.exports.router import router as exports_router
@@ -161,6 +162,23 @@ def create_app(
         responses=common_problem_responses(),
     )
     application.state.settings = resolved_settings
+    if resolved_settings.evidence_uploads_enabled:
+        assert resolved_settings.evidence_quarantine_endpoint is not None
+        assert resolved_settings.evidence_quarantine_region is not None
+        assert resolved_settings.evidence_quarantine_bucket is not None
+        assert resolved_settings.evidence_quarantine_access_key_id is not None
+        assert resolved_settings.evidence_quarantine_secret_access_key is not None
+        application.state.evidence_upload_broker = S3EvidenceUploadBroker(
+            endpoint=resolved_settings.evidence_quarantine_endpoint,
+            region=resolved_settings.evidence_quarantine_region,
+            bucket=resolved_settings.evidence_quarantine_bucket,
+            access_key_id=(resolved_settings.evidence_quarantine_access_key_id.get_secret_value()),
+            secret_access_key=(
+                resolved_settings.evidence_quarantine_secret_access_key.get_secret_value()
+            ),
+        )
+    else:
+        application.state.evidence_upload_broker = None
     application.state.public_export_semaphore = asyncio.Semaphore(
         resolved_settings.public_export_concurrency_limit
     )

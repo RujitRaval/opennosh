@@ -23,6 +23,7 @@ EXPECTED_TABLE_OWNERS = {
     "evidence_removal_tombstones": (
         "opennosh_api.evidence.models.EvidenceRemovalTombstone"
     ),
+    "evidence_upload_sessions": "opennosh_api.evidence.models.EvidenceUploadSession",
     "federation_audit_events": "opennosh_api.federation.models.FederationAuditEvent",
     "federation_invitations": "opennosh_api.federation.models.FederationInvitation",
     "federation_maintainers": "opennosh_api.federation.models.FederationMaintainer",
@@ -100,6 +101,7 @@ def test_registry_import_order_is_deterministic() -> None:
         "evidence_manifests",
         "evidence_durable_acknowledgements",
         "evidence_removal_tombstones",
+        "evidence_upload_sessions",
         "governance_role_assignments",
         "governance_recusals",
         "governance_decisions",

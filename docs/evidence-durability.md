@@ -72,11 +72,35 @@ run `opennosh-evidence-worker` with `EVIDENCE_DATABASE_URL`,
 `EVIDENCE_VERIFYING_KEYS`. The two directories are required together, must be distinct, and must
 not be used to make a hosted-production durability claim.
 
-The shipped entrypoint provides only the local filesystem source and immutable-store adapters.
-Hosted object storage, trusted browser upload/sanitization, production worker activation, and OCR
-are not part of T3. They remain gated by R4 and the object-storage residency/cost ADR. Until those
-gates pass, the public contribution journey visibly keeps review handoff closed instead of
-creating submissions that can never satisfy the evidence gate.
+T34.1 adds a provider-neutral hosted intake foundation but does not activate it. With
+`EVIDENCE_UPLOADS_ENABLED=false` (the committed default), all three upload-session routes return the
+same generic `404` before object-store or queue I/O. The database can represent only the reviewed
+`initiated -> uploaded|expired|failed` transitions; sanitization and attachment remain unavailable.
+
+When a later reviewed deployment enables intake, the API may receive only the quarantine
+create/observe credential. It issues a conditional, declaration-bound upload URL and a separate
+32-byte completion capability for at most 600 seconds. PostgreSQL stores only hashes, an opaque
+`quarantine/{uuid}` key, bounded declarations, and independently read-back size/digest metadata.
+It never stores bytes, filenames, EXIF, presigned URLs, or raw capabilities. Identical create
+retries return the safe session without recovering either one-time secret.
+
+Quarantine, sanitized-source, and immutable-destination stores must use distinct buckets and
+credentials in production. Provider provisioning must enforce a maximum 24-hour lifecycle for raw
+quarantine objects. The future evidence worker is the only role allowed to receive quarantine
+read/delete, sanitized read/write, immutable read/write, its database role, and verifying keys.
+Migration, publication, projection, reconciliation, scheduler, and public web runtimes strip all
+evidence authority. The Render Blueprint still declares no evidence worker, evidence capacity
+remains zero, and public navigation remains unchanged.
+
+Activation requires the T34.2 safe image rewrite and metadata-removal worker, reviewed provider
+residency/CORS/lifecycle controls, isolated production credentials, worker capacity and health
+proof, end-to-end digest verification, rollback rehearsal, and a separate explicit production
+approval. Activation also requires per-account and per-draft issuance/completion rate limits, a
+bounded outstanding-session quota, and a process-wide observation-concurrency bound; the disabled
+T34.1 surface intentionally does not claim those controls. OCR is a later boundary. Until those
+gates pass, the public contribution journey keeps review handoff visibly closed instead of creating
+submissions that cannot satisfy the evidence gate. See
+[T34](https://github.com/RujitRaval/opennosh/issues/134) for the remaining sequence.
 
 ## Replay, tamper, and removal behavior
 
@@ -93,6 +117,6 @@ creating submissions that can never satisfy the evidence gate.
   manifest, acknowledgements, prior public state, actor, time, and reason. The visible state becomes
   `tombstoned`; new acknowledgements are rejected. Removal cannot race an active merge authority.
 
-The migration adds `evidence_manifests`, `evidence_durable_acknowledgements`, and
-`evidence_removal_tombstones`. These rows preserve workflow and audit metadata only. Evidence bytes
-remain outside PostgreSQL and Git.
+The migrations add `evidence_manifests`, `evidence_durable_acknowledgements`,
+`evidence_removal_tombstones`, and disabled `evidence_upload_sessions`. These rows preserve
+workflow and audit metadata only. Evidence bytes remain outside PostgreSQL and Git.

@@ -921,6 +921,128 @@ export type EvidenceClass = 'sanitized_media' | 'versioned_public_dataset' | 'pu
 export type EvidencePublicState = 'evidence_preserved' | 'source_verified' | 'reference_preserved' | 'reference_only' | 'attested' | 'tombstoned';
 
 /**
+ * EvidenceUploadCompleteRequest
+ */
+export type EvidenceUploadCompleteRequest = {
+    /**
+     * Completion Capability
+     */
+    completion_capability: string;
+};
+
+/**
+ * EvidenceUploadCreateRequest
+ */
+export type EvidenceUploadCreateRequest = {
+    /**
+     * Byte Length
+     */
+    byte_length: number;
+    /**
+     * Media Type
+     */
+    media_type: 'image/jpeg' | 'image/png' | 'image/webp';
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+};
+
+/**
+ * EvidenceUploadCreateResponse
+ */
+export type EvidenceUploadCreateResponse = {
+    /**
+     * Completion Capability
+     */
+    completion_capability: string | null;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Max Byte Length
+     */
+    max_byte_length: number;
+    state: EvidenceUploadState;
+    upload: EvidenceUploadInstructionResponse | null;
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+};
+
+/**
+ * EvidenceUploadFailureCode
+ */
+export type EvidenceUploadFailureCode = 'object_missing' | 'size_mismatch' | 'size_exceeded' | 'media_type_mismatch' | 'object_changed' | 'capability_invalid' | 'expired' | 'storage_unavailable';
+
+/**
+ * EvidenceUploadInstructionResponse
+ */
+export type EvidenceUploadInstructionResponse = {
+    /**
+     * Headers
+     */
+    headers: {
+        [key: string]: string;
+    };
+    /**
+     * Method
+     */
+    method: 'PUT';
+    /**
+     * Url
+     */
+    url: string;
+};
+
+/**
+ * EvidenceUploadSessionResponse
+ */
+export type EvidenceUploadSessionResponse = {
+    /**
+     * Declared Byte Length
+     */
+    declared_byte_length: number;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    failure_code: EvidenceUploadFailureCode | null;
+    /**
+     * Media Type
+     */
+    media_type: 'image/jpeg' | 'image/png' | 'image/webp';
+    /**
+     * Observed Byte Length
+     */
+    observed_byte_length: number | null;
+    /**
+     * Observed Sha256
+     */
+    observed_sha256: string | null;
+    /**
+     * Source Draft Version
+     */
+    source_draft_version: number;
+    state: EvidenceUploadState;
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * Uploaded At
+     */
+    uploaded_at: string | null;
+};
+
+/**
+ * EvidenceUploadState
+ */
+export type EvidenceUploadState = 'initiated' | 'uploaded' | 'sanitizing' | 'sanitized' | 'attached' | 'preserved' | 'expired' | 'failed';
+
+/**
  * ExerciseAttribution
  */
 export type ExerciseAttribution = {
@@ -1995,7 +2117,7 @@ export type PrivateDataExport = {
 /**
  * ProblemCode
  */
-export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'database_capacity_exhausted' | 'internal_error' | 'search_cursor_invalid' | 'search_cursor_restart';
+export type ProblemCode = 'invalid_request' | 'authentication_required' | 'authorization_denied' | 'resource_not_found' | 'conflict' | 'validation_failed' | 'rate_limited' | 'upstream_unavailable' | 'service_unavailable' | 'database_capacity_exhausted' | 'internal_error' | 'search_cursor_invalid' | 'search_cursor_restart' | 'evidence_upload_conflict' | 'evidence_upload_expired' | 'evidence_upload_unavailable';
 
 /**
  * ProblemDetails
@@ -4368,6 +4490,238 @@ export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponse
 };
 
 export type AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponse = AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponses[keyof AttachTypedEvidenceApiV1ContributionDraftsDraftIdEvidencePutResponses];
+
+export type CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostData = {
+    body: EvidenceUploadCreateRequest;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence-uploads';
+};
+
+export type CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostError = CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostErrors[keyof CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostErrors];
+
+export type CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostResponses = {
+    /**
+     * The idempotent upload session already exists.
+     */
+    200: EvidenceUploadCreateResponse;
+    /**
+     * Successful Response
+     */
+    201: EvidenceUploadCreateResponse;
+};
+
+export type CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostResponse = CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostResponses[keyof CreateEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsPostResponses];
+
+export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+        /**
+         * Upload Id
+         */
+        upload_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence-uploads/{upload_id}';
+};
+
+export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetError = ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetErrors[keyof ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetErrors];
+
+export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: EvidenceUploadSessionResponse;
+};
+
+export type ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponse = ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponses[keyof ReadEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdGetResponses];
+
+export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostData = {
+    body: EvidenceUploadCompleteRequest;
+    path: {
+        /**
+         * Draft Id
+         */
+        draft_id: string;
+        /**
+         * Upload Id
+         */
+        upload_id: string;
+    };
+    query?: never;
+    url: '/api/v1/contribution-drafts/{draft_id}/evidence-uploads/{upload_id}/complete';
+};
+
+export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The evidence upload capability has expired.
+     */
+    410: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostError = CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostErrors[keyof CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostErrors];
+
+export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: EvidenceUploadSessionResponse;
+};
+
+export type CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostResponse = CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostResponses[keyof CompleteEvidenceUploadApiV1ContributionDraftsDraftIdEvidenceUploadsUploadIdCompletePostResponses];
 
 export type SubmitApiV1ContributionDraftsDraftIdSubmitPostData = {
     body: ContributionSubmit;

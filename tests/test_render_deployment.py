@@ -21,9 +21,11 @@ from deploy.render_runtime import (
     api_environment,
     asyncpg_dsn,
     ensure_database_roles,
+    evidence_environment,
     grant_publication_runtime_privileges,
     grant_web_runtime_privileges,
     main,
+    predeploy_environment,
     publication_environment,
     role_database_url,
     run_api,
@@ -307,6 +309,87 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         "R2_SECRET_ACCESS_KEY",
     ):
         assert removed not in environment
+
+
+def _evidence_environment_source() -> dict[str, str]:
+    source = {
+        "APP_ENVIRONMENT": "production",
+        "RENDER_DATABASE_URL": _database_url(),
+        "EVIDENCE_DATABASE_PASSWORD": "evidence-database-secret",
+        "EVIDENCE_UPLOADS_ENABLED": "false",
+        "EVIDENCE_VERIFYING_KEYS": "{}",
+    }
+    for purpose in ("QUARANTINE", "SANITIZED", "IMMUTABLE"):
+        source[f"EVIDENCE_{purpose}_ENDPOINT"] = "https://account.r2.cloudflarestorage.com"
+        source[f"EVIDENCE_{purpose}_REGION"] = "auto"
+        source[f"EVIDENCE_{purpose}_BUCKET"] = f"opennosh-evidence-{purpose.lower()}"
+        source[f"EVIDENCE_{purpose}_ACCESS_KEY_ID"] = f"{purpose.lower()}-access"
+        source[f"EVIDENCE_{purpose}_SECRET_ACCESS_KEY"] = f"{purpose.lower()}-secret"
+    return source
+
+
+def test_api_environment_retains_only_quarantine_upload_authority() -> None:
+    source = _evidence_environment_source() | {
+        "WEB_DATABASE_PASSWORD": "web-secret",
+        "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+    }
+    environment = api_environment(source)
+
+    assert environment["EVIDENCE_QUARANTINE_BUCKET"] == "opennosh-evidence-quarantine"
+    assert environment["EVIDENCE_QUARANTINE_SECRET_ACCESS_KEY"] == "quarantine-secret"
+    for purpose in ("SANITIZED", "IMMUTABLE"):
+        assert f"EVIDENCE_{purpose}_BUCKET" not in environment
+        assert f"EVIDENCE_{purpose}_ACCESS_KEY_ID" not in environment
+        assert f"EVIDENCE_{purpose}_SECRET_ACCESS_KEY" not in environment
+    assert "EVIDENCE_DATABASE_PASSWORD" not in environment
+    assert "EVIDENCE_VERIFYING_KEYS" not in environment
+
+
+def test_evidence_environment_retains_only_evidence_worker_authority() -> None:
+    source = _evidence_environment_source() | {
+        "WEB_DATABASE_PASSWORD": "web-secret",
+        "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+        "GITHUB_FORGE_PRIVATE_KEY": "publication-secret",
+        "UNRELATED_SECRET": "unrelated-secret",
+    }
+    environment = evidence_environment(source)
+    assert environment["EVIDENCE_UPLOADS_ENABLED"] == "false"
+
+    assert environment["PROCESS_ROLE"] == "evidence"
+    assert make_url(environment["EVIDENCE_DATABASE_URL"]).username == "opennosh_evidence"
+    assert environment["EVIDENCE_VERIFYING_KEYS"] == "{}"
+    for purpose in ("QUARANTINE", "SANITIZED", "IMMUTABLE"):
+        assert environment[f"EVIDENCE_{purpose}_BUCKET"] == (f"opennosh-evidence-{purpose.lower()}")
+    for excluded in (
+        "RENDER_DATABASE_URL",
+        "EVIDENCE_DATABASE_PASSWORD",
+        "WEB_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "UNRELATED_SECRET",
+    ):
+        assert excluded not in environment
+
+
+def test_publication_and_predeploy_environments_strip_all_evidence_authority() -> None:
+    source = (
+        _evidence_environment_source()
+        | _claims_environment()
+        | {
+            "WEB_DATABASE_PASSWORD": "web-secret",
+            "MIGRATION_DATABASE_PASSWORD": "migration-secret",
+            "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+        }
+    )
+
+    publication = publication_environment(source)
+    predeploy = predeploy_environment(source)
+
+    assert not any(key.startswith("EVIDENCE_") for key in publication)
+    assert predeploy["EVIDENCE_UPLOADS_ENABLED"] == "false"
+    assert not any(
+        key.startswith("EVIDENCE_") and key != "EVIDENCE_UPLOADS_ENABLED" for key in predeploy
+    )
 
 
 def test_render_combined_environment_uses_only_the_worker_database_identity() -> None:

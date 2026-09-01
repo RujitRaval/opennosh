@@ -61,6 +61,9 @@ describe("problem contract adapter", () => {
     ["internal_error", 500, "unexpected"],
     ["search_cursor_invalid", 400, "invalid-request"],
     ["search_cursor_restart", 409, "conflict"],
+    ["evidence_upload_conflict", 409, "conflict"],
+    ["evidence_upload_expired", 410, "conflict"],
+    ["evidence_upload_unavailable", 503, "retryable"],
   ] as const)("maps %s to %s", (code, status, kind) => {
     const problem = problemFromResponse(
       {

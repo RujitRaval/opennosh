@@ -48,6 +48,9 @@ _TITLES: dict[ProblemCode, str] = {
     ProblemCode.INTERNAL_ERROR: "Unexpected server error",
     ProblemCode.SEARCH_CURSOR_INVALID: "Invalid search cursor",
     ProblemCode.SEARCH_CURSOR_RESTART: "Restart search",
+    ProblemCode.EVIDENCE_UPLOAD_CONFLICT: "Evidence upload conflict",
+    ProblemCode.EVIDENCE_UPLOAD_EXPIRED: "Evidence upload expired",
+    ProblemCode.EVIDENCE_UPLOAD_UNAVAILABLE: "Evidence upload unavailable",
 }
 
 _DEFAULT_DETAILS: dict[ProblemCode, str] = {
@@ -69,6 +72,13 @@ _DEFAULT_DETAILS: dict[ProblemCode, str] = {
     ProblemCode.SEARCH_CURSOR_INVALID: "That search cursor could not be verified.",
     ProblemCode.SEARCH_CURSOR_RESTART: (
         "This search changed or expired. Restart from the first page."
+    ),
+    ProblemCode.EVIDENCE_UPLOAD_CONFLICT: (
+        "The evidence upload conflicts with the latest draft state."
+    ),
+    ProblemCode.EVIDENCE_UPLOAD_EXPIRED: "The evidence upload capability has expired.",
+    ProblemCode.EVIDENCE_UPLOAD_UNAVAILABLE: (
+        "Evidence upload storage is temporarily unavailable."
     ),
 }
 
@@ -128,11 +138,14 @@ def _recovery_actions(code: ProblemCode) -> list[RecoveryAction] | None:
         ProblemCode.RATE_LIMITED,
         ProblemCode.UPSTREAM_UNAVAILABLE,
         ProblemCode.SERVICE_UNAVAILABLE,
+        ProblemCode.EVIDENCE_UPLOAD_UNAVAILABLE,
     }:
         return [RecoveryAction(id="retry", label="Try again")]
     if code is ProblemCode.VALIDATION_FAILED:
         return [RecoveryAction(id="review_fields", label="Review highlighted fields")]
     if code is ProblemCode.CONFLICT:
+        return [RecoveryAction(id="reload", label="Load the latest saved state")]
+    if code is ProblemCode.EVIDENCE_UPLOAD_CONFLICT:
         return [RecoveryAction(id="reload", label="Load the latest saved state")]
     return None
 

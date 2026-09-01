@@ -12,6 +12,7 @@ from opennosh_api.evidence.models import (
     EvidenceDurableAcknowledgement,
     EvidenceManifestRecord,
     EvidenceRemovalTombstone,
+    EvidenceUploadSession,
 )
 from opennosh_api.federation.models import (
     FederationAuditEvent,
@@ -80,6 +81,7 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     EvidenceManifestRecord,
     EvidenceDurableAcknowledgement,
     EvidenceRemovalTombstone,
+    EvidenceUploadSession,
     GovernanceRoleAssignment,
     GovernanceRecusal,
     GovernanceDecision,
@@ -140,6 +142,7 @@ __all__ = [
     "EvidenceDurableAcknowledgement",
     "EvidenceManifestRecord",
     "EvidenceRemovalTombstone",
+    "EvidenceUploadSession",
     "FederationAuditEvent",
     "FederationInvitation",
     "FederationMaintainer",

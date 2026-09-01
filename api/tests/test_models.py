@@ -23,6 +23,7 @@ EXPECTED_TABLES = {
     "contribution_drafts",
     "contribution_draft_operations",
     "evidence_manifests",
+    "evidence_upload_sessions",
     "evidence_durable_acknowledgements",
     "evidence_removal_tombstones",
     "federation_invitations",
@@ -64,6 +65,15 @@ def test_metadata_contains_the_complete_license_separated_schema() -> None:
         "foods_odbl",
         "foods_custom",
     }.issubset(Base.metadata.tables)
+
+
+def test_evidence_upload_session_state_shape_is_database_enforced() -> None:
+    checks = {
+        constraint.name
+        for constraint in Base.metadata.tables["evidence_upload_sessions"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert "ck_evidence_upload_sessions_state_shape_valid" in checks
 
 
 def test_governance_intervention_audit_fields_are_all_or_none() -> None:

@@ -5,7 +5,7 @@ import hashlib
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import ceil
 from time import perf_counter
 from uuid import uuid4
@@ -13,6 +13,12 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
+from opennosh_api.evidence.storage import (
+    EvidenceUploadObjectTooLargeError,
+    EvidenceUploadStorageError,
+    MemoryEvidenceUploadBroker,
+    QuarantinedEvidenceObservation,
+)
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
 from sqlalchemy import text
@@ -68,12 +74,24 @@ def contribution_clients() -> Iterator[ContributionClients]:
         database_url=INTEGRATION_DATABASE_URL,
         app_environment="test",
         auth_rate_limit_attempts=50,
+        evidence_uploads_enabled=True,
+        evidence_quarantine_endpoint="https://account.r2.cloudflarestorage.com",
+        evidence_quarantine_region="auto",
+        evidence_quarantine_bucket="opennosh-evidence-quarantine",
+        evidence_quarantine_access_key_id="test-access",
+        evidence_quarantine_secret_access_key="test-secret",
         _env_file=None,
     )
+    owner_app = create_app(settings)
+    attacker_app = create_app(settings)
+    anonymous_app = create_app(settings)
+    owner_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
+    attacker_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
+    anonymous_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
     with (
-        TestClient(create_app(settings)) as owner,
-        TestClient(create_app(settings)) as attacker,
-        TestClient(create_app(settings)) as anonymous,
+        TestClient(owner_app) as owner,
+        TestClient(attacker_app) as attacker,
+        TestClient(anonymous_app) as anonymous,
     ):
         owner_registration = owner.post(
             "/api/v1/auth/register",
@@ -91,6 +109,307 @@ def contribution_clients() -> Iterator[ContributionClients]:
             owner_csrf=owner_registration.json()["csrf_token"],
             attacker_csrf=attacker_registration.json()["csrf_token"],
         )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_hosted_evidence_upload_is_private_idempotent_and_exact_version_bound(
+    contribution_clients: ContributionClients,
+) -> None:
+    route = "/api/v1/contribution-drafts"
+    created_draft = contribution_clients.owner.post(
+        route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"client_draft_id": "hosted-evidence-upload"},
+    )
+    assert created_draft.status_code == 201
+    draft_id = created_draft.json()["draft_id"]
+    create_payload = {
+        "source_draft_version": 1,
+        "media_type": "image/png",
+        "byte_length": 8,
+    }
+    upload_route = f"{route}/{draft_id}/evidence-uploads"
+    headers = {
+        "X-CSRF-Token": contribution_clients.owner_csrf,
+        "Idempotency-Key": "upload-attempt-1",
+    }
+    created = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+    replay = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+
+    assert created.status_code == 201
+    assert replay.status_code == 200
+    assert created.headers["cache-control"] == replay.headers["cache-control"] == "no-store"
+    assert replay.json()["upload_id"] == created.json()["upload_id"]
+    assert replay.json()["upload"] is None
+    assert replay.json()["completion_capability"] is None
+    assert (
+        contribution_clients.owner.post(
+            upload_route,
+            headers=headers,
+            json={**create_payload, "byte_length": 9},
+        ).status_code
+        == 409
+    )
+
+    upload_id = created.json()["upload_id"]
+    capability = created.json()["completion_capability"]
+    object_key = created.json()["upload"]["url"].split("upload.invalid/", 1)[1]
+    broker = contribution_clients.owner.app.state.evidence_upload_broker
+    assert isinstance(broker, MemoryEvidenceUploadBroker)
+    broker.put_for_test(object_key, b"evidence", media_type="image/png")
+    complete_route = f"{upload_route}/{upload_id}/complete"
+    wrong_capability = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": "x" * 43},
+    )
+    assert wrong_capability.status_code == 404
+    completed = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": capability},
+    )
+    replayed_completion = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": capability},
+    )
+
+    assert completed.status_code == replayed_completion.status_code == 200
+    assert completed.json() == replayed_completion.json()
+    assert completed.json()["state"] == "uploaded"
+    assert completed.json()["observed_byte_length"] == 8
+    assert completed.json()["observed_sha256"] == hashlib.sha256(b"evidence").hexdigest()
+    assert "upload" not in completed.json()
+    assert "completion_capability" not in completed.json()
+    assert contribution_clients.owner.get(f"{upload_route}/{upload_id}").json() == completed.json()
+    assert contribution_clients.attacker.get(f"{upload_route}/{upload_id}").status_code == 404
+
+    advanced = contribution_clients.owner.patch(
+        f"{route}/{draft_id}",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "patches": [{"field": "name", "value": "Updated after upload"}],
+        },
+    )
+    assert advanced.status_code == 200
+    assert advanced.json()["draft_version"] == 2
+    replay_after_advance = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+    assert replay_after_advance.status_code == 200
+    assert replay_after_advance.json()["upload_id"] == upload_id
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_hosted_evidence_upload_failure_paths_are_typed_and_persist_safe_states(
+    contribution_clients: ContributionClients,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = "/api/v1/contribution-drafts"
+    owner = contribution_clients.owner
+    csrf = {"X-CSRF-Token": contribution_clients.owner_csrf}
+
+    def create_draft(label: str) -> str:
+        response = owner.post(
+            route,
+            headers=csrf,
+            json={"client_draft_id": f"upload-failure-{label}"},
+        )
+        assert response.status_code == 201
+        return str(response.json()["draft_id"])
+
+    def start_upload(
+        draft_id: str,
+        broker: MemoryEvidenceUploadBroker,
+        label: str,
+        *,
+        byte_length: int = 8,
+    ) -> tuple[str, str, str]:
+        owner.app.state.evidence_upload_broker = broker
+        upload_route = f"{route}/{draft_id}/evidence-uploads"
+        response = owner.post(
+            upload_route,
+            headers=csrf | {"Idempotency-Key": f"failure-{label}"},
+            json={
+                "source_draft_version": 1,
+                "media_type": "image/png",
+                "byte_length": byte_length,
+            },
+        )
+        assert response.status_code == 201
+        body = response.json()
+        return (
+            upload_route,
+            str(body["upload_id"]),
+            str(body["completion_capability"]),
+        )
+
+    def complete(upload_route: str, upload_id: str, capability: str):  # type: ignore[no-untyped-def]
+        return owner.post(
+            f"{upload_route}/{upload_id}/complete",
+            headers=csrf,
+            json={"completion_capability": capability},
+        )
+
+    owner.app.state.evidence_upload_broker = None
+    unavailable = owner.post(
+        f"{route}/{create_draft('no-broker')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "no-broker"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert unavailable.status_code == 503
+
+    broker = MemoryEvidenceUploadBroker()
+    owner.app.state.evidence_upload_broker = broker
+    missing_draft = owner.post(
+        f"{route}/{uuid4()}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "missing-draft"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert missing_draft.status_code == 404
+    stale_version = owner.post(
+        f"{route}/{create_draft('stale-create')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "stale-create"},
+        json={"source_draft_version": 2, "media_type": "image/png", "byte_length": 8},
+    )
+    assert stale_version.status_code == 409
+
+    class CreateUnavailableBroker(MemoryEvidenceUploadBroker):
+        async def create_upload(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            del args, kwargs
+            raise EvidenceUploadStorageError("unavailable")
+
+    owner.app.state.evidence_upload_broker = CreateUnavailableBroker()
+    create_unavailable = owner.post(
+        f"{route}/{create_draft('create-unavailable')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "create-unavailable"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert create_unavailable.status_code == 503
+
+    missing_broker = MemoryEvidenceUploadBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("missing"), missing_broker, "missing"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    missing_state = owner.get(f"{upload_route}/{upload_id}")
+    assert missing_state.json()["failure_code"] == "object_missing"
+    assert complete(upload_route, upload_id, capability).status_code == 409
+
+    for label, payload, media_type, failure_code in (
+        ("size", b"wrong-size", "image/png", "size_mismatch"),
+        ("media", b"evidence", "image/jpeg", "media_type_mismatch"),
+    ):
+        case_broker = MemoryEvidenceUploadBroker()
+        upload_route, upload_id, capability = start_upload(create_draft(label), case_broker, label)
+        object_key = f"quarantine/{upload_id}"
+        case_broker.put_for_test(object_key, payload, media_type=media_type)
+        assert complete(upload_route, upload_id, capability).status_code == 409
+        state = owner.get(f"{upload_route}/{upload_id}").json()
+        assert state["state"] == "failed"
+        assert state["failure_code"] == failure_code
+
+    class ChangingBroker(MemoryEvidenceUploadBroker):
+        calls = 0
+
+        async def observe(
+            self, object_key: str, *, max_bytes: int
+        ) -> QuarantinedEvidenceObservation | None:
+            observed = await super().observe(object_key, max_bytes=max_bytes)
+            self.calls += 1
+            if observed is None:
+                return None
+            return QuarantinedEvidenceObservation(
+                object_key=observed.object_key,
+                media_type=observed.media_type,
+                size_bytes=observed.size_bytes,
+                content_digest=observed.content_digest,
+                revision=f'"revision-{self.calls}"',
+            )
+
+    changing = ChangingBroker()
+    upload_route, upload_id, capability = start_upload(create_draft("changed"), changing, "changed")
+    changing.put_for_test(f"quarantine/{upload_id}", b"evidence", media_type="image/png")
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    assert owner.get(f"{upload_route}/{upload_id}").json()["failure_code"] == "object_changed"
+
+    class TooLargeBroker(MemoryEvidenceUploadBroker):
+        async def observe(self, object_key: str, *, max_bytes: int):  # type: ignore[no-untyped-def]
+            del object_key, max_bytes
+            raise EvidenceUploadObjectTooLargeError("too large")
+
+    too_large = TooLargeBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("too-large"), too_large, "too-large"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    assert owner.get(f"{upload_route}/{upload_id}").json()["failure_code"] == "size_exceeded"
+
+    class ObserveUnavailableBroker(MemoryEvidenceUploadBroker):
+        async def observe(self, object_key: str, *, max_bytes: int):  # type: ignore[no-untyped-def]
+            del object_key, max_bytes
+            raise EvidenceUploadStorageError("unavailable")
+
+    observe_unavailable = ObserveUnavailableBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("observe-unavailable"), observe_unavailable, "observe-unavailable"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 503
+    assert owner.get(f"{upload_route}/{upload_id}").json()["state"] == "initiated"
+
+    stale_broker = MemoryEvidenceUploadBroker()
+    draft_id = create_draft("stale-complete")
+    upload_route, upload_id, capability = start_upload(draft_id, stale_broker, "stale-complete")
+    stale_broker.put_for_test(f"quarantine/{upload_id}", b"evidence", media_type="image/png")
+    patched = owner.patch(
+        f"{route}/{draft_id}",
+        headers=csrf,
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "patches": [{"field": "name", "value": "Draft advanced"}],
+        },
+    )
+    assert patched.status_code == 200
+    assert complete(upload_route, upload_id, capability).status_code == 409
+
+    expiry_broker = MemoryEvidenceUploadBroker()
+    complete_route, complete_id, expired_capability = start_upload(
+        create_draft("expired-complete"), expiry_broker, "expired-complete"
+    )
+    read_route, read_id, _ = start_upload(
+        create_draft("expired-read"), expiry_broker, "expired-read"
+    )
+
+    class FutureDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            del tz
+            return datetime.now(UTC) + timedelta(minutes=11)
+
+    monkeypatch.setattr(
+        "opennosh_api.contributions.router.datetime",
+        FutureDateTime,
+    )
+    expired = complete(complete_route, complete_id, expired_capability)
+    assert expired.status_code == 410
+    assert expired.json()["code"] == "evidence_upload_expired"
+    read_expired = owner.get(f"{read_route}/{read_id}")
+    assert read_expired.status_code == 200
+    assert read_expired.json()["state"] == "expired"
 
 
 def _complete_patches() -> list[dict[str, object]]:
@@ -280,24 +599,28 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
     assert attached.json()["preservation_pending"] is True
     assert attached.json()["preservation_failed"] is False
     assert attached.json()["preservation_failure_code"] is None
-    status_response = contribution_clients.owner.get(
-        f"{route}/{draft_id}/evidence"
-    )
+    status_response = contribution_clients.owner.get(f"{route}/{draft_id}/evidence")
     assert status_response.status_code == 200
     assert status_response.json() == attached.json()
     assert status_response.headers["cache-control"] == "no-store"
-    assert contribution_clients.attacker.put(
-        f"{route}/{draft_id}/evidence",
-        headers={"X-CSRF-Token": contribution_clients.attacker_csrf},
-        json=evidence_payload,
-    ).status_code == 404
+    assert (
+        contribution_clients.attacker.put(
+            f"{route}/{draft_id}/evidence",
+            headers={"X-CSRF-Token": contribution_clients.attacker_csrf},
+            json=evidence_payload,
+        ).status_code
+        == 404
+    )
     stale_attachment = dict(evidence_payload)
     stale_attachment["expected_draft_version"] = 2
-    assert contribution_clients.owner.put(
-        f"{route}/{draft_id}/evidence",
-        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
-        json=stale_attachment,
-    ).status_code == 409
+    assert (
+        contribution_clients.owner.put(
+            f"{route}/{draft_id}/evidence",
+            headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+            json=stale_attachment,
+        ).status_code
+        == 409
+    )
 
     locked = contribution_clients.owner.patch(
         f"{route}/{draft_id}",
@@ -331,12 +654,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "name",
-                "value": "Dal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "name",
+                    "value": "Dal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert first.status_code == 200
@@ -348,12 +673,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "category",
-                "value": "meal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "category",
+                    "value": "meal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert disjoint.status_code == 200
@@ -367,12 +694,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "name",
-                "value": "Lentil dal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "name",
+                    "value": "Lentil dal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert same_field.status_code == 409
@@ -410,12 +739,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "category",
-                "value": "prepared meal",
-                "base_value": "meal",
-                "base_version": 2,
-            }],
+            "patches": [
+                {
+                    "field": "category",
+                    "value": "prepared meal",
+                    "base_value": "meal",
+                    "base_version": 2,
+                }
+            ],
         },
     )
     assert future_base.status_code == 409
@@ -439,9 +770,14 @@ def test_contribution_operation_replay_is_bounded_by_retention(
     payload = {
         "expected_draft_version": 1,
         "operation_id": operation_id,
-        "patches": [{
-            "field": "name", "value": "Dal", "base_value": None, "base_version": 1,
-        }],
+        "patches": [
+            {
+                "field": "name",
+                "value": "Dal",
+                "base_value": None,
+                "base_version": 1,
+            }
+        ],
     }
 
     first = contribution_clients.owner.patch(f"{route}/{draft_id}", headers=headers, json=payload)
@@ -480,16 +816,24 @@ def test_contribution_patch_is_rate_limited_per_user_and_draft() -> None:
         responses = []
         base_value = None
         for version, value in enumerate(("one", "two", "three"), start=1):
-            responses.append(client.patch(route, headers=headers, json={
-                "expected_draft_version": version,
-                "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": value,
-                    "base_value": base_value,
-                    "base_version": version,
-                }],
-            }))
+            responses.append(
+                client.patch(
+                    route,
+                    headers=headers,
+                    json={
+                        "expected_draft_version": version,
+                        "operation_id": str(uuid4()),
+                        "patches": [
+                            {
+                                "field": "category",
+                                "value": value,
+                                "base_value": base_value,
+                                "base_version": version,
+                            }
+                        ],
+                    },
+                )
+            )
             base_value = value
         assert [response.status_code for response in responses] == [200, 200, 429]
         assert responses[-1].headers["retry-after"]
@@ -500,12 +844,14 @@ def test_contribution_patch_is_rate_limited_per_user_and_draft() -> None:
             json={
                 "expected_draft_version": 1,
                 "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": "other draft",
-                    "base_value": None,
-                    "base_version": 1,
-                }],
+                "patches": [
+                    {
+                        "field": "category",
+                        "value": "other draft",
+                        "base_value": None,
+                        "base_version": 1,
+                    }
+                ],
             },
         )
         assert account_limited.status_code == 429
@@ -533,12 +879,14 @@ def test_contribution_autosave_acknowledgement_p95_is_under_500_ms(
             json={
                 "expected_draft_version": version,
                 "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": value,
-                    "base_value": base_value,
-                    "base_version": version,
-                }],
+                "patches": [
+                    {
+                        "field": "category",
+                        "value": value,
+                        "base_value": base_value,
+                        "base_version": version,
+                    }
+                ],
             },
         )
         latencies.append(perf_counter() - started)

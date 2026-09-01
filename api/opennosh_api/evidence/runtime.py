@@ -30,6 +30,8 @@ from opennosh_api.evidence.storage import (
     ImmutableObjectConflictError,
     LocalImmutableEvidenceStore,
     LocalPrivateEvidenceSource,
+    S3ImmutableEvidenceStore,
+    S3PrivateEvidenceSource,
 )
 from opennosh_api.evidence.worker import (
     EvidencePreservationWorker,
@@ -199,9 +201,7 @@ class EvidenceWorkerRepository:
             acknowledgement.kind.value,
             acknowledgement.destination,
         )
-        if existing is None or not _same_durable_proof(
-            _acknowledgement(existing), acknowledgement
-        ):
+        if existing is None or not _same_durable_proof(_acknowledgement(existing), acknowledgement):
             raise RuntimeError(
                 "Durable evidence acknowledgement already exists with different proof"
             )
@@ -283,13 +283,45 @@ async def create_evidence_role_driver(
     manifest = load_capacity_manifest(configured.database_capacity_manifest_path)
     budget = manifest.active_role_budget(ProcessRole.EVIDENCE)
     if source is None:
-        if configured.evidence_private_source_directory is None:
+        if configured.evidence_sanitized_endpoint is not None:
+            assert configured.evidence_sanitized_region is not None
+            assert configured.evidence_sanitized_bucket is not None
+            assert configured.evidence_sanitized_access_key_id is not None
+            assert configured.evidence_sanitized_secret_access_key is not None
+            source = S3PrivateEvidenceSource(
+                endpoint=configured.evidence_sanitized_endpoint,
+                region=configured.evidence_sanitized_region,
+                bucket=configured.evidence_sanitized_bucket,
+                access_key_id=(configured.evidence_sanitized_access_key_id.get_secret_value()),
+                secret_access_key=(
+                    configured.evidence_sanitized_secret_access_key.get_secret_value()
+                ),
+                max_bytes=configured.evidence_upload_max_bytes,
+            )
+        elif configured.evidence_private_source_directory is not None:
+            source = LocalPrivateEvidenceSource(configured.evidence_private_source_directory)
+        else:
             raise ValueError("Evidence worker requires a private source adapter")
-        source = LocalPrivateEvidenceSource(configured.evidence_private_source_directory)
     if store is None:
-        if configured.evidence_immutable_directory is None:
+        if configured.evidence_immutable_endpoint is not None:
+            assert configured.evidence_immutable_region is not None
+            assert configured.evidence_immutable_bucket is not None
+            assert configured.evidence_immutable_access_key_id is not None
+            assert configured.evidence_immutable_secret_access_key is not None
+            store = S3ImmutableEvidenceStore(
+                endpoint=configured.evidence_immutable_endpoint,
+                region=configured.evidence_immutable_region,
+                bucket=configured.evidence_immutable_bucket,
+                access_key_id=(configured.evidence_immutable_access_key_id.get_secret_value()),
+                secret_access_key=(
+                    configured.evidence_immutable_secret_access_key.get_secret_value()
+                ),
+                max_bytes=configured.evidence_upload_max_bytes,
+            )
+        elif configured.evidence_immutable_directory is not None:
+            store = LocalImmutableEvidenceStore(configured.evidence_immutable_directory)
+        else:
             raise ValueError("Evidence worker requires an immutable destination adapter")
-        store = LocalImmutableEvidenceStore(configured.evidence_immutable_directory)
     pool = await asyncpg.create_pool(
         dsn=asyncpg_dsn(configured.process_database_url(ProcessRole.EVIDENCE)),
         min_size=1,
@@ -384,7 +416,5 @@ def _acknowledgement(row: Any) -> EvidenceAcknowledgement:
     )
 
 
-def _same_durable_proof(
-    left: EvidenceAcknowledgement, right: EvidenceAcknowledgement
-) -> bool:
+def _same_durable_proof(left: EvidenceAcknowledgement, right: EvidenceAcknowledgement) -> bool:
     return left.model_copy(update={"verified_at": right.verified_at}) == right

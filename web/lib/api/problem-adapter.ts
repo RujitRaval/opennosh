@@ -32,6 +32,9 @@ const problemCodes: readonly ProblemCode[] = [
   "internal_error",
   "search_cursor_invalid",
   "search_cursor_restart",
+  "evidence_upload_conflict",
+  "evidence_upload_expired",
+  "evidence_upload_unavailable",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -151,6 +154,8 @@ function kindFor(code: ProblemCode, hasLatestState: boolean): ProblemKind {
     case "conflict":
       return hasLatestState ? "stale" : "conflict";
     case "search_cursor_restart":
+    case "evidence_upload_conflict":
+    case "evidence_upload_expired":
       return "conflict";
     case "validation_failed":
       return "invalid-field";
@@ -159,6 +164,7 @@ function kindFor(code: ProblemCode, hasLatestState: boolean): ProblemKind {
     case "upstream_unavailable":
     case "service_unavailable":
     case "database_capacity_exhausted":
+    case "evidence_upload_unavailable":
       return "retryable";
     case "internal_error":
       return "unexpected";

@@ -305,6 +305,10 @@ idempotent evidence attachment endpoint and read its current public state. See t
 The public browser can prepare and retain a device draft, but review handoff is visibly disabled
 until the separately gated trusted upload/object-storage service and evidence worker are active.
 opennosh does not place browser proposals without complete typed evidence into the review queue.
+T34.1 includes disabled upload-session API contracts and isolated hosted object-store adapters so
+clients can be generated and the security boundary reviewed before activation. The committed
+Render topology, evidence replica count, navigation, and production flags remain unchanged; see the
+[evidence durability contract](docs/evidence-durability.md#activation-and-configuration).
 
 ### Open Food Facts barcode lookup
 
