@@ -176,8 +176,9 @@ export const api = {
     `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads/${encodeURIComponent(uploadId)}/attach`,
     { method: "POST", body: JSON.stringify(input) },
   ).then(evidenceUploadSession),
-  contributionEvidence: (draftId: string) => request<ContributionEvidenceStatus>(
+  contributionEvidence: (draftId: string, signal?: AbortSignal) => request<ContributionEvidenceStatus>(
     `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence`,
+    { signal },
   ),
   logs: (day: string, timezone: string) =>
     request<TransportLogList>(

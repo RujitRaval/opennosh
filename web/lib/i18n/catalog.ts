@@ -290,6 +290,7 @@ export const enCatalog = {
       attaching: "Attaching verified evidence…",
       preservationPending: "Attached. Independent preservation is pending.",
       preserved: "Evidence preserved independently.",
+      preservationFailed: "Independent preservation failed. Choose another image or use the public source reference.",
       retryStatus: "Check status again",
       retry: "That step did not finish. Your draft is safe; please retry.",
       startAgain: "Choose another image",

@@ -8,7 +8,7 @@ import { uploadEvidenceBytes } from "@/lib/api/evidence-upload";
 vi.mock("@/lib/api", () => ({
   api: {
     createEvidenceUpload: vi.fn(), completeEvidenceUpload: vi.fn(), evidenceUpload: vi.fn(),
-    attachEvidenceUpload: vi.fn(),
+    attachEvidenceUpload: vi.fn(), contributionEvidence: vi.fn(),
   },
 }));
 vi.mock("@/lib/api/evidence-upload", () => ({ uploadEvidenceBytes: vi.fn() }));
@@ -95,5 +95,30 @@ describe("private evidence upload panel", () => {
 
     expect(storage.getItem(`opennosh:contribution:${draftId}:evidence-upload:v1`)).toBeNull();
     expect(screen.getByText(/permission is no longer available/i)).toBeVisible();
+  });
+
+  it("stops polling and offers recovery when attached evidence preservation fails", async () => {
+    storage.setItem(`opennosh:contribution:${draftId}:evidence-upload:v1`, JSON.stringify({
+      uploadId, state: "attached", sourceDescription: "Front panel", redactionState: "reviewed",
+    }));
+    vi.mocked(api.evidenceUpload).mockResolvedValue({
+      ...sanitized, state: "attached", attached_at: "2026-09-01T11:57:00Z", evidence_id: uploadId,
+    });
+    vi.mocked(api.contributionEvidence).mockResolvedValue({
+      evidence_id: uploadId,
+      evidence_class: "sanitized_media",
+      source_draft_version: 3,
+      public_state: null,
+      preservation_pending: false,
+      preservation_failed: true,
+      preservation_failure_code: "storage_unavailable",
+    });
+
+    render(<EvidenceUploadPanel enabled draftId={draftId} sourceDraftVersion={3} rightsAcknowledged language="en" />);
+
+    expect(await screen.findByText(/independent preservation failed/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: /check status again/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /choose another image/i }));
+    expect(storage.getItem(`opennosh:contribution:${draftId}:evidence-upload:v1`)).toBeNull();
   });
 });

@@ -217,7 +217,7 @@ def sanitize_evidence_image(
 
     try:
         with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            warnings.simplefilter("error")
             with Image.open(BytesIO(payload)) as probe:
                 _require_expected_format(probe, detected_media_type)
                 _require_single_frame(probe)
@@ -264,15 +264,17 @@ def sanitize_evidence_image(
             EvidenceSanitizationFailureCode.SANITIZED_SIZE_EXCEEDED
         )
     try:
-        with Image.open(BytesIO(sanitized)) as verified:
-            if verified.format != "PNG" or getattr(verified, "n_frames", 1) != 1:
-                raise ValueError("Sanitized output is not one PNG image")
-            verified.verify()
-        with Image.open(BytesIO(sanitized)) as verified:
-            verified.load()
-            if verified.info:
-                raise ValueError("Sanitized output retained metadata")
-            width, height = verified.size
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with Image.open(BytesIO(sanitized)) as verified:
+                if verified.format != "PNG" or getattr(verified, "n_frames", 1) != 1:
+                    raise ValueError("Sanitized output is not one PNG image")
+                verified.verify()
+            with Image.open(BytesIO(sanitized)) as verified:
+                verified.load()
+                if verified.info:
+                    raise ValueError("Sanitized output retained metadata")
+                width, height = verified.size
     except Exception as error:
         raise EvidenceSanitizationError(
             EvidenceSanitizationFailureCode.METADATA_REWRITE_FAILED

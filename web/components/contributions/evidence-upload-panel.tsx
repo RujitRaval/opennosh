@@ -65,6 +65,7 @@ export function EvidenceUploadPanel({
   const [sourceDescription, setSourceDescription] = useState(initialResume?.sourceDescription ?? "");
   const [redactionState, setRedactionState] = useState<RedactionState>(initialResume?.redactionState ?? "not_required");
   const [message, setMessage] = useState("");
+  const [preservationFailure, setPreservationFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const polling = useRef<AbortController | null>(null);
   const resumed = useRef(false);
@@ -81,6 +82,16 @@ export function EvidenceUploadPanel({
 
   const refresh = useCallback(async (uploadId: string, signal?: AbortSignal) => {
     const next = await api.evidenceUpload(draftId, uploadId, signal);
+    if (next.state === "attached" && next.evidence_id) {
+      const evidence = await api.contributionEvidence(draftId, signal);
+      setPreservationFailure(
+        evidence.evidence_id === next.evidence_id && evidence.preservation_failed
+          ? evidence.preservation_failure_code ?? "preservation_failed"
+          : null,
+      );
+    } else {
+      setPreservationFailure(null);
+    }
     setSession(next);
     persist(next);
     return next;
@@ -101,7 +112,7 @@ export function EvidenceUploadPanel({
   }, [copy.resumeUnavailable, draftId, enabled, initialResume, refresh]);
 
   useEffect(() => {
-    if (!session || !pollableStates.has(session.state)) return;
+    if (!session || preservationFailure || !pollableStates.has(session.state)) return;
     polling.current?.abort();
     const controller = new AbortController();
     polling.current = controller;
@@ -111,7 +122,7 @@ export function EvidenceUploadPanel({
       }).catch(() => { /* the explicit retry remains available */ });
     }, 2_000);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [refresh, session]);
+  }, [preservationFailure, refresh, session]);
 
   useEffect(() => {
     if (session) persist(session);
@@ -177,6 +188,7 @@ export function EvidenceUploadPanel({
         rights_acknowledged: true,
         redaction_state: redactionState,
       });
+      setPreservationFailure(null);
       setSession(next);
       persist(next);
       setMessage(next.state === "preserved" ? copy.preserved : copy.preservationPending);
@@ -213,6 +225,7 @@ export function EvidenceUploadPanel({
     {session ? <div className="evidence-upload-status">
       <p className="mono">{copy.status} · {session.state}</p>
       {session.failure_code ? <p>{copy.failed} ({session.failure_code})</p> : null}
+      {preservationFailure ? <p>{copy.preservationFailed} ({preservationFailure})</p> : null}
       {session.state === "sanitized" ? <>
         <label>{copy.description}<textarea maxLength={1000} value={sourceDescription} onChange={(event) => setSourceDescription(event.target.value)} /></label>
         <label>{copy.redaction}<select value={redactionState} onChange={(event) => setRedactionState(event.target.value as RedactionState)}>
@@ -222,12 +235,13 @@ export function EvidenceUploadPanel({
         </select></label>
         <button className="contribution-primary" type="button" onClick={() => void attach()} disabled={busy || !sourceDescription.trim() || !rightsAcknowledged}>{copy.attach}</button>
       </> : null}
-      {(session.state === "failed" || session.state === "expired") ? <button className="contribution-secondary" type="button" onClick={() => {
-        window.localStorage.removeItem(resumeKey(draftId)); setSession(null); setMessage(copy.restartRequired);
+      {(session.state === "failed" || session.state === "expired" || preservationFailure) ? <button className="contribution-secondary" type="button" onClick={() => {
+        window.localStorage.removeItem(resumeKey(draftId)); setSession(null); setPreservationFailure(null); setMessage(copy.restartRequired);
       }}>{copy.startAgain}</button> : null}
-      {pollableStates.has(session.state) ? <button className="contribution-secondary" type="button" onClick={() => void refresh(session.upload_id)}>{copy.retryStatus}</button> : null}
+      {pollableStates.has(session.state) && !preservationFailure ? <button className="contribution-secondary" type="button" onClick={() => void refresh(session.upload_id)}>{copy.retryStatus}</button> : null}
     </div> : null}
     <p className="evidence-upload-message" aria-live="polite">{message}</p>
     <p className="evidence-upload-safety">{copy.noExtraction}</p>
+    <p>{copy.publicFallback}</p>
   </section>;
 }

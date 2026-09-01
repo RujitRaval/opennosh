@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import warnings
 from io import BytesIO
 
 import httpx
@@ -439,3 +440,28 @@ def test_sanitization_helpers_fail_closed_for_unknown_or_mismatched_formats() ->
     image.format = "JPEG"
     with pytest.raises(EvidenceSanitizationError, match="signature_mismatch"):
         _require_expected_format(image, "image/png")
+
+
+@pytest.mark.parametrize(
+    ("warning_call", "failure_code"),
+    [(1, "decode_failed"), (3, "metadata_rewrite_failed")],
+)
+def test_every_parser_warning_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    warning_call: int,
+    failure_code: str,
+) -> None:
+    payload = _image_bytes("PNG")
+    real_open = Image.open
+    calls = 0
+
+    def open_with_warning(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        if calls == warning_call:
+            warnings.warn("parser warning", UserWarning, stacklevel=2)
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(Image, "open", open_with_warning)
+    with pytest.raises(EvidenceSanitizationError, match=failure_code):
+        sanitize_evidence_image(payload, declared_media_type="image/png")
