@@ -53,6 +53,7 @@ class ApproveContribution:
     required_checks: tuple[str, ...]
     forge_target: str
     reason: str
+    prior_decision_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if not self.record_id or len(self.record_id) > 160:
@@ -111,6 +112,40 @@ async def approve_contribution(
     if draft.fields_json.get("pack_id") != command.approved_changes.pack_id:
         raise GovernanceDecisionError("pack_scope_mismatch")
 
+    prior_decision: GovernanceDecision | None = None
+    if command.prior_decision_id is not None:
+        prior_decision = await session.scalar(
+            select(GovernanceDecision)
+            .where(GovernanceDecision.id == command.prior_decision_id)
+            .with_for_update()
+        )
+        if prior_decision is None:
+            raise GovernanceDecisionError("prior_governance_decision_not_found")
+        if (
+            prior_decision.source_draft_id != draft.id
+            or prior_decision.source_draft_version != draft.draft_version
+            or prior_decision.pack_id != command.approved_changes.pack_id
+        ):
+            raise GovernanceDecisionError("prior_governance_decision_binding_mismatch")
+        if prior_decision.outcome == GovernanceDecisionOutcome.APPROVED.value:
+            raise GovernanceDecisionError("approved_decision_requires_intervention")
+        successor_id = await session.scalar(
+            select(GovernanceDecision.id).where(
+                GovernanceDecision.prior_decision_id == prior_decision.id
+            )
+        )
+        if successor_id is not None:
+            raise GovernanceDecisionError("governance_decision_already_succeeded")
+    else:
+        existing_decision_id = await session.scalar(
+            select(GovernanceDecision.id).where(
+                GovernanceDecision.source_draft_id == draft.id,
+                GovernanceDecision.source_draft_version == draft.draft_version,
+            )
+        )
+        if existing_decision_id is not None:
+            raise GovernanceDecisionError("prior_governance_decision_required")
+
     role = await session.scalar(
         select(GovernanceRoleAssignment).where(
             GovernanceRoleAssignment.pack_id == command.approved_changes.pack_id,
@@ -157,6 +192,7 @@ async def approve_contribution(
 
     decision = GovernanceDecision(
         id=decision_id_generator(),
+        prior_decision_id=None if prior_decision is None else prior_decision.id,
         source_draft_id=draft.id,
         source_draft_version=draft.draft_version,
         pack_id=command.approved_changes.pack_id,

@@ -10,10 +10,14 @@ const apiState = vi.hoisted(() => ({
   claim: vi.fn(),
   decide: vi.fn(),
   dispute: vi.fn(),
+  appeal: vi.fn(),
   pause: vi.fn(),
   queue: vi.fn(),
   recuse: vi.fn(),
+  release: vi.fn(),
   respond: vi.fn(),
+  resolveAppeal: vi.fn(),
+  resolveDispute: vi.fn(),
   resume: vi.fn(),
   reviewCase: vi.fn(),
 }));
@@ -33,6 +37,7 @@ function reviewCase(state: GovernanceReviewCase["state"] = "in_review"): Governa
       attribution: "Fixture publisher",
       source_license: "CC-BY-4.0",
     },
+    viewer_role: "steward",
     state,
     revision: 2,
     assigned_steward_actor_id: state === "pending" ? null : "22222222-2222-4222-8222-222222222222",
@@ -103,6 +108,81 @@ describe("accountable governance browser surface", () => {
       "55555555-5555-4555-8555-555555555555",
       { expected_revision: 2, outcome: "changes_requested", reason: "Clarify the serving size." },
     ));
+    expect(await screen.findByRole("heading", { name: "Open a dispute" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Respond with a new exact version" })).not.toBeInTheDocument();
+  });
+
+  it("shows contributor follow-up without steward-only controls", async () => {
+    apiState.reviewCase.mockResolvedValue({
+      ...reviewCase("changes_requested"),
+      viewer_role: "contributor",
+    });
+    render(<GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />);
+
     expect(await screen.findByRole("heading", { name: "Respond with a new exact version" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Record decision" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Recuse and release" })).not.toBeInTheDocument();
+  });
+
+  it("exposes the complete dispute and appeal action chain", async () => {
+    const dispute = {
+      dispute_id: "88888888-8888-4888-8888-888888888888",
+      decision_id: "77777777-7777-4777-8777-777777777777",
+      category: "accuracy",
+      public_reason: "The source was read incorrectly.",
+      requested_remedy: "Compare the preserved panel again.",
+      state: "open" as const,
+      revision: 1,
+      resolution: null,
+    };
+    apiState.reviewCase.mockResolvedValue({
+      ...reviewCase("disputed"),
+      disputes: [dispute],
+    });
+    apiState.resolveDispute.mockResolvedValue({});
+    const first = render(
+      <GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />,
+    );
+    expect(await screen.findByRole("heading", { name: "Resolve the open dispute" })).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Public-safe resolution"), {
+      target: { value: "Return the case for a fresh review." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Resolve and reopen review" }));
+    await waitFor(() => expect(apiState.resolveDispute).toHaveBeenCalledWith(
+      dispute.dispute_id,
+      {
+        expected_case_revision: 2,
+        expected_dispute_revision: 1,
+        resolution: "Return the case for a fresh review.",
+      },
+    ));
+    first.unmount();
+
+    apiState.reviewCase.mockReset().mockResolvedValue({
+      ...reviewCase("reopened"),
+      viewer_role: "contributor",
+      disputes: [{ ...dispute, state: "resolved", revision: 2, resolution: "Reopened." }],
+    });
+    const second = render(
+      <GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />,
+    );
+    expect(await screen.findByRole("heading", { name: "Appeal the resolved dispute" })).toBeVisible();
+    second.unmount();
+
+    apiState.reviewCase.mockReset().mockResolvedValue({
+      ...reviewCase("appealed"),
+      disputes: [{ ...dispute, state: "resolved", revision: 2, resolution: "Reopened." }],
+      appeals: [{
+        appeal_id: "99999999-9999-4999-8999-999999999999",
+        dispute_id: dispute.dispute_id,
+        public_reason: "The wrong panel was compared.",
+        requested_remedy: "Use the preserved back panel.",
+        state: "open",
+        revision: 1,
+        resolution: null,
+      }],
+    });
+    render(<GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />);
+    expect(await screen.findByRole("heading", { name: "Decide the independent appeal" })).toBeVisible();
   });
 });

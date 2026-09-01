@@ -90,7 +90,7 @@ class DisputeResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dispute_id: UUID
-    decision_id: UUID | None
+    decision_id: UUID
     category: DisputeCategory
     public_reason: str
     requested_remedy: str
@@ -123,6 +123,7 @@ class ReviewCaseResponse(BaseModel):
     source_draft_version: Annotated[int, Field(ge=1)]
     pack_id: Annotated[str, Field(min_length=1, max_length=160)]
     submitted_fields: dict[str, Any]
+    viewer_role: Literal["contributor", "steward"]
     state: ReviewCaseState
     revision: Annotated[int, Field(ge=1)]
     assigned_steward_actor_id: UUID | None

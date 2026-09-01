@@ -53,6 +53,7 @@ NOW = datetime(2026, 9, 1, 21, tzinfo=UTC)
 CONTRIBUTOR = UUID("11111111-1111-4111-8111-111111111111")
 STEWARD = UUID("22222222-2222-4222-8222-222222222222")
 OTHER_STEWARD = UUID("33333333-3333-4333-8333-333333333333")
+THIRD_STEWARD = UUID("34343434-3434-4434-8434-343434343434")
 DRAFT = UUID("44444444-4444-4444-8444-444444444444")
 CASE = UUID("55555555-5555-4555-8555-555555555555")
 CLAIM_KEY = UUID("66666666-6666-4666-8666-666666666666")
@@ -76,10 +77,12 @@ async def _seed(database_url: str) -> None:
             "INSERT INTO users (id, email, password_hash) VALUES "
             "($1, 'contributor-review@example.test', 'hash'), "
             "($2, 'steward-review@example.test', 'hash'), "
-            "($3, 'other-steward-review@example.test', 'hash')",
+            "($3, 'other-steward-review@example.test', 'hash'), "
+            "($4, 'third-steward-review@example.test', 'hash')",
             CONTRIBUTOR,
             STEWARD,
             OTHER_STEWARD,
+            THIRD_STEWARD,
         )
         await connection.execute(
             "INSERT INTO contribution_drafts "
@@ -92,10 +95,12 @@ async def _seed(database_url: str) -> None:
         await connection.execute(
             "INSERT INTO governance_role_assignments "
             "(pack_id, actor_id, role, granted_by_actor_id, grant_reason, granted_at) "
-            "VALUES ('global-core', $1, 'steward', $1, 'test grant', $3), "
-            "('global-core', $2, 'steward', $1, 'test grant', $3)",
+            "VALUES ('global-core', $1, 'steward', $1, 'test grant', $4), "
+            "('global-core', $2, 'steward', $1, 'test grant', $4), "
+            "('global-core', $3, 'steward', $1, 'test grant', $4)",
             STEWARD,
             OTHER_STEWARD,
+            THIRD_STEWARD,
             NOW,
         )
     finally:
@@ -108,6 +113,12 @@ async def _exercise_review_lifecycle(database_url: str) -> None:
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     try:
         async with sessions() as session, session.begin():
+            await seed_verified_reference_evidence(
+                session,
+                draft_id=DRAFT,
+                draft_version=1,
+                now=NOW,
+            )
             review_case = await open_review_case(
                 session,
                 source_draft_id=DRAFT,
@@ -196,7 +207,7 @@ async def _exercise_review_lifecycle(database_url: str) -> None:
             resolved_case, resolved_dispute = await resolve_dispute(
                 session,
                 dispute_id=DISPUTE,
-                actor_id=STEWARD,
+                actor_id=OTHER_STEWARD,
                 expected_case_revision=4,
                 expected_dispute_revision=1,
                 idempotency_key=UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
@@ -237,10 +248,23 @@ async def _exercise_review_lifecycle(database_url: str) -> None:
                 )
 
         async with sessions() as session, session.begin():
+            with pytest.raises(ReviewCaseError, match="appeal_requires_independent_steward"):
+                await resolve_appeal(
+                    session,
+                    appeal_id=APPEAL,
+                    actor_id=OTHER_STEWARD,
+                    expected_case_revision=6,
+                    expected_appeal_revision=1,
+                    idempotency_key=UUID("dededede-dede-4ded-8ded-dededededede"),
+                    resolution="The dispute resolution stands.",
+                    now=NOW,
+                )
+
+        async with sessions() as session, session.begin():
             final_case, resolved_appeal = await resolve_appeal(
                 session,
                 appeal_id=APPEAL,
-                actor_id=OTHER_STEWARD,
+                actor_id=THIRD_STEWARD,
                 expected_case_revision=6,
                 expected_appeal_revision=1,
                 idempotency_key=UUID("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"),
@@ -249,12 +273,50 @@ async def _exercise_review_lifecycle(database_url: str) -> None:
             )
             assert final_case.state == "reopened"
             assert resolved_appeal.state == "resolved"
-            assert resolved_appeal.decided_by_actor_id == OTHER_STEWARD
+            assert resolved_appeal.decided_by_actor_id == THIRD_STEWARD
+
+        async with sessions() as session, session.begin():
+            reclaimed_case = await claim_review_case(
+                session,
+                review_case_id=CASE,
+                actor_id=THIRD_STEWARD,
+                expected_revision=7,
+                idempotency_key=UUID("ffffffff-ffff-4fff-8fff-ffffffffffff"),
+                now=NOW,
+            )
+            assert reclaimed_case.state == "in_review"
+            assert reclaimed_case.revision == 8
+
+        async with sessions() as session, session.begin():
+            decided_case, successor_decision, publication_intent = await approve_review_case(
+                session,
+                PgQueuerJobQueue(clock=lambda: NOW),
+                review_case_id=CASE,
+                actor_id=THIRD_STEWARD,
+                approved_changes=ApprovedChangeSet.build(
+                    pack_id="global-core",
+                    files=(
+                        ApprovedFileChange(
+                            path="packs/global-core/foods/lentils.json",
+                            content='{"name":"Lentils"}\n',
+                        ),
+                    ),
+                ),
+                record_id="lentils",
+                expected_base_commit="a" * 40,
+                expected_revision=8,
+                idempotency_key=UUID("12121212-1212-4212-8212-121212121212"),
+                reason="The independent appeal review confirms the preserved source.",
+                now=NOW,
+            )
+            assert decided_case.state == "approved"
+            assert successor_decision.prior_decision_id == decision.id
+            assert publication_intent.reviewed_decision_id == successor_decision.id
 
         async with sessions() as session:
             case_row = await session.get(GovernanceReviewCase, CASE)
             assert case_row is not None
-            assert case_row.state == "reopened"
+            assert case_row.state == "approved"
             event_count = await session.scalar(
                 select(func.count()).select_from(GovernanceReviewEvent)
             )
@@ -265,14 +327,53 @@ async def _exercise_review_lifecycle(database_url: str) -> None:
                 select(func.count()).select_from(GovernanceDispute)
             )
             appeal_count = await session.scalar(select(func.count()).select_from(GovernanceAppeal))
+            publication_count = await session.scalar(
+                select(func.count()).select_from(PublicationIntent)
+            )
+            queue_count = await session.scalar(
+                select(func.count()).select_from(text(PGQUEUER_SETTINGS.queue_table))
+            )
             draft_state = await session.scalar(
                 select(ContributionDraft.review_state).where(ContributionDraft.id == DRAFT)
             )
-            assert event_count == 7
-            assert decision_count == 1
+            assert event_count == 9
+            assert decision_count == 2
             assert dispute_count == 1
             assert appeal_count == 1
-            assert draft_state == "changes_requested"
+            assert publication_count == 1
+            assert queue_count == 1
+            assert draft_state == "publication_pending"
+
+        connection = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            with pytest.raises(
+                asyncpg.CheckViolationError,
+                match="governance_review_case_transition_invalid",
+            ):
+                await connection.execute(
+                    "UPDATE governance_review_cases "
+                    "SET state = 'pending', revision = revision + 1 WHERE id = $1",
+                    CASE,
+                )
+            with pytest.raises(
+                asyncpg.CheckViolationError,
+                match="governance_review_history_is_immutable",
+            ):
+                await connection.execute(
+                    "UPDATE governance_review_events SET public_reason = 'rewritten' "
+                    "WHERE review_case_id = $1",
+                    CASE,
+                )
+            with pytest.raises(
+                asyncpg.CheckViolationError,
+                match="governance_review_history_is_immutable",
+            ):
+                await connection.execute(
+                    "DELETE FROM governance_review_cases WHERE id = $1",
+                    CASE,
+                )
+        finally:
+            await connection.close()
     finally:
         await engine.dispose()
 

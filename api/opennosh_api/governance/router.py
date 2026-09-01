@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Never
+from typing import Annotated, Literal, Never
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
@@ -137,6 +137,7 @@ def _event_response(event: GovernanceReviewEvent) -> ReviewEventResponse:
 def _case_response(
     review_case: GovernanceReviewCase,
     *,
+    viewer_role: Literal["contributor", "steward"],
     events: tuple[GovernanceReviewEvent, ...] = (),
     disputes: tuple[GovernanceDispute, ...] = (),
     appeals: tuple[GovernanceAppeal, ...] = (),
@@ -147,6 +148,7 @@ def _case_response(
         source_draft_version=review_case.source_draft_version,
         pack_id=review_case.pack_id,
         submitted_fields=review_case.submitted_fields_json,
+        viewer_role=viewer_role,
         state=ReviewCaseState(review_case.state),
         revision=review_case.revision,
         assigned_steward_actor_id=review_case.assigned_steward_actor_id,
@@ -194,11 +196,16 @@ def _appeal_response(appeal: GovernanceAppeal) -> AppealResponse:
 async def _complete_case_response(
     database: AsyncSession,
     review_case: GovernanceReviewCase,
+    *,
+    actor_id: UUID,
 ) -> ReviewCaseResponse:
     events = await list_review_events(database, review_case_id=review_case.id)
     disputes, appeals = await list_disputes_and_appeals(database, review_case_id=review_case.id)
     return _case_response(
         review_case,
+        viewer_role=(
+            "contributor" if review_case.contributor_actor_id == actor_id else "steward"
+        ),
         events=events,
         disputes=disputes,
         appeals=appeals,
@@ -210,6 +217,7 @@ def _raise_review_error(error: ReviewCaseError) -> Never:
         "appeal_not_found",
         "contribution_not_found",
         "dispute_not_found",
+        "review_decision_not_found",
         "review_case_not_found",
     }:
         raise _disabled() from error
@@ -220,6 +228,7 @@ def _raise_review_error(error: ReviewCaseError) -> Never:
         "appeal_requires_resolved_dispute",
         "appeal_revision_conflict",
         "dispute_not_open",
+        "dispute_requires_decision",
         "dispute_revision_conflict",
         "review_case_draft_version_stale",
         "contribution_not_in_review",
@@ -241,6 +250,12 @@ def _raise_review_error(error: ReviewCaseError) -> Never:
         "review_response_not_found",
         "contribution_not_awaiting_response",
         "contribution_version_conflict",
+        "approved_decision_requires_intervention",
+        "contribution_not_reopenable",
+        "governance_decision_already_succeeded",
+        "prior_governance_decision_binding_mismatch",
+        "prior_governance_decision_not_found",
+        "prior_governance_decision_required",
     }:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error.code) from error
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error.code) from error
@@ -271,7 +286,7 @@ async def review_queue(
         _raise_review_error(error)
     return ReviewQueueResponse(
         pack_id=pack_id,
-        cases=[_case_response(review_case) for review_case in cases],
+        cases=[_case_response(review_case, viewer_role="steward") for review_case in cases],
     )
 
 
@@ -322,7 +337,7 @@ async def review_case_detail(
             actor_id=current.user_id,
             now=datetime.now(UTC),
         )
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         _raise_review_error(error)
     return result
@@ -346,7 +361,7 @@ async def contributor_review_case(
             source_draft_id=draft_id,
             actor_id=current.user_id,
         )
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         _raise_review_error(error)
     return result
@@ -376,7 +391,7 @@ async def claim_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -408,7 +423,7 @@ async def release_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -441,7 +456,7 @@ async def pause_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -479,7 +494,7 @@ async def resume_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -511,7 +526,7 @@ async def recuse_from_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -544,7 +559,7 @@ async def decide_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -592,7 +607,7 @@ async def approve_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -636,8 +651,12 @@ async def respond_to_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        prior_result = await _complete_case_response(database, prior_case)
-        next_result = await _complete_case_response(database, next_case)
+        prior_result = await _complete_case_response(
+            database, prior_case, actor_id=current.user_id
+        )
+        next_result = await _complete_case_response(
+            database, next_case, actor_id=current.user_id
+        )
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -681,7 +700,7 @@ async def dispute_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -714,7 +733,7 @@ async def resolve_case_dispute(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -748,7 +767,7 @@ async def appeal_case_dispute(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)
@@ -781,7 +800,7 @@ async def resolve_case_appeal(
             now=datetime.now(UTC),
         )
         await database.commit()
-        result = await _complete_case_response(database, review_case)
+        result = await _complete_case_response(database, review_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)

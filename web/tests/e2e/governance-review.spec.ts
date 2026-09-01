@@ -16,6 +16,7 @@ function reviewCase(state: "pending" | "in_review" = "pending") {
       attribution: "Fixture publisher",
       source_license: "CC-BY-4.0",
     },
+    viewer_role: "steward",
     state,
     revision: state === "pending" ? 1 : 2,
     assigned_steward_actor_id: state === "pending"

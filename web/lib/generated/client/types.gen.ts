@@ -1015,7 +1015,7 @@ export type DisputeResponse = {
     /**
      * Decision Id
      */
-    decision_id: string | null;
+    decision_id: string;
     /**
      * Dispute Id
      */
@@ -3004,6 +3004,10 @@ export type ReviewCaseResponse = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Viewer Role
+     */
+    viewer_role: 'contributor' | 'steward';
 };
 
 /**

@@ -1,9 +1,13 @@
 import type {
+  AppealOpenRequest,
+  AppealResolveRequest,
   DisputeOpenRequest,
+  DisputeResolveRequest,
   ReviewCaseApproval,
   ReviewCaseDecision,
   ReviewCasePause,
   ReviewCaseRecusal,
+  ReviewCaseRelease,
   ReviewCaseResume,
   ReviewResponseRequest,
 } from "@/lib/generated/client/types.gen";
@@ -35,6 +39,13 @@ export const governanceApi = {
       method: "POST",
       headers: mutationHeaders(),
       body: JSON.stringify({ expected_revision: expectedRevision }),
+    });
+  },
+  release(reviewCaseId: string, body: ReviewCaseRelease): Promise<GovernanceReviewCase> {
+    return request(`/api/v1/governance/review-cases/${encodeURIComponent(reviewCaseId)}/release`, {
+      method: "POST",
+      headers: mutationHeaders(),
+      body: JSON.stringify(body),
     });
   },
   pause(reviewCaseId: string, body: ReviewCasePause): Promise<GovernanceReviewCase> {
@@ -79,6 +90,24 @@ export const governanceApi = {
   dispute(reviewCaseId: string, body: DisputeOpenRequest): Promise<GovernanceReviewCase> {
     return request(
       `/api/v1/governance/review-cases/${encodeURIComponent(reviewCaseId)}/disputes`,
+      { method: "POST", headers: mutationHeaders(), body: JSON.stringify(body) },
+    );
+  },
+  resolveDispute(disputeId: string, body: DisputeResolveRequest): Promise<GovernanceReviewCase> {
+    return request(
+      `/api/v1/governance/disputes/${encodeURIComponent(disputeId)}/resolve`,
+      { method: "POST", headers: mutationHeaders(), body: JSON.stringify(body) },
+    );
+  },
+  appeal(disputeId: string, body: AppealOpenRequest): Promise<GovernanceReviewCase> {
+    return request(
+      `/api/v1/governance/disputes/${encodeURIComponent(disputeId)}/appeal`,
+      { method: "POST", headers: mutationHeaders(), body: JSON.stringify(body) },
+    );
+  },
+  resolveAppeal(appealId: string, body: AppealResolveRequest): Promise<GovernanceReviewCase> {
+    return request(
+      `/api/v1/governance/appeals/${encodeURIComponent(appealId)}/resolve`,
       { method: "POST", headers: mutationHeaders(), body: JSON.stringify(body) },
     );
   },

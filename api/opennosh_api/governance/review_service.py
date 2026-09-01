@@ -4,10 +4,12 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime, timedelta
+from typing import cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import case, select, text
+from sqlalchemy import case, exists, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from opennosh_api.contributions.models import ContributionDraft
 from opennosh_api.contributions.schemas import ContributionFieldPatch
@@ -148,6 +150,26 @@ async def _require_steward_can_review(
         raise ReviewCaseError("steward_recused")
 
 
+async def _latest_decision_for_case(
+    session: AsyncSession,
+    *,
+    review_case: GovernanceReviewCase,
+) -> GovernanceDecision | None:
+    successor = aliased(GovernanceDecision)
+    return cast(
+        GovernanceDecision | None,
+        await session.scalar(
+            select(GovernanceDecision)
+            .where(
+                GovernanceDecision.source_draft_id == review_case.source_draft_id,
+                GovernanceDecision.source_draft_version == review_case.source_draft_version,
+                ~exists(select(1).where(successor.prior_decision_id == GovernanceDecision.id)),
+            )
+            .limit(1)
+        ),
+    )
+
+
 async def _idempotent_event(
     session: AsyncSession,
     *,
@@ -285,6 +307,22 @@ async def claim_review_case(
     if review_case.revision != expected_revision:
         raise ReviewCaseError("review_case_revision_conflict")
     await _require_steward_can_review(session, review_case=review_case, actor_id=actor_id, now=now)
+    if review_case.state == ReviewCaseState.REOPENED.value:
+        draft = await session.scalar(
+            select(ContributionDraft)
+            .where(ContributionDraft.id == review_case.source_draft_id)
+            .with_for_update()
+        )
+        if draft is None:
+            raise ReviewCaseError("contribution_not_found")
+        if draft.draft_version != review_case.source_draft_version:
+            raise ReviewCaseError("review_case_draft_version_stale")
+        if draft.review_state in {"publication_pending", "published"}:
+            raise ReviewCaseError("approved_decision_requires_intervention")
+        if draft.review_state not in {"changes_requested", "rejected", "in_review"}:
+            raise ReviewCaseError("contribution_not_reopenable")
+        draft.review_state = "in_review"
+        draft.updated_at = now
     next_state = _transition(review_case.state, ReviewEventType.CLAIMED)
     review_case.state = next_state.value
     review_case.assigned_steward_actor_id = actor_id
@@ -608,14 +646,16 @@ async def record_nonapproval_decision(
         raise ReviewCaseError("review_case_draft_version_stale")
     if draft.review_state != "in_review":
         raise ReviewCaseError("contribution_not_in_review")
+    prior_decision = await _latest_decision_for_case(session, review_case=review_case)
+    if (
+        prior_decision is not None
+        and prior_decision.outcome == GovernanceDecisionOutcome.APPROVED.value
+    ):
+        raise ReviewCaseError("approved_decision_requires_intervention")
     event_type = ReviewEventType(outcome.value)
-    review_case.state = _transition(review_case.state, event_type).value
-    review_case.revision += 1
-    review_case.updated_at = now
-    draft.review_state = outcome.value
-    draft.updated_at = now
     decision = GovernanceDecision(
         id=decision_id_generator(),
+        prior_decision_id=None if prior_decision is None else prior_decision.id,
         source_draft_id=draft.id,
         source_draft_version=draft.draft_version,
         pack_id=review_case.pack_id,
@@ -632,6 +672,12 @@ async def record_nonapproval_decision(
         decided_at=now,
     )
     session.add(decision)
+    await session.flush()
+    review_case.state = _transition(review_case.state, event_type).value
+    review_case.revision += 1
+    review_case.updated_at = now
+    draft.review_state = outcome.value
+    draft.updated_at = now
     _append_event(
         session,
         review_case=review_case,
@@ -705,6 +751,7 @@ async def approve_review_case(
         raise ReviewCaseError("review_case_not_assigned_to_actor")
     if approved_changes.pack_id != review_case.pack_id:
         raise ReviewCaseError("pack_scope_mismatch")
+    prior_decision = await _latest_decision_for_case(session, review_case=review_case)
     try:
         decision, publication_intent = await approve_contribution(
             session,
@@ -718,6 +765,7 @@ async def approve_review_case(
                 required_checks=PROTECTED_STATUS_CHECKS,
                 forge_target=CANONICAL_FORGE_TARGET,
                 reason=normalized_reason,
+                prior_decision_id=None if prior_decision is None else prior_decision.id,
             ),
             now=now,
         )
@@ -830,6 +878,7 @@ async def respond_to_changes_request(
             "next_draft_version": draft.draft_version,
         },
     )
+    await session.flush()
     review_case.state = _transition(review_case.state, ReviewEventType.CLOSED).value
     review_case.revision += 1
     review_case.assigned_steward_actor_id = None
@@ -1033,22 +1082,16 @@ async def open_dispute(
         await _require_steward_can_review(
             session, review_case=review_case, actor_id=actor_id, now=now
         )
-    decision = await session.scalar(
-        select(GovernanceDecision)
-        .where(
-            GovernanceDecision.source_draft_id == review_case.source_draft_id,
-            GovernanceDecision.source_draft_version == review_case.source_draft_version,
-        )
-        .order_by(GovernanceDecision.decided_at.desc())
-        .limit(1)
-    )
+    decision = await _latest_decision_for_case(session, review_case=review_case)
+    if decision is None:
+        raise ReviewCaseError("dispute_requires_decision")
     review_case.state = _transition(review_case.state, ReviewEventType.DISPUTE_OPENED).value
     review_case.revision += 1
     review_case.updated_at = now
     dispute = GovernanceDispute(
         id=dispute_id_generator(),
         review_case_id=review_case.id,
-        decision_id=None if decision is None else decision.id,
+        decision_id=decision.id,
         pack_id=review_case.pack_id,
         opened_by_actor_id=actor_id,
         category=category.value,
@@ -1189,6 +1232,12 @@ async def open_appeal(
         raise ReviewCaseError("appeal_requires_resolved_dispute")
     if review_case.contributor_actor_id != actor_id and dispute.opened_by_actor_id != actor_id:
         raise ReviewCaseError("appeal_actor_not_eligible")
+    original_deciding_actor_id = dispute.resolved_by_actor_id
+    if dispute.decision_id is not None:
+        disputed_decision = await session.get(GovernanceDecision, dispute.decision_id)
+        if disputed_decision is None:
+            raise ReviewCaseError("review_decision_not_found")
+        original_deciding_actor_id = disputed_decision.deciding_actor_id
     review_case.state = _transition(review_case.state, ReviewEventType.APPEAL_OPENED).value
     review_case.revision += 1
     review_case.updated_at = now
@@ -1197,7 +1246,7 @@ async def open_appeal(
         dispute_id=dispute.id,
         review_case_id=review_case.id,
         opened_by_actor_id=actor_id,
-        original_deciding_actor_id=dispute.resolved_by_actor_id,
+        original_deciding_actor_id=original_deciding_actor_id,
         public_reason=reason,
         requested_remedy=remedy,
         state="open",
@@ -1259,7 +1308,11 @@ async def resolve_appeal(
     if appeal.state not in {"open", "reopened"}:
         raise ReviewCaseError("appeal_not_open")
     await _require_steward_can_review(session, review_case=review_case, actor_id=actor_id, now=now)
-    if actor_id == appeal.original_deciding_actor_id:
+    dispute = await _load_dispute(session, appeal.dispute_id, for_update=False)
+    if actor_id in {
+        appeal.original_deciding_actor_id,
+        dispute.resolved_by_actor_id,
+    }:
         raise ReviewCaseError("appeal_requires_independent_steward")
     appeal.state = "resolved"
     appeal.revision += 1

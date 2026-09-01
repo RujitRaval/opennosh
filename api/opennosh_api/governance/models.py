@@ -142,9 +142,7 @@ class GovernanceDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     reason: Mapped[str] = mapped_column(String(2000), nullable=False)
     approved_payload_digest: Mapped[str | None] = mapped_column(String(64))
-    approved_changes_json: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB(none_as_null=True)
-    )
+    approved_changes_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
     expected_base_commit: Mapped[str | None] = mapped_column(String(64))
     required_checks_json: Mapped[list[str] | None] = mapped_column(JSONB(none_as_null=True))
     forge_target: Mapped[str | None] = mapped_column(String(512))
@@ -389,8 +387,8 @@ class GovernanceDispute(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     review_case_id: Mapped[UUID] = mapped_column(
         ForeignKey("governance_review_cases.id", ondelete="RESTRICT"), nullable=False
     )
-    decision_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("governance_decisions.id", ondelete="RESTRICT")
+    decision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("governance_decisions.id", ondelete="RESTRICT"), nullable=False
     )
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
     opened_by_actor_id: Mapped[UUID] = mapped_column(

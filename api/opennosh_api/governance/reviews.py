@@ -63,7 +63,6 @@ _TRANSITIONS: dict[
         ReviewEventType.CHANGES_REQUESTED: ReviewCaseState.CHANGES_REQUESTED,
         ReviewEventType.APPROVED: ReviewCaseState.APPROVED,
         ReviewEventType.REJECTED: ReviewCaseState.REJECTED,
-        ReviewEventType.DISPUTE_OPENED: ReviewCaseState.DISPUTED,
         ReviewEventType.CLOSED: ReviewCaseState.CLOSED,
     },
     ReviewCaseState.CHANGES_REQUESTED: {

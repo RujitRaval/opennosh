@@ -74,10 +74,15 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
   if (!reviewCase) return <main className="governance-shell"><p className="governance-alert" role="alert">{failure}</p><Link href={routes.governanceQueue}>Return to queue</Link></main>;
 
   const fields = reviewCase.submitted_fields;
-  const canClaim = reviewCase.state === "pending" || reviewCase.state === "reopened";
-  const canDecide = reviewCase.state === "in_review";
-  const canRespond = reviewCase.state === "changes_requested";
+  const isSteward = reviewCase.viewer_role === "steward";
+  const canClaim = isSteward && (reviewCase.state === "pending" || reviewCase.state === "reopened");
+  const canDecide = isSteward && reviewCase.state === "in_review";
+  const canRespond = !isSteward && reviewCase.state === "changes_requested";
   const canDispute = ["changes_requested", "approved", "rejected"].includes(reviewCase.state);
+  const activeDispute = (reviewCase.disputes ?? []).find((dispute) => dispute.state === "open");
+  const resolvedDispute = (reviewCase.disputes ?? []).slice().reverse().find((dispute) => dispute.state === "resolved");
+  const activeAppeal = (reviewCase.appeals ?? []).find((appeal) => appeal.state !== "resolved");
+  const canAppeal = reviewCase.state === "reopened" && resolvedDispute && (reviewCase.appeals ?? []).length === 0;
 
   return (
     <main className="governance-shell" id="main-content">
@@ -125,6 +130,9 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
         {canDecide ? <StewardActions reviewCase={reviewCase} busy={busy} run={run} /> : null}
         {canRespond ? <ContributorResponse reviewCase={reviewCase} busy={busy} run={run} /> : null}
         {canDispute ? <DisputeForm reviewCase={reviewCase} busy={busy} run={run} /> : null}
+        {isSteward && reviewCase.state === "disputed" && activeDispute ? <DisputeResolutionForm reviewCase={reviewCase} dispute={activeDispute} busy={busy} run={run} /> : null}
+        {canAppeal && resolvedDispute ? <AppealForm reviewCase={reviewCase} dispute={resolvedDispute} busy={busy} run={run} /> : null}
+        {isSteward && reviewCase.state === "appealed" && activeAppeal ? <AppealResolutionForm reviewCase={reviewCase} appeal={activeAppeal} busy={busy} run={run} /> : null}
       </section>
 
       <section className="governance-history" aria-labelledby="history-heading">
@@ -190,6 +198,9 @@ function StewardActions({ reviewCase, busy, run }: { reviewCase: GovernanceRevie
       <h3>Pause with a next-review date</h3><label>Reason<input name="reason" required /></label><label>Next review<input name="next_review_at" type="datetime-local" required /></label><button disabled={busy}>Pause review</button>
     </form>
     {reviewCase.pause_reason ? <button disabled={busy} onClick={() => run(() => governanceApi.resume(reviewCase.review_case_id, { expected_revision: reviewCase.revision, reason: "The stated pause condition has been resolved." }))}>Resume review</button> : null}
+    <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void run(() => governanceApi.release(reviewCase.review_case_id, { expected_revision: reviewCase.revision, reason: String(data.get("reason")) })); }}>
+      <h3>Release this assignment</h3><label>Public-safe reason<input name="reason" required maxLength={1000} /></label><button disabled={busy}>Return to queue</button>
+    </form>
     <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void run(() => governanceApi.recuse(reviewCase.review_case_id, { expected_revision: reviewCase.revision, reason: String(data.get("reason")) })); }}>
       <h3>Declare a conflict</h3><label>Public-safe reason<input name="reason" required /></label><button disabled={busy}>Recuse and release</button>
     </form>
@@ -214,5 +225,30 @@ function DisputeForm({ reviewCase, busy, run }: { reviewCase: GovernanceReviewCa
     <label>Public-safe reason<textarea name="reason" required maxLength={2000} /></label>
     <label>Requested remedy<input name="remedy" required maxLength={1000} /></label>
     <button disabled={busy}>Open dispute</button>
+  </form>;
+}
+
+function DisputeResolutionForm({ reviewCase, dispute, busy, run }: { reviewCase: GovernanceReviewCase; dispute: NonNullable<GovernanceReviewCase["disputes"]>[number]; busy: boolean; run: ActionRunner }) {
+  return <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void run(() => governanceApi.resolveDispute(dispute.dispute_id, { expected_case_revision: reviewCase.revision, expected_dispute_revision: dispute.revision, resolution: String(data.get("resolution")) })); }}>
+    <h3>Resolve the open dispute</h3>
+    <label>Public-safe resolution<textarea name="resolution" required maxLength={2000} /></label>
+    <button disabled={busy}>Resolve and reopen review</button>
+  </form>;
+}
+
+function AppealForm({ reviewCase, dispute, busy, run }: { reviewCase: GovernanceReviewCase; dispute: NonNullable<GovernanceReviewCase["disputes"]>[number]; busy: boolean; run: ActionRunner }) {
+  return <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void run(() => governanceApi.appeal(dispute.dispute_id, { expected_case_revision: reviewCase.revision, expected_dispute_revision: dispute.revision, public_reason: String(data.get("reason")), requested_remedy: String(data.get("remedy")) })); }}>
+    <h3>Appeal the resolved dispute</h3>
+    <label>Public-safe reason<textarea name="reason" required maxLength={2000} /></label>
+    <label>Requested remedy<input name="remedy" required maxLength={1000} /></label>
+    <button disabled={busy}>Open independent appeal</button>
+  </form>;
+}
+
+function AppealResolutionForm({ reviewCase, appeal, busy, run }: { reviewCase: GovernanceReviewCase; appeal: NonNullable<GovernanceReviewCase["appeals"]>[number]; busy: boolean; run: ActionRunner }) {
+  return <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void run(() => governanceApi.resolveAppeal(appeal.appeal_id, { expected_case_revision: reviewCase.revision, expected_appeal_revision: appeal.revision, resolution: String(data.get("resolution")) })); }}>
+    <h3>Decide the independent appeal</h3>
+    <label>Public-safe resolution<textarea name="resolution" required maxLength={2000} /></label>
+    <button disabled={busy}>Resolve appeal and reopen review</button>
   </form>;
 }

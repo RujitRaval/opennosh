@@ -1921,16 +1921,9 @@
             "$ref": "#/components/schemas/DisputeCategory"
           },
           "decision_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decision Id"
+            "format": "uuid",
+            "title": "Decision Id",
+            "type": "string"
           },
           "dispute_id": {
             "format": "uuid",
@@ -5496,6 +5489,14 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "viewer_role": {
+            "enum": [
+              "contributor",
+              "steward"
+            ],
+            "title": "Viewer Role",
+            "type": "string"
           }
         },
         "required": [
@@ -5504,6 +5505,7 @@
           "source_draft_version",
           "pack_id",
           "submitted_fields",
+          "viewer_role",
           "state",
           "revision",
           "assigned_steward_actor_id",

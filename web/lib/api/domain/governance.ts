@@ -19,18 +19,22 @@ export interface GovernanceReviewEvent {
 
 export interface GovernanceDispute {
   dispute_id: string;
+  decision_id: string;
   category: string;
   public_reason: string;
   requested_remedy: string;
   state: "open" | "resolved";
+  revision: number;
   resolution: string | null;
 }
 
 export interface GovernanceAppeal {
   appeal_id: string;
+  dispute_id: string;
   public_reason: string;
   requested_remedy: string;
   state: "open" | "resolved" | "reopened";
+  revision: number;
   resolution: string | null;
 }
 
@@ -40,6 +44,7 @@ export interface GovernanceReviewCase {
   source_draft_version: number;
   pack_id: string;
   submitted_fields: Record<string, unknown>;
+  viewer_role: "contributor" | "steward";
   state: GovernanceReviewState;
   revision: number;
   assigned_steward_actor_id: string | null;
