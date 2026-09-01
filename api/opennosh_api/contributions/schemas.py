@@ -29,6 +29,7 @@ class ContributionReviewState(StrEnum):
     DRAFT = "draft"
     IN_REVIEW = "in_review"
     CHANGES_REQUESTED = "changes_requested"
+    REJECTED = "rejected"
     APPROVED = "approved"
     PUBLICATION_PENDING = "publication_pending"
     PUBLISHED = "published"

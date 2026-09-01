@@ -20,28 +20,29 @@ EXPECTED_TABLE_OWNERS = {
         "opennosh_api.evidence.models.EvidenceDurableAcknowledgement"
     ),
     "evidence_manifests": "opennosh_api.evidence.models.EvidenceManifestRecord",
-    "evidence_removal_tombstones": (
-        "opennosh_api.evidence.models.EvidenceRemovalTombstone"
-    ),
+    "evidence_removal_tombstones": ("opennosh_api.evidence.models.EvidenceRemovalTombstone"),
     "evidence_upload_sessions": "opennosh_api.evidence.models.EvidenceUploadSession",
     "federation_audit_events": "opennosh_api.federation.models.FederationAuditEvent",
     "federation_invitations": "opennosh_api.federation.models.FederationInvitation",
     "federation_maintainers": "opennosh_api.federation.models.FederationMaintainer",
     "federation_role_keys": "opennosh_api.federation.models.FederationRoleKey",
     "governance_decisions": "opennosh_api.governance.models.GovernanceDecision",
+    "governance_disputes": "opennosh_api.governance.models.GovernanceDispute",
+    "governance_appeals": "opennosh_api.governance.models.GovernanceAppeal",
     "governance_merge_authorizations": (
         "opennosh_api.governance.models.GovernanceMergeAuthorization"
     ),
     "governance_publication_interventions": (
         "opennosh_api.governance.models.GovernancePublicationIntervention"
     ),
-    "governance_publication_pauses": (
-        "opennosh_api.governance.models.GovernancePublicationPause"
-    ),
+    "governance_publication_pauses": ("opennosh_api.governance.models.GovernancePublicationPause"),
     "governance_recusals": "opennosh_api.governance.models.GovernanceRecusal",
-    "governance_role_assignments": (
-        "opennosh_api.governance.models.GovernanceRoleAssignment"
+    "governance_review_cases": "opennosh_api.governance.models.GovernanceReviewCase",
+    "governance_review_events": "opennosh_api.governance.models.GovernanceReviewEvent",
+    "governance_review_private_notes": (
+        "opennosh_api.governance.models.GovernanceReviewPrivateNote"
     ),
+    "governance_role_assignments": ("opennosh_api.governance.models.GovernanceRoleAssignment"),
     "publication_durable_acknowledgements": (
         "opennosh_api.publication.models.DurableAcknowledgement"
     ),
@@ -104,7 +105,12 @@ def test_registry_import_order_is_deterministic() -> None:
         "evidence_upload_sessions",
         "governance_role_assignments",
         "governance_recusals",
+        "governance_review_cases",
+        "governance_review_events",
+        "governance_review_private_notes",
         "governance_decisions",
+        "governance_disputes",
+        "governance_appeals",
         "governance_merge_authorizations",
         "governance_publication_pauses",
         "governance_publication_interventions",

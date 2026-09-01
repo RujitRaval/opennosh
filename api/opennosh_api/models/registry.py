@@ -21,11 +21,16 @@ from opennosh_api.federation.models import (
     FederationRoleKey,
 )
 from opennosh_api.governance.models import (
+    GovernanceAppeal,
     GovernanceDecision,
+    GovernanceDispute,
     GovernanceMergeAuthorization,
     GovernancePublicationIntervention,
     GovernancePublicationPause,
     GovernanceRecusal,
+    GovernanceReviewCase,
+    GovernanceReviewEvent,
+    GovernanceReviewPrivateNote,
     GovernanceRoleAssignment,
 )
 from opennosh_api.models.auth import AuthRateLimit, AuthSession, User
@@ -84,7 +89,12 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     EvidenceUploadSession,
     GovernanceRoleAssignment,
     GovernanceRecusal,
+    GovernanceReviewCase,
+    GovernanceReviewEvent,
+    GovernanceReviewPrivateNote,
     GovernanceDecision,
+    GovernanceDispute,
+    GovernanceAppeal,
     GovernanceMergeAuthorization,
     GovernancePublicationPause,
     GovernancePublicationIntervention,

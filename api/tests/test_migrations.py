@@ -47,7 +47,12 @@ EXPECTED_TABLES = {
     "federation_audit_events",
     "governance_role_assignments",
     "governance_recusals",
+    "governance_review_cases",
+    "governance_review_events",
+    "governance_review_private_notes",
     "governance_decisions",
+    "governance_disputes",
+    "governance_appeals",
     "governance_merge_authorizations",
     "governance_publication_interventions",
     "governance_publication_pauses",
@@ -1940,8 +1945,7 @@ def test_evidence_sanitization_migration_preserves_uploaded_rows_and_downgrades(
             inspect_database(
                 INTEGRATION_DATABASE_URL,
                 lambda inspector: {
-                    column["name"]
-                    for column in inspector.get_columns("evidence_upload_sessions")
+                    column["name"] for column in inspector.get_columns("evidence_upload_sessions")
                 },
             )
         )
@@ -1957,8 +1961,7 @@ def test_evidence_sanitization_migration_preserves_uploaded_rows_and_downgrades(
             inspect_database(
                 INTEGRATION_DATABASE_URL,
                 lambda inspector: {
-                    column["name"]
-                    for column in inspector.get_columns("evidence_upload_sessions")
+                    column["name"] for column in inspector.get_columns("evidence_upload_sessions")
                 },
             )
         )
