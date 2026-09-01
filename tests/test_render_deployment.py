@@ -317,7 +317,12 @@ def _evidence_environment_source() -> dict[str, str]:
         "RENDER_DATABASE_URL": _database_url(),
         "EVIDENCE_DATABASE_PASSWORD": "evidence-database-secret",
         "EVIDENCE_UPLOADS_ENABLED": "false",
+        "EVIDENCE_SANITIZATION_ENABLED": "true",
         "EVIDENCE_VERIFYING_KEYS": "{}",
+        "EVIDENCE_SCANNER_ADAPTER": "http",
+        "EVIDENCE_SCANNER_ENDPOINT": "https://scanner.example.test/v1/scan",
+        "EVIDENCE_SCANNER_BEARER_TOKEN": "scanner-secret",
+        "EVIDENCE_SCANNER_TIMEOUT_SECONDS": "5",
     }
     for purpose in ("QUARANTINE", "SANITIZED", "IMMUTABLE"):
         source[f"EVIDENCE_{purpose}_ENDPOINT"] = "https://account.r2.cloudflarestorage.com"
@@ -337,12 +342,14 @@ def test_api_environment_retains_only_quarantine_upload_authority() -> None:
 
     assert environment["EVIDENCE_QUARANTINE_BUCKET"] == "opennosh-evidence-quarantine"
     assert environment["EVIDENCE_QUARANTINE_SECRET_ACCESS_KEY"] == "quarantine-secret"
+    assert environment["EVIDENCE_SANITIZATION_ENABLED"] == "true"
     for purpose in ("SANITIZED", "IMMUTABLE"):
         assert f"EVIDENCE_{purpose}_BUCKET" not in environment
         assert f"EVIDENCE_{purpose}_ACCESS_KEY_ID" not in environment
         assert f"EVIDENCE_{purpose}_SECRET_ACCESS_KEY" not in environment
     assert "EVIDENCE_DATABASE_PASSWORD" not in environment
     assert "EVIDENCE_VERIFYING_KEYS" not in environment
+    assert "EVIDENCE_SCANNER_BEARER_TOKEN" not in environment
 
 
 def test_evidence_environment_retains_only_evidence_worker_authority() -> None:
@@ -354,6 +361,7 @@ def test_evidence_environment_retains_only_evidence_worker_authority() -> None:
     }
     environment = evidence_environment(source)
     assert environment["EVIDENCE_UPLOADS_ENABLED"] == "false"
+    assert environment["EVIDENCE_SANITIZATION_ENABLED"] == "true"
 
     assert environment["PROCESS_ROLE"] == "evidence"
     assert make_url(environment["EVIDENCE_DATABASE_URL"]).username == "opennosh_evidence"
@@ -387,8 +395,11 @@ def test_publication_and_predeploy_environments_strip_all_evidence_authority() -
 
     assert not any(key.startswith("EVIDENCE_") for key in publication)
     assert predeploy["EVIDENCE_UPLOADS_ENABLED"] == "false"
+    assert predeploy["EVIDENCE_SANITIZATION_ENABLED"] == "false"
     assert not any(
-        key.startswith("EVIDENCE_") and key != "EVIDENCE_UPLOADS_ENABLED" for key in predeploy
+        key.startswith("EVIDENCE_")
+        and key not in {"EVIDENCE_UPLOADS_ENABLED", "EVIDENCE_SANITIZATION_ENABLED"}
+        for key in predeploy
     )
 
 

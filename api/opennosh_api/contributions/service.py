@@ -6,7 +6,7 @@ import re
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -35,6 +35,7 @@ from opennosh_api.evidence.contracts import (
     PublicDocumentManifest,
     SanitizedMediaManifest,
     VersionedPublicDatasetManifest,
+    parse_manifest,
 )
 from opennosh_api.evidence.models import EvidenceManifestRecord
 from opennosh_api.evidence.service import create_manifest_and_enqueue
@@ -606,7 +607,20 @@ async def submit_draft(
         )
     if blockers:
         raise ContributionValidationError(blockers)
-    if payload.evidence_manifest is None:
+    existing_evidence: EvidenceManifestRecord | None = None
+    manifest = payload.evidence_manifest
+    if manifest is None:
+        existing_evidence = await database.scalar(
+            select(EvidenceManifestRecord)
+            .where(
+                EvidenceManifestRecord.source_draft_id == draft.id,
+                EvidenceManifestRecord.source_draft_version == draft.draft_version,
+            )
+            .with_for_update()
+        )
+        if existing_evidence is not None:
+            manifest = parse_manifest(existing_evidence.manifest_json)
+    if manifest is None:
         raise ContributionValidationError(
             [
                 ContributionBlocker(
@@ -616,7 +630,20 @@ async def submit_draft(
                 )
             ]
         )
-    _validate_evidence_binding(draft, payload.evidence_manifest)
+    if existing_evidence is not None and (
+        existing_evidence.preservation_failure_code is not None
+        or existing_evidence.public_state == "tombstoned"
+    ):
+        raise ContributionValidationError(
+            [
+                ContributionBlocker(
+                    stage=ContributionStage.EVIDENCE,
+                    code="evidence_preservation_failed",
+                    message="Repair the attached evidence before review begins.",
+                )
+            ]
+        )
+    _validate_evidence_binding(draft, manifest)
     draft.review_state = ContributionReviewState.IN_REVIEW.value
     draft.submission_id = uuid4()
     draft.submission_key_hash = key_hash
@@ -624,14 +651,37 @@ async def submit_draft(
     draft.submitted_at = datetime.now(UTC)
     draft.updated_at = draft.submitted_at
     draft.draft_version += 1
-    await create_manifest_and_enqueue(
-        database,
-        queue,
-        source_draft_id=draft.id,
-        source_draft_version=draft.draft_version,
-        manifest=payload.evidence_manifest,
-        now=now,
-    )
+    if existing_evidence is None:
+        await create_manifest_and_enqueue(
+            database,
+            queue,
+            source_draft_id=draft.id,
+            source_draft_version=draft.draft_version,
+            manifest=manifest,
+            now=now,
+        )
+    else:
+        # Evidence identities are immutable. Materialize a deterministic successor
+        # manifest for the submitted draft version instead of rewriting the attachment.
+        successor = manifest.model_copy(
+            update={
+                "evidence_id": uuid5(
+                    NAMESPACE_URL,
+                    (
+                        "opennosh:submission-evidence:"
+                        f"{existing_evidence.id}:{draft.draft_version}"
+                    ),
+                )
+            }
+        )
+        await create_manifest_and_enqueue(
+            database,
+            queue,
+            source_draft_id=draft.id,
+            source_draft_version=draft.draft_version,
+            manifest=successor,
+            now=now,
+        )
     await database.commit()
     await database.refresh(draft)
     return build_capability(draft, ContributionStage.REVIEW)

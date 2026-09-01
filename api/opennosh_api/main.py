@@ -179,6 +179,9 @@ def create_app(
         )
     else:
         application.state.evidence_upload_broker = None
+    application.state.evidence_upload_observation_semaphore = asyncio.Semaphore(
+        resolved_settings.evidence_upload_observation_concurrency
+    )
     application.state.public_export_semaphore = asyncio.Semaphore(
         resolved_settings.public_export_concurrency_limit
     )

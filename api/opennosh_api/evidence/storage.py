@@ -58,6 +58,12 @@ class QuarantinedEvidenceObservation:
     revision: str
 
 
+@dataclass(frozen=True, slots=True)
+class QuarantinedEvidenceObject:
+    payload: bytes
+    observation: QuarantinedEvidenceObservation
+
+
 class EvidenceUploadStorageError(RuntimeError):
     """A bounded quarantine operation could not be completed."""
 
@@ -84,6 +90,18 @@ class EvidenceUploadBroker(Protocol):
         *,
         max_bytes: int,
     ) -> QuarantinedEvidenceObservation | None: ...
+
+    async def delete(self, object_key: str) -> None: ...
+
+
+@runtime_checkable
+class EvidenceQuarantineSource(Protocol):
+    async def read(
+        self,
+        object_key: str,
+        *,
+        max_bytes: int,
+    ) -> QuarantinedEvidenceObject | None: ...
 
     async def delete(self, object_key: str) -> None: ...
 
@@ -293,6 +311,18 @@ class MemoryEvidenceUploadBroker:
         self.operations.append(("delete", object_key))
         self.objects.pop(object_key, None)
 
+    async def read(
+        self,
+        object_key: str,
+        *,
+        max_bytes: int,
+    ) -> QuarantinedEvidenceObject | None:
+        observation = await self.observe(object_key, max_bytes=max_bytes)
+        if observation is None:
+            return None
+        payload, _media_type, _revision = self.objects[object_key]
+        return QuarantinedEvidenceObject(payload=payload, observation=observation)
+
     def put_for_test(
         self,
         object_key: str,
@@ -408,6 +438,75 @@ class S3EvidenceUploadBroker:
             size_bytes=len(payload),
             content_digest=hashlib.sha256(payload).hexdigest(),
             revision=revision,
+        )
+
+    async def delete(self, object_key: str) -> None:
+        _validate_key(object_key)
+        try:
+            await _run_daemon_with_deadline(
+                partial(self._client.delete_object, Bucket=self._bucket, Key=object_key),
+                timeout_seconds=self._timeout,
+            )
+        except Exception as error:
+            raise EvidenceUploadStorageError("Could not delete quarantined evidence") from error
+
+
+class S3EvidenceQuarantineSource:
+    """Read/delete-only quarantine adapter for the isolated evidence worker."""
+
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        region: str,
+        bucket: str,
+        access_key_id: str,
+        secret_access_key: str,
+        client: Any | None = None,
+        operation_timeout_seconds: float = 2.5,
+    ) -> None:
+        _validate_s3_configuration(
+            endpoint=endpoint,
+            region=region,
+            bucket=bucket,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            operation_timeout_seconds=operation_timeout_seconds,
+        )
+        self._bucket = bucket
+        self._timeout = operation_timeout_seconds
+        self._client = client or _build_s3_client(
+            endpoint=endpoint,
+            region=region,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+        )
+
+    async def read(
+        self,
+        object_key: str,
+        *,
+        max_bytes: int,
+    ) -> QuarantinedEvidenceObject | None:
+        observed = await _read_s3_payload(
+            self._client,
+            bucket=self._bucket,
+            object_key=object_key,
+            max_bytes=max_bytes,
+            timeout_seconds=self._timeout,
+        )
+        if observed is None:
+            return None
+        payload, media_type, revision = observed
+        return QuarantinedEvidenceObject(
+            payload=payload,
+            observation=QuarantinedEvidenceObservation(
+                object_key=object_key,
+                media_type=media_type,
+                size_bytes=len(payload),
+                content_digest=hashlib.sha256(payload).hexdigest(),
+                revision=revision,
+            ),
         )
 
     async def delete(self, object_key: str) -> None:
@@ -667,6 +766,12 @@ class S3ImmutableEvidenceStore:
             external_reference=f"s3:{self._bucket}/{object_key}?revision={revision}",
             size_bytes=len(payload),
         )
+
+
+class S3SanitizedEvidenceStore(S3ImmutableEvidenceStore):
+    """Content-addressed private sanitized source with conditional create/read-back."""
+
+    identity = "opennosh.s3-sanitized-evidence"
 
 
 def _build_s3_client(

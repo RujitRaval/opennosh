@@ -24,8 +24,11 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.contribution_patch_account_rate_limit_attempts == 240
     assert settings.contribution_operation_retention_seconds == 691_200
     assert settings.evidence_uploads_enabled is False
+    assert settings.evidence_sanitization_enabled is False
     assert settings.evidence_upload_max_bytes == 10_485_760
     assert settings.evidence_upload_ttl_seconds == 600
+    assert settings.evidence_upload_observation_concurrency == 4
+    assert settings.evidence_scanner_adapter is None
     assert settings.evidence_quarantine_endpoint is None
     assert settings.food_search_statement_timeout_ms == 500
     assert settings.food_search_snapshot_build_timeout_ms == 30_000
@@ -559,11 +562,128 @@ def test_hosted_evidence_upload_settings_are_complete_bounded_and_disabled_by_de
     with pytest.raises(ValidationError):
         Settings(evidence_upload_ttl_seconds=601, _env_file=None)
 
-    enabled = Settings(**quarantine, evidence_uploads_enabled=True)
+    with pytest.raises(ValidationError, match="require sanitization"):
+        Settings(**quarantine, evidence_uploads_enabled=True)
+
+    enabled = Settings(
+        **quarantine,
+        evidence_uploads_enabled=True,
+        evidence_sanitization_enabled=True,
+    )
     assert enabled.evidence_uploads_enabled is True
     assert enabled.evidence_quarantine_endpoint == (
         "https://account.r2.cloudflarestorage.com"
     )
+    with pytest.raises(ValidationError, match="Rate-limit retention"):
+        Settings(
+            **quarantine,
+            evidence_uploads_enabled=True,
+            evidence_sanitization_enabled=True,
+            auth_rate_limit_retention_seconds=3599,
+        )
+
+
+def test_evidence_sanitizer_settings_are_bounded_and_fail_closed() -> None:
+    with pytest.raises(ValidationError, match="configuration is incomplete"):
+        Settings(evidence_scanner_adapter="http", _env_file=None)
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(
+            evidence_scanner_adapter="http",
+            evidence_scanner_endpoint="http://scanner.example.test/v1/scan",
+            evidence_scanner_bearer_token="scanner-secret",
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(
+            evidence_scanner_endpoint="https://scanner.example.test:invalid/v1/scan",
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError):
+        Settings(evidence_upload_observation_concurrency=9, _env_file=None)
+    with pytest.raises(ValidationError, match="named remote scanner"):
+        Settings(
+            app_environment="production",
+            food_search_cursor_signing_keys=(
+                "prod-v1:33333333333333333333333333333333"
+            ),
+            evidence_scanner_adapter="deterministic_allow",
+            _env_file=None,
+        )
+    with pytest.raises(ValidationError, match="credentials require the HTTP adapter"):
+        Settings(
+            evidence_scanner_endpoint="https://scanner.example.test/v1/scan",
+            evidence_scanner_bearer_token="scanner-secret",
+            _env_file=None,
+        )
+
+
+@pytest.mark.parametrize(
+    ("configuration", "message"),
+    [
+        ({}, "complete quarantine"),
+        (
+            {
+                "evidence_quarantine_endpoint": "https://account.r2.cloudflarestorage.com",
+                "evidence_quarantine_region": "auto",
+                "evidence_quarantine_bucket": "opennosh-evidence-quarantine",
+                "evidence_quarantine_access_key_id": "quarantine-key",
+                "evidence_quarantine_secret_access_key": "quarantine-secret",
+            },
+            "complete sanitized",
+        ),
+        (
+            {
+                "evidence_quarantine_endpoint": "https://account.r2.cloudflarestorage.com",
+                "evidence_quarantine_region": "auto",
+                "evidence_quarantine_bucket": "opennosh-evidence-quarantine",
+                "evidence_quarantine_access_key_id": "quarantine-key",
+                "evidence_quarantine_secret_access_key": "quarantine-secret",
+                "evidence_sanitized_endpoint": "https://account.r2.cloudflarestorage.com",
+                "evidence_sanitized_region": "auto",
+                "evidence_sanitized_bucket": "opennosh-evidence-sanitized",
+                "evidence_sanitized_access_key_id": "sanitized-key",
+                "evidence_sanitized_secret_access_key": "sanitized-secret",
+            },
+            "complete immutable",
+        ),
+    ],
+)
+def test_evidence_role_requires_each_isolated_adapter_group(
+    configuration: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        Settings(
+            **configuration,
+            process_role=ProcessRole.EVIDENCE,
+            evidence_sanitization_enabled=True,
+            evidence_scanner_adapter="deterministic_allow",
+            _env_file=None,
+        )
+
+
+def test_evidence_role_requires_named_scanner_after_all_stores() -> None:
+    with pytest.raises(ValidationError, match="named scanner"):
+        Settings(
+            process_role=ProcessRole.EVIDENCE,
+            evidence_sanitization_enabled=True,
+            evidence_quarantine_endpoint="https://account.r2.cloudflarestorage.com",
+            evidence_quarantine_region="auto",
+            evidence_quarantine_bucket="opennosh-evidence-quarantine",
+            evidence_quarantine_access_key_id="quarantine-key",
+            evidence_quarantine_secret_access_key="quarantine-secret",
+            evidence_sanitized_endpoint="https://account.r2.cloudflarestorage.com",
+            evidence_sanitized_region="auto",
+            evidence_sanitized_bucket="opennosh-evidence-sanitized",
+            evidence_sanitized_access_key_id="sanitized-key",
+            evidence_sanitized_secret_access_key="sanitized-secret",
+            evidence_immutable_endpoint="https://account.r2.cloudflarestorage.com",
+            evidence_immutable_region="auto",
+            evidence_immutable_bucket="opennosh-evidence-immutable",
+            evidence_immutable_access_key_id="immutable-key",
+            evidence_immutable_secret_access_key="immutable-secret",
+            _env_file=None,
+        )
 
 
 def test_production_hosted_evidence_stores_and_credentials_must_be_independent() -> None:

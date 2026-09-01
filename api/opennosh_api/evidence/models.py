@@ -47,6 +47,11 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "observed_sha256 IS NULL OR observed_sha256 ~ '^[0-9a-f]{64}$'",
             name="observed_sha256_valid",
         ),
+        CheckConstraint(
+            "observed_revision_sha256 IS NULL "
+            "OR observed_revision_sha256 ~ '^[0-9a-f]{64}$'",
+            name="observed_revision_sha256_valid",
+        ),
         CheckConstraint("capability_hash ~ '^[0-9a-f]{64}$'", name="capability_hash_valid"),
         CheckConstraint(
             "idempotency_key_hash ~ '^[0-9a-f]{64}$'",
@@ -81,21 +86,100 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         CheckConstraint(
             "(state IN ('initiated','expired') AND observed_byte_length IS NULL "
             "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
-            "AND failure_code IS NULL AND failed_at IS NULL) OR "
-            "(state = 'failed' AND observed_byte_length IS NULL "
-            "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
-            "AND failure_code IS NOT NULL AND failed_at IS NOT NULL) OR "
-            "(state IN ('uploaded','sanitizing','sanitized','attached','preserved') "
+            "AND failure_code IS NULL AND failed_at IS NULL "
+            "AND sanitized_object_key IS NULL AND attached_evidence_id IS NULL "
+            "AND preserved_at IS NULL) OR "
+            "(state = 'failed' AND failure_code IS NOT NULL AND failed_at IS NOT NULL "
+            "AND sanitized_object_key IS NULL AND attached_evidence_id IS NULL "
+            "AND preserved_at IS NULL) OR "
+            "(state IN ('uploaded','sanitizing') "
             "AND observed_byte_length IS NOT NULL AND observed_sha256 IS NOT NULL "
-            "AND uploaded_at IS NOT NULL AND failure_code IS NULL AND failed_at IS NULL)",
+            "AND uploaded_at IS NOT NULL AND failure_code IS NULL AND failed_at IS NULL "
+            "AND sanitized_object_key IS NULL AND attached_evidence_id IS NULL "
+            "AND preserved_at IS NULL) OR "
+            "(state = 'sanitized' AND observed_byte_length IS NOT NULL "
+            "AND observed_sha256 IS NOT NULL AND uploaded_at IS NOT NULL "
+            "AND failure_code IS NULL AND failed_at IS NULL "
+            "AND sanitized_object_key IS NOT NULL "
+            "AND attached_evidence_id IS NULL AND preserved_at IS NULL) OR "
+            "(state = 'attached' AND observed_byte_length IS NOT NULL "
+            "AND observed_sha256 IS NOT NULL AND uploaded_at IS NOT NULL "
+            "AND failure_code IS NULL AND failed_at IS NULL "
+            "AND sanitized_object_key IS NOT NULL "
+            "AND attached_evidence_id IS NOT NULL AND preserved_at IS NULL) OR "
+            "(state = 'preserved' AND observed_byte_length IS NOT NULL "
+            "AND observed_sha256 IS NOT NULL AND uploaded_at IS NOT NULL "
+            "AND failure_code IS NULL AND failed_at IS NULL "
+            "AND sanitized_object_key IS NOT NULL "
+            "AND attached_evidence_id IS NOT NULL AND preserved_at IS NOT NULL)",
             name="state_shape_valid",
         ),
         CheckConstraint("version > 0", name="version_positive"),
         CheckConstraint(
             "failure_code IS NULL OR failure_code IN ('object_missing','size_mismatch',"
             "'size_exceeded','media_type_mismatch','object_changed','capability_invalid',"
-            "'expired','storage_unavailable')",
+            "'expired','storage_unavailable','signature_mismatch','decode_failed',"
+            "'pixel_limit_exceeded','animation_unsupported','metadata_rewrite_failed',"
+            "'sanitized_size_exceeded','malware_detected','scanner_unavailable',"
+            "'sanitized_storage_unavailable','sanitized_storage_conflict')",
             name="failure_code_allowed",
+        ),
+        CheckConstraint(
+            "sanitized_object_key IS NULL OR sanitized_object_key ~ "
+            "'^sanitized/[0-9a-f]{64}\\.png$'",
+            name="sanitized_object_key_valid",
+        ),
+        CheckConstraint(
+            "sanitized_media_type IS NULL OR sanitized_media_type = 'image/png'",
+            name="sanitized_media_type_allowed",
+        ),
+        CheckConstraint(
+            "sanitized_byte_length IS NULL OR sanitized_byte_length BETWEEN 1 AND 10485760",
+            name="sanitized_byte_length_bounded",
+        ),
+        CheckConstraint(
+            "sanitized_sha256 IS NULL OR sanitized_sha256 ~ '^[0-9a-f]{64}$'",
+            name="sanitized_sha256_valid",
+        ),
+        CheckConstraint(
+            "sanitized_width IS NULL OR sanitized_width BETWEEN 1 AND 20000",
+            name="sanitized_width_bounded",
+        ),
+        CheckConstraint(
+            "sanitized_height IS NULL OR sanitized_height BETWEEN 1 AND 20000",
+            name="sanitized_height_bounded",
+        ),
+        CheckConstraint(
+            "sanitized_width IS NULL OR sanitized_height IS NULL "
+            "OR sanitized_width * sanitized_height <= 20000000",
+            name="sanitized_pixels_bounded",
+        ),
+        CheckConstraint(
+            "(sanitized_object_key IS NULL AND sanitized_media_type IS NULL "
+            "AND sanitized_byte_length IS NULL AND sanitized_sha256 IS NULL "
+            "AND sanitized_width IS NULL AND sanitized_height IS NULL "
+            "AND sanitized_at IS NULL) OR "
+            "(sanitized_object_key IS NOT NULL AND sanitized_media_type IS NOT NULL "
+            "AND sanitized_byte_length IS NOT NULL AND sanitized_sha256 IS NOT NULL "
+            "AND sanitized_width IS NOT NULL AND sanitized_height IS NOT NULL "
+            "AND sanitized_at IS NOT NULL)",
+            name="sanitized_result_consistent",
+        ),
+        CheckConstraint(
+            "(attached_evidence_id IS NULL) = (attached_at IS NULL)",
+            name="attachment_consistent",
+        ),
+        CheckConstraint(
+            "sanitized_at IS NULL OR sanitized_at >= uploaded_at",
+            name="sanitized_after_upload",
+        ),
+        CheckConstraint(
+            "attached_at IS NULL OR attached_at >= sanitized_at",
+            name="attachment_after_sanitized",
+        ),
+        CheckConstraint(
+            "preserved_at IS NULL OR preserved_at >= attached_at",
+            name="preserved_after_attachment",
         ),
         UniqueConstraint(
             "user_id",
@@ -104,6 +188,10 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             name="uq_evidence_upload_user_draft_idempotency",
         ),
         UniqueConstraint("object_key", name="uq_evidence_upload_object_key"),
+        UniqueConstraint(
+            "attached_evidence_id",
+            name="uq_evidence_upload_attached_evidence",
+        ),
         Index(
             "ix_evidence_upload_user_draft_created",
             "user_id",
@@ -131,6 +219,7 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     declared_byte_length: Mapped[int] = mapped_column(Integer, nullable=False)
     observed_byte_length: Mapped[int | None] = mapped_column(Integer)
     observed_sha256: Mapped[str | None] = mapped_column(CHAR(64))
+    observed_revision_sha256: Mapped[str | None] = mapped_column(CHAR(64))
     capability_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     idempotency_key_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     request_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
@@ -138,6 +227,18 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failure_code: Mapped[str | None] = mapped_column(String(40))
+    sanitized_object_key: Mapped[str | None] = mapped_column(String(255))
+    sanitized_media_type: Mapped[str | None] = mapped_column(String(64))
+    sanitized_byte_length: Mapped[int | None] = mapped_column(Integer)
+    sanitized_sha256: Mapped[str | None] = mapped_column(CHAR(64))
+    sanitized_width: Mapped[int | None] = mapped_column(Integer)
+    sanitized_height: Mapped[int | None] = mapped_column(Integer)
+    sanitized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attached_evidence_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("evidence_manifests.id", ondelete="RESTRICT")
+    )
+    attached_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    preserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()

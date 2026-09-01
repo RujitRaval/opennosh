@@ -75,6 +75,7 @@ def contribution_clients() -> Iterator[ContributionClients]:
         app_environment="test",
         auth_rate_limit_attempts=50,
         evidence_uploads_enabled=True,
+        evidence_sanitization_enabled=True,
         evidence_quarantine_endpoint="https://account.r2.cloudflarestorage.com",
         evidence_quarantine_region="auto",
         evidence_quarantine_bucket="opennosh-evidence-quarantine",
@@ -434,6 +435,74 @@ def _complete_patches() -> list[dict[str, object]]:
         {"field": "source_license", "value": "contributor-original"},
         {"field": "review_acknowledged", "value": True},
     ]
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_submit_adopts_server_attached_evidence_without_reexposing_private_manifest(
+    contribution_clients: ContributionClients,
+) -> None:
+    route = "/api/v1/contribution-drafts"
+    csrf = {"X-CSRF-Token": contribution_clients.owner_csrf}
+    created = contribution_clients.owner.post(
+        route,
+        headers=csrf,
+        json={"client_draft_id": "server-attached-evidence"},
+    )
+    draft_id = created.json()["draft_id"]
+    patched = contribution_clients.owner.patch(
+        f"{route}/{draft_id}",
+        headers=csrf,
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "requested_stage": "review",
+            "patches": _complete_patches(),
+        },
+    )
+    assert patched.status_code == 200
+    assert patched.json()["draft_version"] == 2
+    evidence_id = str(uuid4())
+    manifest = {
+        "schema_version": "1.0",
+        "evidence_id": evidence_id,
+        "evidence_class": "public_document",
+        "canonical_uri": "https://example.test/food-source",
+        "publisher": "Example public source",
+        "license": "contributor-original",
+        "title": "Food source",
+        "observed_at": datetime(2026, 8, 26, 12, tzinfo=UTC).isoformat(),
+        "observed_digest": hashlib.sha256(b"observed source").hexdigest(),
+        "rights_state": "reference_only",
+        "storage_reference": None,
+    }
+    attached = contribution_clients.owner.put(
+        f"{route}/{draft_id}/evidence",
+        headers=csrf,
+        json={"expected_draft_version": 2, "manifest": manifest},
+    )
+    assert attached.status_code == 200
+    submission_key = str(uuid4())
+    submitted = contribution_clients.owner.post(
+        f"{route}/{draft_id}/submit",
+        headers=csrf,
+        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+    )
+
+    assert submitted.status_code == 200
+    assert submitted.json()["draft_version"] == 3
+    assert submitted.json()["review_state"] == "in_review"
+    status_response = contribution_clients.owner.get(f"{route}/{draft_id}/evidence")
+    assert status_response.status_code == 200
+    assert status_response.json()["evidence_id"] != evidence_id
+    assert status_response.json()["evidence_class"] == "public_document"
+    assert status_response.json()["source_draft_version"] == 3
+    retried = contribution_clients.owner.post(
+        f"{route}/{draft_id}/submit",
+        headers=csrf,
+        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+    )
+    assert retried.status_code == 200
+    assert retried.json()["receipt"] == submitted.json()["receipt"]
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")

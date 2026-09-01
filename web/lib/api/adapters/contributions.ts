@@ -1,6 +1,8 @@
 import type {
-  ContributionCapability as TransportCapability,
-  ContributionStage as TransportStage,
+    ContributionCapability as TransportCapability,
+    ContributionStage as TransportStage,
+    EvidenceUploadCreateResponse,
+    EvidenceUploadSessionResponse,
 } from "@/lib/generated/client/types.gen";
 import {
   contributionStages,
@@ -16,6 +18,87 @@ const transportStageParity: Record<TransportStage, ContributionStage> = {
   provenance: "provenance",
   review: "review",
 };
+
+const uploadStates = new Set([
+  "initiated",
+  "uploaded",
+  "sanitizing",
+  "sanitized",
+  "attached",
+  "preserved",
+  "expired",
+  "failed",
+]);
+const uploadFailureCodes = new Set([
+  "object_missing",
+  "size_mismatch",
+  "size_exceeded",
+  "media_type_mismatch",
+  "object_changed",
+  "capability_invalid",
+  "expired",
+  "storage_unavailable",
+  "signature_mismatch",
+  "decode_failed",
+  "pixel_limit_exceeded",
+  "animation_unsupported",
+  "metadata_rewrite_failed",
+  "sanitized_size_exceeded",
+  "malware_detected",
+  "scanner_unavailable",
+  "sanitized_storage_unavailable",
+  "sanitized_storage_conflict",
+]);
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function validDate(value: string | null): boolean {
+  return value === null || (Number.isFinite(Date.parse(value)) && value.includes("T"));
+}
+
+export function evidenceUploadSession(
+  value: EvidenceUploadSessionResponse,
+): EvidenceUploadSessionResponse {
+  if (
+    !uuidPattern.test(value.upload_id) ||
+    !uploadStates.has(value.state) ||
+    value.source_draft_version < 1 ||
+    value.declared_byte_length < 1 ||
+    value.declared_byte_length > 10_485_760 ||
+    !validDate(value.expires_at) ||
+    !validDate(value.uploaded_at) ||
+    !validDate(value.sanitized_at) ||
+    !validDate(value.attached_at) ||
+    !validDate(value.preserved_at) ||
+    (value.evidence_id !== null && !uuidPattern.test(value.evidence_id)) ||
+    (value.failure_code !== null && !uploadFailureCodes.has(value.failure_code))
+  ) {
+    throw new Error("Malformed evidence upload status");
+  }
+  return value;
+}
+
+export function evidenceUploadCreation(
+  value: EvidenceUploadCreateResponse,
+): EvidenceUploadCreateResponse {
+  if (
+    !uuidPattern.test(value.upload_id) ||
+    !uploadStates.has(value.state) ||
+    value.max_byte_length < 1 ||
+    value.max_byte_length > 10_485_760 ||
+    !validDate(value.expires_at) ||
+    (value.completion_capability !== null && value.completion_capability.length !== 43) ||
+    (value.upload !== null &&
+      (value.upload.method !== "PUT" ||
+        !value.upload.url.startsWith("https://") ||
+        !Object.keys(value.upload.headers).every((header) =>
+          ["content-type", "content-length", "if-none-match"].includes(header.toLowerCase()),
+        )))
+  ) {
+    throw new Error("Malformed evidence upload instruction");
+  }
+  return value;
+}
 
 function stage(value: TransportStage): ContributionStage {
   return transportStageParity[value];

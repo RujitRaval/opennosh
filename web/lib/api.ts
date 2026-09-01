@@ -6,7 +6,13 @@ import type {
   ContributionCapability as TransportContributionCapability,
   ContributionDraftCreate,
   ContributionDraftPatch,
+  ContributionEvidenceStatus,
   ContributionSubmit,
+  EvidenceUploadAttachRequest,
+  EvidenceUploadCompleteRequest,
+  EvidenceUploadCreateRequest,
+  EvidenceUploadCreateResponse as TransportEvidenceUploadCreateResponse,
+  EvidenceUploadSessionResponse as TransportEvidenceUploadSessionResponse,
   CustomFoodResponse as TransportCustomFood,
   DailyTotalsRangeResponse as TransportTotalsRange,
   DailyTotalsResponse as TransportTotals,
@@ -32,7 +38,11 @@ import {
   sessionResponse,
   sessionState,
 } from "./api/adapters/auth";
-import { contributionCapability } from "./api/adapters/contributions";
+import {
+  contributionCapability,
+  evidenceUploadCreation,
+  evidenceUploadSession,
+} from "./api/adapters/contributions";
 import {
   barcodeFood,
   customFood,
@@ -133,6 +143,42 @@ export const api = {
       `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/submit`,
       { method: "POST", body: JSON.stringify(input) },
     ).then(contributionCapability),
+  createEvidenceUpload: (
+    draftId: string,
+    input: EvidenceUploadCreateRequest,
+    idempotencyKey: string,
+  ) => request<TransportEvidenceUploadCreateResponse>(
+    `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(input),
+    },
+  ).then(evidenceUploadCreation),
+  completeEvidenceUpload: (
+    draftId: string,
+    uploadId: string,
+    input: EvidenceUploadCompleteRequest,
+  ) => request<TransportEvidenceUploadSessionResponse>(
+    `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads/${encodeURIComponent(uploadId)}/complete`,
+    { method: "POST", body: JSON.stringify(input) },
+  ).then(evidenceUploadSession),
+  evidenceUpload: (draftId: string, uploadId: string, signal?: AbortSignal) =>
+    request<TransportEvidenceUploadSessionResponse>(
+      `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads/${encodeURIComponent(uploadId)}`,
+      { signal },
+    ).then(evidenceUploadSession),
+  attachEvidenceUpload: (
+    draftId: string,
+    uploadId: string,
+    input: EvidenceUploadAttachRequest,
+  ) => request<TransportEvidenceUploadSessionResponse>(
+    `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads/${encodeURIComponent(uploadId)}/attach`,
+    { method: "POST", body: JSON.stringify(input) },
+  ).then(evidenceUploadSession),
+  contributionEvidence: (draftId: string) => request<ContributionEvidenceStatus>(
+    `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence`,
+  ),
   logs: (day: string, timezone: string) =>
     request<TransportLogList>(
       `/api/v1/logs?${new URLSearchParams({ day, timezone, limit: "100" })}`,

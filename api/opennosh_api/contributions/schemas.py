@@ -6,9 +6,14 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from opennosh_api.evidence.contracts import EvidenceClass, EvidenceManifest, EvidencePublicState
+from opennosh_api.evidence.contracts import (
+    EvidenceClass,
+    EvidenceManifest,
+    EvidencePublicState,
+    RedactionState,
+)
 from opennosh_api.evidence.uploads import EvidenceUploadFailureCode, EvidenceUploadState
 
 
@@ -135,6 +140,23 @@ class EvidenceUploadCompleteRequest(BaseModel):
     completion_capability: Annotated[str, Field(min_length=43, max_length=43)]
 
 
+class EvidenceUploadAttachRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_draft_version: Annotated[int, Field(ge=1)]
+    source_description: Annotated[str, Field(min_length=1, max_length=1000)]
+    rights_acknowledged: Literal[True]
+    redaction_state: RedactionState
+
+    @field_validator("source_description")
+    @classmethod
+    def normalize_source_description(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Source description cannot be blank")
+        return normalized
+
+
 class EvidenceUploadInstructionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -156,6 +178,10 @@ class EvidenceUploadSessionResponse(BaseModel):
     expires_at: datetime
     uploaded_at: datetime | None
     failure_code: EvidenceUploadFailureCode | None
+    evidence_id: UUID | None
+    sanitized_at: datetime | None
+    attached_at: datetime | None
+    preserved_at: datetime | None
 
 
 class EvidenceUploadCreateResponse(BaseModel):
