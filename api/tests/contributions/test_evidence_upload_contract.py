@@ -207,7 +207,8 @@ def test_openapi_upload_contract_is_safe_and_contains_no_provider_credentials() 
 
 def test_safe_session_schema_never_contains_upload_url_or_completion_capability() -> None:
     schema = create_app(app_version="test").openapi()
-    properties = schema["components"]["schemas"]["EvidenceUploadSessionResponse"]["properties"]
+    response_schema = schema["components"]["schemas"]["EvidenceUploadSessionResponse"]
+    properties = response_schema["properties"]
     assert "upload" not in properties
     assert "url" not in properties
     assert "completion_capability" not in properties
@@ -217,6 +218,12 @@ def test_safe_session_schema_never_contains_upload_url_or_completion_capability(
         "attached_at",
         "preserved_at",
     }.issubset(properties)
+    assert {
+        "evidence_id",
+        "sanitized_at",
+        "attached_at",
+        "preserved_at",
+    }.isdisjoint(response_schema["required"])
     assert "sanitized_object_key" not in properties
     assert "source_description" not in properties
 

@@ -2106,11 +2106,7 @@
           "observed_sha256",
           "expires_at",
           "uploaded_at",
-          "failure_code",
-          "evidence_id",
-          "sanitized_at",
-          "attached_at",
-          "preserved_at"
+          "failure_code"
         ],
         "title": "EvidenceUploadSessionResponse",
         "type": "object"

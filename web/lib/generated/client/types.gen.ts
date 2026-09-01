@@ -1023,7 +1023,7 @@ export type EvidenceUploadSessionResponse = {
     /**
      * Attached At
      */
-    attached_at: string | null;
+    attached_at?: string | null;
     /**
      * Declared Byte Length
      */
@@ -1031,7 +1031,7 @@ export type EvidenceUploadSessionResponse = {
     /**
      * Evidence Id
      */
-    evidence_id: string | null;
+    evidence_id?: string | null;
     /**
      * Expires At
      */
@@ -1052,11 +1052,11 @@ export type EvidenceUploadSessionResponse = {
     /**
      * Preserved At
      */
-    preserved_at: string | null;
+    preserved_at?: string | null;
     /**
      * Sanitized At
      */
-    sanitized_at: string | null;
+    sanitized_at?: string | null;
     /**
      * Source Draft Version
      */

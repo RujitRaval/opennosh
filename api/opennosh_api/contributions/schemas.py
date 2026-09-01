@@ -178,10 +178,10 @@ class EvidenceUploadSessionResponse(BaseModel):
     expires_at: datetime
     uploaded_at: datetime | None
     failure_code: EvidenceUploadFailureCode | None
-    evidence_id: UUID | None
-    sanitized_at: datetime | None
-    attached_at: datetime | None
-    preserved_at: datetime | None
+    evidence_id: UUID | None = None
+    sanitized_at: datetime | None = None
+    attached_at: datetime | None = None
+    preserved_at: datetime | None = None
 
 
 class EvidenceUploadCreateResponse(BaseModel):

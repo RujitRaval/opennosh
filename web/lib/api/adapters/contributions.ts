@@ -52,8 +52,8 @@ const uploadFailureCodes = new Set([
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-function validDate(value: string | null): boolean {
-  return value === null || (Number.isFinite(Date.parse(value)) && value.includes("T"));
+function validDate(value: string | null | undefined): boolean {
+  return value == null || (Number.isFinite(Date.parse(value)) && value.includes("T"));
 }
 
 export function evidenceUploadSession(
@@ -70,7 +70,7 @@ export function evidenceUploadSession(
     !validDate(value.sanitized_at) ||
     !validDate(value.attached_at) ||
     !validDate(value.preserved_at) ||
-    (value.evidence_id !== null && !uuidPattern.test(value.evidence_id)) ||
+    (value.evidence_id != null && !uuidPattern.test(value.evidence_id)) ||
     (value.failure_code !== null && !uploadFailureCodes.has(value.failure_code))
   ) {
     throw new Error("Malformed evidence upload status");

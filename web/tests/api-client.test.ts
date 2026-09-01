@@ -246,6 +246,23 @@ describe("browser API client", () => {
     expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("Idempotency-Key")).toBe("attempt-1");
   });
 
+  it("accepts an older safe upload-session response without newer lifecycle fields", async () => {
+    const uploadId = "018f5316-4f4e-7d79-b9f6-88c11a68a498";
+    const draftId = "018f5316-4f4e-7d79-b9f6-88c11a68a497";
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      upload_id: uploadId, state: "uploaded", source_draft_version: 3,
+      media_type: "image/png", declared_byte_length: 8, observed_byte_length: 8,
+      observed_sha256: "a".repeat(64), expires_at: "2026-09-01T12:00:00Z",
+      uploaded_at: "2026-09-01T11:55:00Z", failure_code: null,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.evidenceUpload(draftId, uploadId)).resolves.toMatchObject({
+      upload_id: uploadId,
+      state: "uploaded",
+    });
+  });
+
   it("reads the safe contribution evidence status", async () => {
     const draftId = "018f5316-4f4e-7d79-b9f6-88c11a68a497";
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
