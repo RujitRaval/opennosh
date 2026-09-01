@@ -126,6 +126,19 @@
 .unit-input span { position: absolute; right: 0; bottom: 1rem; font-family: var(--font-data), monospace; font-size: .65rem; text-transform: uppercase; }
 .contribution-check { display: flex; max-width: 48rem; align-items: flex-start; gap: .9rem; padding: 1.25rem 0; border-block: 1px solid currentColor; cursor: pointer; }
 
+.evidence-upload-panel { display: grid; gap: 1rem; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid currentColor; background: color-mix(in srgb, var(--field-acid) 35%, var(--rice-paper)); }
+.evidence-upload-panel > .mono { margin: 0; color: var(--dataset-indigo); }
+.evidence-upload-panel h2 { margin: 0; font-family: var(--font-display), sans-serif; font-size: clamp(2rem, 4vw, 4rem); line-height: .92; letter-spacing: -.045em; }
+.evidence-upload-panel > p { max-width: 45rem; margin: 0; }
+.evidence-file { display: grid; min-height: 4rem; align-content: center; gap: .5rem; padding: 1rem; border: 1px dashed currentColor; font-weight: 700; cursor: pointer; }
+.evidence-file input { max-width: 100%; }
+.evidence-upload-status { display: grid; gap: 1rem; padding-top: 1rem; border-top: 1px solid currentColor; }
+.evidence-upload-status > label { display: grid; gap: .5rem; font-weight: 700; }
+.evidence-upload-status textarea, .evidence-upload-status select { width: 100%; min-height: 3.5rem; padding: .75rem; border: 1px solid currentColor; border-radius: 0; background: var(--rice-paper); font: inherit; }
+.evidence-upload-status textarea { min-height: 7rem; resize: vertical; }
+.evidence-upload-message:empty { display: none; }
+.evidence-upload-safety { padding-top: 1rem; border-top: 1px solid var(--line); font-size: .9rem; }
+
 .contribution-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-top: 1.25rem; border-top: 1px solid currentColor; }
 .contribution-actions-mobile { display: none; }
 .contribution-primary, .contribution-secondary, .contribution-back {
