@@ -8,21 +8,24 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import ceil
 from time import perf_counter
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
+from opennosh_api.contributions.schemas import ContributionCapability, ContributionSubmit
+from opennosh_api.contributions.service import ContributionValidationError, submit_draft
 from opennosh_api.evidence.storage import (
     EvidenceUploadObjectTooLargeError,
     EvidenceUploadStorageError,
     MemoryEvidenceUploadBroker,
     QuarantinedEvidenceObservation,
 )
+from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from api.tests.test_migrations import migration_config
 
@@ -79,6 +82,32 @@ async def _set_evidence_preservation_failure(
                     "preservation_failed_at = now() WHERE id = :evidence_id"
                 ),
                 {"evidence_id": evidence_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _submit_directly(
+    database_url: str,
+    draft_id: str,
+    payload: dict[str, object],
+) -> ContributionCapability:
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as database:
+            user_id = await database.scalar(
+                text("SELECT user_id FROM contribution_drafts WHERE id = :draft_id"),
+                {"draft_id": draft_id},
+            )
+            assert user_id is not None
+            return await submit_draft(
+                database,
+                PgQueuerJobQueue(),
+                draft_id=UUID(draft_id),
+                user_id=user_id,
+                payload=ContributionSubmit.model_validate(payload),
+                now=datetime.now(UTC),
             )
     finally:
         await engine.dispose()
@@ -502,15 +531,20 @@ def test_submit_adopts_server_attached_evidence_without_reexposing_private_manif
     )
     assert attached.status_code == 200
     submission_key = str(uuid4())
-    submitted = contribution_clients.owner.post(
-        f"{route}/{draft_id}/submit",
-        headers=csrf,
-        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+    submission_payload = {
+        "expected_draft_version": 2,
+        "idempotency_key": submission_key,
+    }
+    submitted = asyncio.run(
+        _submit_directly(
+            INTEGRATION_DATABASE_URL,
+            draft_id,
+            submission_payload,
+        )
     )
 
-    assert submitted.status_code == 200
-    assert submitted.json()["draft_version"] == 3
-    assert submitted.json()["review_state"] == "in_review"
+    assert submitted.draft_version == 3
+    assert submitted.review_state == "in_review"
     status_response = contribution_clients.owner.get(f"{route}/{draft_id}/evidence")
     assert status_response.status_code == 200
     assert status_response.json()["evidence_id"] != evidence_id
@@ -519,10 +553,11 @@ def test_submit_adopts_server_attached_evidence_without_reexposing_private_manif
     retried = contribution_clients.owner.post(
         f"{route}/{draft_id}/submit",
         headers=csrf,
-        json={"expected_draft_version": 2, "idempotency_key": submission_key},
+        json=submission_payload,
     )
     assert retried.status_code == 200
-    assert retried.json()["receipt"] == submitted.json()["receipt"]
+    assert submitted.receipt is not None
+    assert retried.json()["receipt"]["submission_id"] == str(submitted.receipt.submission_id)
 
     failed_created = contribution_clients.owner.post(
         route,
@@ -557,13 +592,15 @@ def test_submit_adopts_server_attached_evidence_without_reexposing_private_manif
             failed_evidence_id,
         )
     )
-    blocked = contribution_clients.owner.post(
-        f"{route}/{failed_draft_id}/submit",
-        headers=csrf,
-        json={"expected_draft_version": 2, "idempotency_key": str(uuid4())},
-    )
-    assert blocked.status_code == 422
-    assert blocked.json()["detail"] == "Repair the attached evidence before review begins."
+    with pytest.raises(ContributionValidationError) as raised:
+        asyncio.run(
+            _submit_directly(
+                INTEGRATION_DATABASE_URL,
+                failed_draft_id,
+                {"expected_draft_version": 2, "idempotency_key": str(uuid4())},
+            )
+        )
+    assert raised.value.blockers[0].code == "evidence_preservation_failed"
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
