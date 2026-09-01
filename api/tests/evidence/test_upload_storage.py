@@ -135,6 +135,42 @@ async def test_s3_upload_capability_never_outlives_the_absolute_session_expiry()
 
 
 @pytest.mark.asyncio
+async def test_s3_upload_capability_and_delete_normalize_provider_failures() -> None:
+    class FailingClient(FakeS3Client):
+        def generate_presigned_url(self, operation: str, **arguments: Any) -> str:
+            del operation, arguments
+            raise OSError("signing unavailable")
+
+        def delete_object(self, **arguments: object) -> None:
+            del arguments
+            raise OSError("delete unavailable")
+
+    expiry = datetime.now(UTC) + timedelta(minutes=10)
+    broker = _broker(FailingClient())
+    with pytest.raises(EvidenceUploadStorageError, match="create an upload"):
+        await broker.create_upload(
+            "quarantine/00000000-0000-4000-8000-000000000001",
+            media_type="image/png",
+            byte_length=8,
+            expires_at=expiry,
+            expires_in_seconds=600,
+        )
+    with pytest.raises(EvidenceUploadStorageError, match="delete quarantined"):
+        await broker.delete("quarantine/00000000-0000-4000-8000-000000000001")
+
+    invalid_url = FakeS3Client()
+    invalid_url.generate_presigned_url = lambda *args, **kwargs: "http://unsafe.test"  # type: ignore[method-assign]
+    with pytest.raises(EvidenceUploadStorageError, match="invalid upload capability"):
+        await _broker(invalid_url).create_upload(
+            "quarantine/00000000-0000-4000-8000-000000000001",
+            media_type="image/png",
+            byte_length=8,
+            expires_at=expiry,
+            expires_in_seconds=600,
+        )
+
+
+@pytest.mark.asyncio
 async def test_s3_upload_observation_hashes_an_exact_bounded_read() -> None:
     client = FakeS3Client()
     observation = await _broker(client).observe(
@@ -201,6 +237,54 @@ async def test_s3_upload_observation_normalizes_provider_and_body_failures() -> 
                 "quarantine/00000000-0000-4000-8000-000000000001",
                 max_bytes=100,
             )
+
+
+@pytest.mark.asyncio
+async def test_s3_upload_observation_rejects_invalid_provider_metadata_and_reads() -> None:
+    key = "quarantine/00000000-0000-4000-8000-000000000001"
+
+    class ProviderErrorClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "GetObject",
+            )
+
+    class InvalidResponseClient(FakeS3Client):
+        def get_object(self, **arguments: object):  # type: ignore[no-untyped-def]
+            del arguments
+            return "not-a-mapping"
+
+    class InvalidMetadataClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            return {"ContentLength": -1, "Body": BytesIO(b"")}
+
+    class SizeDriftClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            return {
+                "ContentLength": 9,
+                "ContentType": "image/png",
+                "ETag": '"revision"',
+                "Body": BytesIO(b"evidence"),
+            }
+
+    for client, message in (
+        (ProviderErrorClient(), "Could not read private evidence"),
+        (InvalidResponseClient(), "invalid evidence metadata"),
+        (InvalidMetadataClient(), "invalid evidence metadata"),
+        (SizeDriftClient(), "size changed"),
+    ):
+        with pytest.raises(EvidenceUploadStorageError, match=message):
+            await _broker(client).observe(key, max_bytes=100)
+
+    with pytest.raises(ValueError, match="bound must be positive"):
+        await _broker(FakeS3Client()).observe(key, max_bytes=0)
 
 
 @pytest.mark.asyncio
@@ -277,6 +361,48 @@ async def test_s3_private_source_reads_only_the_opaque_sanitized_reference() -> 
 
 
 @pytest.mark.asyncio
+async def test_s3_private_source_fails_closed_for_invalid_or_missing_references() -> None:
+    manifest = SanitizedMediaManifest(
+        evidence_id=uuid4(),
+        content_digest=hashlib.sha256(b"evidence").hexdigest(),
+        safe_format="image/png",
+        source_description="Package label",
+        rights_acknowledged=True,
+        redaction_state=RedactionState.REVIEWED,
+        storage_reference="public:unsafe",
+    )
+    arguments = {
+        "endpoint": "https://account.r2.cloudflarestorage.com",
+        "region": "auto",
+        "bucket": "opennosh-evidence-sanitized",
+        "access_key_id": "sanitized-access",
+        "secret_access_key": "sanitized-secret",
+    }
+    with pytest.raises(ValueError, match="bound must be positive"):
+        S3PrivateEvidenceSource(**arguments, max_bytes=0, client=FakeS3Client())
+
+    source = S3PrivateEvidenceSource(**arguments, client=FakeS3Client())
+    with pytest.raises(FileNotFoundError, match="Private source is unavailable"):
+        await source.payloads_for(manifest)
+
+    class MissingClient(FakeS3Client):
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "NoSuchKey", "Message": "missing"},
+                    "ResponseMetadata": {"HTTPStatusCode": 404},
+                },
+                "GetObject",
+            )
+
+    missing_manifest = manifest.model_copy(update={"storage_reference": "private:missing"})
+    missing_source = S3PrivateEvidenceSource(**arguments, client=MissingClient())
+    with pytest.raises(FileNotFoundError, match="Private source is unavailable"):
+        await missing_source.payloads_for(missing_manifest)
+
+
+@pytest.mark.asyncio
 async def test_s3_immutable_store_conditionally_writes_and_independently_observes() -> None:
     client = FakeS3Client()
     store = S3ImmutableEvidenceStore(
@@ -327,4 +453,72 @@ async def test_s3_immutable_store_rejects_existing_different_bytes() -> None:
             "sha256/example",
             b"new bytes",
             expected_digest=hashlib.sha256(b"new bytes").hexdigest(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_s3_immutable_store_rejects_invalid_bounds_writes_and_readback() -> None:
+    arguments = {
+        "endpoint": "https://account.r2.cloudflarestorage.com",
+        "region": "auto",
+        "bucket": "opennosh-evidence-immutable",
+        "access_key_id": "immutable-access",
+        "secret_access_key": "immutable-secret",
+    }
+    with pytest.raises(ValueError, match="bound must be positive"):
+        S3ImmutableEvidenceStore(**arguments, max_bytes=0, client=FakeS3Client())
+
+    store = S3ImmutableEvidenceStore(**arguments, client=FakeS3Client())
+    with pytest.raises(ValueError, match="digest does not match"):
+        await store.put_immutable(
+            "sha256/empty", b"", expected_digest=hashlib.sha256(b"").hexdigest()
+        )
+    with pytest.raises(ValueError, match="digest does not match"):
+        await store.put_immutable("sha256/bad", b"data", expected_digest="0" * 64)
+
+    class ProviderFailureClient(FakeS3Client):
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+            raise OSError("provider unavailable")
+
+    with pytest.raises(EvidenceUploadStorageError, match="write failed"):
+        await S3ImmutableEvidenceStore(**arguments, client=ProviderFailureClient()).put_immutable(
+            "sha256/provider",
+            b"data",
+            expected_digest=hashlib.sha256(b"data").hexdigest(),
+        )
+
+    class MissingReadbackClient(FakeS3Client):
+        def put_object(self, **arguments: object) -> None:
+            del arguments
+
+        def get_object(self, **arguments: object) -> dict[str, object]:
+            del arguments
+            raise ClientError(
+                {
+                    "Error": {"Code": "NoSuchKey", "Message": "missing"},
+                    "ResponseMetadata": {"HTTPStatusCode": 404},
+                },
+                "GetObject",
+            )
+
+    missing_store = S3ImmutableEvidenceStore(**arguments, client=MissingReadbackClient())
+    assert await missing_store.observe("sha256/missing") is None
+    with pytest.raises(EvidenceUploadStorageError, match="read-back did not verify"):
+        await missing_store.put_immutable(
+            "sha256/missing",
+            b"data",
+            expected_digest=hashlib.sha256(b"data").hexdigest(),
+        )
+
+
+def test_s3_configuration_rejects_invalid_bucket() -> None:
+    with pytest.raises(ValueError, match="bucket is invalid"):
+        S3EvidenceUploadBroker(
+            endpoint="https://account.r2.cloudflarestorage.com",
+            region="auto",
+            bucket="INVALID_BUCKET",
+            access_key_id="access",
+            secret_access_key="secret",
+            client=FakeS3Client(),
         )

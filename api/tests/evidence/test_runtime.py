@@ -7,6 +7,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
+from opennosh_api.capacity import ProcessRole
 from opennosh_api.evidence.contracts import (
     DocumentRightsState,
     EvidenceAcknowledgement,
@@ -17,14 +18,30 @@ from opennosh_api.evidence.contracts import (
 from opennosh_api.evidence.runtime import (
     EVIDENCE_MAX_UNEXPECTED_ATTEMPTS,
     EvidenceJobProcessor,
+    create_evidence_role_driver,
     process_evidence_wakeup,
 )
 from opennosh_api.evidence.storage import MemoryEvidenceStore
 from opennosh_api.evidence.worker import EvidenceSourceUnavailableError
 from opennosh_api.jobs.contracts import JobLane, JobMessage
 from opennosh_api.jobs.pgqueuer import encode_message
+from opennosh_api.settings import Settings
 
 NOW = datetime(2026, 8, 26, 12, tzinfo=UTC)
+
+
+def _active_evidence_manifest() -> SimpleNamespace:
+    budget = SimpleNamespace(
+        pool_size=3,
+        acquisition_timeout_ms=5000,
+        statement_timeout_ms=120000,
+        max_in_flight_database_sections=2,
+        worker_concurrency=1,
+    )
+    return SimpleNamespace(
+        deployment_id="evidence-test",
+        active_role_budget=lambda role: budget,
+    )
 
 
 class RecordingRepository:
@@ -120,9 +137,7 @@ async def test_exhausted_worker_retry_persists_safe_terminal_failure() -> None:
             assert attempted_id == evidence_id
             raise EvidenceSourceUnavailableError("private source missing")
 
-        async def record_terminal_failure(
-            self, attempted_id: object, error: Exception
-        ) -> None:
+        async def record_terminal_failure(self, attempted_id: object, error: Exception) -> None:
             failures.append((attempted_id, type(error).__name__))
 
     message = JobMessage(
@@ -133,12 +148,78 @@ async def test_exhausted_worker_retry_persists_safe_terminal_failure() -> None:
     )
     job = cast(
         Any,
-        SimpleNamespace(
-            payload=encode_message(message), attempts=EVIDENCE_MAX_UNEXPECTED_ATTEMPTS
-        ),
+        SimpleNamespace(payload=encode_message(message), attempts=EVIDENCE_MAX_UNEXPECTED_ATTEMPTS),
     )
 
     with pytest.raises(EvidenceSourceUnavailableError):
         await process_evidence_wakeup(cast(Any, FailingProcessor()), job)
 
     assert failures == [(evidence_id, "EvidenceSourceUnavailableError")]
+
+
+@pytest.mark.asyncio
+async def test_evidence_role_requires_and_composes_local_private_adapters(
+    tmp_path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        "opennosh_api.evidence.runtime.load_capacity_manifest",
+        lambda path: _active_evidence_manifest(),
+    )
+    base = {
+        "process_role": ProcessRole.EVIDENCE,
+        "evidence_database_url": "postgresql+asyncpg://evidence:secret@localhost/opennosh",
+        "_env_file": None,
+    }
+    with pytest.raises(ValueError, match="private source adapter"):
+        await create_evidence_role_driver(Settings(**base))
+
+    async def no_pool(**arguments: object) -> None:
+        del arguments
+        return None
+
+    monkeypatch.setattr("opennosh_api.evidence.runtime.asyncpg.create_pool", no_pool)
+    with pytest.raises(RuntimeError, match="did not create"):
+        await create_evidence_role_driver(
+            Settings(
+                **base,
+                evidence_private_source_directory=tmp_path / "source",
+                evidence_immutable_directory=tmp_path / "immutable",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_evidence_role_composes_isolated_hosted_adapters(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    captured: dict[str, object] = {}
+
+    async def no_pool(**arguments: object) -> None:
+        captured.update(arguments)
+        return None
+
+    monkeypatch.setattr("opennosh_api.evidence.runtime.asyncpg.create_pool", no_pool)
+    monkeypatch.setattr(
+        "opennosh_api.evidence.runtime.load_capacity_manifest",
+        lambda path: _active_evidence_manifest(),
+    )
+    settings = Settings(
+        process_role=ProcessRole.EVIDENCE,
+        evidence_database_url="postgresql+asyncpg://evidence:secret@localhost/opennosh",
+        evidence_upload_max_bytes=4096,
+        evidence_sanitized_endpoint="https://account.r2.cloudflarestorage.com",
+        evidence_sanitized_region="auto",
+        evidence_sanitized_bucket="opennosh-evidence-sanitized",
+        evidence_sanitized_access_key_id="sanitized-access",
+        evidence_sanitized_secret_access_key="sanitized-secret",
+        evidence_immutable_endpoint="https://account.r2.cloudflarestorage.com",
+        evidence_immutable_region="auto",
+        evidence_immutable_bucket="opennosh-evidence-immutable",
+        evidence_immutable_access_key_id="immutable-access",
+        evidence_immutable_secret_access_key="immutable-secret",
+        _env_file=None,
+    )
+
+    with pytest.raises(RuntimeError, match="did not create"):
+        await create_evidence_role_driver(settings)
+
+    assert captured["min_size"] == 1
+    assert captured["dsn"] == "postgresql://evidence:secret@localhost/opennosh"

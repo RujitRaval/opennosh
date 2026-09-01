@@ -5,7 +5,7 @@ import hashlib
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import ceil
 from time import perf_counter
 from uuid import uuid4
@@ -13,7 +13,12 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
-from opennosh_api.evidence.storage import MemoryEvidenceUploadBroker
+from opennosh_api.evidence.storage import (
+    EvidenceUploadObjectTooLargeError,
+    EvidenceUploadStorageError,
+    MemoryEvidenceUploadBroker,
+    QuarantinedEvidenceObservation,
+)
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
 from sqlalchemy import text
@@ -206,6 +211,205 @@ def test_hosted_evidence_upload_is_private_idempotent_and_exact_version_bound(
     )
     assert replay_after_advance.status_code == 200
     assert replay_after_advance.json()["upload_id"] == upload_id
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_hosted_evidence_upload_failure_paths_are_typed_and_persist_safe_states(
+    contribution_clients: ContributionClients,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = "/api/v1/contribution-drafts"
+    owner = contribution_clients.owner
+    csrf = {"X-CSRF-Token": contribution_clients.owner_csrf}
+
+    def create_draft(label: str) -> str:
+        response = owner.post(
+            route,
+            headers=csrf,
+            json={"client_draft_id": f"upload-failure-{label}"},
+        )
+        assert response.status_code == 201
+        return str(response.json()["draft_id"])
+
+    def start_upload(
+        draft_id: str,
+        broker: MemoryEvidenceUploadBroker,
+        label: str,
+        *,
+        byte_length: int = 8,
+    ) -> tuple[str, str, str]:
+        owner.app.state.evidence_upload_broker = broker
+        upload_route = f"{route}/{draft_id}/evidence-uploads"
+        response = owner.post(
+            upload_route,
+            headers=csrf | {"Idempotency-Key": f"failure-{label}"},
+            json={
+                "source_draft_version": 1,
+                "media_type": "image/png",
+                "byte_length": byte_length,
+            },
+        )
+        assert response.status_code == 201
+        body = response.json()
+        return (
+            upload_route,
+            str(body["upload_id"]),
+            str(body["completion_capability"]),
+        )
+
+    def complete(upload_route: str, upload_id: str, capability: str):  # type: ignore[no-untyped-def]
+        return owner.post(
+            f"{upload_route}/{upload_id}/complete",
+            headers=csrf,
+            json={"completion_capability": capability},
+        )
+
+    owner.app.state.evidence_upload_broker = None
+    unavailable = owner.post(
+        f"{route}/{create_draft('no-broker')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "no-broker"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert unavailable.status_code == 503
+
+    broker = MemoryEvidenceUploadBroker()
+    owner.app.state.evidence_upload_broker = broker
+    missing_draft = owner.post(
+        f"{route}/{uuid4()}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "missing-draft"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert missing_draft.status_code == 404
+    stale_version = owner.post(
+        f"{route}/{create_draft('stale-create')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "stale-create"},
+        json={"source_draft_version": 2, "media_type": "image/png", "byte_length": 8},
+    )
+    assert stale_version.status_code == 409
+
+    class CreateUnavailableBroker(MemoryEvidenceUploadBroker):
+        async def create_upload(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            del args, kwargs
+            raise EvidenceUploadStorageError("unavailable")
+
+    owner.app.state.evidence_upload_broker = CreateUnavailableBroker()
+    create_unavailable = owner.post(
+        f"{route}/{create_draft('create-unavailable')}/evidence-uploads",
+        headers=csrf | {"Idempotency-Key": "create-unavailable"},
+        json={"source_draft_version": 1, "media_type": "image/png", "byte_length": 8},
+    )
+    assert create_unavailable.status_code == 503
+
+    missing_broker = MemoryEvidenceUploadBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("missing"), missing_broker, "missing"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    missing_state = owner.get(f"{upload_route}/{upload_id}")
+    assert missing_state.json()["failure_code"] == "object_missing"
+    assert complete(upload_route, upload_id, capability).status_code == 409
+
+    for label, payload, media_type, failure_code in (
+        ("size", b"wrong-size", "image/png", "size_mismatch"),
+        ("media", b"evidence", "image/jpeg", "media_type_mismatch"),
+    ):
+        case_broker = MemoryEvidenceUploadBroker()
+        upload_route, upload_id, capability = start_upload(create_draft(label), case_broker, label)
+        object_key = f"quarantine/{upload_id}"
+        case_broker.put_for_test(object_key, payload, media_type=media_type)
+        assert complete(upload_route, upload_id, capability).status_code == 409
+        state = owner.get(f"{upload_route}/{upload_id}").json()
+        assert state["state"] == "failed"
+        assert state["failure_code"] == failure_code
+
+    class ChangingBroker(MemoryEvidenceUploadBroker):
+        calls = 0
+
+        async def observe(
+            self, object_key: str, *, max_bytes: int
+        ) -> QuarantinedEvidenceObservation | None:
+            observed = await super().observe(object_key, max_bytes=max_bytes)
+            self.calls += 1
+            if observed is None:
+                return None
+            return QuarantinedEvidenceObservation(
+                object_key=observed.object_key,
+                media_type=observed.media_type,
+                size_bytes=observed.size_bytes,
+                content_digest=observed.content_digest,
+                revision=f'"revision-{self.calls}"',
+            )
+
+    changing = ChangingBroker()
+    upload_route, upload_id, capability = start_upload(create_draft("changed"), changing, "changed")
+    changing.put_for_test(f"quarantine/{upload_id}", b"evidence", media_type="image/png")
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    assert owner.get(f"{upload_route}/{upload_id}").json()["failure_code"] == "object_changed"
+
+    class TooLargeBroker(MemoryEvidenceUploadBroker):
+        async def observe(self, object_key: str, *, max_bytes: int):  # type: ignore[no-untyped-def]
+            del object_key, max_bytes
+            raise EvidenceUploadObjectTooLargeError("too large")
+
+    too_large = TooLargeBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("too-large"), too_large, "too-large"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 409
+    assert owner.get(f"{upload_route}/{upload_id}").json()["failure_code"] == "size_exceeded"
+
+    class ObserveUnavailableBroker(MemoryEvidenceUploadBroker):
+        async def observe(self, object_key: str, *, max_bytes: int):  # type: ignore[no-untyped-def]
+            del object_key, max_bytes
+            raise EvidenceUploadStorageError("unavailable")
+
+    observe_unavailable = ObserveUnavailableBroker()
+    upload_route, upload_id, capability = start_upload(
+        create_draft("observe-unavailable"), observe_unavailable, "observe-unavailable"
+    )
+    assert complete(upload_route, upload_id, capability).status_code == 503
+    assert owner.get(f"{upload_route}/{upload_id}").json()["state"] == "initiated"
+
+    stale_broker = MemoryEvidenceUploadBroker()
+    draft_id = create_draft("stale-complete")
+    upload_route, upload_id, capability = start_upload(draft_id, stale_broker, "stale-complete")
+    stale_broker.put_for_test(f"quarantine/{upload_id}", b"evidence", media_type="image/png")
+    patched = owner.patch(
+        f"{route}/{draft_id}",
+        headers=csrf,
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "patches": [{"field": "name", "value": "Draft advanced"}],
+        },
+    )
+    assert patched.status_code == 200
+    assert complete(upload_route, upload_id, capability).status_code == 409
+
+    expiry_broker = MemoryEvidenceUploadBroker()
+    complete_route, complete_id, expired_capability = start_upload(
+        create_draft("expired-complete"), expiry_broker, "expired-complete"
+    )
+    read_route, read_id, _ = start_upload(
+        create_draft("expired-read"), expiry_broker, "expired-read"
+    )
+
+    class FutureDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            del tz
+            return datetime.now(UTC) + timedelta(minutes=11)
+
+    monkeypatch.setattr(
+        "opennosh_api.contributions.router.datetime",
+        FutureDateTime,
+    )
+    expired = complete(complete_route, complete_id, expired_capability)
+    assert expired.status_code == 410
+    assert expired.json()["code"] == "evidence_upload_expired"
+    read_expired = owner.get(f"{read_route}/{read_id}")
+    assert read_expired.status_code == 200
+    assert read_expired.json()["state"] == "expired"
 
 
 def _complete_patches() -> list[dict[str, object]]:

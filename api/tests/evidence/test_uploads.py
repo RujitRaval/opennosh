@@ -35,6 +35,9 @@ def test_upload_declaration_rejects_untrusted_bounds(
     with pytest.raises(EvidenceUploadPolicyError, match=code):
         validate_upload_declaration(media_type, byte_length)
 
+    with pytest.raises(EvidenceUploadPolicyError, match="upload_max_bytes_out_of_range"):
+        validate_upload_declaration("image/png", 1, max_bytes=0)
+
 
 def test_upload_capability_is_opaque_and_only_its_digest_is_stable() -> None:
     first = issue_upload_capability()
@@ -45,6 +48,8 @@ def test_upload_capability_is_opaque_and_only_its_digest_is_stable() -> None:
     assert first.digest == hash_secret(first.value)
     assert len(first.digest) == 64
     assert first.value not in first.digest
+    with pytest.raises(EvidenceUploadPolicyError, match="secret_empty"):
+        hash_secret("")
 
 
 def test_upload_request_hash_is_canonical_and_scope_bound() -> None:
@@ -72,6 +77,14 @@ def test_upload_request_hash_is_canonical_and_scope_bound() -> None:
 
     assert first == replay
     assert first != changed
+    with pytest.raises(EvidenceUploadPolicyError, match="source_draft_version_invalid"):
+        upload_request_hash(
+            user_id=USER_ID,
+            draft_id=DRAFT_ID,
+            source_draft_version=0,
+            media_type="image/png",
+            byte_length=25,
+        )
 
 
 @pytest.mark.parametrize(
