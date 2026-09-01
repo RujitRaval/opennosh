@@ -69,8 +69,10 @@ export function EvidenceUploadPanel({
   const [busy, setBusy] = useState(false);
   const polling = useRef<AbortController | null>(null);
   const resumed = useRef(false);
+  const resumeEnabled = useRef(true);
 
   const persist = useCallback((next: EvidenceUploadSessionResponse | SafeResume) => {
+    if (!resumeEnabled.current) return;
     const safe: SafeResume = {
       uploadId: "upload_id" in next ? next.upload_id : next.uploadId,
       state: next.state,
@@ -147,6 +149,7 @@ export function EvidenceUploadPanel({
 
   async function startUpload() {
     if (!file || draftId === "local" || !rightsAcknowledged) return;
+    resumeEnabled.current = true;
     setBusy(true);
     setMessage(copy.uploading);
     try {
@@ -236,7 +239,8 @@ export function EvidenceUploadPanel({
         <button className="contribution-primary" type="button" onClick={() => void attach()} disabled={busy || !sourceDescription.trim() || !rightsAcknowledged}>{copy.attach}</button>
       </> : null}
       {(session.state === "failed" || session.state === "expired" || preservationFailure) ? <button className="contribution-secondary" type="button" onClick={() => {
-        window.localStorage.removeItem(resumeKey(draftId)); setSession(null); setPreservationFailure(null); setMessage(copy.restartRequired);
+        resumeEnabled.current = false; polling.current?.abort(); window.localStorage.removeItem(resumeKey(draftId));
+        setSession(null); setPreservationFailure(null); setMessage(copy.restartRequired);
       }}>{copy.startAgain}</button> : null}
       {pollableStates.has(session.state) && !preservationFailure ? <button className="contribution-secondary" type="button" onClick={() => void refresh(session.upload_id)}>{copy.retryStatus}</button> : null}
     </div> : null}
