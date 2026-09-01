@@ -8,7 +8,20 @@ from fastapi.openapi.utils import get_openapi
 from opennosh_api.problems.schemas import ProblemDetails
 
 API_CONTRACT_VERSION = "2.0.0"
-PROBLEM_STATUSES = ("400", "401", "403", "404", "409", "422", "429", "500", "502", "503", "504")
+PROBLEM_STATUSES = (
+    "400",
+    "401",
+    "403",
+    "404",
+    "409",
+    "410",
+    "422",
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+)
 _PROBLEM_SCHEMA_REF = "#/components/schemas/ProblemDetails"
 _LEGACY_VALIDATION_SCHEMA_REF = "#/components/schemas/HTTPValidationError"
 

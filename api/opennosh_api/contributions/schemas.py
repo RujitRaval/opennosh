@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from opennosh_api.evidence.contracts import EvidenceClass, EvidenceManifest, EvidencePublicState
+from opennosh_api.evidence.uploads import EvidenceUploadFailureCode, EvidenceUploadState
 
 
 class ContributionStage(StrEnum):
@@ -118,6 +119,54 @@ class ContributionEvidenceStatus(BaseModel):
     preservation_pending: bool
     preservation_failed: bool
     preservation_failure_code: str | None
+
+
+class EvidenceUploadCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_draft_version: Annotated[int, Field(ge=1)]
+    media_type: Literal["image/jpeg", "image/png", "image/webp"]
+    byte_length: Annotated[int, Field(ge=1, le=10_485_760)]
+
+
+class EvidenceUploadCompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    completion_capability: Annotated[str, Field(min_length=43, max_length=43)]
+
+
+class EvidenceUploadInstructionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    method: Literal["PUT"]
+    url: Annotated[str, Field(pattern=r"^https://[^\s]+$")]
+    headers: dict[str, str]
+
+
+class EvidenceUploadSessionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    upload_id: UUID
+    state: EvidenceUploadState
+    source_draft_version: Annotated[int, Field(ge=1)]
+    media_type: Literal["image/jpeg", "image/png", "image/webp"]
+    declared_byte_length: Annotated[int, Field(ge=1, le=10_485_760)]
+    observed_byte_length: Annotated[int | None, Field(ge=1, le=10_485_760)]
+    observed_sha256: Annotated[str | None, Field(pattern=r"^[0-9a-f]{64}$")]
+    expires_at: datetime
+    uploaded_at: datetime | None
+    failure_code: EvidenceUploadFailureCode | None
+
+
+class EvidenceUploadCreateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    upload_id: UUID
+    state: EvidenceUploadState
+    upload: EvidenceUploadInstructionResponse | None
+    completion_capability: Annotated[str | None, Field(min_length=43, max_length=43)]
+    max_byte_length: Annotated[int, Field(ge=1, le=10_485_760)]
+    expires_at: datetime
 
 
 class ContributionDraftFields(BaseModel):

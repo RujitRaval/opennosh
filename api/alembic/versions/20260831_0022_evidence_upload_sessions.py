@@ -34,10 +34,10 @@ def upgrade() -> None:
         sa.Column("declared_media_type", sa.String(length=64), nullable=False),
         sa.Column("declared_byte_length", sa.Integer(), nullable=False),
         sa.Column("observed_byte_length", sa.Integer(), nullable=True),
-        sa.Column("observed_sha256", sa.String(length=64), nullable=True),
-        sa.Column("capability_hash", sa.String(length=64), nullable=False),
-        sa.Column("idempotency_key_hash", sa.String(length=64), nullable=False),
-        sa.Column("request_hash", sa.String(length=64), nullable=False),
+        sa.Column("observed_sha256", sa.CHAR(length=64), nullable=True),
+        sa.Column("capability_hash", sa.CHAR(length=64), nullable=False),
+        sa.Column("idempotency_key_hash", sa.CHAR(length=64), nullable=False),
+        sa.Column("request_hash", sa.CHAR(length=64), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("uploaded_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("failed_at", sa.DateTime(timezone=True), nullable=True),
@@ -110,6 +110,18 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "state != 'failed' OR failure_code IS NOT NULL",
             name=op.f("ck_evidence_upload_sessions_failed_state_typed"),
+        ),
+        sa.CheckConstraint(
+            "(state IN ('initiated','expired') AND observed_byte_length IS NULL "
+            "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
+            "AND failure_code IS NULL AND failed_at IS NULL) OR "
+            "(state = 'failed' AND observed_byte_length IS NULL "
+            "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
+            "AND failure_code IS NOT NULL AND failed_at IS NOT NULL) OR "
+            "(state IN ('uploaded','sanitizing','sanitized','attached','preserved') "
+            "AND observed_byte_length IS NOT NULL AND observed_sha256 IS NOT NULL "
+            "AND uploaded_at IS NOT NULL AND failure_code IS NULL AND failed_at IS NULL)",
+            name=op.f("ck_evidence_upload_sessions_state_shape_valid"),
         ),
         sa.CheckConstraint(
             "failure_code IS NULL OR failure_code IN ('object_missing','size_mismatch',"
@@ -213,8 +225,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute(
-        "DROP TRIGGER IF EXISTS guard_evidence_upload_session_update "
-        "ON evidence_upload_sessions"
+        "DROP TRIGGER IF EXISTS guard_evidence_upload_session_update ON evidence_upload_sessions"
     )
     op.execute("DROP FUNCTION IF EXISTS guard_evidence_upload_session_update()")
     op.drop_index("ix_evidence_upload_draft_version", table_name="evidence_upload_sessions")

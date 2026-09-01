@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    CHAR,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -77,6 +78,18 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "state != 'failed' OR failure_code IS NOT NULL",
             name="failed_state_typed",
         ),
+        CheckConstraint(
+            "(state IN ('initiated','expired') AND observed_byte_length IS NULL "
+            "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
+            "AND failure_code IS NULL AND failed_at IS NULL) OR "
+            "(state = 'failed' AND observed_byte_length IS NULL "
+            "AND observed_sha256 IS NULL AND uploaded_at IS NULL "
+            "AND failure_code IS NOT NULL AND failed_at IS NOT NULL) OR "
+            "(state IN ('uploaded','sanitizing','sanitized','attached','preserved') "
+            "AND observed_byte_length IS NOT NULL AND observed_sha256 IS NOT NULL "
+            "AND uploaded_at IS NOT NULL AND failure_code IS NULL AND failed_at IS NULL)",
+            name="state_shape_valid",
+        ),
         CheckConstraint("version > 0", name="version_positive"),
         CheckConstraint(
             "failure_code IS NULL OR failure_code IN ('object_missing','size_mismatch',"
@@ -117,10 +130,10 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     declared_media_type: Mapped[str] = mapped_column(String(64), nullable=False)
     declared_byte_length: Mapped[int] = mapped_column(Integer, nullable=False)
     observed_byte_length: Mapped[int | None] = mapped_column(Integer)
-    observed_sha256: Mapped[str | None] = mapped_column(String(64))
-    capability_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    idempotency_key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    observed_sha256: Mapped[str | None] = mapped_column(CHAR(64))
+    capability_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    idempotency_key_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    request_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -152,9 +165,7 @@ class EvidenceManifestRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "AND (preservation_failure_code IS NULL OR public_state IS NULL)",
             name="preservation_failure_consistent",
         ),
-        CheckConstraint(
-            "manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"
-        ),
+        CheckConstraint("manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"),
         UniqueConstraint(
             "source_draft_id",
             "source_draft_version",
@@ -180,9 +191,7 @@ class EvidenceDurableAcknowledgement(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "evidence_durable_acknowledgements"
     __table_args__ = (
         CheckConstraint("schema_version = '1.0'", name="schema_version_supported"),
-        CheckConstraint(
-            "manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"
-        ),
+        CheckConstraint("manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"),
         CheckConstraint("content_digest ~ '^[0-9a-f]{64}$'", name="content_digest_sha256"),
         UniqueConstraint(
             "evidence_id",
@@ -216,9 +225,7 @@ class EvidenceRemovalTombstone(CreatedAtMixin, Base):
     __tablename__ = "evidence_removal_tombstones"
     __table_args__ = (
         CheckConstraint("schema_version = '1.0'", name="schema_version_supported"),
-        CheckConstraint(
-            "manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"
-        ),
+        CheckConstraint("manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"),
         CheckConstraint(
             "prior_state IN ('evidence_preserved', 'source_verified', "
             "'reference_preserved', 'reference_only', 'attested')",

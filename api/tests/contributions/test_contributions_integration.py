@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
+from opennosh_api.evidence.storage import MemoryEvidenceUploadBroker
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
 from sqlalchemy import text
@@ -68,12 +69,24 @@ def contribution_clients() -> Iterator[ContributionClients]:
         database_url=INTEGRATION_DATABASE_URL,
         app_environment="test",
         auth_rate_limit_attempts=50,
+        evidence_uploads_enabled=True,
+        evidence_quarantine_endpoint="https://account.r2.cloudflarestorage.com",
+        evidence_quarantine_region="auto",
+        evidence_quarantine_bucket="opennosh-evidence-quarantine",
+        evidence_quarantine_access_key_id="test-access",
+        evidence_quarantine_secret_access_key="test-secret",
         _env_file=None,
     )
+    owner_app = create_app(settings)
+    attacker_app = create_app(settings)
+    anonymous_app = create_app(settings)
+    owner_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
+    attacker_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
+    anonymous_app.state.evidence_upload_broker = MemoryEvidenceUploadBroker()
     with (
-        TestClient(create_app(settings)) as owner,
-        TestClient(create_app(settings)) as attacker,
-        TestClient(create_app(settings)) as anonymous,
+        TestClient(owner_app) as owner,
+        TestClient(attacker_app) as attacker,
+        TestClient(anonymous_app) as anonymous,
     ):
         owner_registration = owner.post(
             "/api/v1/auth/register",
@@ -91,6 +104,108 @@ def contribution_clients() -> Iterator[ContributionClients]:
             owner_csrf=owner_registration.json()["csrf_token"],
             attacker_csrf=attacker_registration.json()["csrf_token"],
         )
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_hosted_evidence_upload_is_private_idempotent_and_exact_version_bound(
+    contribution_clients: ContributionClients,
+) -> None:
+    route = "/api/v1/contribution-drafts"
+    created_draft = contribution_clients.owner.post(
+        route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"client_draft_id": "hosted-evidence-upload"},
+    )
+    assert created_draft.status_code == 201
+    draft_id = created_draft.json()["draft_id"]
+    create_payload = {
+        "source_draft_version": 1,
+        "media_type": "image/png",
+        "byte_length": 8,
+    }
+    upload_route = f"{route}/{draft_id}/evidence-uploads"
+    headers = {
+        "X-CSRF-Token": contribution_clients.owner_csrf,
+        "Idempotency-Key": "upload-attempt-1",
+    }
+    created = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+    replay = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+
+    assert created.status_code == 201
+    assert replay.status_code == 200
+    assert created.headers["cache-control"] == replay.headers["cache-control"] == "no-store"
+    assert replay.json()["upload_id"] == created.json()["upload_id"]
+    assert replay.json()["upload"] is None
+    assert replay.json()["completion_capability"] is None
+    assert (
+        contribution_clients.owner.post(
+            upload_route,
+            headers=headers,
+            json={**create_payload, "byte_length": 9},
+        ).status_code
+        == 409
+    )
+
+    upload_id = created.json()["upload_id"]
+    capability = created.json()["completion_capability"]
+    object_key = created.json()["upload"]["url"].split("upload.invalid/", 1)[1]
+    broker = contribution_clients.owner.app.state.evidence_upload_broker
+    assert isinstance(broker, MemoryEvidenceUploadBroker)
+    broker.put_for_test(object_key, b"evidence", media_type="image/png")
+    complete_route = f"{upload_route}/{upload_id}/complete"
+    wrong_capability = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": "x" * 43},
+    )
+    assert wrong_capability.status_code == 404
+    completed = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": capability},
+    )
+    replayed_completion = contribution_clients.owner.post(
+        complete_route,
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={"completion_capability": capability},
+    )
+
+    assert completed.status_code == replayed_completion.status_code == 200
+    assert completed.json() == replayed_completion.json()
+    assert completed.json()["state"] == "uploaded"
+    assert completed.json()["observed_byte_length"] == 8
+    assert completed.json()["observed_sha256"] == hashlib.sha256(b"evidence").hexdigest()
+    assert "upload" not in completed.json()
+    assert "completion_capability" not in completed.json()
+    assert contribution_clients.owner.get(f"{upload_route}/{upload_id}").json() == completed.json()
+    assert contribution_clients.attacker.get(f"{upload_route}/{upload_id}").status_code == 404
+
+    advanced = contribution_clients.owner.patch(
+        f"{route}/{draft_id}",
+        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "patches": [{"field": "name", "value": "Updated after upload"}],
+        },
+    )
+    assert advanced.status_code == 200
+    assert advanced.json()["draft_version"] == 2
+    replay_after_advance = contribution_clients.owner.post(
+        upload_route,
+        headers=headers,
+        json=create_payload,
+    )
+    assert replay_after_advance.status_code == 200
+    assert replay_after_advance.json()["upload_id"] == upload_id
 
 
 def _complete_patches() -> list[dict[str, object]]:
@@ -280,24 +395,28 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
     assert attached.json()["preservation_pending"] is True
     assert attached.json()["preservation_failed"] is False
     assert attached.json()["preservation_failure_code"] is None
-    status_response = contribution_clients.owner.get(
-        f"{route}/{draft_id}/evidence"
-    )
+    status_response = contribution_clients.owner.get(f"{route}/{draft_id}/evidence")
     assert status_response.status_code == 200
     assert status_response.json() == attached.json()
     assert status_response.headers["cache-control"] == "no-store"
-    assert contribution_clients.attacker.put(
-        f"{route}/{draft_id}/evidence",
-        headers={"X-CSRF-Token": contribution_clients.attacker_csrf},
-        json=evidence_payload,
-    ).status_code == 404
+    assert (
+        contribution_clients.attacker.put(
+            f"{route}/{draft_id}/evidence",
+            headers={"X-CSRF-Token": contribution_clients.attacker_csrf},
+            json=evidence_payload,
+        ).status_code
+        == 404
+    )
     stale_attachment = dict(evidence_payload)
     stale_attachment["expected_draft_version"] = 2
-    assert contribution_clients.owner.put(
-        f"{route}/{draft_id}/evidence",
-        headers={"X-CSRF-Token": contribution_clients.owner_csrf},
-        json=stale_attachment,
-    ).status_code == 409
+    assert (
+        contribution_clients.owner.put(
+            f"{route}/{draft_id}/evidence",
+            headers={"X-CSRF-Token": contribution_clients.owner_csrf},
+            json=stale_attachment,
+        ).status_code
+        == 409
+    )
 
     locked = contribution_clients.owner.patch(
         f"{route}/{draft_id}",
@@ -331,12 +450,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "name",
-                "value": "Dal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "name",
+                    "value": "Dal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert first.status_code == 200
@@ -348,12 +469,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "category",
-                "value": "meal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "category",
+                    "value": "meal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert disjoint.status_code == 200
@@ -367,12 +490,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "name",
-                "value": "Lentil dal",
-                "base_value": None,
-                "base_version": 1,
-            }],
+            "patches": [
+                {
+                    "field": "name",
+                    "value": "Lentil dal",
+                    "base_value": None,
+                    "base_version": 1,
+                }
+            ],
         },
     )
     assert same_field.status_code == 409
@@ -410,12 +535,14 @@ def test_contribution_autosave_merges_only_unchanged_base_fields(
         json={
             "expected_draft_version": 1,
             "operation_id": str(uuid4()),
-            "patches": [{
-                "field": "category",
-                "value": "prepared meal",
-                "base_value": "meal",
-                "base_version": 2,
-            }],
+            "patches": [
+                {
+                    "field": "category",
+                    "value": "prepared meal",
+                    "base_value": "meal",
+                    "base_version": 2,
+                }
+            ],
         },
     )
     assert future_base.status_code == 409
@@ -439,9 +566,14 @@ def test_contribution_operation_replay_is_bounded_by_retention(
     payload = {
         "expected_draft_version": 1,
         "operation_id": operation_id,
-        "patches": [{
-            "field": "name", "value": "Dal", "base_value": None, "base_version": 1,
-        }],
+        "patches": [
+            {
+                "field": "name",
+                "value": "Dal",
+                "base_value": None,
+                "base_version": 1,
+            }
+        ],
     }
 
     first = contribution_clients.owner.patch(f"{route}/{draft_id}", headers=headers, json=payload)
@@ -480,16 +612,24 @@ def test_contribution_patch_is_rate_limited_per_user_and_draft() -> None:
         responses = []
         base_value = None
         for version, value in enumerate(("one", "two", "three"), start=1):
-            responses.append(client.patch(route, headers=headers, json={
-                "expected_draft_version": version,
-                "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": value,
-                    "base_value": base_value,
-                    "base_version": version,
-                }],
-            }))
+            responses.append(
+                client.patch(
+                    route,
+                    headers=headers,
+                    json={
+                        "expected_draft_version": version,
+                        "operation_id": str(uuid4()),
+                        "patches": [
+                            {
+                                "field": "category",
+                                "value": value,
+                                "base_value": base_value,
+                                "base_version": version,
+                            }
+                        ],
+                    },
+                )
+            )
             base_value = value
         assert [response.status_code for response in responses] == [200, 200, 429]
         assert responses[-1].headers["retry-after"]
@@ -500,12 +640,14 @@ def test_contribution_patch_is_rate_limited_per_user_and_draft() -> None:
             json={
                 "expected_draft_version": 1,
                 "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": "other draft",
-                    "base_value": None,
-                    "base_version": 1,
-                }],
+                "patches": [
+                    {
+                        "field": "category",
+                        "value": "other draft",
+                        "base_value": None,
+                        "base_version": 1,
+                    }
+                ],
             },
         )
         assert account_limited.status_code == 429
@@ -533,12 +675,14 @@ def test_contribution_autosave_acknowledgement_p95_is_under_500_ms(
             json={
                 "expected_draft_version": version,
                 "operation_id": str(uuid4()),
-                "patches": [{
-                    "field": "category",
-                    "value": value,
-                    "base_value": base_value,
-                    "base_version": version,
-                }],
+                "patches": [
+                    {
+                        "field": "category",
+                        "value": value,
+                        "base_value": base_value,
+                        "base_version": version,
+                    }
+                ],
             },
         )
         latencies.append(perf_counter() - started)

@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.68.0.0] - 2026-09-01
+
+### Added
+
+- Add the disabled hosted evidence-upload session contract, exact draft/version and idempotency
+  binding, one-time completion capabilities, and independently verified quarantine observations.
+- Add provider-neutral private evidence ports, bounded conditional S3/R2 quarantine operations,
+  generated API contracts, and the future evidence-worker environment boundary.
+
+### Security
+
+- Keep hosted evidence intake disabled, evidence capacity at zero, the Render topology unchanged,
+  and the contribution review handoff closed while T34.2 sanitization remains unimplemented.
+- Isolate quarantine, sanitized-source, and immutable-destination buckets and credentials; strip
+  evidence authority from publication and predeploy roles; and store no evidence bytes, filenames,
+  EXIF, presigned URLs, raw capabilities, or object-store credentials in PostgreSQL.
+
 ## [0.67.0.0] - 2026-08-30
 
 ### Added

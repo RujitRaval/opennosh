@@ -548,16 +548,19 @@ class Settings(BaseSettings):
             set(configured_buckets)
         ):
             raise ValueError("Production evidence buckets must be independent")
-        configured_credentials = [
-            (
-                access_key.get_secret_value(),
-                secret_key.get_secret_value(),
-            )
+        configured_access_keys = [
+            access_key.get_secret_value()
             for _, _, _, access_key, secret_key in evidence_groups.values()
             if access_key is not None and secret_key is not None
         ]
-        if self.app_environment == "production" and len(configured_credentials) != len(
-            set(configured_credentials)
+        configured_secret_keys = [
+            secret_key.get_secret_value()
+            for _, _, _, access_key, secret_key in evidence_groups.values()
+            if access_key is not None and secret_key is not None
+        ]
+        if self.app_environment == "production" and (
+            len(configured_access_keys) != len(set(configured_access_keys))
+            or len(configured_secret_keys) != len(set(configured_secret_keys))
         ):
             raise ValueError("Production evidence credentials must be independent")
         if (

@@ -1694,3 +1694,65 @@ def test_service_principal_migration_preserves_people_enforces_and_downgrades() 
         assert "login_disabled_at" not in columns
     finally:
         command.downgrade(config, "base")
+
+
+async def assert_evidence_upload_insert_state_shape(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            user_id = await connection.scalar(
+                text(
+                    "INSERT INTO users (email, password_hash) "
+                    "VALUES ('upload-migration@example.test', 'hash') RETURNING id"
+                )
+            )
+            draft_id = await connection.scalar(
+                text(
+                    "INSERT INTO contribution_drafts (user_id, client_draft_id) "
+                    "VALUES (:user_id, 'upload-migration') RETURNING id"
+                ),
+                {"user_id": user_id},
+            )
+
+        with pytest.raises(IntegrityError):
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        """
+                        INSERT INTO evidence_upload_sessions (
+                            user_id, draft_id, source_draft_version, state, object_key,
+                            declared_media_type, declared_byte_length, capability_hash,
+                            idempotency_key_hash, request_hash, expires_at
+                        ) VALUES (
+                            :user_id, :draft_id, 1, 'uploaded',
+                            'quarantine/00000000-0000-4000-8000-000000000001',
+                            'image/png', 8, repeat('a', 64), repeat('b', 64),
+                            repeat('c', 64), now() + interval '5 minutes'
+                        )
+                        """
+                    ),
+                    {"user_id": user_id, "draft_id": draft_id},
+                )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_evidence_upload_migration_enforces_insert_shape_and_downgrades() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.downgrade(config, "base")
+    try:
+        command.upgrade(config, "20260829_0021")
+        command.upgrade(config, "20260831_0022")
+        asyncio.run(assert_evidence_upload_insert_state_shape(INTEGRATION_DATABASE_URL))
+        command.downgrade(config, "20260829_0021")
+        tables = asyncio.run(
+            inspect_database(
+                INTEGRATION_DATABASE_URL,
+                lambda inspector: set(inspector.get_table_names()),
+            )
+        )
+        assert "evidence_upload_sessions" not in tables
+    finally:
+        command.downgrade(config, "base")

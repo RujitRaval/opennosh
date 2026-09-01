@@ -306,6 +306,24 @@ root/recovery key. `PUBLICATION_ARTIFACT_BUCKET` must equal `R2_BUCKET`. A missi
 aliased, or cross-role value aborts settings validation before a queue pool is created. The API
 bootstrap strips these values even if a provider accidentally injects them.
 
+### Disabled hosted-evidence boundary
+
+T34.1 commits the hosted upload contract with `EVIDENCE_UPLOADS_ENABLED=false`; do not add its
+credentials to the current Blueprint. `render.yaml` remains exactly API + publication worker + web,
+and `config/database-capacity.v1.json` keeps evidence replicas at zero. The API wrapper is prepared
+to retain only a quarantine create/observe credential, while publication and predeploy runtimes
+strip every evidence value. The future `evidence_environment()` retains the three independent
+object-store roles and an evidence-only database URL, but no deployed service invokes it yet.
+
+Before any later activation, provision three non-public, non-aliased buckets and three independent
+least-privilege credentials: quarantine create/read for the API; quarantine read/delete plus
+sanitized and immutable read/write for the evidence worker. Enforce a provider lifecycle that
+deletes raw quarantine objects within 24 hours. Review CORS, region/residency, conditional-write,
+versioning/object-lock, cost, and credential-rotation evidence. Then land T34.2 sanitization,
+add account/draft rate limits, an outstanding-session quota, and bounded observation concurrency,
+allocate worker capacity, verify its health and rollback, and obtain a separate digest-bound
+production approval. A successful T34.1 deploy is not activation approval.
+
 The production registry uses separate immutable staging keys for signing and publication. Release
 signatures are self-verified under `signatures/releases/v1/` before the canonical release is
 published. Receipt signatures are read back under `signatures/receipts/v1/`; only the following

@@ -594,3 +594,12 @@ def test_production_hosted_evidence_stores_and_credentials_must_be_independent()
     sanitized["evidence_sanitized_secret_access_key"] = "shared-secret"
     with pytest.raises(ValidationError, match="credentials must be independent"):
         Settings(**common, **quarantine, **sanitized)
+
+    sanitized["evidence_sanitized_secret_access_key"] = "independent-secret"
+    with pytest.raises(ValidationError, match="credentials must be independent"):
+        Settings(**common, **quarantine, **sanitized)
+
+    sanitized["evidence_sanitized_access_key_id"] = "independent-access"
+    sanitized["evidence_sanitized_secret_access_key"] = "shared-secret"
+    with pytest.raises(ValidationError, match="credentials must be independent"):
+        Settings(**common, **quarantine, **sanitized)

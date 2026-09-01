@@ -120,6 +120,51 @@ PUBLICATION_PRIVATE_ENVIRONMENT_KEYS = (
     "R2_SECRET_ACCESS_KEY",
 )
 
+EVIDENCE_QUARANTINE_ENVIRONMENT_KEYS = (
+    "EVIDENCE_QUARANTINE_ENDPOINT",
+    "EVIDENCE_QUARANTINE_REGION",
+    "EVIDENCE_QUARANTINE_BUCKET",
+    "EVIDENCE_QUARANTINE_ACCESS_KEY_ID",
+    "EVIDENCE_QUARANTINE_SECRET_ACCESS_KEY",
+)
+EVIDENCE_SANITIZED_ENVIRONMENT_KEYS = (
+    "EVIDENCE_SANITIZED_ENDPOINT",
+    "EVIDENCE_SANITIZED_REGION",
+    "EVIDENCE_SANITIZED_BUCKET",
+    "EVIDENCE_SANITIZED_ACCESS_KEY_ID",
+    "EVIDENCE_SANITIZED_SECRET_ACCESS_KEY",
+)
+EVIDENCE_IMMUTABLE_ENVIRONMENT_KEYS = (
+    "EVIDENCE_IMMUTABLE_ENDPOINT",
+    "EVIDENCE_IMMUTABLE_REGION",
+    "EVIDENCE_IMMUTABLE_BUCKET",
+    "EVIDENCE_IMMUTABLE_ACCESS_KEY_ID",
+    "EVIDENCE_IMMUTABLE_SECRET_ACCESS_KEY",
+)
+EVIDENCE_RUNTIME_ENVIRONMENT_KEYS = (
+    *PROCESS_RUNTIME_ENVIRONMENT_KEYS,
+    "APP_ENVIRONMENT",
+    "DATABASE_CAPACITY_MANIFEST_PATH",
+    "EVIDENCE_UPLOADS_ENABLED",
+    "EVIDENCE_UPLOAD_MAX_BYTES",
+    "EVIDENCE_UPLOAD_TTL_SECONDS",
+    "EVIDENCE_VERIFYING_KEYS",
+    *EVIDENCE_QUARANTINE_ENVIRONMENT_KEYS,
+    *EVIDENCE_SANITIZED_ENVIRONMENT_KEYS,
+    *EVIDENCE_IMMUTABLE_ENVIRONMENT_KEYS,
+)
+ALL_EVIDENCE_ENVIRONMENT_KEYS = (
+    "EVIDENCE_UPLOADS_ENABLED",
+    "EVIDENCE_UPLOAD_MAX_BYTES",
+    "EVIDENCE_UPLOAD_TTL_SECONDS",
+    "EVIDENCE_VERIFYING_KEYS",
+    "EVIDENCE_PRIVATE_SOURCE_DIRECTORY",
+    "EVIDENCE_IMMUTABLE_DIRECTORY",
+    *EVIDENCE_QUARANTINE_ENVIRONMENT_KEYS,
+    *EVIDENCE_SANITIZED_ENVIRONMENT_KEYS,
+    *EVIDENCE_IMMUTABLE_ENVIRONMENT_KEYS,
+)
+
 ROLE_DATABASE_URLS = (
     "DATABASE_URL",
     "WEB_DATABASE_URL",
@@ -188,6 +233,52 @@ def api_environment(source: Mapping[str, str]) -> dict[str, str]:
     environment.pop("FOOD_SEARCH_CURSOR_SECRET", None)
     for key in PUBLICATION_PRIVATE_ENVIRONMENT_KEYS:
         environment.pop(key, None)
+    for key in (
+        "EVIDENCE_DATABASE_URL",
+        "EVIDENCE_DATABASE_PASSWORD",
+        "EVIDENCE_VERIFYING_KEYS",
+        "EVIDENCE_PRIVATE_SOURCE_DIRECTORY",
+        "EVIDENCE_IMMUTABLE_DIRECTORY",
+        *EVIDENCE_SANITIZED_ENVIRONMENT_KEYS,
+        *EVIDENCE_IMMUTABLE_ENVIRONMENT_KEYS,
+    ):
+        environment.pop(key, None)
+    return environment
+
+
+def evidence_environment(source: Mapping[str, str]) -> dict[str, str]:
+    """Build the future evidence worker environment with only its private stores."""
+
+    environment = {
+        key: value
+        for key in EVIDENCE_RUNTIME_ENVIRONMENT_KEYS
+        if (value := source.get(key)) is not None
+    }
+    for key in (
+        *EVIDENCE_QUARANTINE_ENVIRONMENT_KEYS,
+        *EVIDENCE_SANITIZED_ENVIRONMENT_KEYS,
+        *EVIDENCE_IMMUTABLE_ENVIRONMENT_KEYS,
+    ):
+        _required(environment, key)
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    evidence_password = _required(source, "EVIDENCE_DATABASE_PASSWORD")
+    environment["PROCESS_ROLE"] = "evidence"
+    # Upload admission belongs to the web role. The future evidence worker must
+    # never inherit a flag that settings intentionally reject for that role.
+    environment["EVIDENCE_UPLOADS_ENABLED"] = "false"
+    environment["EVIDENCE_DATABASE_URL"] = role_database_url(
+        owner_url, "opennosh_evidence", evidence_password
+    )
+    return environment
+
+
+def predeploy_environment(source: Mapping[str, str]) -> dict[str, str]:
+    """Strip every evidence authority from migrations and administrative jobs."""
+
+    environment = api_environment(source)
+    for key in ALL_EVIDENCE_ENVIRONMENT_KEYS:
+        environment.pop(key, None)
+    environment["EVIDENCE_UPLOADS_ENABLED"] = "false"
     return environment
 
 
@@ -406,7 +497,7 @@ def run_predeploy(source: Mapping[str, str]) -> None:
         )
     )
 
-    environment = api_environment(source)
+    environment = predeploy_environment(source)
     environment["DATABASE_CAPACITY_URL"] = migration_url
     subprocess.run(
         [
