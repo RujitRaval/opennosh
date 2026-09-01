@@ -23,6 +23,10 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.contribution_patch_rate_limit_window_seconds == 60
     assert settings.contribution_patch_account_rate_limit_attempts == 240
     assert settings.contribution_operation_retention_seconds == 691_200
+    assert settings.evidence_uploads_enabled is False
+    assert settings.evidence_upload_max_bytes == 10_485_760
+    assert settings.evidence_upload_ttl_seconds == 600
+    assert settings.evidence_quarantine_endpoint is None
     assert settings.food_search_statement_timeout_ms == 500
     assert settings.food_search_snapshot_build_timeout_ms == 30_000
     assert settings.open_food_facts_enabled is False
@@ -527,3 +531,66 @@ def test_local_evidence_directories_are_paired_independent_and_non_production(
             food_search_cursor_signing_keys="prod-v1:33333333333333333333333333333333",
             _env_file=None,
         )
+
+
+def test_hosted_evidence_upload_settings_are_complete_bounded_and_disabled_by_default() -> None:
+    quarantine = {
+        "evidence_quarantine_endpoint": "https://account.r2.cloudflarestorage.com",
+        "evidence_quarantine_region": "auto",
+        "evidence_quarantine_bucket": "opennosh-evidence-quarantine",
+        "evidence_quarantine_access_key_id": "quarantine-key",
+        "evidence_quarantine_secret_access_key": "quarantine-secret",
+        "_env_file": None,
+    }
+
+    with pytest.raises(ValidationError, match="complete quarantine"):
+        Settings(evidence_uploads_enabled=True, _env_file=None)
+    with pytest.raises(ValidationError, match="configuration is incomplete"):
+        Settings(evidence_quarantine_bucket="only-a-bucket", _env_file=None)
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(
+            **(
+                quarantine
+                | {"evidence_quarantine_endpoint": "http://account.r2.cloudflarestorage.com"}
+            )
+        )
+    with pytest.raises(ValidationError):
+        Settings(evidence_upload_max_bytes=10_485_761, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(evidence_upload_ttl_seconds=601, _env_file=None)
+
+    enabled = Settings(**quarantine, evidence_uploads_enabled=True)
+    assert enabled.evidence_uploads_enabled is True
+    assert enabled.evidence_quarantine_endpoint == (
+        "https://account.r2.cloudflarestorage.com"
+    )
+
+
+def test_production_hosted_evidence_stores_and_credentials_must_be_independent() -> None:
+    common = {
+        "app_environment": "production",
+        "food_search_cursor_signing_keys": "prod-v1:33333333333333333333333333333333",
+        "_env_file": None,
+    }
+    quarantine = {
+        "evidence_quarantine_endpoint": "https://account.r2.cloudflarestorage.com",
+        "evidence_quarantine_region": "auto",
+        "evidence_quarantine_bucket": "opennosh-evidence-quarantine",
+        "evidence_quarantine_access_key_id": "shared-key",
+        "evidence_quarantine_secret_access_key": "shared-secret",
+    }
+    sanitized = {
+        "evidence_sanitized_endpoint": "https://account.r2.cloudflarestorage.com",
+        "evidence_sanitized_region": "auto",
+        "evidence_sanitized_bucket": "opennosh-evidence-quarantine",
+        "evidence_sanitized_access_key_id": "sanitized-key",
+        "evidence_sanitized_secret_access_key": "sanitized-secret",
+    }
+    with pytest.raises(ValidationError, match="buckets must be independent"):
+        Settings(**common, **quarantine, **sanitized)
+
+    sanitized["evidence_sanitized_bucket"] = "opennosh-evidence-sanitized"
+    sanitized["evidence_sanitized_access_key_id"] = "shared-key"
+    sanitized["evidence_sanitized_secret_access_key"] = "shared-secret"
+    with pytest.raises(ValidationError, match="credentials must be independent"):
+        Settings(**common, **quarantine, **sanitized)

@@ -52,6 +52,24 @@ class Settings(BaseSettings):
     evidence_private_source_directory: Path | None = None
     evidence_immutable_directory: Path | None = None
     evidence_verifying_keys: SecretStr = SecretStr("{}")
+    evidence_uploads_enabled: bool = False
+    evidence_upload_max_bytes: PositiveInt = Field(default=10_485_760, le=10_485_760)
+    evidence_upload_ttl_seconds: PositiveInt = Field(default=600, le=600)
+    evidence_quarantine_endpoint: str | None = None
+    evidence_quarantine_region: str | None = None
+    evidence_quarantine_bucket: str | None = None
+    evidence_quarantine_access_key_id: SecretStr | None = None
+    evidence_quarantine_secret_access_key: SecretStr | None = None
+    evidence_sanitized_endpoint: str | None = None
+    evidence_sanitized_region: str | None = None
+    evidence_sanitized_bucket: str | None = None
+    evidence_sanitized_access_key_id: SecretStr | None = None
+    evidence_sanitized_secret_access_key: SecretStr | None = None
+    evidence_immutable_endpoint: str | None = None
+    evidence_immutable_region: str | None = None
+    evidence_immutable_bucket: str | None = None
+    evidence_immutable_access_key_id: SecretStr | None = None
+    evidence_immutable_secret_access_key: SecretStr | None = None
     projection_database_url: str | None = None
     reconciler_database_url: str | None = None
     scheduler_database_url: str | None = None
@@ -207,6 +225,45 @@ class Settings(BaseSettings):
     def validate_r2_bucket(cls, value: str | None) -> str | None:
         if value is not None and not _R2_BUCKET.fullmatch(value):
             raise ValueError("R2 bucket name must match Cloudflare naming requirements")
+        return value
+
+    @field_validator(
+        "evidence_quarantine_endpoint",
+        "evidence_sanitized_endpoint",
+        "evidence_immutable_endpoint",
+    )
+    @classmethod
+    def validate_evidence_object_endpoint(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.rstrip("/")
+        parsed = urlsplit(normalized)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Evidence object-store endpoint must be a safe HTTPS URL") from error
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Evidence object-store endpoint must be a safe HTTPS URL")
+        return normalized
+
+    @field_validator(
+        "evidence_quarantine_bucket",
+        "evidence_sanitized_bucket",
+        "evidence_immutable_bucket",
+    )
+    @classmethod
+    def validate_evidence_bucket(cls, value: str | None) -> str | None:
+        if value is not None and not _R2_BUCKET.fullmatch(value):
+            raise ValueError("Evidence bucket name must match Cloudflare naming requirements")
         return value
 
     @field_validator("evidence_verifying_keys")
@@ -447,6 +504,68 @@ class Settings(BaseSettings):
                 )
             if self.app_environment == "production":
                 raise ValueError("Production evidence durability requires a non-filesystem adapter")
+        evidence_groups = {
+            "quarantine": (
+                self.evidence_quarantine_endpoint,
+                self.evidence_quarantine_region,
+                self.evidence_quarantine_bucket,
+                self.evidence_quarantine_access_key_id,
+                self.evidence_quarantine_secret_access_key,
+            ),
+            "sanitized": (
+                self.evidence_sanitized_endpoint,
+                self.evidence_sanitized_region,
+                self.evidence_sanitized_bucket,
+                self.evidence_sanitized_access_key_id,
+                self.evidence_sanitized_secret_access_key,
+            ),
+            "immutable": (
+                self.evidence_immutable_endpoint,
+                self.evidence_immutable_region,
+                self.evidence_immutable_bucket,
+                self.evidence_immutable_access_key_id,
+                self.evidence_immutable_secret_access_key,
+            ),
+        }
+        for group_name, group in evidence_groups.items():
+            configured_count = sum(value is not None for value in group)
+            if configured_count not in {0, len(group)}:
+                raise ValueError(
+                    f"Evidence {group_name} object-store configuration is incomplete"
+                )
+        if self.evidence_uploads_enabled and not all(evidence_groups["quarantine"]):
+            raise ValueError("Evidence uploads require complete quarantine configuration")
+        configured_buckets = [
+            bucket
+            for bucket in (
+                self.evidence_quarantine_bucket,
+                self.evidence_sanitized_bucket,
+                self.evidence_immutable_bucket,
+            )
+            if bucket is not None
+        ]
+        if self.app_environment == "production" and len(configured_buckets) != len(
+            set(configured_buckets)
+        ):
+            raise ValueError("Production evidence buckets must be independent")
+        configured_credentials = [
+            (
+                access_key.get_secret_value(),
+                secret_key.get_secret_value(),
+            )
+            for _, _, _, access_key, secret_key in evidence_groups.values()
+            if access_key is not None and secret_key is not None
+        ]
+        if self.app_environment == "production" and len(configured_credentials) != len(
+            set(configured_credentials)
+        ):
+            raise ValueError("Production evidence credentials must be independent")
+        if (
+            self.app_environment == "production"
+            and self.evidence_uploads_enabled
+            and self.process_role not in {None, ProcessRole.WEB}
+        ):
+            raise ValueError("Evidence upload authority is restricted to the web role")
         if self.public_artifact_directory is not None and self.public_artifact_base_url is not None:
             raise ValueError("Configure one public artifact adapter, not both")
         artifact_adapter_configured = (

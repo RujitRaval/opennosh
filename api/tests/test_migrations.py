@@ -40,6 +40,7 @@ EXPECTED_TABLES = {
     "evidence_manifests",
     "evidence_durable_acknowledgements",
     "evidence_removal_tombstones",
+    "evidence_upload_sessions",
     "federation_invitations",
     "federation_maintainers",
     "federation_role_keys",
