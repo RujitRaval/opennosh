@@ -65,6 +65,25 @@ async def _backdate_operation(database_url: str, operation_id: str) -> None:
         await engine.dispose()
 
 
+async def _set_evidence_preservation_failure(
+    database_url: str,
+    evidence_id: str,
+) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "UPDATE evidence_manifests "
+                    "SET preservation_failure_code = 'storage_unavailable', "
+                    "preservation_failed_at = now() WHERE id = :evidence_id"
+                ),
+                {"evidence_id": evidence_id},
+            )
+    finally:
+        await engine.dispose()
+
+
 @pytest.fixture
 def contribution_clients() -> Iterator[ContributionClients]:
     assert INTEGRATION_DATABASE_URL is not None
@@ -441,6 +460,7 @@ def _complete_patches() -> list[dict[str, object]]:
 def test_submit_adopts_server_attached_evidence_without_reexposing_private_manifest(
     contribution_clients: ContributionClients,
 ) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
     route = "/api/v1/contribution-drafts"
     csrf = {"X-CSRF-Token": contribution_clients.owner_csrf}
     created = contribution_clients.owner.post(
@@ -503,6 +523,47 @@ def test_submit_adopts_server_attached_evidence_without_reexposing_private_manif
     )
     assert retried.status_code == 200
     assert retried.json()["receipt"] == submitted.json()["receipt"]
+
+    failed_created = contribution_clients.owner.post(
+        route,
+        headers=csrf,
+        json={"client_draft_id": "server-attached-failed-evidence"},
+    )
+    failed_draft_id = failed_created.json()["draft_id"]
+    failed_patched = contribution_clients.owner.patch(
+        f"{route}/{failed_draft_id}",
+        headers=csrf,
+        json={
+            "expected_draft_version": 1,
+            "operation_id": str(uuid4()),
+            "requested_stage": "review",
+            "patches": _complete_patches(),
+        },
+    )
+    assert failed_patched.status_code == 200
+    failed_evidence_id = str(uuid4())
+    failed_attached = contribution_clients.owner.put(
+        f"{route}/{failed_draft_id}/evidence",
+        headers=csrf,
+        json={
+            "expected_draft_version": 2,
+            "manifest": {**manifest, "evidence_id": failed_evidence_id},
+        },
+    )
+    assert failed_attached.status_code == 200
+    asyncio.run(
+        _set_evidence_preservation_failure(
+            INTEGRATION_DATABASE_URL,
+            failed_evidence_id,
+        )
+    )
+    blocked = contribution_clients.owner.post(
+        f"{route}/{failed_draft_id}/submit",
+        headers=csrf,
+        json={"expected_draft_version": 2, "idempotency_key": str(uuid4())},
+    )
+    assert blocked.status_code == 422
+    assert blocked.json()["detail"] == "Repair the attached evidence before review begins."
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
