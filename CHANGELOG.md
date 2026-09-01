@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.70.0.1] - 2026-09-01
+
+### Fixed
+
+- Prevent a cleared failed evidence-upload resume from being restored by a stale React persistence
+  effect after the contributor chooses another image.
+
 ## [0.70.0.0] - 2026-09-01
 
 ### Added

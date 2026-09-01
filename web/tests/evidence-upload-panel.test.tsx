@@ -119,6 +119,8 @@ describe("private evidence upload panel", () => {
     expect(await screen.findByText(/independent preservation failed/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: /check status again/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /choose another image/i }));
+    await waitFor(() => expect(screen.queryByText(/evidence status/i)).not.toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(storage.getItem(`opennosh:contribution:${draftId}:evidence-upload:v1`)).toBeNull();
   });
 });
