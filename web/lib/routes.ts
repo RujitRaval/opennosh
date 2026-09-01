@@ -115,6 +115,9 @@ export const routes = {
     language: InterfaceLanguage,
     draftId: string,
   ) => `/${language}/contribute/${encodeURIComponent(draftId)}/status`,
+  governanceQueue: "/governance",
+  governanceCase: (reviewCaseId: string) =>
+    `/governance/cases/${encodeURIComponent(reviewCaseId)}`,
   tracker: {
     home: "/tracker",
     records: "/tracker/records",

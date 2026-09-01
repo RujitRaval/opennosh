@@ -12,6 +12,7 @@ export type ContributionReviewState =
   | "draft"
   | "in_review"
   | "changes_requested"
+  | "rejected"
   | "approved"
   | "publication_pending"
   | "published";

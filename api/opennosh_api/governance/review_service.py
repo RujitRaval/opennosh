@@ -875,7 +875,13 @@ async def list_review_cases_for_steward(
         select(GovernanceReviewCase)
         .where(
             GovernanceReviewCase.pack_id == pack_id,
-            GovernanceReviewCase.state != ReviewCaseState.CLOSED.value,
+            GovernanceReviewCase.state.not_in(
+                (
+                    ReviewCaseState.APPROVED.value,
+                    ReviewCaseState.REJECTED.value,
+                    ReviewCaseState.CLOSED.value,
+                )
+            ),
         )
         .order_by(
             priority,
@@ -908,6 +914,29 @@ async def get_review_case_for_actor(
         )
     except ReviewCaseError as error:
         raise ReviewCaseError("review_case_not_found") from error
+    return review_case
+
+
+async def get_latest_review_case_for_contributor(
+    session: AsyncSession,
+    *,
+    source_draft_id: UUID,
+    actor_id: UUID,
+) -> GovernanceReviewCase:
+    review_case = await session.scalar(
+        select(GovernanceReviewCase)
+        .where(
+            GovernanceReviewCase.source_draft_id == source_draft_id,
+            GovernanceReviewCase.contributor_actor_id == actor_id,
+        )
+        .order_by(
+            GovernanceReviewCase.source_draft_version.desc(),
+            GovernanceReviewCase.opened_at.desc(),
+        )
+        .limit(1)
+    )
+    if review_case is None:
+        raise ReviewCaseError("review_case_not_found")
     return review_case
 
 
@@ -1282,6 +1311,7 @@ __all__ = [
     "approve_review_case",
     "claim_review_case",
     "get_review_case_for_actor",
+    "get_latest_review_case_for_contributor",
     "list_disputes_and_appeals",
     "list_review_cases_for_steward",
     "list_review_events",

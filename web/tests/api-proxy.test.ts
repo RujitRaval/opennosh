@@ -139,13 +139,17 @@ describe("same-origin API proxy", () => {
     expect(response.headers.get("etag")).toBe("\"sha256-artifact\"");
   });
 
-  it("forwards mutation bodies and CSRF headers", async () => {
+  it("forwards mutation bodies, CSRF headers, and idempotency keys", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     fetchMock.mockResolvedValue(Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
     const request = new NextRequest("http://localhost:3000/api/v1/logs", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": "csrf-token" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": "66666666-6666-4666-8666-666666666666",
+        "X-CSRF-Token": "csrf-token",
+      },
       body: JSON.stringify({ food: "test" }),
     });
 
@@ -153,6 +157,9 @@ describe("same-origin API proxy", () => {
 
     const upstreamRequest = fetchMock.mock.calls[0][1];
     expect(new Headers(upstreamRequest?.headers).get("x-csrf-token")).toBe("csrf-token");
+    expect(new Headers(upstreamRequest?.headers).get("idempotency-key")).toBe(
+      "66666666-6666-4666-8666-666666666666",
+    );
     expect(await new Response(upstreamRequest?.body).text()).toBe('{"food":"test"}');
   });
 

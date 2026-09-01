@@ -166,6 +166,18 @@ class ReviewApprovalResponse(BaseModel):
     status: Literal["publication_pending"] = "publication_pending"
 
 
+class PublicDecisionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision_id: UUID
+    pack_id: Annotated[str, Field(min_length=1, max_length=160)]
+    source_draft_version: Annotated[int, Field(ge=1)]
+    outcome: GovernanceDecisionOutcome
+    reason: Annotated[str, Field(min_length=1, max_length=2000)]
+    decided_at: datetime
+    publication_state: str | None
+
+
 class ReviewResponseRequest(ReviewCaseAction):
     expected_draft_version: Annotated[int, Field(ge=1)]
     patches: Annotated[list[ContributionFieldPatch], Field(min_length=1, max_length=25)]
@@ -220,6 +232,7 @@ __all__ = [
     "DisputeResponse",
     "ReviewCaseAction",
     "ReviewApprovalResponse",
+    "PublicDecisionResponse",
     "ReviewApprovedFile",
     "ReviewCaseApproval",
     "ReviewCaseDecision",

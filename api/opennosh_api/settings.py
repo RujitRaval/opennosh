@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     governance_steward_ui_enabled: bool = False
     governance_mutations_enabled: bool = False
     governance_public_decisions_enabled: bool = False
+    governance_fresh_auth_seconds: PositiveInt = Field(default=900, le=3600)
     evidence_quarantine_endpoint: str | None = None
     evidence_quarantine_region: str | None = None
     evidence_quarantine_bucket: str | None = None
@@ -386,6 +387,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if self.governance_mutations_enabled and not self.governance_steward_ui_enabled:
+            raise ValueError("Governance mutations require the steward UI read surface")
         publication_secret_values = (
             self.online_manifest_signing_key_id,
             self.online_manifest_signing_key,

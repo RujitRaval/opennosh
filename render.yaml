@@ -62,6 +62,8 @@ services:
         value: "false"
       - key: GOVERNANCE_PUBLIC_DECISIONS_ENABLED
         value: "false"
+      - key: GOVERNANCE_FRESH_AUTH_SECONDS
+        value: "900"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
         value: /var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json
       - key: PUBLIC_ARTIFACT_CACHE_DIRECTORY
@@ -147,6 +149,8 @@ services:
       - key: OPENNOSH_PUBLIC_NAV_FEATURES
         value: "explorer-search"
       - key: OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED
+        value: "false"
+      - key: OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED
         value: "false"
       - key: PUBLIC_ARTIFACT_READS_ENABLED
         value: "false"

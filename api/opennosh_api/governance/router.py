@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Never
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.dependencies import (
@@ -14,9 +15,14 @@ from opennosh_api.auth.dependencies import (
     require_csrf,
 )
 from opennosh_api.database import get_database_session
-from opennosh_api.governance.contracts import ApprovedChangeSet, ApprovedFileChange
+from opennosh_api.governance.contracts import (
+    ApprovedChangeSet,
+    ApprovedFileChange,
+    GovernanceDecisionOutcome,
+)
 from opennosh_api.governance.models import (
     GovernanceAppeal,
+    GovernanceDecision,
     GovernanceDispute,
     GovernanceReviewCase,
     GovernanceReviewEvent,
@@ -25,6 +31,7 @@ from opennosh_api.governance.review_service import (
     ReviewCaseError,
     approve_review_case,
     claim_review_case,
+    get_latest_review_case_for_contributor,
     get_review_case_for_actor,
     list_disputes_and_appeals,
     list_review_cases_for_steward,
@@ -48,6 +55,7 @@ from opennosh_api.governance.schemas import (
     DisputeOpenRequest,
     DisputeResolveRequest,
     DisputeResponse,
+    PublicDecisionResponse,
     ReviewApprovalResponse,
     ReviewCaseAction,
     ReviewCaseApproval,
@@ -64,6 +72,7 @@ from opennosh_api.governance.schemas import (
     ReviewResponseResult,
 )
 from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
+from opennosh_api.publication.models import PublicationIntent
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/governance", tags=["governance"])
@@ -88,6 +97,27 @@ def require_governance_mutations(
 ) -> None:
     if not (settings.governance_steward_ui_enabled and settings.governance_mutations_enabled):
         raise _disabled()
+
+
+def require_public_decisions(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> None:
+    if not settings.governance_public_decisions_enabled:
+        raise _disabled()
+
+
+def require_governance_csrf(
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> CurrentSession:
+    if current.session.created_at < datetime.now(UTC) - timedelta(
+        seconds=settings.governance_fresh_auth_seconds
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="fresh_auth_required",
+        )
+    return current
 
 
 def _no_store(response: Response) -> None:
@@ -246,6 +276,34 @@ async def review_queue(
 
 
 @router.get(
+    "/public-decisions/{decision_id}",
+    response_model=PublicDecisionResponse,
+    dependencies=[Depends(require_public_decisions)],
+)
+async def public_decision(
+    decision_id: UUID,
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> PublicDecisionResponse:
+    _no_store(response)
+    decision = await database.get(GovernanceDecision, decision_id)
+    if decision is None:
+        raise _disabled()
+    publication_state = await database.scalar(
+        select(PublicationIntent.state).where(PublicationIntent.reviewed_decision_id == decision.id)
+    )
+    return PublicDecisionResponse(
+        decision_id=decision.id,
+        pack_id=decision.pack_id,
+        source_draft_version=decision.source_draft_version,
+        outcome=GovernanceDecisionOutcome(decision.outcome),
+        reason=decision.reason,
+        decided_at=decision.decided_at,
+        publication_state=publication_state,
+    )
+
+
+@router.get(
     "/review-cases/{review_case_id}",
     response_model=ReviewCaseResponse,
     dependencies=[Depends(require_governance_ui)],
@@ -270,6 +328,30 @@ async def review_case_detail(
     return result
 
 
+@router.get(
+    "/contributor/review-case",
+    response_model=ReviewCaseResponse,
+    dependencies=[Depends(require_governance_ui)],
+)
+async def contributor_review_case(
+    response: Response,
+    draft_id: Annotated[UUID, Query()],
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReviewCaseResponse:
+    _no_store(response)
+    try:
+        review_case = await get_latest_review_case_for_contributor(
+            database,
+            source_draft_id=draft_id,
+            actor_id=current.user_id,
+        )
+        result = await _complete_case_response(database, review_case)
+    except ReviewCaseError as error:
+        _raise_review_error(error)
+    return result
+
+
 @router.post(
     "/review-cases/{review_case_id}/claim",
     response_model=ReviewCaseResponse,
@@ -280,7 +362,7 @@ async def claim_case(
     payload: ReviewCaseAction,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -311,7 +393,7 @@ async def release_case(
     payload: ReviewCaseRelease,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -343,7 +425,7 @@ async def pause_case(
     payload: ReviewCasePause,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -382,7 +464,7 @@ async def resume_case(
     payload: ReviewCaseResume,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -414,7 +496,7 @@ async def recuse_from_case(
     payload: ReviewCaseRecusal,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -446,7 +528,7 @@ async def decide_case(
     payload: ReviewCaseDecision,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewDecisionResponse:
     _no_store(response)
@@ -485,7 +567,7 @@ async def approve_case(
     payload: ReviewCaseApproval,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewApprovalResponse:
     _no_store(response)
@@ -537,7 +619,7 @@ async def respond_to_case(
     payload: ReviewResponseRequest,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewResponseResult:
     _no_store(response)
@@ -582,7 +664,7 @@ async def dispute_case(
     payload: DisputeOpenRequest,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -616,7 +698,7 @@ async def resolve_case_dispute(
     payload: DisputeResolveRequest,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -649,7 +731,7 @@ async def appeal_case_dispute(
     payload: AppealOpenRequest,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
@@ -683,7 +765,7 @@ async def resolve_case_appeal(
     payload: AppealResolveRequest,
     response: Response,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
-    current: Annotated[CurrentSession, Depends(require_csrf)],
+    current: Annotated[CurrentSession, Depends(require_governance_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
 ) -> ReviewCaseResponse:
     _no_store(response)
