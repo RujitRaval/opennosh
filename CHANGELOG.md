@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.78.0.0] - 2026-09-02
+
+### Added
+
+- Add governed mission proposal, approval, pause, resume, completion, release, and closure services
+  over the append-only T34.6 foundation.
+- Serialize mission decisions, bind optimistic concurrency to the exact prior event, and make exact
+  request replays idempotent without weakening current steward authorization for new decisions.
+
+### Security
+
+- Require active human stewards in the target pack, prohibit self-approval, require future review
+  dates for pauses, and bind completion to a fresh, fully materialized accepted-progress proof at
+  the configured threshold.
+- Require a later durable, reconciled, non-revocation receipt in the target pack before a completed
+  mission can claim release; all production mission and federation switches remain disabled.
+
 ## [0.77.0.0] - 2026-09-02
 
 ### Added
