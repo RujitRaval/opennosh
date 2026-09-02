@@ -113,17 +113,17 @@ async def propose_mission(
     if await store.latest_definition(command.mission_id) is not None:
         raise MissionLifecycleError("mission_already_exists")
     if not await store.actor_is_active_human_steward(
-        actor_id=command.responsible_steward_actor_id,
-        pack_id=command.definition.target_pack_id,
-        at=now,
-    ):
-        raise MissionLifecycleError("responsible_steward_not_active")
-    if not await store.actor_is_active_human_steward(
         actor_id=command.actor_id,
         pack_id=command.definition.target_pack_id,
         at=now,
     ):
         raise MissionLifecycleError("mission_actor_not_active_steward")
+    if not await store.actor_is_active_human_steward(
+        actor_id=command.responsible_steward_actor_id,
+        pack_id=command.definition.target_pack_id,
+        at=now,
+    ):
+        raise MissionLifecycleError("responsible_steward_not_active")
 
     definition = MissionDefinition(
         id=command.definition_id,
@@ -182,6 +182,12 @@ async def transition_mission(
     definition = await store.definition(command.definition_id)
     if definition is None or definition.mission_id != command.mission_id:
         raise MissionLifecycleError("mission_definition_not_found")
+    if not await store.actor_is_active_human_steward(
+        actor_id=command.actor_id,
+        pack_id=definition.target_pack_id,
+        at=now,
+    ):
+        raise MissionLifecycleError("mission_actor_not_active_steward")
     latest_definition = await store.latest_definition(command.mission_id)
     if latest_definition is None or latest_definition.id != definition.id:
         raise MissionLifecycleError("mission_definition_not_current")
@@ -194,12 +200,6 @@ async def transition_mission(
         raise MissionLifecycleError("mission_event_time_invalid")
     if prior.definition_id != definition.id:
         raise MissionLifecycleError("mission_definition_not_current")
-    if not await store.actor_is_active_human_steward(
-        actor_id=command.actor_id,
-        pack_id=definition.target_pack_id,
-        at=now,
-    ):
-        raise MissionLifecycleError("mission_actor_not_active_steward")
     if (
         prior.action == MissionLifecycleAction.PROPOSE.value
         and command.action is MissionLifecycleAction.APPROVE
@@ -209,14 +209,8 @@ async def transition_mission(
 
     current_state = _state_for_action(MissionLifecycleAction(prior.action))
     state_after(current_state, command.action)
-    if command.action is MissionLifecycleAction.COMPLETE:
-        checkpoint = await store.active_progress(definition.id)
-        if checkpoint is None:
-            raise MissionLifecycleError("mission_progress_unavailable")
-        if not await store.progress_is_current(checkpoint):
-            raise MissionLifecycleError("mission_progress_stale")
-        if checkpoint.accepted_count < definition.acceptance_target:
-            raise MissionLifecycleError("mission_acceptance_target_not_met")
+    if command.action in {MissionLifecycleAction.COMPLETE, MissionLifecycleAction.RELEASE}:
+        await _require_current_target_progress(store, definition)
     if command.action is MissionLifecycleAction.RELEASE:
         assert command.release_receipt_digest is not None
         receipt = await store.receipt(command.release_receipt_digest)
@@ -246,6 +240,19 @@ async def transition_mission(
     store.add_lifecycle_event(event)
     await store.flush()
     return event
+
+
+async def _require_current_target_progress(
+    store: MissionStore,
+    definition: MissionDefinition,
+) -> None:
+    checkpoint = await store.active_progress(definition.id)
+    if checkpoint is None:
+        raise MissionLifecycleError("mission_progress_unavailable")
+    if not await store.progress_is_current(checkpoint):
+        raise MissionLifecycleError("mission_progress_stale")
+    if checkpoint.accepted_count < definition.acceptance_target:
+        raise MissionLifecycleError("mission_acceptance_target_not_met")
 
 
 def lifecycle_state(event: MissionLifecycleEvent) -> MissionLifecycleState:
