@@ -11,6 +11,7 @@ from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationRelease,
     FederationRoleKey,
 )
 from opennosh_api.publication.models import AcceptedEvent, PublicationReceiptRecord
@@ -83,6 +84,46 @@ class FederationRepository:
 
     def add_audit_event(self, event: FederationAuditEvent) -> None:
         self._session.add(event)
+
+    async def lock_release_scope(self, *, repository_id: int, pack_id: str) -> None:
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+            {"scope": f"opennosh:federation:release:{repository_id}:{pack_id}"},
+        )
+
+    async def release_for_version(
+        self,
+        *,
+        repository_id: int,
+        pack_id: str,
+        release_version: str,
+    ) -> FederationRelease | None:
+        statement = select(FederationRelease).where(
+            FederationRelease.repository_id == repository_id,
+            FederationRelease.pack_id == pack_id,
+            FederationRelease.release_version == release_version,
+        )
+        return cast(FederationRelease | None, await self._session.scalar(statement))
+
+    async def latest_release(
+        self,
+        *,
+        repository_id: int,
+        pack_id: str,
+    ) -> FederationRelease | None:
+        statement = (
+            select(FederationRelease)
+            .where(
+                FederationRelease.repository_id == repository_id,
+                FederationRelease.pack_id == pack_id,
+            )
+            .order_by(FederationRelease.receipt_published_at.desc())
+            .limit(1)
+        )
+        return cast(FederationRelease | None, await self._session.scalar(statement))
+
+    def add_release(self, release: FederationRelease) -> None:
+        self._session.add(release)
 
     async def actor_is_active_human_steward(
         self,
@@ -170,20 +211,6 @@ class FederationRepository:
         if row is None:
             return None
         return row[0], row[1]
-
-    async def release_event_count(self, maintainer_id: UUID) -> int:
-        return int(
-            await self._session.scalar(
-                select(text("count(*)"))
-                .select_from(FederationAuditEvent)
-                .where(
-                    FederationAuditEvent.maintainer_id == maintainer_id,
-                    FederationAuditEvent.event_type == "release_published",
-                )
-            )
-            or 0
-        )
-
 
 class FederationClaimConnection(Protocol):
     async def fetchval(self, query: str, *args: object) -> object: ...

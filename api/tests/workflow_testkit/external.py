@@ -151,10 +151,12 @@ class PersistentPublicationAdapter:
         system: ExternalSystemKind,
         state: PersistentExternalState,
         clock: Callable[[], datetime],
+        release_version: str,
     ) -> None:
         self.system = system
         self.state = state
         self._clock = clock
+        self._release_version = release_version
         self.identity = f"testkit-{system.value}"
 
     async def apply(self, intent: EffectIntent) -> None:
@@ -169,7 +171,7 @@ class PersistentPublicationAdapter:
         if intent.step is PublicationStepName.COMMIT_RECORD:
             context["merged_tree_digest"] = "c" * 64
         elif intent.step is PublicationStepName.SIGN_RELEASE:
-            context["release_version"] = "2026.08.26-testkit"
+            context["release_version"] = self._release_version
         elif intent.step is PublicationStepName.CONFIRM_REGISTRY:
             context["registry_result"] = "accepted"
         elif intent.step is PublicationStepName.SIGN_RECEIPT:
@@ -255,9 +257,11 @@ _STEP_SYSTEMS: Mapping[PublicationStepName, ExternalSystemKind] = MappingProxyTy
 def publication_adapter_registry(
     state: PersistentExternalState,
     clock: Callable[[], datetime],
+    *,
+    release_version: str = "2026.08.26-testkit",
 ) -> PublicationAdapterRegistry:
     adapters = {
-        system: PersistentPublicationAdapter(system, state, clock)
+        system: PersistentPublicationAdapter(system, state, clock, release_version)
         for system in set(_STEP_SYSTEMS.values())
     }
     return {step: adapters[system] for step, system in _STEP_SYSTEMS.items()}

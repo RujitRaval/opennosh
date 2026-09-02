@@ -27,6 +27,7 @@ from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationRelease,
     FederationRoleKey,
 )
 from opennosh_api.federation.repository import FederationRepository
@@ -339,6 +340,11 @@ class FederationService:
                 or maintainer.pack_id != statement.pack_id
             ):
                 raise FederationError("release_scope_mismatch", exit_code=3)
+            await repository.lock_release_scope(
+                repository_id=statement.repository_id,
+                pack_id=statement.pack_id,
+            )
+            digest = release_statement_digest(statement)
             key = await repository.active_role_key(maintainer.id, lock=True)
             if key.key_id != statement.key_id:
                 raise FederationError("release_key_retired_or_untrusted", exit_code=3)
@@ -346,8 +352,19 @@ class FederationService:
                 verify_release_signature(release, encoded_public_key=key.public_key)
             except ValueError as error:
                 raise FederationError("release_signature_invalid", exit_code=3) from error
-            if await repository.release_event_count(maintainer.id) != 0:
-                raise FederationError("federation_release_limit_reached")
+            existing = await repository.release_for_version(
+                repository_id=statement.repository_id,
+                pack_id=statement.pack_id,
+                release_version=statement.release_version,
+            )
+            if existing is not None:
+                if existing.statement_digest == digest and existing.signature == release.signature:
+                    return digest
+                raise FederationError("release_version_conflict", exit_code=3)
+            latest = await repository.latest_release(
+                repository_id=statement.repository_id,
+                pack_id=statement.pack_id,
+            )
             bound = await repository.receipt_for_release(
                 publication_id=statement.publication_id,
                 pack_id=statement.pack_id,
@@ -377,7 +394,32 @@ class FederationService:
                 )
             ):
                 raise FederationError("governed_release_binding_mismatch", exit_code=3)
-            digest = release_statement_digest(statement)
+            if latest is not None and receipt.published_at <= latest.receipt_published_at:
+                raise FederationError("release_rollback_detected", exit_code=3)
+            repository.add_release(
+                FederationRelease(
+                    id=uuid4(),
+                    maintainer_id=maintainer.id,
+                    role_key_id=key.id,
+                    accepted_event_id=accepted_event.id,
+                    repository_id=statement.repository_id,
+                    repository=statement.repository,
+                    pack_id=statement.pack_id,
+                    publication_id=statement.publication_id,
+                    release_version=statement.release_version,
+                    statement_json=statement.model_dump(mode="json"),
+                    statement_digest=digest,
+                    manifest_digest=statement.manifest_digest,
+                    receipt_digest=statement.receipt_digest,
+                    public_url=statement.public_url,
+                    key_id=statement.key_id,
+                    signature=release.signature,
+                    issued_at=statement.issued_at,
+                    receipt_published_at=receipt.published_at,
+                    verified_at=timestamp,
+                    created_at=timestamp,
+                )
+            )
             repository.add_audit_event(
                 _audit_event(
                     maintainer_id=maintainer.id,

@@ -30,6 +30,7 @@ EXPECTED_TABLES = {
     "federation_maintainers",
     "federation_role_keys",
     "federation_audit_events",
+    "federation_releases",
     "governance_role_assignments",
     "governance_recusals",
     "governance_decisions",
