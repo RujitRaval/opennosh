@@ -43,6 +43,7 @@ from opennosh_api.foods.service import (
     create_custom_food,
     get_food_detail,
     normalize_locale,
+    normalize_pack_ids,
     normalize_search_query,
     search_foods,
 )
@@ -68,6 +69,7 @@ async def capabilities(
 ) -> FoodCapabilities:
     return FoodCapabilities(
         barcode_lookup_enabled=settings.open_food_facts_enabled,
+        federation_search_enabled=settings.federation_search_enabled,
     )
 
 
@@ -82,6 +84,7 @@ async def search(
     ],
     locale: Annotated[str | None, Query(max_length=35)] = None,
     source: Annotated[FoodSource | None, Query()] = None,
+    pack: Annotated[list[str] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=SEARCH_LIMIT_MAX)] = SEARCH_LIMIT_DEFAULT,
     cursor: Annotated[
         str | None,
@@ -96,11 +99,19 @@ async def search(
     try:
         normalized_query = normalize_search_query(q)
         normalized_locale = normalize_locale(locale)
+        normalized_pack_ids = normalize_pack_ids(pack)
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
+    if (source is FoodSource.FEDERATION or normalized_pack_ids) and not (
+        settings.federation_search_enabled
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Federated food search is disabled.",
+        )
     rate_limit_key = client_address(request, settings)
     await enforce_rate_limit(
         database,
@@ -125,6 +136,8 @@ async def search(
             snapshot_retention_seconds=settings.food_search_snapshot_retention_seconds,
             snapshot_build_timeout_ms=settings.food_search_snapshot_build_timeout_ms,
             statement_timeout_ms=settings.food_search_statement_timeout_ms,
+            federation_enabled=settings.federation_search_enabled,
+            selected_pack_ids=normalized_pack_ids,
         )
     except SearchCursorError as error:
         first_page_params = {
@@ -132,11 +145,12 @@ async def search(
             "limit": str(limit),
             **({"locale": normalized_locale} if normalized_locale is not None else {}),
             **({"source": source.value} if source is not None else {}),
+            **({"pack": list(normalized_pack_ids)} if normalized_pack_ids else {}),
         }
         restart = RecoveryAction(
             id="restart_search",
             label="Restart search",
-            href=f"/api/v1/foods/search?{urlencode(first_page_params)}",
+            href=f"/api/v1/foods/search?{urlencode(first_page_params, doseq=True)}",
         )
         if error.failure is SearchCursorFailure.INVALID:
             raise ProblemException(
@@ -306,12 +320,18 @@ async def open_food_facts_export(
 @router.get("/{source}/{source_id}", response_model=FoodDetail)
 async def detail(
     database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
     source: FoodSource,
     source_id: Annotated[
         str,
-        Path(min_length=1, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$"),
+        Path(min_length=1, max_length=200, pattern=r"^[a-z0-9:-]+$"),
     ],
 ) -> FoodDetail:
+    if source is FoodSource.FEDERATION and not settings.federation_search_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Federated food search is disabled.",
+        )
     food = await get_food_detail(database, source, source_id)
     if food is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Food not found")

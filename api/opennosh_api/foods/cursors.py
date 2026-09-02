@@ -13,8 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
-SEARCH_CURSOR_SCHEMA_VERSION: Literal[1] = 1
-SEARCH_RANKING_VERSION: Literal[1] = 1
+SEARCH_CURSOR_SCHEMA_VERSION: Literal[2] = 2
+SEARCH_RANKING_VERSION: Literal[2] = 2
 SEARCH_CURSOR_MAX_LENGTH = 2_048
 
 
@@ -34,10 +34,11 @@ class SearchCursorError(ValueError):
 class SearchCursorPayload(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
-    v: Literal[1]
+    v: Literal[2]
     sid: UUID
     fp: str = Field(pattern=r"^[0-9a-f]{64}$")
-    rv: Literal[1]
+    rv: Literal[2]
+    rs: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     pos: tuple[int, str, str, str, str]
     size: int = Field(ge=1, le=50)
     exp: int = Field(gt=0)
@@ -190,12 +191,16 @@ def search_fingerprint(
     query: str,
     locale: str | None,
     source: str | None,
+    pack_ids: tuple[str, ...] = (),
+    federation_enabled: bool = False,
 ) -> str:
     canonical = _canonical_json(
         {
             "locale": locale,
             "query": query,
             "source": source,
+            "pack_ids": pack_ids,
+            "federation_enabled": federation_enabled,
         }
     )
     return hashlib.sha256(canonical).hexdigest()

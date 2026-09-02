@@ -6,10 +6,11 @@ from dataclasses import replace
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from opennosh_api.foods.schemas import FoodDetail, FoodSource
+from opennosh_api.foods.schemas import FoodSource
 from opennosh_api.public.artifacts import (
     MemoryArtifactStore,
     PublicFoodArtifact,
+    PublicFoodRecord,
     PublicFoodRecordResponse,
     PublicReadReleaseManifest,
     PublicReleaseMetadata,
@@ -114,7 +115,7 @@ class FakeReader:
 
 
 def fixture() -> tuple[FakeReader, MemoryArtifactStore, str, str]:
-    record = FoodDetail.model_validate(RECORD)
+    record = PublicFoodRecord.model_validate(RECORD)
     record_bytes = canonical_json(record.model_dump(mode="json"))
     record_descriptor = artifact_descriptor(
         f"records/v1/{hashlib.sha256(record_bytes).hexdigest()}",
@@ -227,7 +228,7 @@ async def test_verifies_arbitrary_record_against_manifest_receipt_and_latest() -
     assert (
         result.record_sha256
         == hashlib.sha256(
-            canonical_json(FoodDetail.model_validate(RECORD).model_dump(mode="json"))
+            canonical_json(PublicFoodRecord.model_validate(RECORD).model_dump(mode="json"))
         ).hexdigest()
     )
     assert result.provenance_sha256 == hashlib.sha256(PROVENANCE).hexdigest()

@@ -1539,6 +1539,14 @@ export type FoodAttribution = {
      * Provenance
      */
     provenance?: string | null;
+    /**
+     * Release Digest
+     */
+    release_digest?: string | null;
+    /**
+     * Release Version
+     */
+    release_version?: string | null;
     source: FoodSource;
     /**
      * Source License
@@ -1559,6 +1567,10 @@ export type FoodCapabilities = {
      */
     barcode_lookup_enabled: boolean;
     /**
+     * Federation Search Enabled
+     */
+    federation_search_enabled?: boolean;
+    /**
      * Schema Version
      */
     schema_version?: '1.0';
@@ -1573,6 +1585,14 @@ export type FoodDetail = {
      * Category
      */
     category?: string | null;
+    /**
+     * Conflict
+     */
+    conflict?: boolean;
+    /**
+     * Equivalence Group Id
+     */
+    equivalence_group_id?: string | null;
     /**
      * Id
      */
@@ -1604,6 +1624,14 @@ export type FoodDetail = {
      * Source Id
      */
     source_id: string;
+    /**
+     * Variant Count
+     */
+    variant_count?: number;
+    /**
+     * Variant Id
+     */
+    variant_id?: string | null;
 };
 
 /**
@@ -1632,6 +1660,14 @@ export type FoodSearchItem = {
      */
     category?: string | null;
     /**
+     * Conflict
+     */
+    conflict?: boolean;
+    /**
+     * Equivalence Group Id
+     */
+    equivalence_group_id?: string | null;
+    /**
      * Id
      */
     id: string;
@@ -1648,6 +1684,40 @@ export type FoodSearchItem = {
      * Source Id
      */
     source_id: string;
+    /**
+     * Variant Count
+     */
+    variant_count?: number;
+    /**
+     * Variant Id
+     */
+    variant_id?: string | null;
+};
+
+/**
+ * FoodSearchReleaseSet
+ */
+export type FoodSearchReleaseSet = {
+    /**
+     * Checkpoint Id
+     */
+    checkpoint_id?: string | null;
+    /**
+     * Digest
+     */
+    digest?: string | null;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Selected Pack Ids
+     */
+    selected_pack_ids?: Array<string>;
+    /**
+     * Stale
+     */
+    stale?: boolean;
 };
 
 /**
@@ -1670,6 +1740,7 @@ export type FoodSearchResponse = {
      * Next Cursor
      */
     next_cursor?: string | null;
+    release_set?: FoodSearchReleaseSet | null;
     /**
      * Schema Version
      */
@@ -1687,7 +1758,7 @@ export type FoodSearchResponse = {
 /**
  * FoodSource
  */
-export type FoodSource = 'usda' | 'community';
+export type FoodSource = 'usda' | 'community' | 'federation';
 
 /**
  * GovernanceDecisionOutcome
@@ -2479,6 +2550,93 @@ export type PublicDocumentManifest = {
 };
 
 /**
+ * PublicFoodAttribution
+ *
+ * Stable attribution contract embedded in immutable signed food records.
+ */
+export type PublicFoodAttribution = {
+    /**
+     * Contributed By
+     */
+    contributed_by?: string | null;
+    /**
+     * License
+     */
+    license: string;
+    /**
+     * Pack Id
+     */
+    pack_id?: string | null;
+    /**
+     * Pack Version
+     */
+    pack_version?: string | null;
+    /**
+     * Provenance
+     */
+    provenance?: string | null;
+    /**
+     * Source
+     */
+    source: 'usda' | 'community';
+    /**
+     * Source License
+     */
+    source_license?: string | null;
+    /**
+     * Source Uri
+     */
+    source_uri?: string | null;
+};
+
+/**
+ * PublicFoodRecord
+ *
+ * Versioned public record shape; independent from mutable search metadata.
+ */
+export type PublicFoodRecord = {
+    attribution: PublicFoodAttribution;
+    /**
+     * Category
+     */
+    category?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Name Local
+     */
+    name_local?: string | null;
+    /**
+     * Nutrients
+     */
+    nutrients: {
+        [key: string]: unknown;
+    };
+    /**
+     * Portions
+     */
+    portions: Array<HouseholdPortionOutput>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Source
+     */
+    source: 'usda' | 'community';
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
  * PublicFoodRecordResponse
  */
 export type PublicFoodRecordResponse = {
@@ -2490,7 +2648,7 @@ export type PublicFoodRecordResponse = {
      * Provenance Url
      */
     provenance_url: string;
-    record: FoodDetail;
+    record: PublicFoodRecord;
     release: PublicReleaseMetadata;
     /**
      * Schema Version
@@ -6135,6 +6293,10 @@ export type SearchApiV1FoodsSearchGetData = {
          */
         source?: FoodSource | null;
         /**
+         * Pack
+         */
+        pack?: Array<string> | null;
+        /**
          * Limit
          */
         limit?: number;
@@ -7984,7 +8146,10 @@ export type CommonsSnapshotApiV1PublicCommonsSnapshotGetResponse = CommonsSnapsh
 export type LatestFoodApiV1PublicFoodsSourceSourceIdGetData = {
     body?: never;
     path: {
-        source: FoodSource;
+        /**
+         * Source
+         */
+        source: 'usda' | 'community';
         /**
          * Source Id
          */
@@ -8064,7 +8229,10 @@ export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetData
          * Release Version
          */
         release_version: string;
-        source: FoodSource;
+        /**
+         * Source
+         */
+        source: 'usda' | 'community';
         /**
          * Source Id
          */
@@ -8139,7 +8307,10 @@ export type ExactProvenanceApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdP
          * Release Version
          */
         release_version: string;
-        source: FoodSource;
+        /**
+         * Source
+         */
+        source: 'usda' | 'community';
         /**
          * Source Id
          */

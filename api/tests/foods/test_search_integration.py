@@ -179,6 +179,8 @@ def test_search_ranking_pagination_filters_and_attribution() -> None:
         "pack_id": "exact-pack",
         "pack_version": "1.0.0",
         "provenance": "own_measurement",
+        "release_version": None,
+        "release_digest": None,
     }
     assert usda_only.json()["items"][0]["attribution"]["license"] == "CC0"
 
@@ -193,6 +195,9 @@ def test_food_details_are_source_qualified_and_license_separated() -> None:
         community = client.get("/api/v1/foods/community/local-apple")
         usda = client.get("/api/v1/foods/usda/100")
         missing = client.get("/api/v1/foods/community/missing")
+        disabled_federation = client.get(
+            "/api/v1/foods/federation/018f7d40-7b60-7000-8000-000000000099:apple"
+        )
         unsupported = client.get("/api/v1/foods/openfoodfacts/123")
         nul_source_id = client.get("/api/v1/foods/community/apple%00")
 
@@ -205,6 +210,8 @@ def test_food_details_are_source_qualified_and_license_separated() -> None:
     assert usda.json()["attribution"]["source_license"] == "CC0"
     assert usda.json()["portions"][0]["grams"] == "182"
     assert missing.status_code == 404
+    assert disabled_federation.status_code == 503
+    assert disabled_federation.json()["detail"] == "Federated food search is disabled."
     assert unsupported.status_code == 422
     assert nul_source_id.status_code == 422
 
@@ -222,10 +229,24 @@ def test_search_rejects_unbounded_or_invalid_requests() -> None:
             {"q": "a\x00"},
             {"q": "apple", "locale": "../../etc"},
             {"q": "apple", "source": "all-stores"},
+            {"q": "apple", "pack": "Not-Canonical"},
             {"q": "apple", "limit": 51},
             {"q": "apple", "offset": 10_001},
         ):
             assert client.get("/api/v1/foods/search", params=params).status_code == 422
+
+        disabled = client.get(
+            "/api/v1/foods/search",
+            params={"q": "apple", "source": "federation"},
+        )
+        selected_disabled = client.get(
+            "/api/v1/foods/search",
+            params={"q": "apple", "pack": "regional-pack"},
+        )
+
+    assert disabled.status_code == 503
+    assert disabled.json()["detail"] == "Federated food search is disabled."
+    assert selected_disabled.status_code == 503
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -752,7 +773,11 @@ async def _explain_representative_search(
             )
             await connection.execute(
                 text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
-                {"snapshot_id": snapshot_id},
+                {
+                    "snapshot_id": snapshot_id,
+                    "has_pack_filter": False,
+                    "selected_pack_ids": [],
+                },
             )
             await connection.execute(text("ANALYZE food_search_snapshot_items"))
             parameters = {

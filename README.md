@@ -107,8 +107,10 @@ Search USDA reference foods and CC0 community foods without combining their sour
 GET /api/v1/foods/capabilities
 GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20
 GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&cursor=<next_cursor>
+GET /api/v1/foods/search?q=samosa&source=federation&pack=global-core
 GET /api/v1/foods/community/apple
 GET /api/v1/foods/usda/171688
+GET /api/v1/foods/federation/<verified-release-uuid>:<source-record-id>
 ```
 
 Open a source-qualified result without an account at a localized public record URL such as
@@ -122,19 +124,26 @@ remain explicit. Variant comparison never guesses relationships from fuzzy searc
 publishes an explicit relationship, the record shows an honest empty-variant state. The Tracker
 action opens the generic `/tracker` utility until a food-record handoff contract exists.
 
-`/foods/capabilities` reports whether barcode lookup is enabled so clients can hide that workflow
-without probing the third-party integration. It is public and does not make an Open Food Facts
-request.
+`/foods/capabilities` reports whether barcode lookup and verified federation search are enabled so
+clients can hide those workflows without probing either integration. It is public and does not
+make an Open Food Facts request.
 
 Every result uses a source-qualified ID such as `community:apple` or `usda:171688` and returns
-the source and license metadata needed for attribution. Results rank exact community slugs first,
+the source and license metadata needed for attribution. With `FEDERATION_SEARCH_ENABLED=true`, an
+explicit federation source or pack selection returns verified projection rows with exact
+pack/release identity, immutable variants, deterministic
+equivalence groups, and conflict state. Conflicting nutrients remain separate and are never
+averaged. The optional repeated `pack` filter and every cursor bind the exact active release set;
+`release_set.stale` identifies a retained page from an older activation. Production keeps this
+independent flag false until an explicit activation review. Results rank exact community slugs first,
 then community foods matching the requested locale, USDA generic foods, and community foods from
-other locales. The optional `source` filter accepts `community` or `usda`.
+other locales. The optional `source` filter accepts `community`, `usda`, or feature-gated
+`federation`.
 
 Raw queries must contain 2–100 characters; after whitespace normalization they must still contain
 at least two characters and a letter or number. A request returns at most 50 rows. When another
 page exists, the response includes an opaque `next_cursor`; send it back with the same query,
-locale, source filter, and limit. Results remain bound to the retained projection snapshot even if
+locale, source/pack filters, and limit. Results remain bound to the retained projection snapshot even if
 the live catalogue changes. Invalid cursors return a typed `400 search_cursor_invalid` problem;
 expired snapshots, changed search inputs, or retired signing keys return a typed
 `409 search_cursor_restart` problem with a safe first-page recovery link.

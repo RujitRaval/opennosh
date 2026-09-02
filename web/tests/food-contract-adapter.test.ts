@@ -28,7 +28,13 @@ describe("food success contract adapter", () => {
             pack_id: "starter-foods",
             pack_version: "2.4.0",
             provenance: "Community reviewed",
+            release_version: null,
+            release_digest: null,
           },
+          equivalence_group_id: null,
+          variant_id: null,
+          conflict: false,
+          variant_count: 1,
         },
       ],
       limit: 12,
@@ -36,7 +42,17 @@ describe("food success contract adapter", () => {
       next_cursor: "signed-next-page-cursor",
       snapshot_id: "018f5316-4f4e-7d79-b9f6-88c11a68a497",
       snapshot_expires_at: "2026-08-23T14:30:00Z",
+      release_set: null,
     });
+  });
+
+  it("fails closed before the browser installation flow accepts federation results", () => {
+    const value = structuredClone(currentSearch) as unknown as Parameters<typeof foodSearch>[0];
+    value.items[0].source = "federation";
+
+    expect(() => foodSearch(value)).toThrow(
+      "Federated food search is not installed in this web client",
+    );
   });
 
   it("keeps the N-1 offset payload readable with null cursor metadata", () => {
@@ -48,6 +64,7 @@ describe("food success contract adapter", () => {
       next_cursor: null,
       snapshot_id: null,
       snapshot_expires_at: null,
+      release_set: null,
     });
     expect(result.items[0]).toMatchObject({
       id: "community:beans",

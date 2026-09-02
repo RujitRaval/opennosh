@@ -26,13 +26,15 @@ from opennosh_api.evidence.contracts import (
 )
 from opennosh_api.foodpacks.loader import CommunityFoodRecord, prepare_food_pack
 from opennosh_api.foodpacks.validation import discover_pack_directories
-from opennosh_api.foods.schemas import FoodAttribution, FoodDetail, FoodSource
+from opennosh_api.foods.schemas import FoodSource
 from opennosh_api.nutrition import HouseholdPortion
 from opennosh_api.public.artifacts import (
     ArtifactDescriptor,
     LocalArtifactStore,
     PublicArtifactReadService,
     PublicFoodArtifact,
+    PublicFoodAttribution,
+    PublicFoodRecord,
     PublicPackArtifact,
     PublicReadLatestPointer,
     PublicReadReleaseManifest,
@@ -406,15 +408,15 @@ def load_verified_inventory(
     return StarterReleaseInventory.model_validate_json(payload)
 
 
-def _food_detail(record: CommunityFoodRecord) -> FoodDetail:
-    return FoodDetail(
+def _food_detail(record: CommunityFoodRecord) -> PublicFoodRecord:
+    return PublicFoodRecord(
         id=f"community:{record.slug}",
         source=FoodSource.COMMUNITY,
         source_id=record.slug,
         name=record.name,
         name_local=record.name_local,
         category=record.category,
-        attribution=FoodAttribution(
+        attribution=PublicFoodAttribution(
             source=FoodSource.COMMUNITY,
             license=record.pack_license,
             source_uri=record.source_uri,

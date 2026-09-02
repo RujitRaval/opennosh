@@ -27,13 +27,14 @@ export type FoodSearchItemContract = TransportSearchItem;
 
 type LegacySearchResponse = Omit<
   TransportSearchResponse,
-  "schema_version" | "next_cursor" | "snapshot_id" | "snapshot_expires_at"
+  "schema_version" | "next_cursor" | "snapshot_id" | "snapshot_expires_at" | "release_set"
 > & {
   schema_version?: "1.0";
   offset?: number;
   next_cursor?: never;
   snapshot_id?: never;
   snapshot_expires_at?: never;
+  release_set?: never;
 };
 
 function schemaVersion(value: "1.0" | undefined): void {
@@ -58,6 +59,8 @@ function catalogueAttribution(value: TransportAttribution): FoodAttribution {
     pack_id: value.pack_id ?? null,
     pack_version: value.pack_version ?? null,
     provenance: value.provenance ?? null,
+    release_version: value.release_version ?? null,
+    release_digest: value.release_digest ?? null,
   };
 }
 
@@ -74,6 +77,9 @@ function portions(values: Array<Record<string, unknown>> | undefined): Household
 }
 
 function searchItem(value: TransportSearchItem): FoodSearchItem {
+  if (value.source === "federation") {
+    throw new Error("Federated food search is not installed in this web client");
+  }
   return {
     id: value.id,
     source: value.source,
@@ -82,6 +88,10 @@ function searchItem(value: TransportSearchItem): FoodSearchItem {
     name_local: value.name_local ?? null,
     category: value.category ?? null,
     attribution: catalogueAttribution(value.attribution),
+    equivalence_group_id: value.equivalence_group_id ?? null,
+    variant_id: value.variant_id ?? null,
+    conflict: value.conflict ?? false,
+    variant_count: value.variant_count ?? 1,
   };
 }
 
@@ -97,6 +107,15 @@ export function foodSearch(
     next_cursor: current?.next_cursor ?? null,
     snapshot_id: current?.snapshot_id ?? null,
     snapshot_expires_at: current?.snapshot_expires_at ?? null,
+    release_set: current?.release_set
+      ? {
+          enabled: current.release_set.enabled,
+          checkpoint_id: current.release_set.checkpoint_id ?? null,
+          digest: current.release_set.digest ?? null,
+          selected_pack_ids: [...(current.release_set.selected_pack_ids ?? [])],
+          stale: current.release_set.stale ?? false,
+        }
+      : null,
   };
 }
 
@@ -149,7 +168,10 @@ export function publicFoodDetailResponse(
 
 export function foodCapabilities(value: TransportCapabilities): FoodCapabilities {
   schemaVersion(value.schema_version);
-  return { barcode_lookup_enabled: value.barcode_lookup_enabled };
+  return {
+    barcode_lookup_enabled: value.barcode_lookup_enabled,
+    federation_search_enabled: value.federation_search_enabled ?? false,
+  };
 }
 
 export function barcodeFood(value: TransportBarcodeFood): BarcodeFood {

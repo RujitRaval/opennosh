@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,12 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.dependencies import CurrentSession
+from opennosh_api.federation.search import (
+    ActiveFederationProjection,
+    active_federation_projection,
+    append_federation_projection,
+    federation_food_detail,
+)
 from opennosh_api.foods.cursors import (
     SEARCH_CURSOR_SCHEMA_VERSION,
     SEARCH_RANKING_VERSION,
@@ -28,6 +35,7 @@ from opennosh_api.foods.schemas import (
     FoodAttribution,
     FoodDetail,
     FoodSearchItem,
+    FoodSearchReleaseSet,
     FoodSearchResponse,
     FoodSource,
 )
@@ -41,6 +49,8 @@ SEARCH_LIMIT_MAX = 50
 SEARCH_PLAN_MAX_EXECUTION_MS = 100.0
 
 _LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
+_PACK_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SEARCH_PACK_FILTER_MAX = 20
 
 
 class RankingTier(IntEnum):
@@ -73,6 +83,17 @@ def normalize_locale(value: str | None) -> str | None:
     return normalized.lower()
 
 
+def normalize_pack_ids(values: list[str] | None) -> tuple[str, ...]:
+    if not values:
+        return ()
+    normalized = tuple(sorted(set(value.strip() for value in values)))
+    if len(normalized) > SEARCH_PACK_FILTER_MAX:
+        raise ValueError(f"pack can contain at most {SEARCH_PACK_FILTER_MAX} distinct IDs")
+    if any(not 1 <= len(value) <= 80 or _PACK_ID.fullmatch(value) is None for value in normalized):
+        raise ValueError("pack values must be canonical food-pack IDs")
+    return normalized
+
+
 _SNAPSHOT_SEARCH_VECTOR = """
 to_tsvector(
     'simple'::regconfig,
@@ -99,6 +120,7 @@ ranked_matches AS (
     SELECT
         food.source,
         food.source_id,
+        food.source_record_id,
         food.name,
         food.name_local,
         food.category,
@@ -109,11 +131,17 @@ ranked_matches AS (
         food.pack_id,
         food.pack_version,
         food.provenance,
+        food.release_version,
+        food.release_digest,
+        food.equivalence_group_id,
+        food.variant_id,
+        food.conflict,
+        food.variant_count,
         CASE
             WHEN food.source = 'community'
                  AND food.source_id = CAST(:slug_query AS text)
                 THEN {int(RankingTier.EXACT_COMMUNITY_SLUG)}
-            WHEN food.source = 'community'
+            WHEN food.source IN ('community', 'federation')
                  AND CAST(:locale AS text) IS NOT NULL
                  AND lower(food.locale) = CAST(:locale AS text)
                 THEN {int(RankingTier.LOCALE_COMMUNITY)}
@@ -175,21 +203,24 @@ LIMIT :fetch_limit
 
 FOOD_SEARCH_SNAPSHOT_INSERT_SQL = """
 INSERT INTO food_search_snapshot_items (
-    snapshot_id, source, source_id, name, name_local, locale, category, license,
+    snapshot_id, source, source_id, source_record_id, name, name_local, locale, category, license,
     source_uri, source_license, contributed_by, pack_id, pack_version, provenance
 )
 SELECT
-    CAST(:snapshot_id AS uuid), 'community', food.slug, food.name, food.name_local,
+    CAST(:snapshot_id AS uuid), 'community', food.slug, food.slug, food.name, food.name_local,
     lower(food.locale), food.category, food.pack_license, food.source_uri,
     food.source_license, food.contributed_by, food.pack_id, food.pack_version,
     food.provenance
 FROM foods_community AS food
+WHERE CAST(:has_pack_filter AS boolean) IS FALSE
+   OR food.pack_id = ANY(CAST(:selected_pack_ids AS text[]))
 UNION ALL
 SELECT
-    CAST(:snapshot_id AS uuid), 'usda', food.fdc_id, food.description, NULL, NULL,
+    CAST(:snapshot_id AS uuid), 'usda', food.fdc_id, food.fdc_id, food.description, NULL, NULL,
     food.food_category, food.license, NULL, food.license, NULL, NULL, NULL,
     'government_database'
 FROM foods_reference AS food
+WHERE CAST(:has_pack_filter AS boolean) IS FALSE
 """
 
 
@@ -205,6 +236,10 @@ class FoodSearchProjectionBusyError(RuntimeError):
 class SearchSnapshot:
     snapshot_id: UUID
     expires_at: datetime
+    federation_checkpoint_id: UUID | None = None
+    release_set_digest: str | None = None
+    selected_pack_ids: tuple[str, ...] = ()
+    stale: bool = False
 
 
 def _attribution(row: RowMapping) -> FoodAttribution:
@@ -218,6 +253,8 @@ def _attribution(row: RowMapping) -> FoodAttribution:
         pack_id=row["pack_id"],
         pack_version=row["pack_version"],
         provenance=row["provenance"],
+        release_version=row["release_version"],
+        release_digest=row["release_digest"],
     )
 
 
@@ -232,6 +269,10 @@ def _search_item(row: RowMapping) -> FoodSearchItem:
         name_local=row["name_local"],
         category=row["category"],
         attribution=_attribution(row),
+        equivalence_group_id=row["equivalence_group_id"],
+        variant_id=row["variant_id"],
+        conflict=bool(row["conflict"]),
+        variant_count=int(row["variant_count"]),
     )
 
 
@@ -250,13 +291,15 @@ async def _existing_snapshot(
     *,
     snapshot_id: UUID,
     now: datetime,
+    active_projection: ActiveFederationProjection | None = None,
 ) -> SearchSnapshot:
     row = (
         (
             await database.execute(
                 text(
                     """
-                SELECT id, expires_at
+                SELECT id, expires_at, federation_checkpoint_id,
+                       release_set_digest, selected_pack_ids
                 FROM food_search_snapshots
                 WHERE id = CAST(:snapshot_id AS uuid)
                   AND ranking_version = :ranking_version
@@ -277,7 +320,27 @@ async def _existing_snapshot(
             SearchCursorFailure.RESTART,
             "The retained search snapshot is no longer available.",
         )
-    return SearchSnapshot(snapshot_id=row["id"], expires_at=row["expires_at"])
+    checkpoint_id = row["federation_checkpoint_id"]
+    release_set_digest = row["release_set_digest"]
+    stale = (
+        (active_projection is None and checkpoint_id is not None)
+        or (active_projection is not None and active_projection.stale)
+        or (
+            active_projection is not None
+            and (
+                checkpoint_id != active_projection.checkpoint_id
+                or release_set_digest != active_projection.release_set_digest
+            )
+        )
+    )
+    return SearchSnapshot(
+        snapshot_id=row["id"],
+        expires_at=row["expires_at"],
+        federation_checkpoint_id=checkpoint_id,
+        release_set_digest=release_set_digest,
+        selected_pack_ids=tuple(row["selected_pack_ids"]),
+        stale=stale,
+    )
 
 
 async def _latest_snapshot(
@@ -285,6 +348,8 @@ async def _latest_snapshot(
     *,
     now: datetime,
     fresh_after: datetime | None,
+    active_projection: ActiveFederationProjection | None = None,
+    selected_pack_ids: tuple[str, ...] = (),
 ) -> SearchSnapshot | None:
     freshness = "AND created_at >= :fresh_after" if fresh_after is not None else ""
     row = (
@@ -292,10 +357,19 @@ async def _latest_snapshot(
             await database.execute(
                 text(
                     f"""
-                SELECT id, expires_at
+                SELECT id, expires_at, federation_checkpoint_id,
+                       release_set_digest, selected_pack_ids
                 FROM food_search_snapshots
                 WHERE ranking_version = :ranking_version
                   AND expires_at > :now
+                  AND federation_checkpoint_id IS NOT DISTINCT FROM
+                      CAST(:federation_checkpoint_id AS uuid)
+                  AND release_set_digest IS NOT DISTINCT FROM :release_set_digest
+                  AND selected_pack_ids = CAST(:selected_pack_ids AS jsonb)
+                  AND (
+                      CAST(:quarantine_cutoff AS timestamptz) IS NULL
+                      OR created_at >= CAST(:quarantine_cutoff AS timestamptz)
+                  )
                   {freshness}
                 ORDER BY created_at DESC
                 LIMIT 1
@@ -306,6 +380,22 @@ async def _latest_snapshot(
                     "ranking_version": SEARCH_RANKING_VERSION,
                     "fresh_after": fresh_after,
                     "now": now,
+                    "federation_checkpoint_id": (
+                        active_projection.checkpoint_id
+                        if active_projection is not None
+                        else None
+                    ),
+                    "release_set_digest": (
+                        active_projection.release_set_digest
+                        if active_projection is not None
+                        else None
+                    ),
+                    "selected_pack_ids": json.dumps(selected_pack_ids),
+                    "quarantine_cutoff": (
+                        active_projection.quarantine_cutoff
+                        if active_projection is not None
+                        else None
+                    ),
                 },
             )
         )
@@ -314,7 +404,14 @@ async def _latest_snapshot(
     )
     if row is None:
         return None
-    return SearchSnapshot(snapshot_id=row["id"], expires_at=row["expires_at"])
+    return SearchSnapshot(
+        snapshot_id=row["id"],
+        expires_at=row["expires_at"],
+        federation_checkpoint_id=row["federation_checkpoint_id"],
+        release_set_digest=row["release_set_digest"],
+        selected_pack_ids=tuple(row["selected_pack_ids"]),
+        stale=active_projection.stale if active_projection is not None else False,
+    )
 
 
 async def _fresh_snapshot(
@@ -323,12 +420,16 @@ async def _fresh_snapshot(
     now: datetime,
     refresh_seconds: int,
     retention_seconds: int,
+    active_projection: ActiveFederationProjection | None = None,
+    selected_pack_ids: tuple[str, ...] = (),
 ) -> SearchSnapshot:
     fresh_after = now - timedelta(seconds=refresh_seconds)
     snapshot = await _latest_snapshot(
         database,
         now=now,
         fresh_after=fresh_after,
+        active_projection=active_projection,
+        selected_pack_ids=selected_pack_ids,
     )
     if snapshot is not None:
         return snapshot
@@ -343,7 +444,13 @@ async def _fresh_snapshot(
         ).scalar_one()
     )
     if not lock_acquired:
-        retained = await _latest_snapshot(database, now=now, fresh_after=None)
+        retained = await _latest_snapshot(
+            database,
+            now=now,
+            fresh_after=None,
+            active_projection=active_projection,
+            selected_pack_ids=selected_pack_ids,
+        )
         if retained is not None:
             return retained
         raise FoodSearchProjectionBusyError
@@ -352,6 +459,8 @@ async def _fresh_snapshot(
         database,
         now=now,
         fresh_after=fresh_after,
+        active_projection=active_projection,
+        selected_pack_ids=selected_pack_ids,
     )
     if snapshot is not None:
         return snapshot
@@ -366,9 +475,12 @@ async def _fresh_snapshot(
         text(
             """
             INSERT INTO food_search_snapshots (
-                id, ranking_version, created_at, expires_at
+                id, ranking_version, created_at, expires_at,
+                federation_checkpoint_id, release_set_digest, selected_pack_ids
             ) VALUES (
-                CAST(:snapshot_id AS uuid), :ranking_version, :created_at, :expires_at
+                CAST(:snapshot_id AS uuid), :ranking_version, :created_at, :expires_at,
+                CAST(:federation_checkpoint_id AS uuid), :release_set_digest,
+                CAST(:selected_pack_ids AS jsonb)
             )
             """
         ),
@@ -377,14 +489,43 @@ async def _fresh_snapshot(
             "ranking_version": SEARCH_RANKING_VERSION,
             "created_at": now,
             "expires_at": expires_at,
+            "federation_checkpoint_id": (
+                active_projection.checkpoint_id if active_projection is not None else None
+            ),
+            "release_set_digest": (
+                active_projection.release_set_digest if active_projection is not None else None
+            ),
+            "selected_pack_ids": json.dumps(selected_pack_ids),
         },
     )
     await database.execute(
         text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
-        {"snapshot_id": snapshot_id},
+        {
+            "snapshot_id": snapshot_id,
+            "has_pack_filter": bool(selected_pack_ids),
+            "selected_pack_ids": list(selected_pack_ids),
+        },
     )
+    if active_projection is not None:
+        await append_federation_projection(
+            database,
+            snapshot_id=snapshot_id,
+            projection=active_projection,
+            selected_pack_ids=selected_pack_ids,
+        )
     await database.commit()
-    return SearchSnapshot(snapshot_id=snapshot_id, expires_at=expires_at)
+    return SearchSnapshot(
+        snapshot_id=snapshot_id,
+        expires_at=expires_at,
+        federation_checkpoint_id=(
+            active_projection.checkpoint_id if active_projection is not None else None
+        ),
+        release_set_digest=(
+            active_projection.release_set_digest if active_projection is not None else None
+        ),
+        selected_pack_ids=selected_pack_ids,
+        stale=active_projection.stale if active_projection is not None else False,
+    )
 
 
 async def search_foods(
@@ -401,13 +542,23 @@ async def search_foods(
     snapshot_retention_seconds: int,
     snapshot_build_timeout_ms: int,
     statement_timeout_ms: int,
+    federation_enabled: bool = False,
+    selected_pack_ids: tuple[str, ...] = (),
     now: datetime | None = None,
 ) -> FoodSearchResponse:
     current_time = now or datetime.now(UTC)
+    federation_requested = federation_enabled and (
+        source is FoodSource.FEDERATION or bool(selected_pack_ids)
+    )
+    active_projection = (
+        await active_federation_projection(database) if federation_requested else None
+    )
     fingerprint = search_fingerprint(
         query=query,
         locale=locale,
         source=source.value if source is not None else None,
+        pack_ids=selected_pack_ids,
+        federation_enabled=federation_requested,
     )
     payload: SearchCursorPayload | None = None
     if cursor is not None:
@@ -426,7 +577,16 @@ async def search_foods(
             database,
             snapshot_id=payload.sid,
             now=current_time,
+            active_projection=active_projection,
         )
+        if (
+            snapshot.selected_pack_ids != selected_pack_ids
+            or payload.rs != snapshot.release_set_digest
+        ):
+            raise SearchCursorError(
+                SearchCursorFailure.RESTART,
+                "This search cursor belongs to a different pack release set.",
+            )
     else:
         try:
             async with asyncio.timeout(snapshot_build_timeout_ms / 1_000):
@@ -439,6 +599,8 @@ async def search_foods(
                     now=current_time,
                     refresh_seconds=snapshot_refresh_seconds,
                     retention_seconds=snapshot_retention_seconds,
+                    active_projection=active_projection,
+                    selected_pack_ids=selected_pack_ids,
                 )
         except TimeoutError as error:
             await database.rollback()
@@ -496,6 +658,7 @@ async def search_foods(
                 sid=snapshot.snapshot_id,
                 fp=fingerprint,
                 rv=SEARCH_RANKING_VERSION,
+                rs=snapshot.release_set_digest,
                 pos=_cursor_position(visible_rows[-1]),
                 size=limit,
                 exp=int(cursor_expires_at.timestamp()),
@@ -508,6 +671,13 @@ async def search_foods(
         next_cursor=next_cursor,
         snapshot_id=snapshot.snapshot_id,
         snapshot_expires_at=snapshot.expires_at,
+        release_set=FoodSearchReleaseSet(
+            enabled=federation_requested,
+            checkpoint_id=snapshot.federation_checkpoint_id,
+            digest=snapshot.release_set_digest,
+            selected_pack_ids=list(snapshot.selected_pack_ids),
+            stale=snapshot.stale,
+        ),
     )
 
 
@@ -558,10 +728,27 @@ async def get_food_detail(
     database: AsyncSession, source: FoodSource, source_id: str
 ) -> FoodDetail | None:
     if source is FoodSource.USDA:
-        row = await database.scalar(select(FoodReference).where(FoodReference.fdc_id == source_id))
-        return _reference_detail(row) if row is not None else None
-    row = await database.scalar(select(FoodCommunity).where(FoodCommunity.slug == source_id))
-    return _community_detail(row) if row is not None else None
+        reference = await database.scalar(
+            select(FoodReference).where(FoodReference.fdc_id == source_id)
+        )
+        return _reference_detail(reference) if reference is not None else None
+    if source is FoodSource.COMMUNITY:
+        community = await database.scalar(
+            select(FoodCommunity).where(FoodCommunity.slug == source_id)
+        )
+        return _community_detail(community) if community is not None else None
+    federation_row = await federation_food_detail(database, source_id)
+    if federation_row is None:
+        return None
+    item = _search_item(federation_row)
+    return FoodDetail(
+        **item.model_dump(),
+        nutrients=federation_row["nutrients_json"],
+        portions=[
+            HouseholdPortion.model_validate(value)
+            for value in federation_row["portions_json"]
+        ],
+    )
 
 
 async def create_custom_food(

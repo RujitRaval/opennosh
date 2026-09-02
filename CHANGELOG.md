@@ -2,6 +2,27 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.75.0.0] - 2026-09-02
+
+### Added
+
+- Search the latest complete verified federation projection through retained PostgreSQL snapshots,
+  with optional selected-pack filters and exact pack, release, license, contributor, and provenance
+  attribution on every result.
+- Preserve independently addressable variants, group only exact deterministic source identities,
+  report nutrient conflicts without averaging, and expose immutable federation detail records.
+- Bind cache reuse and signed cursor pagination to the exact projection checkpoint, release-set
+  digest, selected packs, and feature state while reporting stale retained snapshots honestly.
+
+### Security
+
+- Keep federation search explicitly disabled for the Render API and publication worker, include the
+  switch in both readiness reports, and fail closed for explicit federation or pack-filter searches
+  until a separately approved activation.
+- Leave ingestion, projection operation, installation, enrollment, public discovery, and publication
+  claims disabled; retain immutable projection facts and refuse destructive downgrade while
+  federated search snapshots exist.
+
 ## [0.74.0.0] - 2026-09-02
 
 ### Added

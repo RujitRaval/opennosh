@@ -24,6 +24,13 @@ function foodSearch(items: FoodSearchItemContract[]): FoodSearchContract {
     next_cursor: null,
     snapshot_id: "00000000-0000-4000-8000-000000000001",
     snapshot_expires_at: "2026-08-20T16:15:00Z",
+    release_set: {
+      enabled: false,
+      checkpoint_id: null,
+      digest: null,
+      selected_pack_ids: [],
+      stale: false,
+    },
     has_more: false,
   };
 }

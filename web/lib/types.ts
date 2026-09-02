@@ -19,7 +19,7 @@ export type SessionState = {
   user: AuthenticatedUser | null;
 };
 
-export type FoodSource = "usda" | "community" | "openfoodfacts" | "custom";
+export type FoodSource = "usda" | "community" | "federation" | "openfoodfacts" | "custom";
 export type CatalogueFoodSource = "usda" | "community";
 
 export type FoodAttribution = {
@@ -35,6 +35,8 @@ export type FoodAttribution = {
   pack_id?: string | null;
   pack_version?: string | null;
   provenance?: string | null;
+  release_version?: string | null;
+  release_digest?: string | null;
 };
 
 export type FoodSearchItem = {
@@ -45,6 +47,18 @@ export type FoodSearchItem = {
   name_local: string | null;
   category: string | null;
   attribution: FoodAttribution;
+  equivalence_group_id?: string | null;
+  variant_id?: string | null;
+  conflict?: boolean;
+  variant_count?: number;
+};
+
+export type FoodSearchReleaseSet = {
+  enabled: boolean;
+  checkpoint_id: string | null;
+  digest: string | null;
+  selected_pack_ids: string[];
+  stale: boolean;
 };
 
 export type FoodSearchResponse = {
@@ -54,6 +68,7 @@ export type FoodSearchResponse = {
   next_cursor: string | null;
   snapshot_id: string | null;
   snapshot_expires_at: string | null;
+  release_set: FoodSearchReleaseSet | null;
 };
 
 export type HouseholdPortion = {
@@ -83,6 +98,7 @@ export type CustomFood = Omit<
 
 export type FoodCapabilities = {
   barcode_lookup_enabled: boolean;
+  federation_search_enabled: boolean;
 };
 
 export type LogEntry = {

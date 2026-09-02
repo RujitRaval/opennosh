@@ -11,13 +11,14 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Any, Literal, Protocol
 from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from opennosh_api.foods.schemas import FoodDetail, FoodSource
+from opennosh_api.foods.schemas import FoodSource
+from opennosh_api.nutrition import HouseholdPortion
 from opennosh_api.public_commons.manifests import (
     ManifestKeyRing,
     ManifestVerificationError,
@@ -179,11 +180,43 @@ class PublicReleaseMetadata(BaseModel):
     stale_age_seconds: Annotated[int, Field(ge=0)] = 0
 
 
+class PublicFoodAttribution(BaseModel):
+    """Stable attribution contract embedded in immutable signed food records."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source: Literal[FoodSource.USDA, FoodSource.COMMUNITY]
+    license: str
+    source_uri: str | None = None
+    source_license: str | None = None
+    contributed_by: str | None = None
+    pack_id: str | None = None
+    pack_version: str | None = None
+    provenance: str | None = None
+
+
+class PublicFoodRecord(BaseModel):
+    """Versioned public record shape; independent from mutable search metadata."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: str
+    source: Literal[FoodSource.USDA, FoodSource.COMMUNITY]
+    source_id: str
+    name: str
+    name_local: str | None = None
+    category: str | None = None
+    attribution: PublicFoodAttribution
+    schema_version: Literal["1.0"] = "1.0"
+    nutrients: dict[str, Any]
+    portions: list[HouseholdPortion]
+
+
 class PublicFoodRecordResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     schema_version: Literal["1.0"] = "1.0"
-    record: FoodDetail
+    record: PublicFoodRecord
     release: PublicReleaseMetadata
     immutable_url: str
     provenance_url: str
@@ -403,7 +436,7 @@ class PublicArtifactReadService:
             raise ArtifactNotFoundError("food_not_found")
         record_bytes = await self._verified_read(item.record, max_bytes=MAX_RECORD_BYTES)
         try:
-            record = FoodDetail.model_validate_json(record_bytes)
+            record = PublicFoodRecord.model_validate_json(record_bytes)
         except ValueError as error:
             raise ArtifactUnavailableError("food_record_invalid") from error
         if record.source is not source or record.source_id != source_id:

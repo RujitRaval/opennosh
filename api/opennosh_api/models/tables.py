@@ -144,7 +144,26 @@ class FoodSearchSnapshot(UUIDPrimaryKeyMixin, Base):
     __table_args__ = (
         CheckConstraint("ranking_version > 0", name="ranking_version_positive"),
         CheckConstraint("expires_at > created_at", name="expiry_after_creation"),
+        CheckConstraint(
+            "(federation_checkpoint_id IS NULL) = (release_set_digest IS NULL)",
+            name="release_set_binding_complete",
+        ),
+        CheckConstraint(
+            "release_set_digest IS NULL OR release_set_digest ~ '^[0-9a-f]{64}$'",
+            name="release_set_digest_sha256",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(selected_pack_ids) = 'array' AND "
+            "jsonb_array_length(selected_pack_ids) <= 20",
+            name="selected_pack_ids_array",
+        ),
         Index("ix_food_search_snapshots_created_at", "created_at"),
+        Index(
+            "ix_food_search_snapshots_release_set",
+            "ranking_version",
+            "federation_checkpoint_id",
+            "created_at",
+        ),
     )
 
     ranking_version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -154,17 +173,44 @@ class FoodSearchSnapshot(UUIDPrimaryKeyMixin, Base):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
+    federation_checkpoint_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("federation_projection_checkpoints.id", ondelete="RESTRICT")
+    )
+    release_set_digest: Mapped[str | None] = mapped_column(String(64))
+    selected_pack_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
 
 
 class FoodSearchSnapshotItem(Base):
     __tablename__ = "food_search_snapshot_items"
     __table_args__ = (
-        CheckConstraint("source IN ('usda', 'community')", name="source_allowed"),
+        CheckConstraint(
+            "source IN ('usda', 'community', 'federation')", name="source_allowed"
+        ),
+        CheckConstraint("variant_count > 0", name="variant_count_positive"),
+        CheckConstraint(
+            "source <> 'federation' OR (source_record_id IS NOT NULL AND "
+            "verified_release_id IS NOT NULL AND release_version IS NOT NULL AND "
+            "release_digest IS NOT NULL AND equivalence_group_id IS NOT NULL AND "
+            "variant_id IS NOT NULL)",
+            name="federation_binding_complete",
+        ),
+        CheckConstraint(
+            "release_digest IS NULL OR release_digest ~ '^[0-9a-f]{64}$'",
+            name="release_digest_sha256",
+        ),
+        Index("ix_food_search_snapshot_items_pack", "snapshot_id", "pack_id"),
+        Index(
+            "ix_food_search_snapshot_items_equivalence",
+            "snapshot_id",
+            "equivalence_group_id",
+        ),
         Index(
             "ix_food_search_snapshot_items_search_tsv",
             text(
-                "to_tsvector('simple'::regconfig, ((((("
-                "coalesce(source_id, ''::character varying)::text || ' '::text) || "
+                "to_tsvector('simple'::regconfig, (((("
+                "(coalesce(source_id, ''::character varying)::text || ' '::text) || "
                 "coalesce(name, ''::character varying)::text) || ' '::text) || "
                 "coalesce(name_local, ''::character varying)::text) || ' '::text) || "
                 "coalesce(category, ''::character varying)::text)"
@@ -197,18 +243,29 @@ class FoodSearchSnapshotItem(Base):
         primary_key=True,
     )
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
-    source_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    source_record_id: Mapped[str | None] = mapped_column(String(120))
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     name_local: Mapped[str | None] = mapped_column(String(255))
     locale: Mapped[str | None] = mapped_column(String(35))
     category: Mapped[str | None] = mapped_column(String(255))
     license: Mapped[str] = mapped_column(String(64), nullable=False)
     source_uri: Mapped[str | None] = mapped_column(String(2048))
-    source_license: Mapped[str | None] = mapped_column(String(64))
+    source_license: Mapped[str | None] = mapped_column(String(255))
     contributed_by: Mapped[str | None] = mapped_column(String(100))
     pack_id: Mapped[str | None] = mapped_column(String(160))
     pack_version: Mapped[str | None] = mapped_column(String(64))
     provenance: Mapped[str | None] = mapped_column(String(64))
+    verified_release_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("federation_verified_releases.id", ondelete="RESTRICT")
+    )
+    release_version: Mapped[str | None] = mapped_column(String(255))
+    release_digest: Mapped[str | None] = mapped_column(String(64))
+    equivalence_group_id: Mapped[str | None] = mapped_column(String(200))
+    variant_id: Mapped[str | None] = mapped_column(String(200))
+    nutrients_digest: Mapped[str | None] = mapped_column(String(64))
+    conflict: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    variant_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
 
 
 class FoodOdbl(UUIDPrimaryKeyMixin, Base):
