@@ -23,12 +23,13 @@ EXPECTED_TABLE_OWNERS = {
     "evidence_removal_tombstones": ("opennosh_api.evidence.models.EvidenceRemovalTombstone"),
     "evidence_upload_sessions": "opennosh_api.evidence.models.EvidenceUploadSession",
     "federation_audit_events": "opennosh_api.federation.models.FederationAuditEvent",
+    "federation_pack_installation_events": (
+        "opennosh_api.federation.models.FederationPackInstallationEvent"
+    ),
     "federation_invitations": "opennosh_api.federation.models.FederationInvitation",
     "federation_maintainers": "opennosh_api.federation.models.FederationMaintainer",
     "federation_releases": "opennosh_api.federation.models.FederationRelease",
-    "federation_verified_releases": (
-        "opennosh_api.federation.models.FederationVerifiedRelease"
-    ),
+    "federation_verified_releases": ("opennosh_api.federation.models.FederationVerifiedRelease"),
     "federation_release_status_events": (
         "opennosh_api.federation.models.FederationReleaseStatusEvent"
     ),
@@ -38,9 +39,7 @@ EXPECTED_TABLE_OWNERS = {
     "federation_projection_releases": (
         "opennosh_api.federation.models.FederationProjectionRelease"
     ),
-    "federation_projection_foods": (
-        "opennosh_api.federation.models.FederationProjectionFood"
-    ),
+    "federation_projection_foods": ("opennosh_api.federation.models.FederationProjectionFood"),
     "federation_projection_activations": (
         "opennosh_api.federation.models.FederationProjectionActivation"
     ),
@@ -135,6 +134,7 @@ def test_registry_import_order_is_deterministic() -> None:
         "governance_publication_interventions",
         "federation_invitations",
         "federation_maintainers",
+        "federation_pack_installation_events",
         "federation_role_keys",
         "federation_audit_events",
         "federation_releases",

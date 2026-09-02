@@ -235,9 +235,7 @@ class FederationRelease(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     key_id: Mapped[str] = mapped_column(String(64), nullable=False)
     signature: Mapped[str] = mapped_column(String(86), nullable=False)
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    receipt_published_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    receipt_published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -294,6 +292,49 @@ class FederationReleaseStatusEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class FederationPackInstallationEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """Append-only local selection of one verified release for a pack scope."""
+
+    __tablename__ = "federation_pack_installation_events"
+    __table_args__ = (
+        CheckConstraint("repository_id > 0", name="repository_id_positive"),
+        CheckConstraint(
+            "action IN ('install','update','rollback','remove')", name="action_allowed"
+        ),
+        CheckConstraint("generation > 0", name="generation_positive"),
+        CheckConstraint("reason_digest ~ '^[0-9a-f]{64}$'", name="reason_digest_sha256"),
+        CheckConstraint(
+            "(action = 'remove') = (verified_release_id IS NULL)",
+            name="release_binding_matches_action",
+        ),
+        UniqueConstraint(
+            "repository_id", "pack_id", "generation", name="uq_federation_install_scope_gen"
+        ),
+        Index(
+            "ix_federation_install_scope_latest",
+            "repository_id",
+            "pack_id",
+            "generation",
+        ),
+    )
+
+    repository_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    verified_release_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("federation_verified_releases.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    prior_event_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("federation_pack_installation_events.id", ondelete="RESTRICT")
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reason_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class FederationProjectionCheckpoint(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     """Immutable release-set identity for one complete candidate projection."""
 
@@ -301,12 +342,25 @@ class FederationProjectionCheckpoint(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("release_set_digest ~ '^[0-9a-f]{64}$'", name="release_set_sha256"),
         CheckConstraint("jsonb_typeof(release_set_json) = 'array'", name="release_set_json_array"),
-        CheckConstraint("release_count > 0", name="release_count_positive"),
-        CheckConstraint("record_count > 0", name="record_count_positive"),
-        UniqueConstraint("release_set_digest", name="uq_federation_projection_release_set"),
+        CheckConstraint("mode IN ('registry','installed')", name="mode_allowed"),
+        CheckConstraint("release_count >= 0", name="release_count_nonnegative"),
+        CheckConstraint("record_count >= 0", name="record_count_nonnegative"),
+        CheckConstraint(
+            "(release_count = 0 AND record_count = 0) OR "
+            "(release_count > 0 AND record_count > 0)",
+            name="projection_counts_consistent",
+        ),
+        CheckConstraint(
+            "mode = 'installed' OR (release_count > 0 AND record_count > 0)",
+            name="registry_projection_nonempty",
+        ),
+        UniqueConstraint(
+            "mode", "release_set_digest", name="uq_federation_projection_mode_release_set"
+        ),
         Index("ix_federation_projection_checkpoints_built", "built_at"),
     )
 
+    mode: Mapped[str] = mapped_column(String(16), nullable=False, default="registry")
     release_set_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     release_set_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     release_count: Mapped[int] = mapped_column(Integer, nullable=False)

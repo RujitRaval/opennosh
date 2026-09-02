@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -31,7 +31,11 @@ from opennosh_api.federation.github import (
     GitHubInstallationVerifier,
 )
 from opennosh_api.federation.repository import federation_scope_allows_claim
-from opennosh_api.federation.service import FederationService
+from opennosh_api.federation.service import (
+    FederationError,
+    FederationService,
+    require_installation_chronology,
+)
 from opennosh_api.federation.settings import FederationOperatorSettings
 from pydantic import ValidationError
 
@@ -211,6 +215,7 @@ def test_operator_settings_preserve_the_legacy_exact_scope() -> None:
     assert settings.allowed_public_origin == "https://opennosh.org"
     assert settings.ingestion_enabled is False
     assert settings.projection_enabled is False
+    assert settings.installation_enabled is False
     assert "PRIVATE KEY" not in repr(settings)
 
 
@@ -236,6 +241,36 @@ def test_operator_settings_require_manifest_keys_before_ingestion_activation() -
     assert "manifest-v1" not in repr(settings)
 
 
+def test_operator_settings_reject_installation_without_projection() -> None:
+    scope_options = {
+        "allowed_github_account_id": SCOPE.github_account_id,
+        "allowed_github_login": SCOPE.github_login,
+        "allowed_repository_id": SCOPE.repository_id,
+        "allowed_repository": SCOPE.repository,
+        "allowed_pack_id": SCOPE.pack_id,
+    }
+    with pytest.raises(ValidationError, match="installation requires projection"):
+        _operator_settings(installation_enabled=True, **scope_options)
+
+
+def test_installation_update_and_rollback_use_governed_receipt_chronology() -> None:
+    newer = NOW + timedelta(minutes=1)
+    require_installation_chronology(
+        "update", current_published_at=NOW, target_published_at=newer
+    )
+    require_installation_chronology(
+        "rollback", current_published_at=newer, target_published_at=NOW
+    )
+    with pytest.raises(FederationError, match="update_not_newer"):
+        require_installation_chronology(
+            "update", current_published_at=newer, target_published_at=NOW
+        )
+    with pytest.raises(FederationError, match="rollback_not_older"):
+        require_installation_chronology(
+            "rollback", current_published_at=NOW, target_published_at=newer
+        )
+
+
 def test_operator_settings_load_a_bounded_immutable_scope_allowlist() -> None:
     payload = json.dumps(
         [scope.model_dump(mode="json") for scope in (SCOPE, SECOND_SCOPE, THIRD_SCOPE)]
@@ -254,11 +289,7 @@ def test_operator_settings_load_a_bounded_immutable_scope_allowlist() -> None:
         ({"allowed_scopes_json": "not-json"}, "JSON is invalid"),
         ({"allowed_scopes_json": "{}"}, "JSON is invalid"),
         (
-            {
-                "allowed_scopes_json": json.dumps(
-                    [{**SCOPE.model_dump(), "unexpected": True}]
-                )
-            },
+            {"allowed_scopes_json": json.dumps([{**SCOPE.model_dump(), "unexpected": True}])},
             "JSON is invalid",
         ),
         ({"allowed_scopes_json": "[]"}, "1 to 32"),

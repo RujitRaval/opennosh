@@ -36,9 +36,7 @@ class FakeReadinessConnection:
         federation_state: str | None = None,
     ) -> None:
         message = JobMessage(
-            lane=(
-                JobLane.EVIDENCE if job_type == "evidence.preserve" else JobLane.PUBLICATION
-            ),
+            lane=(JobLane.EVIDENCE if job_type == "evidence.preserve" else JobLane.PUBLICATION),
             job_type=job_type,
             subject_id=uuid4(),
             idempotency_key="readiness:test:wakeup",
@@ -195,6 +193,12 @@ async def test_readiness_blocks_while_preactivation_smoke_is_enabled(
         ("federation_ingestion_enabled", True, "federation_ingestion_enabled"),
         ("federation_projection_enabled", True, "federation_projection_enabled"),
         ("federation_search_enabled", True, "federation_search_enabled"),
+        ("federation_installation_enabled", True, "federation_installation_enabled"),
+        (
+            "federation_public_discovery_enabled",
+            True,
+            "federation_public_discovery_enabled",
+        ),
         ("latest_refresh_enabled", False, "latest_refresh_disabled"),
         ("publication_claim_concurrency", 2, "claim_concurrency_not_pinned"),
         ("render_git_commit", None, "deployed_commit_missing_or_invalid"),
@@ -328,9 +332,10 @@ def test_default_activation_contract_path_falls_back_to_repository_config(
 
 
 def test_postgres_dsn_normalizes_async_driver_and_rejects_other_backends() -> None:
-    assert readiness_module._postgres_dsn(
-        "postgresql+asyncpg://publication@db/opennosh"
-    ) == "postgresql://publication@db/opennosh"
+    assert (
+        readiness_module._postgres_dsn("postgresql+asyncpg://publication@db/opennosh")
+        == "postgresql://publication@db/opennosh"
+    )
 
     with pytest.raises(ValueError, match="requires PostgreSQL"):
         readiness_module._postgres_dsn("sqlite:///tmp/opennosh.db")

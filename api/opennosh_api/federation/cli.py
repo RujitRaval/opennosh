@@ -102,6 +102,32 @@ def add_federation_parser(commands: argparse._SubParsersAction[argparse.Argument
     build_projection.add_argument("--reason", required=True)
     build_projection.add_argument("--json", action="store_true")
 
+    for command, help_text in (
+        ("install-pack", "Install one exact verified pack release"),
+        ("update-pack", "Update an installed pack to a newer verified release"),
+        ("rollback-pack", "Roll an installed pack back to an older verified release"),
+    ):
+        parser = operations.add_parser(command, help=help_text)
+        parser.add_argument("--statement-digest", required=True)
+        parser.add_argument("--reason", required=True)
+        parser.add_argument("--json", action="store_true")
+    remove_pack = operations.add_parser("remove-pack", help="Remove one installed pack scope")
+    remove_pack.add_argument("--repository-id", type=int, required=True)
+    remove_pack.add_argument("--pack-id", required=True)
+    remove_pack.add_argument("--reason", required=True)
+    remove_pack.add_argument("--json", action="store_true")
+    reconcile = operations.add_parser(
+        "reconcile-installations", help="Rebuild the exact installed-pack projection"
+    )
+    reconcile.add_argument("--reason", required=True)
+    reconcile.add_argument("--json", action="store_true")
+    install_status = operations.add_parser(
+        "installation-status", help="Read one installed pack's local state"
+    )
+    install_status.add_argument("--repository-id", type=int, required=True)
+    install_status.add_argument("--pack-id", required=True)
+    install_status.add_argument("--json", action="store_true")
+
     quarantine = operations.add_parser("quarantine", help="Quarantine an active scope")
     _add_lifecycle_arguments(quarantine)
     revoke = operations.add_parser("revoke", help="Revoke an active scope")
@@ -238,14 +264,13 @@ async def _run(
         allowed_public_origin=settings.allowed_public_origin,
         installation_verifier=verifier,
         manifest_keys=(
-            ManifestKeyRing.from_config(
-                settings.manifest_verifying_keys.get_secret_value()
-            )
+            ManifestKeyRing.from_config(settings.manifest_verifying_keys.get_secret_value())
             if settings.manifest_verifying_keys is not None
             else None
         ),
         ingestion_enabled=settings.ingestion_enabled,
         projection_enabled=settings.projection_enabled,
+        installation_enabled=getattr(settings, "installation_enabled", False),
     )
     try:
         command = arguments.federation_command
@@ -366,6 +391,42 @@ async def _run(
                 projection_status.model_dump(mode="json"),
                 as_json=arguments.json,
             )
+            return 0
+        if command in {"install-pack", "update-pack", "rollback-pack"}:
+            method = {
+                "install-pack": service.install_pack,
+                "update-pack": service.update_pack,
+                "rollback-pack": service.rollback_pack,
+            }[command]
+            install_status = await method(
+                arguments.statement_digest,
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(install_status.model_dump(mode="json"), as_json=arguments.json)
+            return 0
+        if command == "remove-pack":
+            install_status = await service.remove_pack(
+                repository_id=arguments.repository_id,
+                pack_id=arguments.pack_id,
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(install_status.model_dump(mode="json"), as_json=arguments.json)
+            return 0
+        if command == "reconcile-installations":
+            projection_status = await service.reconcile_installations(
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(projection_status.model_dump(mode="json"), as_json=arguments.json)
+            return 0
+        if command == "installation-status":
+            install_status = await service.installation_status(
+                repository_id=arguments.repository_id,
+                pack_id=arguments.pack_id,
+            )
+            _print_payload(install_status.model_dump(mode="json"), as_json=arguments.json)
             return 0
         if command == "quarantine":
             status = await service.quarantine(

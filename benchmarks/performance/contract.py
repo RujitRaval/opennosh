@@ -47,6 +47,16 @@ REQUIRED_TRAFFIC_IDS = {
     "projection_rebuild",
 }
 REQUIRED_BOUNDARIES = {"postgresql", "fastapi", "same_origin_proxy", "edge_browser"}
+REQUIRED_FEDERATION_SCENARIOS = {
+    "exact-name",
+    "prefix-name",
+    "misspelling",
+    "non-latin-script",
+    "duplicate-cluster",
+    "conflicting-license",
+    "pack-filter",
+    "worst-case-cursor-pagination",
+}
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -143,6 +153,23 @@ def validate_contract(document: dict[str, Any]) -> None:
         raise ValueError("dedicated-search extraction requires two reproducible misses")
     if extraction.get("same_contract_and_profile_required") is not True:
         raise ValueError("extraction misses must use the same contract and profile")
+
+    federation_gate = document.get("federation_search_gate", {})
+    launch_profile = profiles[0]
+    for field in ("records", "packs", "releases"):
+        if federation_gate.get(field) != launch_profile.get(field):
+            raise ValueError(f"federation search gate {field} must match launch-reference")
+    scenarios = set(federation_gate.get("scenarios", []))
+    if scenarios != REQUIRED_FEDERATION_SCENARIOS:
+        raise ValueError(
+            "federation search scenarios differ: "
+            f"{sorted(scenarios ^ REQUIRED_FEDERATION_SCENARIOS)}"
+        )
+    postgres_gate = document["gates"]["postgresql"]
+    if federation_gate.get("cold_p95_ms") != postgres_gate.get("cold_p95_ms"):
+        raise ValueError("federation cold PostgreSQL gate must match the primary gate")
+    if federation_gate.get("warm_p95_ms") != postgres_gate.get("warm_p95_ms"):
+        raise ValueError("federation warm PostgreSQL gate must match the primary gate")
 
 
 def load_contract(path: Path = DEFAULT_CONTRACT_PATH) -> BenchmarkContract:

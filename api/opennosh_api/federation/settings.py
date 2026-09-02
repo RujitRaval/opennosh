@@ -37,6 +37,7 @@ class FederationOperatorSettings(BaseSettings):
     github_app_private_key: SecretStr
     ingestion_enabled: bool = False
     projection_enabled: bool = False
+    installation_enabled: bool = False
     manifest_verifying_keys: SecretStr | None = None
 
     @field_validator("allowed_github_login")
@@ -83,6 +84,8 @@ class FederationOperatorSettings(BaseSettings):
             raise ValueError(
                 "Federation manifest verifying keys are required when ingestion is enabled"
             )
+        if self.installation_enabled and not self.projection_enabled:
+            raise ValueError("Federation installation requires projection to be enabled")
         return self
 
     @property
@@ -159,8 +162,7 @@ def _validate_scope_identities(scopes: tuple[FederationScope, ...]) -> None:
             raise ValueError("Federation scope allowlist contains a duplicate scope")
         if (
             account_ids.get(scope.github_account_id, account_login) != account_login
-            or account_logins.get(account_login, scope.github_account_id)
-            != scope.github_account_id
+            or account_logins.get(account_login, scope.github_account_id) != scope.github_account_id
             or repository_ids.get(scope.repository_id, repository) != repository
             or repositories.get(repository, scope.repository_id) != scope.repository_id
             or pack_scopes.get(scope.pack_id, scope_key) != scope_key

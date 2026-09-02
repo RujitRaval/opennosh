@@ -40,6 +40,10 @@ class FederationEventType(StrEnum):
     RELEASE_ARTIFACTS_VERIFIED = "release_artifacts_verified"
     RELEASE_QUARANTINED = "release_quarantined"
     PROJECTION_ACTIVATED = "projection_activated"
+    PACK_INSTALLED = "pack_installed"
+    PACK_UPDATED = "pack_updated"
+    PACK_ROLLED_BACK = "pack_rolled_back"
+    PACK_REMOVED = "pack_removed"
     ROLE_KEY_ROTATED = "role_key_rotated"
     MAINTAINER_QUARANTINED = "maintainer_quarantined"
     MAINTAINER_REVOKED = "maintainer_revoked"
@@ -151,14 +155,33 @@ class VerifiedReleaseStatus(BaseModel):
     state: Literal["verified", "quarantined"]
 
 
+class PackInstallationStatus(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0"] = "1.0"
+    repository_id: int = Field(gt=0)
+    pack_id: str
+    state: Literal["installed", "removed", "quarantined"]
+    action: Literal["install", "update", "rollback", "remove"]
+    generation: int = Field(gt=0)
+    verified_release_id: UUID | None
+    statement_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    release_version: str | None
+    pack_version: str | None
+    occurred_at: datetime
+    projection_checkpoint_id: UUID
+    release_set_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class ProjectionStatus(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     schema_version: Literal["1.0"] = "1.0"
+    mode: Literal["registry", "installed"] = "registry"
     checkpoint_id: UUID
     release_set_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
-    release_count: int = Field(gt=0)
-    record_count: int = Field(gt=0)
+    release_count: int = Field(ge=0)
+    record_count: int = Field(ge=0)
     activated_at: datetime
 
 

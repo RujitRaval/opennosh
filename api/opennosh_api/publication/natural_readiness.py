@@ -136,8 +136,12 @@ def _blueprint_flags(path: Path) -> dict[str, bool]:
         "federation_projection_enabled": value(
             "opennosh-publication", "FEDERATION_PROJECTION_ENABLED"
         ),
-        "federation_search_enabled": value(
-            "opennosh-publication", "FEDERATION_SEARCH_ENABLED"
+        "federation_search_enabled": value("opennosh-publication", "FEDERATION_SEARCH_ENABLED"),
+        "federation_installation_enabled": value(
+            "opennosh-publication", "FEDERATION_INSTALLATION_ENABLED"
+        ),
+        "federation_public_discovery_enabled": value(
+            "opennosh-publication", "FEDERATION_PUBLIC_DISCOVERY_ENABLED"
         ),
     }
 

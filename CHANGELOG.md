@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.76.0.0] - 2026-09-02
+
+### Added
+
+- Add append-only, generation-numbered self-hosted pack installation with exact install, update,
+  rollback, removal, status, and reconciliation commands for verified releases.
+- Atomically activate complete installed release-set projections, including an explicit empty
+  checkpoint after final-pack removal, while preserving immutable registry chronology.
+- Pin representative federation search coverage to the existing PostgreSQL launch benchmark for
+  names, scripts, misspellings, duplicates, license conflicts, pack filters, and deep cursors.
+
+### Security
+
+- Require configured scopes and active human stewards, reject quarantined or incorrectly ordered
+  targets, retain append-only audit facts, and make exact command replays idempotent.
+- Keep federation installation and public discovery explicitly disabled on Render and bind both
+  switches into production-claims and natural-readiness reports.
+
 ## [0.75.0.0] - 2026-09-02
 
 ### Added

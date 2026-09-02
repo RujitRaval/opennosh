@@ -15,6 +15,7 @@
     "traffic_mix",
     "measurement_boundaries",
     "gates",
+    "federation_search_gate",
     "extraction_policy"
   ],
   "properties": {
@@ -285,6 +286,37 @@
             }
           }
         }
+      }
+    },
+    "federation_search_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "boundary",
+        "records",
+        "packs",
+        "releases",
+        "scenarios",
+        "cold_p95_ms",
+        "warm_p95_ms",
+        "dedicated_engine_decision"
+      ],
+      "properties": {
+        "profile": {"const": "launch-reference"},
+        "boundary": {"const": "postgresql"},
+        "records": {"type": "integer", "minimum": 10000},
+        "packs": {"type": "integer", "minimum": 40},
+        "releases": {"type": "integer", "minimum": 120},
+        "scenarios": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 8,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "cold_p95_ms": {"type": "number", "minimum": 0},
+        "warm_p95_ms": {"type": "number", "minimum": 0},
+        "dedicated_engine_decision": {"const": "retain-postgresql"}
       }
     },
     "extraction_policy": {
