@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import stat
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +36,8 @@ from opennosh_api.federation.github import (
 )
 from opennosh_api.federation.service import FederationError, FederationService
 from opennosh_api.federation.settings import FederationOperatorSettings
+from opennosh_api.public.artifacts import MAX_MANIFEST_BYTES, MAX_PACK_BYTES
+from opennosh_api.public_commons.manifests import ManifestKeyRing
 
 
 def add_federation_parser(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -72,6 +76,31 @@ def add_federation_parser(commands: argparse._SubParsersAction[argparse.Argument
     publish.add_argument("--release-file", type=Path, required=True)
     publish.add_argument("--reason", required=True)
     publish.add_argument("--json", action="store_true")
+
+    verify_artifacts = operations.add_parser(
+        "verify-artifacts",
+        help="Verify one signed release manifest and food-pack artifact",
+    )
+    verify_artifacts.add_argument("--statement-digest", required=True)
+    verify_artifacts.add_argument("--manifest-file", type=Path, required=True)
+    verify_artifacts.add_argument("--pack-file", type=Path, required=True)
+    verify_artifacts.add_argument("--reason", required=True)
+    verify_artifacts.add_argument("--json", action="store_true")
+
+    quarantine_release = operations.add_parser(
+        "quarantine-release",
+        help="Exclude one verified release from future projections",
+    )
+    quarantine_release.add_argument("--statement-digest", required=True)
+    quarantine_release.add_argument("--reason", required=True)
+    quarantine_release.add_argument("--json", action="store_true")
+
+    build_projection = operations.add_parser(
+        "build-projection",
+        help="Atomically build and activate the verified release-set projection",
+    )
+    build_projection.add_argument("--reason", required=True)
+    build_projection.add_argument("--json", action="store_true")
 
     quarantine = operations.add_parser("quarantine", help="Quarantine an active scope")
     _add_lifecycle_arguments(quarantine)
@@ -208,6 +237,15 @@ async def _run(
         allowed_scopes=settings.allowed_scopes,
         allowed_public_origin=settings.allowed_public_origin,
         installation_verifier=verifier,
+        manifest_keys=(
+            ManifestKeyRing.from_config(
+                settings.manifest_verifying_keys.get_secret_value()
+            )
+            if settings.manifest_verifying_keys is not None
+            else None
+        ),
+        ingestion_enabled=settings.ingestion_enabled,
+        projection_enabled=settings.projection_enabled,
     )
     try:
         command = arguments.federation_command
@@ -292,6 +330,43 @@ async def _run(
             else:
                 print(f"Federation release verified: {digest}", file=sys.stderr)
             return 0
+        if command == "verify-artifacts":
+            artifact_status = await service.verify_release_artifacts(
+                arguments.statement_digest,
+                manifest_bytes=_read_limited(
+                    arguments.manifest_file,
+                    max_bytes=MAX_MANIFEST_BYTES,
+                ),
+                pack_bytes=_read_limited(arguments.pack_file, max_bytes=MAX_PACK_BYTES),
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(
+                artifact_status.model_dump(mode="json"),
+                as_json=arguments.json,
+            )
+            return 0
+        if command == "quarantine-release":
+            release_status = await service.quarantine_release(
+                arguments.statement_digest,
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(
+                release_status.model_dump(mode="json"),
+                as_json=arguments.json,
+            )
+            return 0
+        if command == "build-projection":
+            projection_status = await service.build_projection(
+                actor_id=settings.inviter_actor_id,
+                reason=arguments.reason,
+            )
+            _print_payload(
+                projection_status.model_dump(mode="json"),
+                as_json=arguments.json,
+            )
+            return 0
         if command == "quarantine":
             status = await service.quarantine(
                 arguments.maintainer_id,
@@ -334,6 +409,29 @@ def _read_token(arguments: argparse.Namespace) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+def _read_limited(path: Path, *, max_bytes: int) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ValueError("Federation artifact input must be a regular file") from error
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError("Federation artifact input must be a regular file")
+        if metadata.st_size > max_bytes:
+            raise ValueError("Federation artifact input exceeds its size limit")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = -1
+            payload = stream.read(max_bytes + 1)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if not payload or len(payload) > max_bytes:
+        raise ValueError("Federation artifact input has an invalid size")
+    return payload
+
+
 def _command_actor(
     _arguments: argparse.Namespace,
     settings: FederationOperatorSettings,
@@ -350,3 +448,10 @@ def _print_status(status: MaintainerStatus, *, as_json: bool) -> None:
             f"Federation maintainer {payload['maintainer_id']}: {payload['state']}",
             file=sys.stderr,
         )
+
+
+def _print_payload(payload: dict[str, object], *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(json.dumps(payload, sort_keys=True), file=sys.stderr)

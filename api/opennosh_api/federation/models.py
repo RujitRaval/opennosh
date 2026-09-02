@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     String,
     UniqueConstraint,
@@ -238,3 +239,159 @@ class FederationRelease(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         DateTime(timezone=True), nullable=False
     )
     verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class FederationVerifiedRelease(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """Immutable normalized artifact verification for one release-ledger row."""
+
+    __tablename__ = "federation_verified_releases"
+    __table_args__ = (
+        CheckConstraint("pack_license = 'CC0-1.0'", name="pack_license_allowed"),
+        CheckConstraint("manifest_digest ~ '^[0-9a-f]{64}$'", name="manifest_digest_sha256"),
+        CheckConstraint("artifact_digest ~ '^[0-9a-f]{64}$'", name="artifact_digest_sha256"),
+        CheckConstraint("record_set_digest ~ '^[0-9a-f]{64}$'", name="record_set_digest_sha256"),
+        CheckConstraint("artifact_size_bytes > 0", name="artifact_size_positive"),
+        CheckConstraint("record_count > 0", name="record_count_positive"),
+        CheckConstraint("jsonb_typeof(records_json) = 'array'", name="records_json_array"),
+        UniqueConstraint("release_id", name="uq_federation_verified_release_release"),
+        Index("ix_federation_verified_releases_verified", "verified_at"),
+    )
+
+    release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_releases.id", ondelete="RESTRICT"), nullable=False
+    )
+    pack_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    pack_license: Mapped[str] = mapped_column(String(32), nullable=False)
+    manifest_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_object_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    artifact_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    records_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    record_set_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    record_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class FederationReleaseStatusEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """Append-only eligibility decision; any quarantine event is terminal."""
+
+    __tablename__ = "federation_release_status_events"
+    __table_args__ = (
+        CheckConstraint("state IN ('verified','quarantined')", name="state_allowed"),
+        CheckConstraint("reason_digest ~ '^[0-9a-f]{64}$'", name="reason_digest_sha256"),
+        Index("ix_federation_release_status_latest", "release_id", "occurred_at"),
+    )
+
+    release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_releases.id", ondelete="RESTRICT"), nullable=False
+    )
+    state: Mapped[str] = mapped_column(String(24), nullable=False)
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reason_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class FederationProjectionCheckpoint(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """Immutable release-set identity for one complete candidate projection."""
+
+    __tablename__ = "federation_projection_checkpoints"
+    __table_args__ = (
+        CheckConstraint("release_set_digest ~ '^[0-9a-f]{64}$'", name="release_set_sha256"),
+        CheckConstraint("jsonb_typeof(release_set_json) = 'array'", name="release_set_json_array"),
+        CheckConstraint("release_count > 0", name="release_count_positive"),
+        CheckConstraint("record_count > 0", name="record_count_positive"),
+        UniqueConstraint("release_set_digest", name="uq_federation_projection_release_set"),
+        Index("ix_federation_projection_checkpoints_built", "built_at"),
+    )
+
+    release_set_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    release_set_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    release_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    record_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class FederationProjectionRelease(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "federation_projection_releases"
+    __table_args__ = (
+        CheckConstraint("ordinal >= 0", name="ordinal_nonnegative"),
+        UniqueConstraint(
+            "checkpoint_id",
+            "verified_release_id",
+            name="uq_federation_projection_release_membership",
+        ),
+        UniqueConstraint(
+            "checkpoint_id",
+            "ordinal",
+            name="uq_federation_projection_release_ordinal",
+        ),
+    )
+
+    checkpoint_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_projection_checkpoints.id", ondelete="RESTRICT"), nullable=False
+    )
+    verified_release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_verified_releases.id", ondelete="RESTRICT"), nullable=False
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class FederationProjectionFood(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "federation_projection_foods"
+    __table_args__ = (
+        CheckConstraint("pack_license = 'CC0-1.0'", name="pack_license_allowed"),
+        CheckConstraint("jsonb_typeof(nutrients_json) = 'object'", name="nutrients_json_object"),
+        CheckConstraint("jsonb_typeof(portions_json) = 'array'", name="portions_json_array"),
+        UniqueConstraint(
+            "checkpoint_id",
+            "verified_release_id",
+            "source_record_id",
+            name="uq_federation_projection_food_source",
+        ),
+        Index("ix_federation_projection_foods_checkpoint_pack", "checkpoint_id", "pack_id"),
+        Index("ix_federation_projection_foods_checkpoint_name", "checkpoint_id", "name"),
+    )
+
+    checkpoint_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_projection_checkpoints.id", ondelete="RESTRICT"), nullable=False
+    )
+    verified_release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_verified_releases.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_record_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    pack_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    name_local: Mapped[str | None] = mapped_column(String(160))
+    locale: Mapped[str] = mapped_column(String(35), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    provenance: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_uri: Mapped[str | None] = mapped_column(String(2048))
+    source_license: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_note: Mapped[str | None] = mapped_column(String(1000))
+    nutrients_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    portions_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    pack_license: Mapped[str] = mapped_column(String(32), nullable=False)
+    contributed_by: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class FederationProjectionActivation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """Pointer-last activation fact; newest row selects the active checkpoint."""
+
+    __tablename__ = "federation_projection_activations"
+    __table_args__ = (
+        CheckConstraint("reason_digest ~ '^[0-9a-f]{64}$'", name="reason_digest_sha256"),
+        Index("ix_federation_projection_activations_latest", "activated_at"),
+    )
+
+    checkpoint_id: Mapped[UUID] = mapped_column(
+        ForeignKey("federation_projection_checkpoints.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    reason_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    activated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

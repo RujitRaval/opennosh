@@ -134,6 +134,8 @@ class Settings(BaseSettings):
     publication_continuous_claims_enabled: bool = False
     publication_claim_concurrency: PositiveInt = 1
     publication_preactivation_smoke_enabled: bool = False
+    federation_ingestion_enabled: bool = False
+    federation_projection_enabled: bool = False
     publication_activation_ids: str = ""
     publication_claims_activation_contract_path: Path = Path(
         "config/publication-claims-activation.v1.json"

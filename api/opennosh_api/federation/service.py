@@ -3,9 +3,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol, cast
 from uuid import UUID, uuid4
 
 from pydantic import ValidationError
@@ -17,21 +17,34 @@ from opennosh_api.federation.contracts import (
     FederationScope,
     InvitationSecret,
     MaintainerStatus,
+    ProjectionStatus,
     SignedFederationRelease,
+    VerifiedReleaseStatus,
     canonical_json,
     public_key_fingerprint,
     release_statement_digest,
     validate_key_id,
     verify_release_signature,
 )
+from opennosh_api.federation.ingestion import (
+    FederationArtifactError,
+    verify_artifact_bundle,
+)
 from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationProjectionActivation,
+    FederationProjectionCheckpoint,
+    FederationProjectionFood,
+    FederationProjectionRelease,
     FederationRelease,
+    FederationReleaseStatusEvent,
     FederationRoleKey,
+    FederationVerifiedRelease,
 )
 from opennosh_api.federation.repository import FederationRepository
+from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.receipts import SignedPublicationReceipt, signed_receipt_digest
 
 
@@ -54,6 +67,9 @@ class FederationService:
         allowed_scopes: Sequence[FederationScope],
         allowed_public_origin: str,
         installation_verifier: InstallationVerifier,
+        manifest_keys: ManifestKeyRing | None = None,
+        ingestion_enabled: bool = False,
+        projection_enabled: bool = False,
     ) -> None:
         if not 1 <= len(allowed_scopes) <= 32:
             raise ValueError("Federation service requires 1 to 32 allowed scopes")
@@ -63,6 +79,9 @@ class FederationService:
         self._allowed_scopes = tuple(allowed_scopes)
         self._allowed_public_origin = allowed_public_origin.rstrip("/")
         self._installation_verifier = installation_verifier
+        self._manifest_keys = manifest_keys
+        self._ingestion_enabled = ingestion_enabled
+        self._projection_enabled = projection_enabled
 
     async def invite(
         self,
@@ -453,6 +472,313 @@ class FederationService:
             )
         return digest
 
+    async def verify_release_artifacts(
+        self,
+        statement_digest: str,
+        *,
+        manifest_bytes: bytes,
+        pack_bytes: bytes,
+        actor_id: UUID,
+        reason: str,
+        now: datetime | None = None,
+    ) -> VerifiedReleaseStatus:
+        if not self._ingestion_enabled:
+            raise FederationError("federation_ingestion_disabled", exit_code=3)
+        if self._manifest_keys is None:
+            raise FederationError("federation_manifest_keys_missing", exit_code=2)
+        timestamp = _aware(now or datetime.now(UTC))
+        _require_reason(reason)
+        failure: FederationError | None = None
+        result: VerifiedReleaseStatus | None = None
+        async with self._factory() as session, session.begin():
+            repository = FederationRepository(session)
+            release = await repository.release_by_statement_digest(statement_digest)
+            maintainer = await repository.maintainer(release.maintainer_id, lock=True)
+            self._require_allowed_scope(_scope_for_maintainer(maintainer))
+            await _require_active_steward(
+                repository,
+                actor_id=actor_id,
+                pack_id=release.pack_id,
+                at=timestamp,
+            )
+            if maintainer.state != FederationLifecycleState.ACTIVE.value:
+                raise FederationError("maintainer_not_active", exit_code=3)
+            key = await repository.role_key(release.role_key_id)
+            try:
+                signed = SignedFederationRelease.model_validate(
+                    {"statement": release.statement_json, "signature": release.signature}
+                )
+                _verify_stored_release_statement(
+                    release,
+                    signed,
+                    role_key_id=key.key_id,
+                    role_key_maintainer_id=key.maintainer_id,
+                )
+                verify_release_signature(signed, encoded_public_key=key.public_key)
+                await _verify_stored_release_receipt(
+                    repository,
+                    release,
+                    allowed_public_origin=self._allowed_public_origin,
+                )
+                bundle = verify_artifact_bundle(
+                    release,
+                    manifest_bytes=manifest_bytes,
+                    pack_bytes=pack_bytes,
+                    manifest_keys=self._manifest_keys,
+                )
+            except (ValidationError, ValueError, FederationArtifactError) as error:
+                code = getattr(error, "code", "release_artifact_verification_failed")
+                await _quarantine_release_candidate(
+                    repository,
+                    release=release,
+                    maintainer=maintainer,
+                    actor_id=actor_id,
+                    reason=reason,
+                    failure_code=str(code),
+                    now=timestamp,
+                )
+                failure = FederationError(str(code), exit_code=3)
+            else:
+                existing = await repository.verified_release(release.id)
+                if existing is not None:
+                    if (
+                        existing.manifest_digest != bundle.manifest_digest
+                        or existing.artifact_digest != bundle.artifact_digest
+                        or existing.record_set_digest != bundle.record_set_digest
+                    ):
+                        await _quarantine_release_candidate(
+                            repository,
+                            release=release,
+                            maintainer=maintainer,
+                            actor_id=actor_id,
+                            reason=reason,
+                            failure_code="release_artifact_verification_conflict",
+                            now=timestamp,
+                        )
+                        failure = FederationError(
+                            "release_artifact_verification_conflict", exit_code=3
+                        )
+                    else:
+                        quarantined = await repository.release_is_quarantined(release.id)
+                        result = _verified_release_status(
+                            release,
+                            existing,
+                            quarantined=quarantined,
+                        )
+                else:
+                    verified = FederationVerifiedRelease(
+                        id=uuid4(),
+                        release_id=release.id,
+                        pack_version=bundle.pack_version,
+                        pack_license=bundle.pack_license,
+                        manifest_key_id=bundle.manifest_key_id,
+                        manifest_digest=bundle.manifest_digest,
+                        artifact_object_key=bundle.artifact_object_key,
+                        artifact_digest=bundle.artifact_digest,
+                        artifact_size_bytes=bundle.artifact_size_bytes,
+                        records_json=list(bundle.records_json),
+                        record_set_digest=bundle.record_set_digest,
+                        record_count=len(bundle.records_json),
+                        verified_at=timestamp,
+                        created_at=timestamp,
+                    )
+                    repository.add_verified_release(verified)
+                    repository.add_release_status(
+                        FederationReleaseStatusEvent(
+                            id=uuid4(),
+                            release_id=release.id,
+                            state="verified",
+                            actor_id=actor_id,
+                            reason_digest=_reason_digest(reason),
+                            occurred_at=timestamp,
+                            created_at=timestamp,
+                        )
+                    )
+                    repository.add_audit_event(
+                        _audit_event(
+                            maintainer_id=maintainer.id,
+                            actor_id=actor_id,
+                            event_type=FederationEventType.RELEASE_ARTIFACTS_VERIFIED,
+                            reason=reason,
+                            payload={
+                                "statement_digest": statement_digest,
+                                "artifact_digest": bundle.artifact_digest,
+                                "record_set_digest": bundle.record_set_digest,
+                                "record_count": len(bundle.records_json),
+                            },
+                            now=timestamp,
+                        )
+                    )
+                    result = _verified_release_status(release, verified, quarantined=False)
+        if failure is not None:
+            raise failure
+        if result is None:
+            raise FederationError("release_artifact_verification_failed", exit_code=5)
+        return result
+
+    async def quarantine_release(
+        self,
+        statement_digest: str,
+        *,
+        actor_id: UUID,
+        reason: str,
+        now: datetime | None = None,
+    ) -> VerifiedReleaseStatus:
+        if not self._ingestion_enabled:
+            raise FederationError("federation_ingestion_disabled", exit_code=3)
+        timestamp = _aware(now or datetime.now(UTC))
+        _require_reason(reason)
+        async with self._factory() as session, session.begin():
+            repository = FederationRepository(session)
+            release = await repository.release_by_statement_digest(statement_digest)
+            maintainer = await repository.maintainer(release.maintainer_id, lock=True)
+            self._require_allowed_scope(_scope_for_maintainer(maintainer))
+            await _require_active_steward(
+                repository,
+                actor_id=actor_id,
+                pack_id=release.pack_id,
+                at=timestamp,
+            )
+            verified = await repository.verified_release(release.id)
+            if verified is None:
+                raise FederationError("release_artifacts_not_verified", exit_code=3)
+            await _quarantine_release_candidate(
+                repository,
+                release=release,
+                maintainer=maintainer,
+                actor_id=actor_id,
+                reason=reason,
+                failure_code="operator_quarantine",
+                now=timestamp,
+            )
+        return _verified_release_status(release, verified, quarantined=True)
+
+    async def build_projection(
+        self,
+        *,
+        actor_id: UUID,
+        reason: str,
+        now: datetime | None = None,
+    ) -> ProjectionStatus:
+        if not self._projection_enabled:
+            raise FederationError("federation_projection_disabled", exit_code=3)
+        timestamp = _aware(now or datetime.now(UTC))
+        _require_reason(reason)
+        async with self._factory() as session, session.begin():
+            repository = FederationRepository(session)
+            await repository.lock_projection()
+            selected = await repository.eligible_verified_releases()
+            if not selected:
+                raise FederationError("federation_projection_release_set_empty", exit_code=3)
+            for _, release, maintainer in selected:
+                self._require_allowed_scope(_scope_for_maintainer(maintainer))
+                await _require_active_steward(
+                    repository,
+                    actor_id=actor_id,
+                    pack_id=release.pack_id,
+                    at=timestamp,
+                )
+
+            release_set = [
+                {
+                    "artifact_digest": verified.artifact_digest,
+                    "pack_id": release.pack_id,
+                    "pack_version": verified.pack_version,
+                    "record_set_digest": verified.record_set_digest,
+                    "release_id": str(release.id),
+                    "release_version": release.release_version,
+                    "repository_id": release.repository_id,
+                    "statement_digest": release.statement_digest,
+                    "verified_release_id": str(verified.id),
+                }
+                for verified, release, _ in selected
+            ]
+            release_set.sort(
+                key=lambda item: (
+                    str(item["pack_id"]),
+                    cast(int, item["repository_id"]),
+                )
+            )
+            release_set_digest = hashlib.sha256(canonical_json(release_set)).hexdigest()
+            record_count = sum(verified.record_count for verified, _, _ in selected)
+            checkpoint = await repository.projection_checkpoint(release_set_digest)
+            if checkpoint is None:
+                checkpoint = FederationProjectionCheckpoint(
+                    id=uuid4(),
+                    release_set_json=release_set,
+                    release_set_digest=release_set_digest,
+                    release_count=len(selected),
+                    record_count=record_count,
+                    built_at=timestamp,
+                    created_at=timestamp,
+                )
+                repository.add_projection_checkpoint(checkpoint)
+                for ordinal, (verified, _release, _) in enumerate(selected):
+                    repository.add_projection_release(
+                        FederationProjectionRelease(
+                            id=uuid4(),
+                            checkpoint_id=checkpoint.id,
+                            verified_release_id=verified.id,
+                            ordinal=ordinal,
+                            created_at=timestamp,
+                        )
+                    )
+                    for record in verified.records_json:
+                        repository.add_projection_food(
+                            _projection_food(
+                                checkpoint_id=checkpoint.id,
+                                verified_release_id=verified.id,
+                                record=record,
+                                created_at=timestamp,
+                            )
+                        )
+            elif (
+                checkpoint.release_set_json != release_set
+                or checkpoint.release_count != len(selected)
+                or checkpoint.record_count != record_count
+            ):
+                raise FederationError("federation_projection_checkpoint_conflict", exit_code=5)
+
+            current = await repository.latest_projection_activation()
+            if current is None or current.checkpoint_id != checkpoint.id:
+                repository.add_projection_activation(
+                    FederationProjectionActivation(
+                        id=uuid4(),
+                        checkpoint_id=checkpoint.id,
+                        actor_id=actor_id,
+                        reason_digest=_reason_digest(reason),
+                        activated_at=timestamp,
+                        created_at=timestamp,
+                    )
+                )
+                for _, release, maintainer in selected:
+                    repository.add_audit_event(
+                        _audit_event(
+                            maintainer_id=maintainer.id,
+                            actor_id=actor_id,
+                            event_type=FederationEventType.PROJECTION_ACTIVATED,
+                            reason=reason,
+                            payload={
+                                "checkpoint_id": str(checkpoint.id),
+                                "release_set_digest": release_set_digest,
+                                "statement_digest": release.statement_digest,
+                            },
+                            now=timestamp,
+                        )
+                    )
+            activated_at = (
+                timestamp
+                if current is None or current.checkpoint_id != checkpoint.id
+                else current.activated_at
+            )
+        return ProjectionStatus(
+            checkpoint_id=checkpoint.id,
+            release_set_digest=checkpoint.release_set_digest,
+            release_count=checkpoint.release_count,
+            record_count=checkpoint.record_count,
+            activated_at=activated_at,
+        )
+
     async def quarantine(
         self,
         maintainer_id: UUID,
@@ -639,6 +965,175 @@ class FederationService:
     def _require_allowed_scope(self, scope: FederationScope) -> None:
         if scope not in self._allowed_scopes:
             raise FederationError("federation_scope_not_invited", exit_code=3)
+
+
+def _scope_for_maintainer(maintainer: FederationMaintainer) -> FederationScope:
+    return FederationScope(
+        github_account_id=maintainer.github_account_id,
+        github_login=maintainer.github_login,
+        repository_id=maintainer.repository_id,
+        repository=maintainer.repository,
+        pack_id=maintainer.pack_id,
+    )
+
+
+def _verify_stored_release_statement(
+    release: FederationRelease,
+    signed: SignedFederationRelease,
+    *,
+    role_key_id: str,
+    role_key_maintainer_id: UUID,
+) -> None:
+    statement = signed.statement
+    if (
+        release_statement_digest(statement) != release.statement_digest
+        or statement.maintainer_id != release.maintainer_id
+        or statement.repository_id != release.repository_id
+        or statement.repository != release.repository
+        or statement.pack_id != release.pack_id
+        or statement.publication_id != release.publication_id
+        or statement.release_version != release.release_version
+        or statement.manifest_digest != release.manifest_digest
+        or statement.receipt_digest != release.receipt_digest
+        or statement.public_url != release.public_url
+        or statement.key_id != release.key_id
+        or statement.key_id != role_key_id
+        or role_key_maintainer_id != release.maintainer_id
+        or statement.issued_at != release.issued_at
+    ):
+        raise FederationArtifactError("stored_release_statement_binding_mismatch")
+
+
+async def _verify_stored_release_receipt(
+    repository: FederationRepository,
+    release: FederationRelease,
+    *,
+    allowed_public_origin: str,
+) -> None:
+    bound = await repository.receipt_for_release(
+        publication_id=release.publication_id,
+        pack_id=release.pack_id,
+        receipt_digest=release.receipt_digest,
+    )
+    if bound is None:
+        raise FederationArtifactError("governed_release_receipt_not_found")
+    receipt_record, accepted_event = bound
+    try:
+        envelope = SignedPublicationReceipt.model_validate(receipt_record.envelope_json)
+    except ValidationError as error:
+        raise FederationArtifactError("governed_release_receipt_invalid") from error
+    receipt = envelope.receipt
+    if (
+        accepted_event.id != release.accepted_event_id
+        or accepted_event.repository != f"github:{release.repository}"
+        or signed_receipt_digest(envelope) != release.receipt_digest
+        or receipt.publication_id != release.publication_id
+        or receipt.pack_id != release.pack_id
+        or receipt.release_version != release.release_version
+        or receipt.signed_release_metadata_digest != release.manifest_digest
+        or receipt_record.published_at != receipt.published_at
+        or accepted_event.published_at != receipt.published_at
+        or receipt.published_at != release.receipt_published_at
+        or release.receipt_published_at > release.issued_at
+        or release.public_url
+        != (
+            f"{allowed_public_origin}/api/v1/public/releases/"
+            f"{release.release_version}/manifest"
+        )
+    ):
+        raise FederationArtifactError("governed_release_binding_mismatch")
+
+
+def _verified_release_status(
+    release: FederationRelease,
+    verified: FederationVerifiedRelease,
+    *,
+    quarantined: bool,
+) -> VerifiedReleaseStatus:
+    return VerifiedReleaseStatus(
+        statement_digest=release.statement_digest,
+        artifact_digest=verified.artifact_digest,
+        record_set_digest=verified.record_set_digest,
+        record_count=verified.record_count,
+        pack_id=release.pack_id,
+        pack_version=verified.pack_version,
+        state="quarantined" if quarantined else "verified",
+    )
+
+
+async def _quarantine_release_candidate(
+    repository: FederationRepository,
+    *,
+    release: FederationRelease,
+    maintainer: FederationMaintainer,
+    actor_id: UUID,
+    reason: str,
+    failure_code: str,
+    now: datetime,
+) -> None:
+    if await repository.release_is_quarantined(release.id):
+        return
+    repository.add_release_status(
+        FederationReleaseStatusEvent(
+            id=uuid4(),
+            release_id=release.id,
+            state="quarantined",
+            actor_id=actor_id,
+            reason_digest=_reason_digest(reason),
+            occurred_at=now,
+            created_at=now,
+        )
+    )
+    repository.add_audit_event(
+        _audit_event(
+            maintainer_id=maintainer.id,
+            actor_id=actor_id,
+            event_type=FederationEventType.RELEASE_QUARANTINED,
+            reason=reason,
+            payload={
+                "failure_code": failure_code,
+                "statement_digest": release.statement_digest,
+            },
+            now=now,
+        )
+    )
+
+
+def _reason_digest(reason: str) -> str:
+    return hashlib.sha256(canonical_json({"reason": reason})).hexdigest()
+
+
+def _projection_food(
+    *,
+    checkpoint_id: UUID,
+    verified_release_id: UUID,
+    record: Mapping[str, object],
+    created_at: datetime,
+) -> FederationProjectionFood:
+    try:
+        return FederationProjectionFood(
+            id=uuid4(),
+            checkpoint_id=checkpoint_id,
+            verified_release_id=verified_release_id,
+            source_record_id=cast(str, record["slug"]),
+            pack_id=cast(str, record["pack_id"]),
+            pack_version=cast(str, record["pack_version"]),
+            name=cast(str, record["name"]),
+            name_local=cast(str | None, record["name_local"]),
+            locale=cast(str, record["locale"]),
+            category=cast(str, record["category"]),
+            provenance=cast(str, record["provenance"]),
+            source_uri=cast(str | None, record["source_uri"]),
+            source_license=cast(str, record["source_license"]),
+            source_note=cast(str | None, record["source_note"]),
+            nutrients_json=cast(dict[str, Any], record["nutrients_json"]),
+            portions_json=cast(list[dict[str, Any]], record["portions_json"]),
+            pack_license=cast(str, record["pack_license"]),
+            contributed_by=cast(str, record["contributed_by"]),
+            created_at=created_at,
+        )
+    except (KeyError, TypeError) as error:
+        raise FederationError("federation_projection_record_invalid", exit_code=5) from error
 
 
 def _token_hash(token: str) -> bytes:

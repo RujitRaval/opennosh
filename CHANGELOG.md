@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.74.0.0] - 2026-09-02
+
+### Added
+
+- Verify maintainer-signed federation releases against canonical signed manifests, exact artifact
+  hashes, bounded archives, compatible food-pack schemas, and CC0 license declarations before
+  recording immutable normalized release facts.
+- Build deterministic versioned projection checkpoints from the latest eligible verified release
+  in each active scope, materialize provenance-preserving food rows, and activate only complete
+  checkpoints with an append-only pointer-last fact.
+- Add operator commands for artifact verification, release quarantine, and projection builds, plus
+  Render and readiness evidence for the disabled ingestion and projection switches.
+
+### Security
+
+- Automatically quarantine candidates that fail signature, manifest, artifact, schema, or license
+  verification while preserving prior verified releases and the last active projection.
+- Keep production federation ingestion and projection disabled, and leave enrollment,
+  installation, public discovery, publication claims, concurrency, and worker replicas unchanged.
+
 ## [0.73.0.0] - 2026-09-02
 
 ### Added

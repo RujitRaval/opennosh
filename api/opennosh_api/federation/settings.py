@@ -35,6 +35,9 @@ class FederationOperatorSettings(BaseSettings):
     inviter_actor_id: UUID
     github_app_id: PositiveInt
     github_app_private_key: SecretStr
+    ingestion_enabled: bool = False
+    projection_enabled: bool = False
+    manifest_verifying_keys: SecretStr | None = None
 
     @field_validator("allowed_github_login")
     @classmethod
@@ -76,6 +79,10 @@ class FederationOperatorSettings(BaseSettings):
             ("postgresql+asyncpg://", "postgresql://")
         ):
             raise ValueError("Federation administration database URL must be PostgreSQL")
+        if self.ingestion_enabled and self.manifest_verifying_keys is None:
+            raise ValueError(
+                "Federation manifest verifying keys are required when ingestion is enabled"
+            )
         return self
 
     @property

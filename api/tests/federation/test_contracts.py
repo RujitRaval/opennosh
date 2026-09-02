@@ -209,7 +209,31 @@ def test_operator_settings_preserve_the_legacy_exact_scope() -> None:
     assert settings.allowed_scopes == (SCOPE,)
     assert settings.allowed_scope == SCOPE
     assert settings.allowed_public_origin == "https://opennosh.org"
+    assert settings.ingestion_enabled is False
+    assert settings.projection_enabled is False
     assert "PRIVATE KEY" not in repr(settings)
+
+
+def test_operator_settings_require_manifest_keys_before_ingestion_activation() -> None:
+    scope_options = {
+        "allowed_github_account_id": SCOPE.github_account_id,
+        "allowed_github_login": SCOPE.github_login,
+        "allowed_repository_id": SCOPE.repository_id,
+        "allowed_repository": SCOPE.repository,
+        "allowed_pack_id": SCOPE.pack_id,
+    }
+
+    with pytest.raises(ValidationError, match="verifying keys are required"):
+        _operator_settings(ingestion_enabled=True, **scope_options)
+
+    settings = _operator_settings(
+        ingestion_enabled=True,
+        manifest_verifying_keys='{"manifest-v1":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}',
+        **scope_options,
+    )
+    assert settings.ingestion_enabled is True
+    assert settings.manifest_verifying_keys is not None
+    assert "manifest-v1" not in repr(settings)
 
 
 def test_operator_settings_load_a_bounded_immutable_scope_allowlist() -> None:

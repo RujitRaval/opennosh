@@ -40,7 +40,12 @@ async def reset_trust_tables(database_url: str) -> None:
     connection = await asyncpg.connect(asyncpg_dsn(database_url))
     try:
         await connection.execute(
-            "TRUNCATE accepted_events, publication_receipts, "
+            "TRUNCATE federation_projection_activations, "
+            "federation_projection_foods, federation_projection_releases, "
+            "federation_projection_checkpoints, federation_release_status_events, "
+            "federation_verified_releases, federation_audit_events, federation_releases, "
+            "federation_role_keys, federation_maintainers, federation_invitations, "
+            "accepted_events, publication_receipts, "
             "publication_durable_acknowledgements, "
             "publication_steps, publication_intents, opennosh_pgqueuer, "
             "opennosh_pgqueuer_log, opennosh_pgqueuer_statistics, "
@@ -57,6 +62,7 @@ async def seed_publication(
     ids: DeterministicIdGenerator,
     suffix: str,
     manifest_digest: str = "f" * 64,
+    approved_payload_digest: str = "a" * 64,
 ) -> SeededPublication:
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("Seed publication time must include a timezone")
@@ -102,7 +108,7 @@ async def seed_publication(
             approving_actor_id=ids(),
             pack_id="global-core",
             record_id=f"record-{suffix}",
-            approved_payload_digest="a" * 64,
+            approved_payload_digest=approved_payload_digest,
             expected_base_commit="b" * 40,
             required_checks=("schema", "provenance", "license"),
             forge_target=FORGE_TARGET,

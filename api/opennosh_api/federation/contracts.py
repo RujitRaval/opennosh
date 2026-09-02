@@ -37,6 +37,9 @@ class FederationEventType(StrEnum):
     MAINTAINER_VERIFIED = "maintainer_verified"
     MAINTAINER_ACTIVATED = "maintainer_activated"
     RELEASE_PUBLISHED = "release_published"
+    RELEASE_ARTIFACTS_VERIFIED = "release_artifacts_verified"
+    RELEASE_QUARANTINED = "release_quarantined"
+    PROJECTION_ACTIVATED = "projection_activated"
     ROLE_KEY_ROTATED = "role_key_rotated"
     MAINTAINER_QUARANTINED = "maintainer_quarantined"
     MAINTAINER_REVOKED = "maintainer_revoked"
@@ -133,6 +136,30 @@ class SignedFederationRelease(BaseModel):
 
     statement: FederationReleaseStatement
     signature: str = Field(pattern=r"^[A-Za-z0-9_-]{86}$")
+
+
+class VerifiedReleaseStatus(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0"] = "1.0"
+    statement_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    artifact_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    record_set_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    record_count: int = Field(gt=0)
+    pack_id: str
+    pack_version: str
+    state: Literal["verified", "quarantined"]
+
+
+class ProjectionStatus(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0"] = "1.0"
+    checkpoint_id: UUID
+    release_set_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    release_count: int = Field(gt=0)
+    record_count: int = Field(gt=0)
+    activated_at: datetime
 
 
 def canonical_json(value: object) -> bytes:

@@ -130,6 +130,12 @@ def _blueprint_flags(path: Path) -> dict[str, bool]:
         "publication_continuous_claims_enabled": value(
             "opennosh-publication", "PUBLICATION_CONTINUOUS_CLAIMS_ENABLED"
         ),
+        "federation_ingestion_enabled": value(
+            "opennosh-publication", "FEDERATION_INGESTION_ENABLED"
+        ),
+        "federation_projection_enabled": value(
+            "opennosh-publication", "FEDERATION_PROJECTION_ENABLED"
+        ),
     }
 
 
