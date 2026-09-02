@@ -1103,6 +1103,32 @@ def _reason_digest(reason: str) -> str:
     return hashlib.sha256(canonical_json({"reason": reason})).hexdigest()
 
 
+def deterministic_equivalence_key(record: Mapping[str, object]) -> str | None:
+    """Group only records with the same explicit source identity and canonical label."""
+    source_uri = record.get("source_uri")
+    source_license = record.get("source_license")
+    name = record.get("name")
+    category = record.get("category")
+    if not (
+        isinstance(source_uri, str)
+        and source_uri
+        and isinstance(source_license, str)
+        and source_license
+        and isinstance(name, str)
+        and name
+        and isinstance(category, str)
+        and category
+    ):
+        return None
+    identity = {
+        "category": category.strip().casefold(),
+        "name": " ".join(name.split()).casefold(),
+        "source_license": source_license,
+        "source_uri": source_uri,
+    }
+    return hashlib.sha256(canonical_json(identity)).hexdigest()
+
+
 def _projection_food(
     *,
     checkpoint_id: UUID,
@@ -1111,6 +1137,7 @@ def _projection_food(
     created_at: datetime,
 ) -> FederationProjectionFood:
     try:
+        nutrients = cast(dict[str, Any], record["nutrients_json"])
         return FederationProjectionFood(
             id=uuid4(),
             checkpoint_id=checkpoint_id,
@@ -1126,10 +1153,12 @@ def _projection_food(
             source_uri=cast(str | None, record["source_uri"]),
             source_license=cast(str, record["source_license"]),
             source_note=cast(str | None, record["source_note"]),
-            nutrients_json=cast(dict[str, Any], record["nutrients_json"]),
+            nutrients_json=nutrients,
             portions_json=cast(list[dict[str, Any]], record["portions_json"]),
             pack_license=cast(str, record["pack_license"]),
             contributed_by=cast(str, record["contributed_by"]),
+            equivalence_key=deterministic_equivalence_key(record),
+            nutrients_digest=hashlib.sha256(canonical_json(nutrients)).hexdigest(),
             created_at=created_at,
         )
     except (KeyError, TypeError) as error:

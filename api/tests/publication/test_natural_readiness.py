@@ -32,6 +32,7 @@ def settings() -> Settings:
         publication_preactivation_smoke_enabled=False,
         federation_ingestion_enabled=False,
         federation_projection_enabled=False,
+        federation_search_enabled=False,
         publication_activation_ids="",
         latest_refresh_enabled=True,
         render_git_commit=COMMIT,
@@ -112,6 +113,11 @@ def test_disabled_readiness_is_deterministic_and_binds_activation_contract() -> 
             "opennosh-publication",
             "FEDERATION_PROJECTION_ENABLED",
             "federation_projection_enabled_already_enabled",
+        ),
+        (
+            "opennosh-publication",
+            "FEDERATION_SEARCH_ENABLED",
+            "federation_search_enabled_already_enabled",
         ),
     ],
 )

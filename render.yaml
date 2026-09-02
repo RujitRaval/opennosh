@@ -62,6 +62,8 @@ services:
         value: "false"
       - key: GOVERNANCE_PUBLIC_DECISIONS_ENABLED
         value: "false"
+      - key: FEDERATION_SEARCH_ENABLED
+        value: "false"
       - key: GOVERNANCE_FRESH_AUTH_SECONDS
         value: "900"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
@@ -106,6 +108,8 @@ services:
       - key: FEDERATION_INGESTION_ENABLED
         value: "false"
       - key: FEDERATION_PROJECTION_ENABLED
+        value: "false"
+      - key: FEDERATION_SEARCH_ENABLED
         value: "false"
       - key: LATEST_REFRESH_ENABLED
         value: "true"

@@ -198,4 +198,5 @@ def test_food_capabilities_follow_open_food_facts_configuration() -> None:
         assert response.json() == {
             "schema_version": "1.0",
             "barcode_lookup_enabled": enabled,
+            "federation_search_enabled": False,
         }

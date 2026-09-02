@@ -23,10 +23,10 @@ _PREVIOUS = CursorSigningKey("v1", b"previous-search-cursor-secret-0001")
 
 def _payload(*, expires_at: int = 2_000_000_000) -> SearchCursorPayload:
     return SearchCursorPayload(
-        v=1,
+        v=2,
         sid=UUID("018f7d40-7b60-7000-8000-000000000001"),
         fp=search_fingerprint(query="apple", locale="en-us", source=None),
-        rv=1,
+        rv=2,
         pos=(1, "0.75", "apple", "community", "apple"),
         size=20,
         exp=expires_at,
@@ -57,7 +57,7 @@ def test_signed_unsupported_schema_version_requires_restart() -> None:
     ring = SearchCursorKeyRing((_CURRENT,))
     parts = ring.encode(_payload()).split(".")
     document = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
-    document["v"] = 2
+    document["v"] = 1
     parts[1] = (
         base64.urlsafe_b64encode(
             json.dumps(document, separators=(",", ":"), sort_keys=True).encode("ascii")
@@ -82,7 +82,7 @@ def test_signed_unsupported_ranking_version_requires_restart() -> None:
     ring = SearchCursorKeyRing((_CURRENT,))
     parts = ring.encode(_payload()).split(".")
     document = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
-    document["rv"] = 2
+    document["rv"] = 1
     parts[1] = (
         base64.urlsafe_b64encode(
             json.dumps(document, separators=(",", ":"), sort_keys=True).encode("ascii")
@@ -225,6 +225,12 @@ def test_fingerprint_binds_exact_normalized_query_locale_and_filter() -> None:
     )
     assert baseline != search_fingerprint(query="apple", locale="en-gb", source=None)
     assert baseline != search_fingerprint(query="apple", locale="en-us", source="community")
+    assert baseline != search_fingerprint(
+        query="Apple", locale="en-us", source=None, pack_ids=("regional-pack",)
+    )
+    assert baseline != search_fingerprint(
+        query="Apple", locale="en-us", source=None, federation_enabled=True
+    )
 
 
 def test_key_ring_and_lifetime_settings_are_validated() -> None:

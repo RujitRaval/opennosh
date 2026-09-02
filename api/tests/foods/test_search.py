@@ -12,6 +12,7 @@ from opennosh_api.foods.service import (
     FoodSearchTimeoutError,
     SearchSnapshot,
     normalize_locale,
+    normalize_pack_ids,
     normalize_search_query,
     search_foods,
 )
@@ -77,6 +78,23 @@ def test_locale_normalization_is_case_insensitive_and_validated() -> None:
         normalize_locale("../../etc")
 
 
+def test_pack_filter_normalization_is_canonical_bounded_and_deduplicated() -> None:
+    assert normalize_pack_ids(None) == ()
+    assert normalize_pack_ids(["regional-b", "regional-a", "regional-a"]) == (
+        "regional-a",
+        "regional-b",
+    )
+    invalid_filters = (
+        ["Regional-A"],
+        ["../regional-a"],
+        ["a" * 81],
+        [f"pack-{i}" for i in range(21)],
+    )
+    for invalid in invalid_filters:
+        with pytest.raises(ValueError):
+            normalize_pack_ids(invalid)
+
+
 def test_openapi_publishes_the_enforced_query_bounds() -> None:
     schema = create_app(Settings(app_environment="test", _env_file=None)).openapi()
     parameters = schema["paths"]["/api/v1/foods/search"]["get"]["parameters"]
@@ -91,6 +109,7 @@ def test_openapi_publishes_the_enforced_query_bounds() -> None:
     assert any(shape.get("type") == "string" for shape in cursor_schema["anyOf"])
 
     assert "offset" not in parameter_names
+    assert "pack" in parameter_names
     assert cursor_schema["maxLength"] == 2_048
 
 

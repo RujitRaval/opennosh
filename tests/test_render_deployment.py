@@ -219,6 +219,10 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
         "key": "PUBLIC_ARTIFACT_READS_ENABLED",
         "value": "false",
     }
+    assert api_variables["FEDERATION_SEARCH_ENABLED"] == {
+        "key": "FEDERATION_SEARCH_ENABLED",
+        "value": "false",
+    }
     assert api_variables["PUBLIC_ARTIFACT_CHECKPOINT_PATH"] == {
         "key": "PUBLIC_ARTIFACT_CHECKPOINT_PATH",
         "value": "/var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json",
@@ -247,6 +251,7 @@ def test_render_blueprint_links_claim_bootstrap_and_refresh_credentials_to_worke
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_INGESTION_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_PROJECTION_ENABLED"]["value"] == "false"
+    assert variables["FEDERATION_SEARCH_ENABLED"]["value"] == "false"
     assert variables["LATEST_REFRESH_ENABLED"]["value"] == "true"
     assert variables["RENDER_DATABASE_URL"]["fromDatabase"] == {
         "name": "opennosh-db",

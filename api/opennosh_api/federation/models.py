@@ -345,6 +345,14 @@ class FederationProjectionFood(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         CheckConstraint("pack_license = 'CC0-1.0'", name="pack_license_allowed"),
         CheckConstraint("jsonb_typeof(nutrients_json) = 'object'", name="nutrients_json_object"),
         CheckConstraint("jsonb_typeof(portions_json) = 'array'", name="portions_json_array"),
+        CheckConstraint(
+            "equivalence_key IS NULL OR equivalence_key ~ '^[0-9a-f]{64}$'",
+            name="equivalence_key_sha256",
+        ),
+        CheckConstraint(
+            "nutrients_digest IS NULL OR nutrients_digest ~ '^[0-9a-f]{64}$'",
+            name="nutrients_digest_sha256",
+        ),
         UniqueConstraint(
             "checkpoint_id",
             "verified_release_id",
@@ -376,6 +384,8 @@ class FederationProjectionFood(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     portions_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     pack_license: Mapped[str] = mapped_column(String(32), nullable=False)
     contributed_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    equivalence_key: Mapped[str | None] = mapped_column(String(64))
+    nutrients_digest: Mapped[str | None] = mapped_column(String(64))
 
 
 class FederationProjectionActivation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):

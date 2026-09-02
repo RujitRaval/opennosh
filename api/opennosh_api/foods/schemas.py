@@ -13,6 +13,7 @@ from opennosh_api.nutrition import HouseholdPortion, NutrientProfile
 class FoodSource(StrEnum):
     USDA = "usda"
     COMMUNITY = "community"
+    FEDERATION = "federation"
 
 
 class FoodAttribution(BaseModel):
@@ -24,6 +25,8 @@ class FoodAttribution(BaseModel):
     pack_id: str | None = None
     pack_version: str | None = None
     provenance: str | None = None
+    release_version: str | None = None
+    release_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class FoodSearchItem(BaseModel):
@@ -34,6 +37,18 @@ class FoodSearchItem(BaseModel):
     name_local: str | None = None
     category: str | None = None
     attribution: FoodAttribution
+    equivalence_group_id: str | None = None
+    variant_id: str | None = None
+    conflict: bool = False
+    variant_count: int = Field(default=1, ge=1)
+
+
+class FoodSearchReleaseSet(BaseModel):
+    enabled: bool
+    checkpoint_id: UUID | None = None
+    digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    selected_pack_ids: list[str] = Field(default_factory=list, max_length=20)
+    stale: bool = False
 
 
 class FoodSearchResponse(BaseModel):
@@ -44,6 +59,7 @@ class FoodSearchResponse(BaseModel):
     next_cursor: str | None = Field(default=None, max_length=2048)
     snapshot_id: UUID
     snapshot_expires_at: datetime
+    release_set: FoodSearchReleaseSet | None = None
 
 
 class FoodDetail(FoodSearchItem):
@@ -55,6 +71,7 @@ class FoodDetail(FoodSearchItem):
 class FoodCapabilities(BaseModel):
     schema_version: Literal["1.0"] = "1.0"
     barcode_lookup_enabled: bool
+    federation_search_enabled: bool = False
 
 
 def _clean_custom_food_name(value: str) -> str:

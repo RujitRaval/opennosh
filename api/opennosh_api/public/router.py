@@ -1,5 +1,5 @@
 import hashlib
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 
@@ -20,6 +20,7 @@ _RELEASE = r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$"
 _SOURCE_ID = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 _PACK_VERSION = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$"
 _PROVENANCE_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+PublicFoodSource = Literal[FoodSource.USDA, FoodSource.COMMUNITY]
 
 
 def get_artifact_read_service(request: Request) -> PublicArtifactReadService:
@@ -59,7 +60,7 @@ def _raise_public_error(error: Exception) -> None:
 
 @router.get("/foods/{source}/{source_id}", response_model=PublicFoodRecordResponse)
 async def latest_food(
-    source: FoodSource,
+    source: PublicFoodSource,
     source_id: Annotated[str, Path(pattern=_SOURCE_ID)],
     service: Annotated[PublicArtifactReadService, Depends(get_artifact_read_service)],
     version: Annotated[str | None, Query(pattern=_RELEASE)] = None,
@@ -82,7 +83,7 @@ async def latest_food(
 )
 async def exact_food(
     release_version: Annotated[str, Path(pattern=_RELEASE)],
-    source: FoodSource,
+    source: PublicFoodSource,
     source_id: Annotated[str, Path(pattern=_SOURCE_ID)],
     service: Annotated[PublicArtifactReadService, Depends(get_artifact_read_service)],
 ) -> Response:
@@ -110,7 +111,7 @@ async def exact_food(
 )
 async def exact_provenance(
     release_version: Annotated[str, Path(pattern=_RELEASE)],
-    source: FoodSource,
+    source: PublicFoodSource,
     source_id: Annotated[str, Path(pattern=_SOURCE_ID)],
     service: Annotated[PublicArtifactReadService, Depends(get_artifact_read_service)],
 ) -> Response:

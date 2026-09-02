@@ -15,6 +15,7 @@ import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi.testclient import TestClient
 from opennosh_api.federation.contracts import (
     FederationReleaseStatement,
     FederationScope,
@@ -28,6 +29,7 @@ from opennosh_api.federation.service import FederationError, FederationService
 from opennosh_api.foodpacks.loader import prepare_food_pack
 from opennosh_api.jobs import JobLane, JobMessage
 from opennosh_api.jobs.worker import asyncpg_dsn
+from opennosh_api.main import create_app
 from opennosh_api.public.artifacts import (
     PublicPackArtifact,
     PublicReadReleaseManifest,
@@ -40,6 +42,7 @@ from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.receipts import SignedPublicationReceipt
 from opennosh_api.publication.repository import PostgresPublicationRepository
+from opennosh_api.settings import Settings
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -934,6 +937,121 @@ async def run_verified_projection(database_url: str) -> None:
         assert projection_replay.checkpoint_id == projection.checkpoint_id
         assert projection_replay.activated_at == projection.activated_at
 
+        with TestClient(
+            create_app(
+                Settings(
+                    database_url=database_url,
+                    app_environment="test",
+                    federation_search_enabled=True,
+                    _env_file=None,
+                )
+            )
+        ) as client:
+            search = client.get(
+                "/api/v1/foods/search",
+                params={
+                    "q": "samosa",
+                    "source": "federation",
+                    "pack": "global-core",
+                },
+            )
+            assert search.status_code == 200
+            search_payload = search.json()
+            assert search_payload["release_set"] == {
+                "enabled": True,
+                "checkpoint_id": str(projection.checkpoint_id),
+                "digest": projection.release_set_digest,
+                "selected_pack_ids": ["global-core"],
+                "stale": False,
+            }
+            assert len(search_payload["items"]) == 1
+            item = search_payload["items"][0]
+            assert item["source"] == "federation"
+            assert item["source_id"].endswith(":north-indian-samosa")
+            assert item["attribution"]["pack_id"] == "global-core"
+            assert item["attribution"]["pack_version"] == pack_version
+            assert item["attribution"]["release_version"] == release_version
+            assert item["attribution"]["release_digest"] == statement_digest
+            assert item["attribution"]["source_license"] == "CC0-1.0"
+            assert item["variant_id"].startswith("federation:")
+            assert item["variant_count"] == 1
+            assert item["conflict"] is False
+
+            detail = client.get(f"/api/v1/foods/federation/{item['source_id']}")
+            assert detail.status_code == 200
+            assert detail.json()["nutrients"]["basis"] == "per_100g"
+            assert detail.json()["attribution"]["release_digest"] == statement_digest
+
+            ordinary_search = client.get("/api/v1/foods/search", params={"q": "samosa"})
+            assert ordinary_search.status_code == 200
+            assert ordinary_search.json()["release_set"]["enabled"] is False
+            assert all(
+                row["source"] != "federation"
+                for row in ordinary_search.json()["items"]
+            )
+
+            cursor_page = client.get(
+                "/api/v1/foods/search",
+                params={
+                    "q": "rice",
+                    "source": "federation",
+                    "pack": "global-core",
+                    "limit": 1,
+                },
+            )
+            assert cursor_page.status_code == 200
+            retained_cursor = cursor_page.json()["next_cursor"]
+            assert retained_cursor is not None
+
+        await service.quarantine_release(
+            statement_digest,
+            actor_id=actor_id,
+            reason="Exercise stale search fallback after quarantine",
+            now=datetime.now(UTC),
+        )
+
+        with TestClient(
+            create_app(
+                Settings(
+                    database_url=database_url,
+                    app_environment="test",
+                    federation_search_enabled=True,
+                    _env_file=None,
+                )
+            )
+        ) as client:
+            retained_page = client.get(
+                "/api/v1/foods/search",
+                params={
+                    "q": "rice",
+                    "source": "federation",
+                    "pack": "global-core",
+                    "limit": 1,
+                    "cursor": retained_cursor,
+                },
+            )
+            assert retained_page.status_code == 200
+            assert retained_page.json()["items"]
+            assert retained_page.json()["release_set"]["stale"] is True
+
+            safe_first_page = client.get(
+                "/api/v1/foods/search",
+                params={
+                    "q": "samosa",
+                    "source": "federation",
+                    "pack": "global-core",
+                },
+            )
+            assert safe_first_page.status_code == 200
+            assert safe_first_page.json()["items"] == []
+            assert safe_first_page.json()["release_set"] == {
+                "enabled": True,
+                "checkpoint_id": str(projection.checkpoint_id),
+                "digest": projection.release_set_digest,
+                "selected_pack_ids": ["global-core"],
+                "stale": True,
+            }
+
         connection = await asyncpg.connect(asyncpg_dsn(database_url))
         try:
             assert await connection.fetchval(
@@ -1029,7 +1147,10 @@ def test_verified_artifact_projection_is_atomic_append_only_and_quarantine_safe(
     alembic_command.upgrade(config, "head")
     asyncio.run(run_verified_projection(INTEGRATION_DATABASE_URL))
     try:
-        with pytest.raises(DBAPIError, match="refuses to discard verified federation"):
+        with pytest.raises(
+            DBAPIError,
+            match="refusing downgrade while federation search identities exist",
+        ):
             alembic_command.downgrade(config, "20260902_0026")
     finally:
         asyncio.run(reset_trust_tables(INTEGRATION_DATABASE_URL))
