@@ -289,6 +289,22 @@ reconstruct its signed statement. The schema does not synthesize a trusted row. 
 artifacts and receipts remain unchanged; any later reconciliation must re-submit independently
 verifiable signed input through a separately approved operator ceremony.
 
+### Multi-Scope Operator Policy
+
+T34.5b replaces the original global invitation slot with a bounded, reviewed operator allowlist of
+one to 32 immutable federation scopes. Each entry binds the numeric GitHub account and repository
+IDs to their canonical labels and one pack ID. Duplicate scopes and conflicting account,
+repository, or pack identities fail configuration validation; the original five exact scope fields
+remain a compatible one-entry mode and cannot be combined with the JSON allowlist.
+
+Invitation admission serializes independently per repository and pack. Exactly one single-use
+invitation may exist for each configured scope, so a same-scope race fails closed while unrelated
+reviewed scopes can proceed. Every existing steward, Forge installation, role-key, expiry,
+quarantine, revocation, and append-only audit control remains in force. The database downgrade
+refuses to recreate the former global slot after more than one invitation exists; it never discards
+scope history. This policy change does not enroll a maintainer or expose federation through public
+discovery, installation, ingestion, projections, or search.
+
 ### Signing and Recovery Model
 
 Federation uses a TUF-style trust model rather than a single permanent signing key. Each pack publishes versioned root, targets, snapshot, and timestamp metadata. Root keys are kept offline where possible; online release roles use separate keys; sensitive roles support threshold signatures. Clients ship or explicitly trust pack roots, reject expired or rolled-back metadata, and can verify downloaded releases offline from bundled metadata.

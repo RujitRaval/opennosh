@@ -37,8 +37,11 @@ class FederationInvitation(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             name="consumption_after_creation",
         ),
         UniqueConstraint("token_hash", name="uq_federation_invitation_token_hash"),
-        Index("ix_federation_invitations_scope", "repository_id", "pack_id"),
-        Index("uq_federation_single_invitation", text("(true)"), unique=True),
+        UniqueConstraint(
+            "repository_id",
+            "pack_id",
+            name="uq_federation_invitation_scope",
+        ),
     )
 
     token_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)

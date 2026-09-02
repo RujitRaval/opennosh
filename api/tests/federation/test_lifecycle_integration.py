@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.federation.contracts import (
     FederationReleaseStatement,
     FederationScope,
+    InvitationSecret,
     SignedFederationRelease,
     encode_public_key,
     release_signature_material,
@@ -50,8 +51,8 @@ class VerifiedInstallation:
         self.calls = 0
 
     async def verify(self, scope: FederationScope, *, installation_id: int) -> None:
-        assert scope.repository == FORGE_TARGET.removeprefix("github:")
-        assert installation_id == 157058059
+        assert scope.repository.count("/") == 1
+        assert installation_id > 0
         self.calls += 1
 
 
@@ -146,7 +147,7 @@ async def run_lifecycle(database_url: str) -> None:
     factory = async_sessionmaker(engine, expire_on_commit=False)
     service = FederationService(
         factory,
-        allowed_scope=scope,
+        allowed_scopes=(scope,),
         allowed_public_origin="https://opennosh.example",
         installation_verifier=verifier,
     )
@@ -515,6 +516,180 @@ async def run_lifecycle(database_url: str) -> None:
         await engine.dispose()
 
 
+async def run_multi_scope_lifecycle(database_url: str) -> None:
+    await reset_trust_tables(database_url)
+    actor_id = uuid4()
+    scopes = (
+        FederationScope(
+            github_account_id=280184755,
+            github_login="aarolabs",
+            repository_id=1339461317,
+            repository="RujitRaval/opennosh",
+            pack_id="global-core",
+        ),
+        FederationScope(
+            github_account_id=280184756,
+            github_login="second-maintainer",
+            repository_id=1339461318,
+            repository="OpenNutrition/regional-produce",
+            pack_id="regional-produce",
+        ),
+        FederationScope(
+            github_account_id=280184756,
+            github_login="second-maintainer",
+            repository_id=1339461319,
+            repository="OpenNutrition/heritage-grains",
+            pack_id="heritage-grains",
+        ),
+    )
+    connection = await asyncpg.connect(asyncpg_dsn(database_url))
+    try:
+        await connection.execute(
+            "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, 'hash')",
+            actor_id,
+            f"federation-multi-scope-{actor_id}@example.test",
+        )
+        await connection.executemany(
+            """
+            INSERT INTO governance_role_assignments (
+                pack_id, actor_id, role, granted_by_actor_id,
+                grant_reason, granted_at
+            ) VALUES ($1, $2, 'steward', $2, $3, $4)
+            """,
+            [
+                (
+                    scope.pack_id,
+                    actor_id,
+                    "Bootstrap the multi-scope federation steward",
+                    NOW - timedelta(minutes=1),
+                )
+                for scope in scopes
+            ],
+        )
+    finally:
+        await connection.close()
+
+    verifier = VerifiedInstallation()
+    engine = create_async_engine(database_url)
+    service = FederationService(
+        async_sessionmaker(engine, expire_on_commit=False),
+        allowed_scopes=scopes,
+        allowed_public_origin="https://opennosh.example",
+        installation_verifier=verifier,
+    )
+    try:
+        unconfigured = scopes[0].model_copy(
+            update={
+                "repository_id": 999999999,
+                "repository": "Unreviewed/arbitrary",
+                "pack_id": "unreviewed-pack",
+            }
+        )
+        with pytest.raises(FederationError, match="federation_scope_not_invited"):
+            await service.invite(
+                unconfigured,
+                inviter_actor_id=actor_id,
+                expires_at=NOW + timedelta(hours=1),
+                now=NOW,
+            )
+
+        raced = await asyncio.gather(
+            service.invite(
+                scopes[0],
+                inviter_actor_id=actor_id,
+                expires_at=NOW + timedelta(hours=1),
+                now=NOW,
+            ),
+            service.invite(
+                scopes[0],
+                inviter_actor_id=actor_id,
+                expires_at=NOW + timedelta(hours=1),
+                now=NOW,
+            ),
+            return_exceptions=True,
+        )
+        invitations = [result for result in raced if isinstance(result, InvitationSecret)]
+        errors = [result for result in raced if isinstance(result, FederationError)]
+        assert len(invitations) == 1
+        assert [error.code for error in errors] == ["federation_invitation_limit_reached"]
+
+        other_invitations = await asyncio.gather(
+            *(
+                service.invite(
+                    scope,
+                    inviter_actor_id=actor_id,
+                    expires_at=NOW + timedelta(hours=1),
+                    now=NOW,
+                )
+                for scope in scopes[1:]
+            )
+        )
+        invitations.extend(other_invitations)
+
+        with pytest.raises(FederationError, match="invitation_identity_mismatch"):
+            await service.verify(
+                token=invitations[0].token,
+                scope=scopes[1],
+                installation_id=157058060,
+                key_id="multi-scope-cross-use",
+                public_key=encode_public_key(
+                    Ed25519PrivateKey.from_private_bytes(b"h" * 32).public_key()
+                ),
+                public_key_fingerprint=hashlib.sha256(
+                    Ed25519PrivateKey.from_private_bytes(b"h" * 32)
+                    .public_key()
+                    .public_bytes_raw()
+                ).hexdigest(),
+                now=NOW + timedelta(minutes=1),
+            )
+
+        statuses = []
+        for index, (scope, invitation) in enumerate(zip(scopes, invitations, strict=True)):
+            key = Ed25519PrivateKey.from_private_bytes(bytes([104 + index]) * 32)
+            encoded_key = encode_public_key(key.public_key())
+            fingerprint = hashlib.sha256(key.public_key().public_bytes_raw()).hexdigest()
+            status = await service.verify(
+                token=invitation.token,
+                scope=scope,
+                installation_id=157058059 + index,
+                key_id=f"multi-scope-2026-{index + 1:02d}",
+                public_key=encoded_key,
+                public_key_fingerprint=fingerprint,
+                now=NOW + timedelta(minutes=1),
+            )
+            statuses.append(
+                await service.activate(
+                    status.maintainer_id,
+                    actor_id=actor_id,
+                    reason="Activate one reviewed multi-scope maintainer",
+                    now=NOW + timedelta(minutes=2),
+                )
+            )
+        assert [status.state for status in statuses] == ["active", "active", "active"]
+        assert verifier.calls == 3
+
+        connection = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            assert await connection.fetchval("SELECT count(*) FROM federation_invitations") == 3
+            assert await connection.fetchval("SELECT count(*) FROM federation_maintainers") == 3
+            assert (
+                await connection.fetchval(
+                    "SELECT count(*) FROM federation_maintainers WHERE state = 'active'"
+                )
+                == 3
+            )
+            assert (
+                await connection.fetchval(
+                    "SELECT count(DISTINCT pack_id) FROM federation_invitations"
+                )
+                == 3
+            )
+        finally:
+            await connection.close()
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(
     INTEGRATION_DATABASE_URL is None,
     reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
@@ -526,3 +701,16 @@ def test_single_invitation_release_rotation_and_quarantine_lifecycle() -> None:
     asyncio.run(run_lifecycle(INTEGRATION_DATABASE_URL))
     with pytest.raises(DBAPIError, match="refuses to discard immutable federation release rows"):
         alembic_command.downgrade(config, "20260901_0024")
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_reviewed_scopes_serialize_independently_and_downgrade_refuses_collapse() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    alembic_command.upgrade(config, "head")
+    asyncio.run(run_multi_scope_lifecycle(INTEGRATION_DATABASE_URL))
+    with pytest.raises(DBAPIError, match="refuses to collapse multiple federation invitation"):
+        alembic_command.downgrade(config, "20260902_0025")

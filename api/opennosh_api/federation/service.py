@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -50,12 +51,16 @@ class FederationService:
         self,
         factory: async_sessionmaker[AsyncSession],
         *,
-        allowed_scope: FederationScope,
+        allowed_scopes: Sequence[FederationScope],
         allowed_public_origin: str,
         installation_verifier: InstallationVerifier,
     ) -> None:
+        if not 1 <= len(allowed_scopes) <= 32:
+            raise ValueError("Federation service requires 1 to 32 allowed scopes")
+        if len(set(allowed_scopes)) != len(allowed_scopes):
+            raise ValueError("Federation service requires distinct allowed scopes")
         self._factory = factory
-        self._allowed_scope = allowed_scope
+        self._allowed_scopes = tuple(allowed_scopes)
         self._allowed_public_origin = allowed_public_origin.rstrip("/")
         self._installation_verifier = installation_verifier
 
@@ -92,14 +97,23 @@ class FederationService:
         )
         async with self._factory() as session, session.begin():
             repository = FederationRepository(session)
-            await repository.lock_single_invitation_slot()
+            await repository.lock_invitation_scope(
+                repository_id=scope.repository_id,
+                pack_id=scope.pack_id,
+            )
             await _require_active_steward(
                 repository,
                 actor_id=inviter_actor_id,
                 pack_id=scope.pack_id,
                 at=timestamp,
             )
-            if await repository.invitation_count() != 0:
+            if (
+                await repository.invitation_count(
+                    repository_id=scope.repository_id,
+                    pack_id=scope.pack_id,
+                )
+                != 0
+            ):
                 raise FederationError("federation_invitation_limit_reached")
             repository.add_invitation(invitation)
             # The audit row references this invitation. Flush explicitly because
@@ -111,7 +125,7 @@ class FederationService:
                     invitation_id=invitation.id,
                     actor_id=inviter_actor_id,
                     event_type=FederationEventType.INVITATION_CREATED,
-                    reason="First invitation-only federation enrollment",
+                    reason="Configured invitation-only federation enrollment",
                     payload={
                         "scope": scope.model_dump(mode="json"),
                         "expires_at": expires_at.isoformat(),
@@ -623,7 +637,7 @@ class FederationService:
         return _status(maintainer)
 
     def _require_allowed_scope(self, scope: FederationScope) -> None:
-        if scope != self._allowed_scope:
+        if scope not in self._allowed_scopes:
             raise FederationError("federation_scope_not_invited", exit_code=3)
 
 

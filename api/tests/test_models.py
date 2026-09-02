@@ -1,5 +1,5 @@
 from opennosh_api.models import Base
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
 
 EXPECTED_TABLES = {
@@ -71,6 +71,15 @@ def test_metadata_contains_the_complete_license_separated_schema() -> None:
         "foods_odbl",
         "foods_custom",
     }.issubset(Base.metadata.tables)
+
+
+def test_federation_invitation_identity_is_unique_per_scope() -> None:
+    constraints = {
+        constraint.name
+        for constraint in Base.metadata.tables["federation_invitations"].constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert "uq_federation_invitation_scope" in constraints
 
 
 def test_evidence_upload_session_state_shape_is_database_enforced() -> None:

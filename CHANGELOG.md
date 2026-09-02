@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.73.0.0] - 2026-09-02
+
+### Added
+
+- Add a reviewed operator allowlist for one to 32 immutable federation scopes while retaining the
+  original exact five-field configuration as a compatible one-scope mode.
+- Serialize invitation creation per repository and pack, permitting one single-use invitation for
+  each configured scope without allowing races in one scope to block unrelated scopes.
+
+### Security
+
+- Reject malformed, empty, oversized, duplicate, conflicting, or mixed legacy/JSON scope policy;
+  retain exact account, repository, pack, steward, provider, expiry, single-use, quarantine, and
+  revocation checks throughout the lifecycle.
+- Leave Render configuration, live federation enrollment, registry ingestion, projections, search,
+  installation, public discovery, publication claims, and all production-facing flags unchanged.
+
 ## [0.72.0.0] - 2026-09-02
 
 ### Added

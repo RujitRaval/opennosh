@@ -623,6 +623,30 @@ pointer remain authoritative and readable. Populate the new ledger only through 
 re-submission whose signed statement, current role key, governed receipt, accepted event, and public
 URL all verify normally.
 
+### T34.5b reviewed multi-scope operator policy
+
+T34.5b adds configuration capacity only; this release does not apply a production scope allowlist
+or authorize another enrollment. Keep claims and every public federation surface disabled. For the
+historical one-scope ceremony above, the five `FEDERATION_ALLOWED_*` identity fields remain valid.
+For a separately reviewed multi-scope ceremony, replace those five fields with exactly one secret
+JSON setting and do not configure both modes:
+
+```text
+FEDERATION_ALLOWED_SCOPES_JSON=[{"github_account_id":280184755,"github_login":"reviewed-maintainer","repository_id":1339461317,"repository":"reviewed-owner/repository","pack_id":"reviewed-pack"}]
+```
+
+The array must contain one to 32 exact, immutable scopes. Validation rejects unknown fields,
+duplicates, account/login or repository/name conflicts, and reuse of a pack ID for a different
+repository. Invitation creation remains steward-authorized and creates at most one single-use
+invitation per configured repository/pack scope; same-scope concurrent attempts serialize, while
+unrelated scopes do not share a global lock. All provider, token, expiry, key, quarantine,
+revocation, and append-only audit checks remain unchanged.
+
+Do not apply this setting, issue invitations, or enroll maintainers without a separately approved
+ceremony. Before a database downgrade past T34.5b, inspect `federation_invitations`: downgrade
+refuses when more than one row exists because restoring the former global slot would require data
+loss. Resolve such a rollback through a reviewed forward change; never delete invitation history.
+
 ### T33.5 live federation failure-drill matrix
 
 Run this matrix only after the T33.4 enrollment is quarantined, its temporary credentials are

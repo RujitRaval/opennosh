@@ -22,7 +22,7 @@ from opennosh_api.federation.contracts import (
 )
 from opennosh_api.federation.github import FederationProviderError
 from opennosh_api.federation.service import FederationError
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 NOW = datetime(2026, 8, 29, 13, tzinfo=UTC)
@@ -63,10 +63,8 @@ def _settings() -> SimpleNamespace:
         database_capacity_manifest_path=Path("capacity.json"),
         github_app_id=4741063,
         github_app_private_key=SecretStr("not-a-real-private-key"),
-        allowed_scope=SCOPE,
+        allowed_scopes=(SCOPE,),
         allowed_public_origin="https://opennosh.org",
-        allowed_github_login=SCOPE.github_login,
-        allowed_repository=SCOPE.repository,
         inviter_actor_id=ACTOR_ID,
     )
 
@@ -346,6 +344,34 @@ def test_federation_cli_maps_failures_to_stable_exit_codes(
 
     assert federation_cli.run_federation_command(argparse.Namespace()) == expected
     assert "Federation" in capsys.readouterr().err
+
+
+def test_federation_cli_redacts_invalid_operator_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    raw_scope_policy = "raw-reviewed-scope-policy-must-not-be-logged"
+    validation_error = ValidationError.from_exception_data(
+        "FederationOperatorSettings",
+        [
+            {
+                "type": "value_error",
+                "loc": (),
+                "input": {"allowed_scopes_json": raw_scope_policy},
+                "ctx": {"error": ValueError("scope policy is invalid")},
+            }
+        ],
+    )
+
+    def invalid_settings() -> None:
+        raise validation_error
+
+    monkeypatch.setattr(federation_cli, "FederationOperatorSettings", invalid_settings)
+
+    assert federation_cli.run_federation_command(argparse.Namespace()) == 2
+    error = capsys.readouterr().err
+    assert error == "Federation configuration failed: configuration_invalid\n"
+    assert raw_scope_policy not in error
 
 
 def test_federation_cli_rejects_missing_token_file() -> None:

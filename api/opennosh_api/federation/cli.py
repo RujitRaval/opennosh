@@ -42,7 +42,7 @@ def add_federation_parser(commands: argparse._SubParsersAction[argparse.Argument
     )
     operations = federation.add_subparsers(dest="federation_command", required=True)
 
-    invite = operations.add_parser("invite", help="Create the single configured invitation")
+    invite = operations.add_parser("invite", help="Create one configured-scope invitation")
     _add_scope_arguments(invite, include_login=True)
     invite.add_argument("--expires-at", type=datetime.fromisoformat, required=True)
     invite.add_argument("--json", action="store_true")
@@ -126,7 +126,10 @@ def run_federation_command(arguments: argparse.Namespace) -> int:
     except FederationError as error:
         print(f"Federation operation failed: {error.code}", file=sys.stderr)
         return error.exit_code
-    except (ValidationError, json.JSONDecodeError, OSError, ValueError) as error:
+    except ValidationError:
+        print("Federation configuration failed: configuration_invalid", file=sys.stderr)
+        return 2
+    except (json.JSONDecodeError, OSError, ValueError) as error:
         print(f"Federation configuration failed: {error}", file=sys.stderr)
         return 2
     except (DBAPIError, IntegrityError, SQLAlchemyError, LookupError):
@@ -202,7 +205,7 @@ async def _run(
     )
     service = FederationService(
         factory,
-        allowed_scope=settings.allowed_scope,
+        allowed_scopes=settings.allowed_scopes,
         allowed_public_origin=settings.allowed_public_origin,
         installation_verifier=verifier,
     )
@@ -231,17 +234,22 @@ async def _run(
                 )
             return 0
         if command == "verify":
-            scope = FederationScope(
-                github_account_id=arguments.github_account_id,
-                github_login=settings.allowed_github_login,
-                repository_id=arguments.repository_id,
-                repository=settings.allowed_repository,
-                pack_id=arguments.pack_id,
+            verified_scope = next(
+                (
+                    candidate
+                    for candidate in settings.allowed_scopes
+                    if candidate.github_account_id == arguments.github_account_id
+                    and candidate.repository_id == arguments.repository_id
+                    and candidate.pack_id == arguments.pack_id
+                ),
+                None,
             )
+            if verified_scope is None:
+                raise FederationError("federation_scope_not_invited", exit_code=3)
             encoded_key, fingerprint = load_public_key(arguments.public_key_file)
             status = await service.verify(
                 token=_read_token(arguments),
-                scope=scope,
+                scope=verified_scope,
                 installation_id=arguments.installation_id,
                 key_id=arguments.key_id,
                 public_key=encoded_key,
