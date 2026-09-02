@@ -1,6 +1,6 @@
 # Commons missions and verified accepted activity
 
-Status: T34.6 foundation; code lands disabled by default.
+Status: T34.6 governed lifecycle; code lands disabled by default.
 
 ## Product boundary
 
@@ -27,6 +27,21 @@ rewriting history.
 
 Database triggers reject updates and deletes to every fact table. Projection activation is the only
 mutable pointer and must move last, in the transaction that writes a complete checkpoint.
+
+## Governed lifecycle
+
+Mission proposals and transitions serialize on a per-mission PostgreSQL advisory lock. Every new
+decision requires an active human steward in the target pack and an exact expected prior event;
+reusing an event ID with the same request is idempotent, while conflicting reuse or stale state
+fails closed. Proposal approval must come from a different steward.
+
+The bounded transition graph is `proposed -> active -> paused -> active`, `active -> completed ->
+released`, with explicit closure from any non-closed state. Pauses require a future review time.
+Completion rebuilds progress from the current canonical accepted-event and receipt rows, checks the
+active checkpoint digest, counts, and complete materialized record set, and then requires the
+immutable definition target. A stale checkpoint therefore cannot preserve completion after a late
+correction or revocation. Release additionally requires a later, reconciled, non-revocation
+publication receipt for the target pack, so lifecycle state cannot impersonate signed publication.
 
 ## Accepted-event projector
 
