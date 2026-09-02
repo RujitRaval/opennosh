@@ -1231,6 +1231,7 @@ def test_render_commands_are_copied_into_their_production_images() -> None:
     web_start = (ROOT / "deploy/render_web_start.sh").read_text(encoding="utf-8")
 
     assert "COPY deploy/render_runtime.py ./deploy/render_runtime.py" in api_dockerfile
+    assert "COPY render.yaml ./render.yaml" in api_dockerfile
     assert "COPY --chown=nextjs:nodejs deploy/render_web_start.sh" in web_dockerfile
     assert "COPY --from=builder --chown=nextjs:nodejs /app/public ./public" in web_dockerfile
     assert "\nUSER opennosh\n" in api_dockerfile
