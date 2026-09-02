@@ -1,6 +1,6 @@
 # Commons missions and verified accepted activity
 
-Status: T34.6 governed lifecycle; code lands disabled by default.
+Status: T34.6 governed lifecycle and durable projection; code lands disabled by default.
 
 ## Product boundary
 
@@ -55,6 +55,18 @@ Input order cannot change output. Identical event retries collapse, conflicting 
 digests fail closed, cross-definition bindings fail closed, and a missing or conflicting receipt
 lineage fails closed. The checkpoint digest covers every matched event, including corrections and
 revocations, while `accepted_count` covers only the current active records.
+
+A contributor may bind only their own exact current draft version, only while the current mission
+definition is active, and only when the draft targets the definition's pack. The draft-version lock
+prevents one contribution version from joining competing definitions concurrently. Projection
+rebuilds verify the accepted-event and receipt representations, reconciliation time, canonical
+commit, definition pack, and complete ancestor/descendant receipt lineage before projecting.
+
+Each rebuild reuses an identical verified checkpoint or appends a complete new checkpoint and its
+records. It then compares the caller's expected active checkpoint and moves the single mutable
+activation pointer last. Checkpoint and activation identifiers are idempotency boundaries; a reused
+identifier with different material fails closed. A correction replaces the active record and a
+revocation removes it while every prior checkpoint and accepted event remains immutable.
 
 ## Public and privacy boundary
 

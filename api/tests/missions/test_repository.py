@@ -45,6 +45,13 @@ class FakeSession:
         self.scalar_rows = [bindings, stored_rows]
         self.accepted_rows = accepted_rows
 
+    async def scalar(self, _statement: object) -> object:
+        return SimpleNamespace(
+            id=DEFINITION_ID,
+            mission_id=MISSION_ID,
+            target_pack_id="opennosh-starter",
+        )
+
     async def scalars(self, _statement: object) -> _ScalarRows:
         return _ScalarRows(self.scalar_rows.pop(0))
 
@@ -61,23 +68,33 @@ def _accepted_row(
     prior_receipt_digest: str | None,
     intent: object | None,
 ) -> tuple[object, object, object | None]:
+    publication_intent_id = uuid4()
     accepted = SimpleNamespace(
         id=uuid4(),
+        schema_version="1.0",
+        publication_intent_id=publication_intent_id,
         receipt_digest=receipt_digest,
         repository="github:RujitRaval/opennosh",
         commit_sha=commit_sha,
         pack_id="opennosh-starter",
         record_id="food-1",
-        event_type=event_type,
+        event_type={
+            "publication": "record.published",
+            "correction": "record.corrected",
+            "revocation": "record.revoked",
+        }[event_type],
         published_at=published_at,
     )
     receipt = SimpleNamespace(
+        schema_version="1.0",
+        publication_intent_id=publication_intent_id,
         receipt_digest=receipt_digest,
         prior_receipt_digest=prior_receipt_digest,
         pack_id=accepted.pack_id,
         record_id=accepted.record_id,
         event_type=event_type,
         published_at=published_at,
+        reconciled_at=published_at,
         envelope_json={"receipt": {"merged_commit": commit_sha}},
     )
     return accepted, receipt, intent
@@ -117,7 +134,7 @@ async def test_current_progress_follows_correction_lineage_and_materialized_reco
             commit_sha=row[0].commit_sha,
             pack_id=row[0].pack_id,
             record_id=row[0].record_id,
-            event_type=row[0].event_type,
+                event_type=row[1].event_type,
             published_at=row[0].published_at,
             source_draft_id=intent.source_draft_id if row[2] is not None else UUID(int=0),
             source_draft_version=intent.source_draft_version if row[2] is not None else 1,
