@@ -238,6 +238,20 @@ def _load_yaml(path: Path) -> object:
         ) from error
 
 
+def parse_pack_manifest(content: str) -> dict[str, object]:
+    """Parse one bounded pack manifest with the canonical strict YAML loader."""
+
+    if len(content.encode("utf-8")) > MAX_YAML_FILE_BYTES:
+        raise ValueError("pack manifest exceeds the bounded YAML size")
+    try:
+        value = yaml.load(content, Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as error:
+        raise ValueError("pack manifest is invalid YAML") from error
+    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+        raise ValueError("pack manifest must contain one string-keyed mapping")
+    return value
+
+
 def load_pack_directory(directory: str | Path) -> LoadedFoodPack:
     """Load pack.yaml and every foods/*.yaml file into the schema's normalized shape."""
     pack_directory = Path(directory).resolve()

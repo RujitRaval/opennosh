@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, cast
@@ -9,6 +10,9 @@ from sqlalchemy import bindparam, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.contributions.models import ContributionDraft
+from opennosh_api.foodpacks.validation import parse_pack_manifest
+from opennosh_api.governance.contracts import ApprovedChangeSet
+from opennosh_api.governance.models import GovernanceDecision
 from opennosh_api.missions.contracts import AcceptedMissionFact, MissionBindingFact
 from opennosh_api.missions.models import (
     MissionContributionBinding,
@@ -27,6 +31,12 @@ from opennosh_api.publication.models import (
     PublicationReceiptRecord,
 )
 
+_PACK_LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
+_PACK_VERSION = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class MissionProjectionInputs:
@@ -40,6 +50,12 @@ class PublicMissionSnapshot:
     lifecycle_event: MissionLifecycleEvent
     checkpoint: MissionProgressCheckpoint | None
     progress_is_current: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MissionActivityLocaleCount:
+    locale: str
+    accepted_count: int
 
 
 class MissionRepository:
@@ -79,8 +95,12 @@ class MissionRepository:
             ),
         )
 
-    async def public_mission_snapshots(self, limit: int) -> tuple[PublicMissionSnapshot, ...]:
-        """Load moderated latest definitions and verify progress with bounded query fanout."""
+    async def _public_mission_snapshot_rows(
+        self, limit: int
+    ) -> tuple[
+        tuple[MissionDefinition, MissionLifecycleEvent, MissionProgressCheckpoint | None], ...
+    ]:
+        """Load bounded moderated latest definitions without materializing progress proof."""
 
         latest_versions = (
             select(
@@ -159,6 +179,22 @@ class MissionRepository:
                 .limit(limit)
             )
         ).all()
+        return tuple(
+            cast(
+                tuple[
+                    MissionDefinition,
+                    MissionLifecycleEvent,
+                    MissionProgressCheckpoint | None,
+                ],
+                row,
+            )
+            for row in rows
+        )
+
+    async def public_mission_snapshots(self, limit: int) -> tuple[PublicMissionSnapshot, ...]:
+        """Load moderated latest definitions and verify progress with bounded query fanout."""
+
+        rows = await self._public_mission_snapshot_rows(limit)
         currentness = await self._progress_currentness(
             tuple(
                 (definition, checkpoint)
@@ -176,6 +212,84 @@ class MissionRepository:
                 ),
             )
             for definition, event, checkpoint in rows
+        )
+
+    async def public_mission_activity_locales(
+        self,
+        max_missions: int,
+        max_records: int,
+        max_lineage_events: int,
+    ) -> tuple[MissionActivityLocaleCount, ...]:
+        """Aggregate current accepted mission records by proof-bound pack locale.
+
+        The transaction snapshot, mission count, record count, and lineage count are bounded before
+        proof material is loaded. Missing immutable locale proof fails the whole response closed.
+        """
+
+        await self._session.execute(
+            text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        )
+        await self._session.execute(text("SELECT set_config('statement_timeout', '3000ms', true)"))
+        rows = await self._public_mission_snapshot_rows(max_missions + 1)
+        if len(rows) > max_missions:
+            raise ValueError("public_mission_activity_scope_too_large")
+        if any(checkpoint is None for _definition, _event, checkpoint in rows):
+            raise ValueError("public_mission_activity_proof_unavailable")
+        checked_rows = tuple(
+            (definition, checkpoint)
+            for definition, _event, checkpoint in rows
+            if checkpoint is not None
+        )
+        if sum(checkpoint.accepted_count for _definition, checkpoint in checked_rows) > max_records:
+            raise ValueError("public_mission_activity_record_scope_too_large")
+        if (
+            sum(checkpoint.matched_event_count for _definition, checkpoint in checked_rows)
+            > max_lineage_events
+        ):
+            raise ValueError("public_mission_activity_lineage_scope_too_large")
+        definition_ids = tuple(definition.id for definition, _checkpoint in checked_rows)
+        binding_count = (
+            await self._session.scalar(
+                select(func.count())
+                .select_from(MissionContributionBinding)
+                .where(MissionContributionBinding.definition_id.in_(definition_ids))
+            )
+            if definition_ids
+            else 0
+        )
+        if int(binding_count or 0) > max_lineage_events:
+            raise ValueError("public_mission_activity_binding_scope_too_large")
+        currentness = await self._progress_currentness(
+            checked_rows,
+            max_lineage_events=max_lineage_events,
+        )
+        if any(
+            not currentness.get(checkpoint.id, False) for _definition, checkpoint in checked_rows
+        ):
+            raise ValueError("public_mission_activity_proof_unavailable")
+        checkpoint_ids = tuple(checkpoint.id for _definition, checkpoint in checked_rows)
+        if not checkpoint_ids:
+            return ()
+
+        aggregate_rows = (
+            await self._session.execute(
+                select(
+                    StoredMissionProgressRecord.activity_locale,
+                    func.count(func.distinct(StoredMissionProgressRecord.accepted_event_id)),
+                )
+                .select_from(StoredMissionProgressRecord)
+                .where(StoredMissionProgressRecord.checkpoint_id.in_(checkpoint_ids))
+                .group_by(StoredMissionProgressRecord.activity_locale)
+            )
+        ).all()
+        if any(locale is None for locale, _accepted_count in aggregate_rows):
+            raise ValueError("public_mission_activity_locale_proof_unavailable")
+        return tuple(
+            MissionActivityLocaleCount(
+                locale=cast(str, locale),
+                accepted_count=int(accepted_count),
+            )
+            for locale, accepted_count in aggregate_rows
         )
 
     async def lifecycle_event(self, event_id: UUID) -> MissionLifecycleEvent | None:
@@ -290,6 +404,8 @@ class MissionRepository:
     async def _progress_currentness(
         self,
         items: tuple[tuple[MissionDefinition, MissionProgressCheckpoint], ...],
+        *,
+        max_lineage_events: int | None = None,
     ) -> dict[UUID, bool]:
         if not items:
             return {}
@@ -344,14 +460,27 @@ class MissionRepository:
             SELECT definition_id, receipt_digest
             FROM relevant_receipts
             ORDER BY definition_id, receipt_digest
+            LIMIT :lineage_limit
             """
-        ).bindparams(bindparam("definition_ids", expanding=True))
+        ).bindparams(
+            bindparam("definition_ids", expanding=True),
+            bindparam("lineage_limit"),
+        )
         lineage_rows = (
             await self._session.execute(
                 lineage_query,
-                {"definition_ids": tuple(definitions)},
+                {
+                    "definition_ids": tuple(definitions),
+                    "lineage_limit": (
+                        max_lineage_events + 1
+                        if max_lineage_events is not None
+                        else 9_223_372_036_854_775_807
+                    ),
+                },
             )
         ).all()
+        if max_lineage_events is not None and len(lineage_rows) > max_lineage_events:
+            raise ValueError("public_mission_activity_lineage_scope_too_large")
         digests_by_definition: dict[UUID, list[str]] = {
             definition_id: [] for definition_id in definitions
         }
@@ -364,7 +493,12 @@ class MissionRepository:
         accepted_rows = (
             (
                 await self._session.execute(
-                    select(AcceptedEvent, PublicationReceiptRecord, PublicationIntent)
+                    select(
+                        AcceptedEvent,
+                        PublicationReceiptRecord,
+                        PublicationIntent,
+                        GovernanceDecision,
+                    )
                     .outerjoin(
                         PublicationReceiptRecord,
                         PublicationReceiptRecord.receipt_digest == AcceptedEvent.receipt_digest,
@@ -372,6 +506,10 @@ class MissionRepository:
                     .outerjoin(
                         PublicationIntent,
                         PublicationIntent.id == AcceptedEvent.publication_intent_id,
+                    )
+                    .outerjoin(
+                        GovernanceDecision,
+                        GovernanceDecision.id == PublicationIntent.reviewed_decision_id,
                     )
                     .where(AcceptedEvent.receipt_digest.in_(tuple(all_digests)))
                     .order_by(AcceptedEvent.published_at, AcceptedEvent.id)
@@ -400,12 +538,13 @@ class MissionRepository:
             try:
                 facts: list[AcceptedMissionFact] = []
                 for digest in digests_by_definition[definition.id]:
-                    accepted, receipt, intent = accepted_by_digest[digest]
+                    accepted, receipt, intent, decision = accepted_by_digest[digest]
                     facts.append(
                         _accepted_mission_fact(
                             accepted,
                             receipt,
                             intent,
+                            decision,
                             target_pack_id=definition.target_pack_id,
                         )
                     )
@@ -425,6 +564,9 @@ class MissionRepository:
                     row.pack_id,
                     row.record_id,
                     row.accepted_event_id,
+                    row.activity_locale,
+                    row.activity_pack_version,
+                    row.activity_source_digest,
                     row.published_at,
                 )
                 for row in stored
@@ -435,6 +577,9 @@ class MissionRepository:
                     row.pack_id,
                     row.record_id,
                     row.accepted_event_id,
+                    row.activity_locale,
+                    row.activity_pack_version,
+                    row.activity_source_digest,
                     row.published_at,
                 )
                 for row in projected.records
@@ -476,6 +621,9 @@ class MissionRepository:
                 row.pack_id,
                 row.record_id,
                 row.accepted_event_id,
+                row.activity_locale,
+                row.activity_pack_version,
+                row.activity_source_digest,
                 row.published_at,
             )
             for row in stored_rows
@@ -486,6 +634,9 @@ class MissionRepository:
                 row.pack_id,
                 row.record_id,
                 row.accepted_event_id,
+                row.activity_locale,
+                row.activity_pack_version,
+                row.activity_source_digest,
                 row.published_at,
             )
             for row in projected.records
@@ -565,7 +716,12 @@ class MissionRepository:
         )
         accepted_rows = (
             await self._session.execute(
-                select(AcceptedEvent, PublicationReceiptRecord, PublicationIntent)
+                select(
+                    AcceptedEvent,
+                    PublicationReceiptRecord,
+                    PublicationIntent,
+                    GovernanceDecision,
+                )
                 .outerjoin(
                     PublicationReceiptRecord,
                     PublicationReceiptRecord.receipt_digest == AcceptedEvent.receipt_digest,
@@ -573,6 +729,10 @@ class MissionRepository:
                 .outerjoin(
                     PublicationIntent,
                     PublicationIntent.id == AcceptedEvent.publication_intent_id,
+                )
+                .outerjoin(
+                    GovernanceDecision,
+                    GovernanceDecision.id == PublicationIntent.reviewed_decision_id,
                 )
                 .where(AcceptedEvent.receipt_digest.in_(relevant_digests))
                 .order_by(AcceptedEvent.published_at, AcceptedEvent.id)
@@ -584,9 +744,10 @@ class MissionRepository:
                 accepted,
                 receipt,
                 intent,
+                decision,
                 target_pack_id=target_pack_id,
             )
-            for accepted, receipt, intent in accepted_rows
+            for accepted, receipt, intent, decision in accepted_rows
         ]
         return MissionProjectionInputs(
             bindings=bindings,
@@ -648,6 +809,7 @@ def _accepted_mission_fact(
     accepted: AcceptedEvent,
     receipt: PublicationReceiptRecord | None,
     intent: PublicationIntent | None,
+    decision: GovernanceDecision | None,
     *,
     target_pack_id: str,
 ) -> AcceptedMissionFact:
@@ -670,6 +832,12 @@ def _accepted_mission_fact(
         or envelope_commit != accepted.commit_sha
     ):
         raise MissionProjectionError("accepted_receipt_invalid")
+    activity_locale, activity_pack_version, activity_source_digest = _activity_locale_proof(
+        accepted,
+        receipt,
+        intent,
+        decision,
+    )
     return AcceptedMissionFact(
         event_id=accepted.id,
         receipt_digest=accepted.receipt_digest,
@@ -682,7 +850,65 @@ def _accepted_mission_fact(
         published_at=accepted.published_at,
         source_draft_id=intent.source_draft_id if intent is not None else UUID(int=0),
         source_draft_version=intent.source_draft_version if intent is not None else 1,
+        activity_locale=activity_locale,
+        activity_pack_version=activity_pack_version,
+        activity_source_digest=activity_source_digest,
     )
+
+
+def _activity_locale_proof(
+    accepted: AcceptedEvent,
+    receipt: PublicationReceiptRecord,
+    intent: PublicationIntent | None,
+    decision: GovernanceDecision | None,
+) -> tuple[str | None, str | None, str | None]:
+    """Resolve pack locale only from the immutable, receipt-bound approved change set."""
+
+    if intent is None or decision is None or decision.approved_changes_json is None:
+        return None, None, None
+    body = receipt.envelope_json.get("receipt")
+    if not isinstance(body, dict):
+        return None, None, None
+    try:
+        changes = ApprovedChangeSet.from_json(decision.approved_changes_json)
+    except (TypeError, ValueError):
+        return None, None, None
+    if (
+        decision.outcome != "approved"
+        or intent.reviewed_decision_id != decision.id
+        or intent.source_draft_id != decision.source_draft_id
+        or intent.source_draft_version != decision.source_draft_version
+        or intent.pack_id != decision.pack_id
+        or intent.record_id != decision.record_id
+        or accepted.pack_id != decision.pack_id
+        or accepted.record_id != decision.record_id
+        or accepted.repository != decision.forge_target
+        or decision.approved_payload_digest != changes.digest
+        or intent.approved_payload_digest != changes.digest
+        or body.get("reviewed_decision_id") != str(decision.id)
+        or body.get("approved_payload_digest") != changes.digest
+    ):
+        return None, None, None
+    manifest_path = f"packs/{changes.pack_id}/pack.yaml"
+    manifests = [file.content for file in changes.files if file.path == manifest_path]
+    if len(manifests) != 1:
+        return None, None, None
+    try:
+        manifest = parse_pack_manifest(manifests[0])
+    except (TypeError, ValueError):
+        return None, None, None
+    pack_id = manifest.get("id")
+    pack_version = manifest.get("version")
+    locale = manifest.get("locale")
+    if (
+        pack_id != changes.pack_id
+        or not isinstance(pack_version, str)
+        or not _PACK_VERSION.fullmatch(pack_version)
+        or not isinstance(locale, str)
+        or not _PACK_LOCALE.fullmatch(locale)
+    ):
+        return None, None, None
+    return locale, pack_version, changes.digest
 
 
 def _accepted_event_type(receipt_event_type: str) -> str:
@@ -731,4 +957,9 @@ def _receipt_envelope_material(receipt: PublicationReceiptRecord) -> tuple[str, 
     return repository, merged_commit
 
 
-__all__ = ["MissionProjectionInputs", "MissionRepository", "PublicMissionSnapshot"]
+__all__ = [
+    "MissionActivityLocaleCount",
+    "MissionProjectionInputs",
+    "MissionRepository",
+    "PublicMissionSnapshot",
+]

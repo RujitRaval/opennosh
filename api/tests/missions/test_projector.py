@@ -4,7 +4,11 @@ from datetime import UTC, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
-from opennosh_api.missions.contracts import AcceptedMissionFact, MissionBindingFact
+from opennosh_api.missions.contracts import (
+    AcceptedMissionFact,
+    MissionBindingFact,
+    MissionProgressRecord,
+)
 from opennosh_api.missions.projector import MissionProjectionError, project_mission_progress
 
 NOW = datetime(2026, 9, 2, 12, tzinfo=UTC)
@@ -32,6 +36,9 @@ def _event(
     version: int = 1,
     record_id: str = "food-1",
     published_at: datetime = NOW,
+    activity_locale: str | None = None,
+    activity_pack_version: str | None = None,
+    activity_source_digest: str | None = None,
 ) -> AcceptedMissionFact:
     return AcceptedMissionFact(
         event_id=event_id or uuid4(),
@@ -45,6 +52,9 @@ def _event(
         published_at=published_at,
         source_draft_id=draft_id,
         source_draft_version=version,
+        activity_locale=activity_locale,
+        activity_pack_version=activity_pack_version,
+        activity_source_digest=activity_source_digest,
     )
 
 
@@ -113,6 +123,41 @@ def test_projection_digest_normalizes_equivalent_timezone_offsets() -> None:
     )
 
     assert _project([event]).event_set_digest == _project([offset_event]).event_set_digest
+
+
+def test_projection_binds_activity_locale_proof_into_record_and_checkpoint_digest() -> None:
+    event = _event()
+    proven = event.model_copy(
+        update={
+            "activity_locale": "en-US",
+            "activity_pack_version": "1.2.3",
+            "activity_source_digest": "c" * 64,
+        }
+    )
+
+    original = _project([event])
+    enriched = _project([proven])
+
+    assert enriched.event_set_digest != original.event_set_digest
+    assert enriched.records[0].activity_locale == "en-US"
+    assert enriched.records[0].activity_pack_version == "1.2.3"
+    assert enriched.records[0].activity_source_digest == "c" * 64
+
+
+def test_activity_proof_contracts_reject_partial_material() -> None:
+    with pytest.raises(ValueError, match="accepted event activity proof must be all present"):
+        _event(activity_locale="en-US")
+
+    with pytest.raises(ValueError, match="mission record activity proof must be all present"):
+        MissionProgressRecord(
+            repository="github:RujitRaval/opennosh",
+            pack_id="opennosh-starter",
+            record_id="food-1",
+            accepted_event_id=uuid4(),
+            receipt_digest="a" * 64,
+            activity_locale="en-US",
+            published_at=NOW,
+        )
 
 
 def test_revocation_removes_the_record_without_erasing_history() -> None:

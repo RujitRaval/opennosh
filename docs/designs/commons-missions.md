@@ -87,9 +87,20 @@ checkpoint is explicitly unavailable rather than zero; an outdated checkpoint is
 missions include the exact validated publication-receipt digest that authorized the transition.
 
 The response excludes contributor identity, location, rankings, leaderboards, streaks, and health
-comparisons. Geographic aggregation remains a later independent surface: it must be country-level
-or broader and require at least ten underlying verified accepted events, with smaller cohorts hidden
-or rolled upward. The system does not collect contributor geolocation for missions.
+comparisons. `GET /api/v1/public/missions/activity` is the separately gated geographic surface. It
+aggregates active, current mission checkpoint records by a BCP 47 locale copied from the immutable
+approved pack manifest into the checkpoint. The locale, pack version, and approved-payload digest
+remain bound to the accepted event's repository and signed receipt; mutable search metadata cannot
+reattribute an existing checkpoint. The system never reads or stores contributor location. Only an
+explicit country or numeric macroregion subtag is eligible. A region appears only after at least ten
+underlying verified accepted events.
+
+The activity endpoint deliberately accepts no mission, time, pack, or region filters and returns no
+grand total, suppressed count, or timestamp. Sub-threshold and language-only locales are omitted,
+so repeated queries cannot recover a hidden cohort by subtracting a broader total. Missing or stale
+checkpoint proof, missing immutable locale proof, more than 100 moderated missions, 10,000 current
+records, or 20,000 lineage events fails the whole map closed instead of publishing a partial result.
+The proof and aggregate run in one repeatable-read transaction with a bounded statement deadline.
 
 ## Feature switches
 

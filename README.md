@@ -236,6 +236,14 @@ most four accepted events. Invalid or missing first releases omit the record cou
 verification failure retains the durable last verified projection across process restarts and
 labels it stale.
 
+Commons mission activity has a separate disabled-by-default endpoint at
+`GET /api/v1/public/missions/activity`. It publishes only country or macroregion cohorts backed by
+at least ten current verified accepted events. Regions come from the immutable approved pack
+manifest bound to each accepted event's signed receipt, never mutable food rows or contributor
+location, and the response exposes no filterable total from which a smaller cohort could be
+inferred. See the
+[Commons mission activity contract](docs/api-contracts.md#commons-mission-activity-contract).
+
 Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
 `/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
 files use the schema-version-1 signed envelope documented in

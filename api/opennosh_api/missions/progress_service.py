@@ -232,6 +232,9 @@ async def rebuild_mission_progress(
                     repository=record.repository,
                     pack_id=record.pack_id,
                     record_id=record.record_id,
+                    activity_locale=record.activity_locale,
+                    activity_pack_version=record.activity_pack_version,
+                    activity_source_digest=record.activity_source_digest,
                     published_at=record.published_at,
                 )
             )
@@ -308,6 +311,9 @@ async def _checkpoint_matches(
             record.pack_id,
             record.record_id,
             record.accepted_event_id,
+            record.activity_locale,
+            record.activity_pack_version,
+            record.activity_source_digest,
             record.published_at,
         )
         for record in stored
@@ -318,6 +324,9 @@ async def _checkpoint_matches(
             record.pack_id,
             record.record_id,
             record.accepted_event_id,
+            record.activity_locale,
+            record.activity_pack_version,
+            record.activity_source_digest,
             record.published_at,
         )
         for record in progress.records

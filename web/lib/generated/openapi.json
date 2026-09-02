@@ -3851,6 +3851,15 @@
         "title": "MaintainerAttestationManifest",
         "type": "object"
       },
+      "MissionActivityState": {
+        "enum": [
+          "unavailable",
+          "zero",
+          "live"
+        ],
+        "title": "MissionActivityState",
+        "type": "string"
+      },
       "MissionCatalogState": {
         "enum": [
           "unavailable",
@@ -5502,6 +5511,122 @@
           "public_reason"
         ],
         "title": "PublicMission",
+        "type": "object"
+      },
+      "PublicMissionActivityCountry": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_count": {
+            "minimum": 10.0,
+            "title": "Accepted Count",
+            "type": "integer"
+          },
+          "level": {
+            "const": "country",
+            "title": "Level",
+            "type": "string"
+          },
+          "region_code": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Region Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region_code",
+          "level",
+          "accepted_count"
+        ],
+        "title": "PublicMissionActivityCountry",
+        "type": "object"
+      },
+      "PublicMissionActivityMacroregion": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_count": {
+            "minimum": 10.0,
+            "title": "Accepted Count",
+            "type": "integer"
+          },
+          "level": {
+            "const": "macroregion",
+            "title": "Level",
+            "type": "string"
+          },
+          "region_code": {
+            "pattern": "^[0-9]{3}$",
+            "title": "Region Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "region_code",
+          "level",
+          "accepted_count"
+        ],
+        "title": "PublicMissionActivityMacroregion",
+        "type": "object"
+      },
+      "PublicMissionActivityMap": {
+        "additionalProperties": false,
+        "properties": {
+          "minimum_cohort": {
+            "const": 10,
+            "default": 10,
+            "title": "Minimum Cohort",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "disabled",
+                  "proof_unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "regions": {
+            "default": [],
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "country": "#/components/schemas/PublicMissionActivityCountry",
+                  "macroregion": "#/components/schemas/PublicMissionActivityMacroregion"
+                },
+                "propertyName": "level"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PublicMissionActivityCountry"
+                },
+                {
+                  "$ref": "#/components/schemas/PublicMissionActivityMacroregion"
+                }
+              ]
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/MissionActivityState"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "PublicMissionActivityMap",
         "type": "object"
       },
       "PublicMissionCatalog": {
@@ -17346,6 +17471,137 @@
           }
         },
         "summary": "Missions",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/api/v1/public/missions/activity": {
+      "get": {
+        "operationId": "mission_activity_api_v1_public_missions_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMissionActivityMap"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The request is invalid."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Authentication is required."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The current user is not authorized."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The requested resource was not found."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The request conflicts with the latest state."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The request failed validation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The request rate limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The server could not complete the request."
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "An upstream service returned an unusable response."
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "The service is temporarily unavailable."
+          },
+          "504": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "An upstream service timed out."
+          }
+        },
+        "summary": "Mission Activity",
         "tags": [
           "public"
         ]

@@ -163,6 +163,23 @@ invalidates the `public-commons` cache tag. The callback uses a dedicated scoped
 `PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS` destination allowlist. The five-minute TTL remains the
 bounded fallback when that callback is temporarily unavailable.
 
+## Commons mission activity contract
+
+`GET /api/v1/public/missions/activity` is a read-only, disabled-by-default view over active mission
+progress checkpoints. It derives regions from the immutable approved pack manifest whose digest and
+repository are bound to each accepted event's signed receipt, never from mutable search rows or
+contributor identity or location. The schema-version-`1.0` response is `unavailable`, `zero`, or
+`live`; unavailable responses carry only `disabled` or `proof_unavailable`.
+
+Every published region is an ISO-style two-letter country code or a three-digit BCP 47
+macroregion with at least ten underlying verified accepted events. The endpoint has no filters and
+exposes no total, suppressed count, timestamps, rankings, streaks, or contributor dimensions. This
+prevents a client from recovering a hidden small cohort by subtracting one response from another.
+Stale checkpoints, missing immutable locale proof, more than 100 moderated missions, more than
+10,000 current records, or more than 20,000 lineage events fail the entire response closed. Reads
+use one repeatable-read snapshot with a bounded database deadline. Only live or honest-zero
+responses are cacheable for 60 seconds.
+
 ## Immutable public artifact contract
 
 `GET /api/v1/public/foods/{source}/{source_id}` resolves `latest/v1.json`; an optional `version`

@@ -164,6 +164,9 @@ class AcceptedMissionFact(BaseModel):
     published_at: datetime
     source_draft_id: UUID
     source_draft_version: Annotated[int, Field(gt=0)]
+    activity_locale: Annotated[str, Field(min_length=1, max_length=35)] | None = None
+    activity_pack_version: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    activity_source_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
 
     @field_validator("published_at")
     @classmethod
@@ -176,6 +179,15 @@ class AcceptedMissionFact(BaseModel):
     def validate_lineage_shape(self) -> AcceptedMissionFact:
         if (self.event_type == "publication") != (self.prior_receipt_digest is None):
             raise ValueError("accepted event lineage does not match its event type")
+        activity_proof = (
+            self.activity_locale,
+            self.activity_pack_version,
+            self.activity_source_digest,
+        )
+        if any(value is None for value in activity_proof) != all(
+            value is None for value in activity_proof
+        ):
+            raise ValueError("accepted event activity proof must be all present or all absent")
         return self
 
 
@@ -187,6 +199,9 @@ class MissionProgressRecord(BaseModel):
     record_id: Annotated[str, Field(min_length=1, max_length=160)]
     accepted_event_id: UUID
     receipt_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    activity_locale: Annotated[str, Field(min_length=1, max_length=35)] | None = None
+    activity_pack_version: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    activity_source_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     published_at: datetime
 
     @field_validator("published_at")
@@ -195,6 +210,19 @@ class MissionProgressRecord(BaseModel):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("published_at must include a timezone")
         return value
+
+    @model_validator(mode="after")
+    def validate_activity_proof(self) -> MissionProgressRecord:
+        activity_proof = (
+            self.activity_locale,
+            self.activity_pack_version,
+            self.activity_source_digest,
+        )
+        if any(value is None for value in activity_proof) != all(
+            value is None for value in activity_proof
+        ):
+            raise ValueError("mission record activity proof must be all present or all absent")
+        return self
 
 
 class MissionProgress(BaseModel):

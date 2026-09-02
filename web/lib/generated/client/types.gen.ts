@@ -2053,6 +2053,11 @@ export type MaintainerAttestationManifest = {
 };
 
 /**
+ * MissionActivityState
+ */
+export type MissionActivityState = 'unavailable' | 'zero' | 'live';
+
+/**
  * MissionCatalogState
  */
 export type MissionCatalogState = 'unavailable' | 'zero' | 'live';
@@ -2935,6 +2940,69 @@ export type PublicMission = {
      * Title
      */
     title: string;
+};
+
+/**
+ * PublicMissionActivityCountry
+ */
+export type PublicMissionActivityCountry = {
+    /**
+     * Accepted Count
+     */
+    accepted_count: number;
+    /**
+     * Level
+     */
+    level: 'country';
+    /**
+     * Region Code
+     */
+    region_code: string;
+};
+
+/**
+ * PublicMissionActivityMacroregion
+ */
+export type PublicMissionActivityMacroregion = {
+    /**
+     * Accepted Count
+     */
+    accepted_count: number;
+    /**
+     * Level
+     */
+    level: 'macroregion';
+    /**
+     * Region Code
+     */
+    region_code: string;
+};
+
+/**
+ * PublicMissionActivityMap
+ */
+export type PublicMissionActivityMap = {
+    /**
+     * Minimum Cohort
+     */
+    minimum_cohort?: 10;
+    /**
+     * Reason
+     */
+    reason?: 'disabled' | 'proof_unavailable' | null;
+    /**
+     * Regions
+     */
+    regions?: Array<({
+        level: 'country';
+    } & PublicMissionActivityCountry) | ({
+        level: 'macroregion';
+    } & PublicMissionActivityMacroregion)>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    state: MissionActivityState;
 };
 
 /**
@@ -8740,6 +8808,71 @@ export type MissionsApiV1PublicMissionsGetResponses = {
 };
 
 export type MissionsApiV1PublicMissionsGetResponse = MissionsApiV1PublicMissionsGetResponses[keyof MissionsApiV1PublicMissionsGetResponses];
+
+export type MissionActivityApiV1PublicMissionsActivityGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/missions/activity';
+};
+
+export type MissionActivityApiV1PublicMissionsActivityGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type MissionActivityApiV1PublicMissionsActivityGetError = MissionActivityApiV1PublicMissionsActivityGetErrors[keyof MissionActivityApiV1PublicMissionsActivityGetErrors];
+
+export type MissionActivityApiV1PublicMissionsActivityGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicMissionActivityMap;
+};
+
+export type MissionActivityApiV1PublicMissionsActivityGetResponse = MissionActivityApiV1PublicMissionsActivityGetResponses[keyof MissionActivityApiV1PublicMissionsActivityGetResponses];
 
 export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetData = {
     body?: never;

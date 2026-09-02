@@ -896,6 +896,15 @@ cannot prove the latest definition or lifecycle event, the same route must retur
 checkpoint remains visible with `progress_state=unavailable`; a checkpoint that no longer matches
 verified accepted-event history uses `progress_state=stale` and never claims current progress.
 
+While `MISSION_ACTIVITY_MAP_ENABLED=false`, `GET /api/v1/public/missions/activity` must return HTTP
+200 with `state=unavailable`, `reason=disabled`, `minimum_cohort=10`, and an empty `regions` array.
+The route has no filters or public total. When separately enabled, it reads only current active
+mission checkpoints, derives country or macroregion from the immutable approved pack manifest bound
+to each accepted event's signed receipt rather than mutable food rows or contributor location, and
+publishes a region only at ten or more verified accepted events. Missing or stale projection proof,
+missing receipt-bound locale proof, or a mission/record/lineage scope above 100/10,000/20,000 returns
+`reason=proof_unavailable`; it never emits a partial map.
+
 While mission mutations remain disabled, `POST /api/v1/missions` and
 `POST /api/v1/missions/{mission_id}/transitions` must return the generic HTTP 404 response before
 request validation, authentication, or database access. A later activation must keep CSRF and fresh

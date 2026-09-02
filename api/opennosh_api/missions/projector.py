@@ -181,12 +181,16 @@ def project_mission_progress(
             record_id=event.record_id,
             accepted_event_id=event.event_id,
             receipt_digest=event.receipt_digest,
+            activity_locale=event.activity_locale,
+            activity_pack_version=event.activity_pack_version,
+            activity_source_digest=event.activity_source_digest,
             published_at=event.published_at,
         )
         for _key, event in sorted(current_records.items())
     )
-    event_material = [
-        {
+    event_material = []
+    for event in matched:
+        material = {
             "event_id": str(event.event_id),
             "receipt_digest": event.receipt_digest,
             "prior_receipt_digest": event.prior_receipt_digest,
@@ -197,8 +201,11 @@ def project_mission_progress(
             "event_type": event.event_type,
             "published_at": event.published_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         }
-        for event in matched
-    ]
+        if event.activity_source_digest is not None:
+            material["activity_locale"] = event.activity_locale
+            material["activity_pack_version"] = event.activity_pack_version
+            material["activity_source_digest"] = event.activity_source_digest
+        event_material.append(material)
     digest = hashlib.sha256(
         json.dumps(event_material, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

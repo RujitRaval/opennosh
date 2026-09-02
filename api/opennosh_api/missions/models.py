@@ -195,6 +195,17 @@ class MissionProgressCheckpoint(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
 class MissionProgressRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "mission_progress_records"
     __table_args__ = (
+        CheckConstraint(
+            "(activity_locale IS NULL AND activity_pack_version IS NULL "
+            "AND activity_source_digest IS NULL) OR "
+            "(activity_locale IS NOT NULL AND activity_pack_version IS NOT NULL "
+            "AND activity_source_digest IS NOT NULL)",
+            name="activity_proof_complete",
+        ),
+        CheckConstraint(
+            "activity_source_digest IS NULL OR activity_source_digest ~ '^[0-9a-f]{64}$'",
+            name="activity_source_digest_sha256",
+        ),
         UniqueConstraint(
             "checkpoint_id", "repository", "pack_id", "record_id", name="uq_mission_progress_record"
         ),
@@ -213,6 +224,9 @@ class MissionProgressRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     repository: Mapped[str] = mapped_column(String(512), nullable=False)
     pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
     record_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    activity_locale: Mapped[str | None] = mapped_column(String(35))
+    activity_pack_version: Mapped[str | None] = mapped_column(String(64))
+    activity_source_digest: Mapped[str | None] = mapped_column(String(64))
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

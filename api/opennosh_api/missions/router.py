@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Never
 from uuid import UUID
@@ -12,6 +13,11 @@ from opennosh_api.auth.dependencies import (
     require_csrf,
 )
 from opennosh_api.database import get_database_session
+from opennosh_api.missions.activity_service import (
+    PublicMissionActivityMap,
+    public_mission_activity_map,
+    unavailable_public_mission_activity_map,
+)
 from opennosh_api.missions.contracts import (
     MissionLifecycleAction,
     MissionLifecycleResponse,
@@ -38,6 +44,7 @@ from opennosh_api.missions.service import (
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/public", tags=["public"])
+logger = logging.getLogger(__name__)
 organizer_router = APIRouter(prefix="/api/v1/missions", tags=["missions"])
 
 
@@ -137,6 +144,43 @@ async def missions(
         else "public, max-age=0, s-maxage=60, stale-if-error=300"
     )
     return catalog
+
+
+@router.get("/missions/activity", response_model=PublicMissionActivityMap)
+async def mission_activity(
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> PublicMissionActivityMap:
+    if not settings.mission_activity_map_enabled:
+        activity = await public_mission_activity_map(
+            MissionRepository(database),
+            enabled=False,
+        )
+    else:
+        try:
+            activity = await public_mission_activity_map(
+                MissionRepository(database),
+                enabled=True,
+            )
+        except (SQLAlchemyError, ValueError, TypeError) as error:
+            failure_code = (
+                str(error)
+                if isinstance(error, ValueError)
+                and str(error).startswith("public_mission_activity_")
+                else type(error).__name__
+            )
+            logger.warning(
+                "Public mission activity proof unavailable",
+                extra={"failure_code": failure_code},
+            )
+            activity = unavailable_public_mission_activity_map()
+    response.headers["Cache-Control"] = (
+        "no-store"
+        if activity.reason is not None
+        else "public, max-age=0, s-maxage=60, stale-if-error=300"
+    )
+    return activity
 
 
 @organizer_router.post(
