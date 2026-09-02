@@ -26,6 +26,24 @@ EXPECTED_TABLE_OWNERS = {
     "federation_invitations": "opennosh_api.federation.models.FederationInvitation",
     "federation_maintainers": "opennosh_api.federation.models.FederationMaintainer",
     "federation_releases": "opennosh_api.federation.models.FederationRelease",
+    "federation_verified_releases": (
+        "opennosh_api.federation.models.FederationVerifiedRelease"
+    ),
+    "federation_release_status_events": (
+        "opennosh_api.federation.models.FederationReleaseStatusEvent"
+    ),
+    "federation_projection_checkpoints": (
+        "opennosh_api.federation.models.FederationProjectionCheckpoint"
+    ),
+    "federation_projection_releases": (
+        "opennosh_api.federation.models.FederationProjectionRelease"
+    ),
+    "federation_projection_foods": (
+        "opennosh_api.federation.models.FederationProjectionFood"
+    ),
+    "federation_projection_activations": (
+        "opennosh_api.federation.models.FederationProjectionActivation"
+    ),
     "federation_role_keys": "opennosh_api.federation.models.FederationRoleKey",
     "governance_decisions": "opennosh_api.governance.models.GovernanceDecision",
     "governance_disputes": "opennosh_api.governance.models.GovernanceDispute",
@@ -120,6 +138,12 @@ def test_registry_import_order_is_deterministic() -> None:
         "federation_role_keys",
         "federation_audit_events",
         "federation_releases",
+        "federation_verified_releases",
+        "federation_release_status_events",
+        "federation_projection_checkpoints",
+        "federation_projection_releases",
+        "federation_projection_foods",
+        "federation_projection_activations",
         "publication_intents",
         "publication_steps",
         "publication_durable_acknowledgements",

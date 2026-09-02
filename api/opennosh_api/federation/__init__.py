@@ -5,7 +5,9 @@ from opennosh_api.federation.contracts import (
     FederationReleaseStatement,
     FederationScope,
     MaintainerStatus,
+    ProjectionStatus,
     SignedFederationRelease,
+    VerifiedReleaseStatus,
 )
 
 __all__ = [
@@ -13,5 +15,7 @@ __all__ = [
     "FederationReleaseStatement",
     "FederationScope",
     "MaintainerStatus",
+    "ProjectionStatus",
     "SignedFederationRelease",
+    "VerifiedReleaseStatus",
 ]

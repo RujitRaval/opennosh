@@ -3,9 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import json
 import os
+import zipfile
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import asyncpg  # type: ignore[import-untyped]
@@ -19,10 +22,20 @@ from opennosh_api.federation.contracts import (
     SignedFederationRelease,
     encode_public_key,
     release_signature_material,
+    release_statement_digest,
 )
 from opennosh_api.federation.service import FederationError, FederationService
+from opennosh_api.foodpacks.loader import prepare_food_pack
 from opennosh_api.jobs import JobLane, JobMessage
 from opennosh_api.jobs.worker import asyncpg_dsn
+from opennosh_api.public.artifacts import (
+    PublicPackArtifact,
+    PublicReadReleaseManifest,
+    artifact_descriptor,
+)
+from opennosh_api.public.bootstrap import _pack_archive
+from opennosh_api.public.signing import public_key_text, sign_envelope
+from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.receipts import SignedPublicationReceipt
@@ -44,6 +57,7 @@ from api.tests.workflow_testkit import (
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
 NOW = datetime(2026, 8, 29, 14, tzinfo=UTC)
 NAMESPACE = UUID("11d53b03-4da4-4058-9565-719b727268f3")
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class VerifiedInstallation:
@@ -73,6 +87,7 @@ async def _published_release(
         ids=ids,
         suffix=suffix,
         manifest_digest=manifest_digest,
+        approved_payload_digest=manifest_digest,
     )
     pool = await asyncpg.create_pool(asyncpg_dsn(database_url), min_size=1, max_size=3)
     assert pool is not None
@@ -690,6 +705,294 @@ async def run_multi_scope_lifecycle(database_url: str) -> None:
         await engine.dispose()
 
 
+def _global_core_pack_bytes() -> tuple[bytes, str]:
+    packs_root = ROOT / "packs"
+    source_directory = packs_root / "indian-staples-north"
+    prepared = prepare_food_pack(source_directory)
+    assert prepared.pack_version is not None
+    source = io.BytesIO(_pack_archive(packs_root, source_directory))
+    output = io.BytesIO()
+    with zipfile.ZipFile(source) as incoming, zipfile.ZipFile(
+        output,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as outgoing:
+        for info in incoming.infolist():
+            payload = incoming.read(info)
+            if info.filename == "pack.yaml":
+                payload = payload.replace(
+                    b"id: indian-staples-north",
+                    b"id: global-core",
+                    1,
+                )
+            outgoing.writestr(info.filename, payload)
+    return output.getvalue(), prepared.pack_version
+
+
+async def run_verified_projection(database_url: str) -> None:
+    await reset_trust_tables(database_url)
+    pack_bytes, pack_version = _global_core_pack_bytes()
+    release_version = "1.2.3.4"
+    manifest_signing_key = Ed25519PrivateKey.from_private_bytes(b"m" * 32)
+    descriptor = artifact_descriptor(
+        f"packs/v1/{hashlib.sha256(pack_bytes).hexdigest()}.zip",
+        pack_bytes,
+        "application/zip",
+    )
+    manifest = PublicReadReleaseManifest(
+        release_version=release_version,
+        published_at=NOW,
+        publication_receipt_key=(
+            "receipts/v1/00000000-0000-0000-0000-000000000001.json"
+        ),
+        packs=(
+            PublicPackArtifact(
+                pack_id="global-core",
+                pack_version=pack_version,
+                download=descriptor,
+            ),
+        ),
+    )
+    manifest_bytes = sign_envelope(
+        manifest.model_dump(mode="json"),
+        key_id="projection-manifest-v1",
+        private_key=manifest_signing_key,
+    )
+    manifest_digest = hashlib.sha256(manifest_bytes).hexdigest()
+    seeded, envelope_json, receipt_digest = await _published_release(
+        database_url,
+        manifest_digest=manifest_digest,
+        release_version=release_version,
+        suffix="verified-projection",
+    )
+    actor_id = uuid4()
+    scope = FederationScope(
+        github_account_id=280184755,
+        github_login="aarolabs",
+        repository_id=1339461317,
+        repository=FORGE_TARGET.removeprefix("github:"),
+        pack_id="global-core",
+    )
+    connection = await asyncpg.connect(asyncpg_dsn(database_url))
+    try:
+        await connection.execute(
+            "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, 'hash')",
+            actor_id,
+            f"federation-projection-{actor_id}@example.test",
+        )
+        await connection.execute(
+            """
+            INSERT INTO governance_role_assignments (
+                pack_id, actor_id, role, granted_by_actor_id,
+                grant_reason, granted_at
+            ) VALUES ('global-core', $1, 'steward', $1, $2, $3)
+            """,
+            actor_id,
+            "Bootstrap the verified projection test steward",
+            NOW - timedelta(minutes=1),
+        )
+    finally:
+        await connection.close()
+
+    role_key = Ed25519PrivateKey.from_private_bytes(b"r" * 32)
+    engine = create_async_engine(database_url)
+    service = FederationService(
+        async_sessionmaker(engine, expire_on_commit=False),
+        allowed_scopes=(scope,),
+        allowed_public_origin="https://opennosh.example",
+        installation_verifier=VerifiedInstallation(),
+        manifest_keys=ManifestKeyRing.from_config(
+            f"projection-manifest-v1:{public_key_text(manifest_signing_key)}"
+        ),
+        ingestion_enabled=True,
+        projection_enabled=True,
+    )
+    try:
+        invitation = await service.invite(
+            scope,
+            inviter_actor_id=actor_id,
+            expires_at=NOW + timedelta(hours=1),
+            now=NOW,
+        )
+        verified_maintainer = await service.verify(
+            token=invitation.token,
+            scope=scope,
+            installation_id=157058059,
+            key_id="projection-role-v1",
+            public_key=encode_public_key(role_key.public_key()),
+            public_key_fingerprint=hashlib.sha256(
+                role_key.public_key().public_bytes_raw()
+            ).hexdigest(),
+            now=NOW + timedelta(minutes=1),
+        )
+        await service.activate(
+            verified_maintainer.maintainer_id,
+            actor_id=actor_id,
+            reason="Activate the verified projection test scope",
+            now=NOW + timedelta(minutes=2),
+        )
+        receipt = SignedPublicationReceipt.model_validate(envelope_json).receipt
+        statement = FederationReleaseStatement(
+            maintainer_id=verified_maintainer.maintainer_id,
+            repository_id=scope.repository_id,
+            repository=scope.repository,
+            pack_id=scope.pack_id,
+            publication_id=seeded.publication_id,
+            release_version=release_version,
+            manifest_digest=manifest_digest,
+            receipt_digest=receipt_digest,
+            public_url=(
+                "https://opennosh.example/api/v1/public/releases/"
+                f"{release_version}/manifest"
+            ),
+            issued_at=receipt.published_at + timedelta(minutes=1),
+            key_id="projection-role-v1",
+        )
+        signed = SignedFederationRelease(
+            statement=statement,
+            signature=(
+                base64.urlsafe_b64encode(
+                    role_key.sign(release_signature_material(statement))
+                )
+                .decode("ascii")
+                .rstrip("=")
+            ),
+        )
+        statement_digest = release_statement_digest(statement)
+        connection = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            role_key_id = await connection.fetchval(
+                "SELECT id FROM federation_role_keys WHERE maintainer_id = $1",
+                verified_maintainer.maintainer_id,
+            )
+            accepted_event_id = await connection.fetchval(
+                "SELECT id FROM accepted_events WHERE publication_intent_id = $1",
+                seeded.publication_id,
+            )
+            await connection.execute(
+                """
+                INSERT INTO federation_releases (
+                    maintainer_id, role_key_id, accepted_event_id, repository_id,
+                    repository, pack_id, publication_id, release_version,
+                    statement_json, statement_digest, manifest_digest, receipt_digest,
+                    public_url, key_id, signature, issued_at, receipt_published_at,
+                    verified_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8,
+                    $9::jsonb, $10, $11, $12, $13, $14, $15, $16, $17, $18
+                )
+                """,
+                verified_maintainer.maintainer_id,
+                role_key_id,
+                accepted_event_id,
+                scope.repository_id,
+                scope.repository,
+                scope.pack_id,
+                seeded.publication_id,
+                release_version,
+                json.dumps(statement.model_dump(mode="json")),
+                statement_digest,
+                manifest_digest,
+                receipt_digest,
+                statement.public_url,
+                statement.key_id,
+                signed.signature,
+                statement.issued_at,
+                receipt.published_at,
+                statement.issued_at,
+            )
+        finally:
+            await connection.close()
+        artifact_status = await service.verify_release_artifacts(
+            statement_digest,
+            manifest_bytes=manifest_bytes,
+            pack_bytes=pack_bytes,
+            actor_id=actor_id,
+            reason="Verify signed release content for projection",
+            now=statement.issued_at + timedelta(minutes=1),
+        )
+        assert artifact_status.state == "verified"
+        replay_status = await service.verify_release_artifacts(
+            statement_digest,
+            manifest_bytes=manifest_bytes,
+            pack_bytes=pack_bytes,
+            actor_id=actor_id,
+            reason="Replay exact verified release content",
+            now=statement.issued_at + timedelta(minutes=2),
+        )
+        assert replay_status == artifact_status
+        projection = await service.build_projection(
+            actor_id=actor_id,
+            reason="Activate the complete verified release set",
+            now=statement.issued_at + timedelta(minutes=3),
+        )
+        projection_replay = await service.build_projection(
+            actor_id=actor_id,
+            reason="Replay the same complete release set",
+            now=statement.issued_at + timedelta(minutes=4),
+        )
+        assert projection_replay.checkpoint_id == projection.checkpoint_id
+        assert projection_replay.activated_at == projection.activated_at
+
+        connection = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            assert await connection.fetchval(
+                "SELECT count(*) FROM federation_verified_releases"
+            ) == 1
+            assert await connection.fetchval(
+                "SELECT count(*) FROM federation_projection_checkpoints"
+            ) == 1
+            assert await connection.fetchval(
+                "SELECT count(*) FROM federation_projection_activations"
+            ) == 1
+            assert await connection.fetchval(
+                "SELECT count(*) FROM federation_projection_foods"
+            ) == artifact_status.record_count
+            with pytest.raises(asyncpg.CheckViolationError, match="append_only"):
+                await connection.execute(
+                    "DELETE FROM federation_projection_checkpoints WHERE id = $1",
+                    projection.checkpoint_id,
+                )
+        finally:
+            await connection.close()
+
+        with pytest.raises(FederationError, match="release_pack_artifact_mismatch"):
+            await service.verify_release_artifacts(
+                statement_digest,
+                manifest_bytes=manifest_bytes,
+                pack_bytes=pack_bytes + b"tampered",
+                actor_id=actor_id,
+                reason="Reject and quarantine a tampered verified candidate",
+                now=statement.issued_at + timedelta(minutes=5),
+            )
+        quarantined = await service.quarantine_release(
+            statement_digest,
+            actor_id=actor_id,
+            reason="Replay quarantine without duplicating its terminal fact",
+            now=statement.issued_at + timedelta(minutes=6),
+        )
+        assert quarantined.state == "quarantined"
+        with pytest.raises(FederationError, match="release_set_empty"):
+            await service.build_projection(
+                actor_id=actor_id,
+                reason="Prove quarantine cannot replace the last active checkpoint",
+                now=statement.issued_at + timedelta(minutes=7),
+            )
+        connection = await asyncpg.connect(asyncpg_dsn(database_url))
+        try:
+            assert await connection.fetchval(
+                "SELECT checkpoint_id FROM federation_projection_activations "
+                "ORDER BY activated_at DESC LIMIT 1"
+            ) == projection.checkpoint_id
+            assert await connection.fetchval(
+                "SELECT count(*) FROM federation_release_status_events"
+            ) == 2
+        finally:
+            await connection.close()
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(
     INTEGRATION_DATABASE_URL is None,
     reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
@@ -714,3 +1017,19 @@ def test_reviewed_scopes_serialize_independently_and_downgrade_refuses_collapse(
     asyncio.run(run_multi_scope_lifecycle(INTEGRATION_DATABASE_URL))
     with pytest.raises(DBAPIError, match="refuses to collapse multiple federation invitation"):
         alembic_command.downgrade(config, "20260902_0025")
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_verified_artifact_projection_is_atomic_append_only_and_quarantine_safe() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    alembic_command.upgrade(config, "head")
+    asyncio.run(run_verified_projection(INTEGRATION_DATABASE_URL))
+    try:
+        with pytest.raises(DBAPIError, match="refuses to discard verified federation"):
+            alembic_command.downgrade(config, "20260902_0026")
+    finally:
+        asyncio.run(reset_trust_tables(INTEGRATION_DATABASE_URL))

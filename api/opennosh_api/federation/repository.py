@@ -4,15 +4,21 @@ from datetime import datetime
 from typing import Protocol, cast
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import exists, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationProjectionActivation,
+    FederationProjectionCheckpoint,
+    FederationProjectionFood,
+    FederationProjectionRelease,
     FederationRelease,
+    FederationReleaseStatusEvent,
     FederationRoleKey,
+    FederationVerifiedRelease,
 )
 from opennosh_api.publication.models import AcceptedEvent, PublicationReceiptRecord
 
@@ -132,6 +138,141 @@ class FederationRepository:
 
     def add_release(self, release: FederationRelease) -> None:
         self._session.add(release)
+
+    async def release_by_statement_digest(self, statement_digest: str) -> FederationRelease:
+        release = await self._session.scalar(
+            select(FederationRelease).where(
+                FederationRelease.statement_digest == statement_digest
+            )
+        )
+        if release is None:
+            raise LookupError("federation_release_not_found")
+        return release
+
+    async def role_key(self, role_key_id: UUID) -> FederationRoleKey:
+        key = await self._session.scalar(
+            select(FederationRoleKey).where(FederationRoleKey.id == role_key_id)
+        )
+        if key is None:
+            raise LookupError("federation_role_key_not_found")
+        return key
+
+    async def verified_release(
+        self, release_id: UUID
+    ) -> FederationVerifiedRelease | None:
+        return cast(
+            FederationVerifiedRelease | None,
+            await self._session.scalar(
+                select(FederationVerifiedRelease).where(
+                    FederationVerifiedRelease.release_id == release_id
+                )
+            ),
+        )
+
+    def add_verified_release(self, release: FederationVerifiedRelease) -> None:
+        self._session.add(release)
+
+    def add_release_status(self, event: FederationReleaseStatusEvent) -> None:
+        self._session.add(event)
+
+    async def release_is_quarantined(self, release_id: UUID) -> bool:
+        return bool(
+            await self._session.scalar(
+                select(
+                    exists().where(
+                        FederationReleaseStatusEvent.release_id == release_id,
+                        FederationReleaseStatusEvent.state == "quarantined",
+                    )
+                )
+            )
+        )
+
+    async def lock_projection(self) -> None:
+        await self._session.execute(
+            text(
+                "SELECT pg_advisory_xact_lock("
+                "hashtext('opennosh:federation:projection'))"
+            )
+        )
+
+    async def eligible_verified_releases(
+        self,
+    ) -> tuple[tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer], ...]:
+        quarantined = exists().where(
+            FederationReleaseStatusEvent.release_id == FederationRelease.id,
+            FederationReleaseStatusEvent.state == "quarantined",
+        )
+        rows = (
+            await self._session.execute(
+                select(FederationVerifiedRelease, FederationRelease, FederationMaintainer)
+                .join(
+                    FederationRelease,
+                    FederationRelease.id == FederationVerifiedRelease.release_id,
+                )
+                .join(
+                    FederationMaintainer,
+                    FederationMaintainer.id == FederationRelease.maintainer_id,
+                )
+                .where(
+                    FederationMaintainer.state == "active",
+                    ~quarantined,
+                )
+                .order_by(
+                    FederationRelease.repository_id,
+                    FederationRelease.pack_id,
+                    FederationRelease.receipt_published_at.desc(),
+                    FederationRelease.id,
+                )
+            )
+        ).all()
+        selected: list[
+            tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer]
+        ] = []
+        scopes: set[tuple[int, str]] = set()
+        for verified, release, maintainer in rows:
+            scope = (release.repository_id, release.pack_id)
+            if scope not in scopes:
+                selected.append((verified, release, maintainer))
+                scopes.add(scope)
+        return tuple(selected)
+
+    async def projection_checkpoint(
+        self, release_set_digest: str
+    ) -> FederationProjectionCheckpoint | None:
+        return cast(
+            FederationProjectionCheckpoint | None,
+            await self._session.scalar(
+                select(FederationProjectionCheckpoint).where(
+                    FederationProjectionCheckpoint.release_set_digest
+                    == release_set_digest
+                )
+            ),
+        )
+
+    async def latest_projection_activation(self) -> FederationProjectionActivation | None:
+        return cast(
+            FederationProjectionActivation | None,
+            await self._session.scalar(
+                select(FederationProjectionActivation)
+                .order_by(
+                    FederationProjectionActivation.activated_at.desc(),
+                    FederationProjectionActivation.id.desc(),
+                )
+                .limit(1)
+            ),
+        )
+
+    def add_projection_checkpoint(self, checkpoint: FederationProjectionCheckpoint) -> None:
+        self._session.add(checkpoint)
+
+    def add_projection_release(self, release: FederationProjectionRelease) -> None:
+        self._session.add(release)
+
+    def add_projection_food(self, food: FederationProjectionFood) -> None:
+        self._session.add(food)
+
+    def add_projection_activation(self, activation: FederationProjectionActivation) -> None:
+        self._session.add(activation)
 
     async def actor_is_active_human_steward(
         self,

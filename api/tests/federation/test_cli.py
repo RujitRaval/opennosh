@@ -17,7 +17,9 @@ from opennosh_api.federation.contracts import (
     FederationScope,
     InvitationSecret,
     MaintainerStatus,
+    ProjectionStatus,
     SignedFederationRelease,
+    VerifiedReleaseStatus,
     encode_public_key,
 )
 from opennosh_api.federation.github import FederationProviderError
@@ -66,6 +68,9 @@ def _settings() -> SimpleNamespace:
         allowed_scopes=(SCOPE,),
         allowed_public_origin="https://opennosh.org",
         inviter_actor_id=ACTOR_ID,
+        manifest_verifying_keys=None,
+        ingestion_enabled=False,
+        projection_enabled=False,
     )
 
 
@@ -123,6 +128,48 @@ class _Service:
         assert release.statement.publication_id == PUBLICATION_ID
         self.operations.append("publish-release")
         return "d" * 64
+
+    async def verify_release_artifacts(
+        self, statement_digest: str, **options: object
+    ) -> VerifiedReleaseStatus:
+        assert statement_digest == "d" * 64
+        assert options["manifest_bytes"] == b"manifest"
+        assert options["pack_bytes"] == b"pack"
+        self.operations.append("verify-artifacts")
+        return VerifiedReleaseStatus(
+            statement_digest=statement_digest,
+            artifact_digest="e" * 64,
+            record_set_digest="f" * 64,
+            record_count=3,
+            pack_id=SCOPE.pack_id,
+            pack_version="1.2.3.4",
+            state="verified",
+        )
+
+    async def quarantine_release(
+        self, statement_digest: str, **_options: object
+    ) -> VerifiedReleaseStatus:
+        assert statement_digest == "d" * 64
+        self.operations.append("quarantine-release")
+        return VerifiedReleaseStatus(
+            statement_digest=statement_digest,
+            artifact_digest="e" * 64,
+            record_set_digest="f" * 64,
+            record_count=3,
+            pack_id=SCOPE.pack_id,
+            pack_version="1.2.3.4",
+            state="quarantined",
+        )
+
+    async def build_projection(self, **_options: object) -> ProjectionStatus:
+        self.operations.append("build-projection")
+        return ProjectionStatus(
+            checkpoint_id=UUID("55555555-5555-4555-8555-555555555555"),
+            release_set_digest="a" * 64,
+            release_count=1,
+            record_count=3,
+            activated_at=NOW,
+        )
 
     async def quarantine(self, _maintainer_id: UUID, **_options: object) -> MaintainerStatus:
         self.operations.append("quarantine")
@@ -191,6 +238,10 @@ def test_federation_cli_runs_every_bounded_operation(
     )
     release_file = tmp_path / "release.json"
     release_file.write_text(_release().model_dump_json(), encoding="utf-8")
+    manifest_file = tmp_path / "manifest.json"
+    manifest_file.write_bytes(b"manifest")
+    pack_file = tmp_path / "pack.zip"
+    pack_file.write_bytes(b"pack")
     maintainer = str(MAINTAINER_ID)
     commands = (
         [
@@ -252,6 +303,35 @@ def test_federation_cli_runs_every_bounded_operation(
         ],
         [
             "federation",
+            "verify-artifacts",
+            "--statement-digest",
+            "d" * 64,
+            "--manifest-file",
+            str(manifest_file),
+            "--pack-file",
+            str(pack_file),
+            "--reason",
+            "verify artifacts",
+            "--json",
+        ],
+        [
+            "federation",
+            "quarantine-release",
+            "--statement-digest",
+            "d" * 64,
+            "--reason",
+            "quarantine release",
+            "--json",
+        ],
+        [
+            "federation",
+            "build-projection",
+            "--reason",
+            "build verified projection",
+            "--json",
+        ],
+        [
+            "federation",
             "quarantine",
             "--maintainer-id",
             maintainer,
@@ -274,6 +354,9 @@ def test_federation_cli_runs_every_bounded_operation(
         "activate",
         "rotate-key",
         "publish-release",
+        "verify-artifacts",
+        "quarantine-release",
+        "build-projection",
         "quarantine",
         "revoke",
         "status",
@@ -377,6 +460,24 @@ def test_federation_cli_redacts_invalid_operator_configuration(
 def test_federation_cli_rejects_missing_token_file() -> None:
     with pytest.raises(ValueError, match="token file is missing"):
         federation_cli._read_token(argparse.Namespace(token_file="not-a-path"))
+
+
+def test_federation_cli_rejects_unsafe_artifact_files(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.json"
+    empty.write_bytes(b"")
+    oversized = tmp_path / "oversized.zip"
+    oversized.write_bytes(b"12345")
+    target = tmp_path / "target.json"
+    target.write_bytes(b"ok")
+    symlink = tmp_path / "linked.json"
+    symlink.symlink_to(target)
+
+    with pytest.raises(ValueError, match="invalid size"):
+        federation_cli._read_limited(empty, max_bytes=4)
+    with pytest.raises(ValueError, match="exceeds"):
+        federation_cli._read_limited(oversized, max_bytes=4)
+    with pytest.raises(ValueError, match="regular file"):
+        federation_cli._read_limited(symlink, max_bytes=4)
 
 
 def test_root_cli_dispatches_federation_command(monkeypatch: pytest.MonkeyPatch) -> None:
