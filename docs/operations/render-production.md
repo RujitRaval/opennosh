@@ -869,6 +869,35 @@ governance, receipt, or federation rows. A successful rollback has a fresh live 
 minutes, zero picked publication wake-ups, healthy latest refresh, all seven T33.5 public checks at
 HTTP 200, and unchanged last verified public identity.
 
+### T34.6 disabled mission projection foundation
+
+T34.6 mission lifecycle, contribution binding, and progress checkpoint code deploys as inert domain
+machinery. Keep all five mission switches false in both `opennosh-api` and
+`opennosh-publication`:
+
+```text
+MISSION_MUTATIONS_ENABLED=false
+MISSION_PROJECTION_ENABLED=false
+MISSION_PUBLIC_ENABLED=false
+MISSION_ACTIVITY_MAP_ENABLED=false
+MISSION_PACK_RELEASE_ENABLED=false
+```
+
+Do not run a mission projection rebuild in production until a later digest-bound activation has
+separately authorized the projection worker. A disabled deployment must leave accepted events,
+publication claims, federation state, signed public reads, and the active release unchanged. The
+production-claims readiness report must continue to show all mission switches false.
+
+When mission projection is later authorized, bind only the contributor's exact current draft
+version to an active definition in the same target pack. A rebuild must start from verified
+`accepted_events` plus their reconciled publication receipts, append a complete checkpoint and
+record set, and move the definition's activation pointer last using the expected prior checkpoint.
+Never repair progress by editing a checkpoint, record, binding, receipt, or accepted event.
+
+Rollback disables the five switches without deleting mission facts or changing the continuously
+enabled publication-claims mode. Retain all definitions, lifecycle events, bindings, checkpoints,
+accepted events, signed releases, and receipts for a later deterministic rebuild.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:

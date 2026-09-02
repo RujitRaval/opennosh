@@ -27,11 +27,14 @@ class _ScalarRows:
 
 
 class _ExecutedRows:
-    def __init__(self, rows: list[tuple[object, object, object]]) -> None:
+    def __init__(self, rows: list[object]) -> None:
         self._rows = rows
 
-    def all(self) -> list[tuple[object, object, object]]:
+    def all(self) -> list[object]:
         return self._rows
+
+    def scalars(self) -> _ScalarRows:
+        return _ScalarRows([row[0] if isinstance(row, tuple) else row for row in self._rows])
 
 
 class FakeSession:
@@ -44,11 +47,24 @@ class FakeSession:
     ) -> None:
         self.scalar_rows = [bindings, stored_rows]
         self.accepted_rows = accepted_rows
+        self.execute_count = 0
+
+    async def scalar(self, _statement: object) -> object:
+        return SimpleNamespace(
+            id=DEFINITION_ID,
+            mission_id=MISSION_ID,
+            target_pack_id="opennosh-starter",
+        )
 
     async def scalars(self, _statement: object) -> _ScalarRows:
         return _ScalarRows(self.scalar_rows.pop(0))
 
-    async def execute(self, _statement: object) -> _ExecutedRows:
+    async def execute(
+        self, _statement: object, _parameters: object | None = None
+    ) -> _ExecutedRows:
+        self.execute_count += 1
+        if self.execute_count == 1:
+            return _ExecutedRows([(row[0].receipt_digest,) for row in self.accepted_rows])
         return _ExecutedRows(self.accepted_rows)
 
 
@@ -61,24 +77,56 @@ def _accepted_row(
     prior_receipt_digest: str | None,
     intent: object | None,
 ) -> tuple[object, object, object | None]:
+    publication_intent_id = uuid4()
+    publication_id = uuid4()
     accepted = SimpleNamespace(
         id=uuid4(),
+        schema_version="1.0",
+        publication_intent_id=publication_intent_id,
         receipt_digest=receipt_digest,
         repository="github:RujitRaval/opennosh",
         commit_sha=commit_sha,
         pack_id="opennosh-starter",
         record_id="food-1",
-        event_type=event_type,
+        event_type={
+            "publication": "record.published",
+            "correction": "record.corrected",
+            "revocation": "record.revoked",
+        }[event_type],
         published_at=published_at,
     )
     receipt = SimpleNamespace(
+        publication_id=publication_id,
+        schema_version="1.0",
+        publication_intent_id=publication_intent_id,
         receipt_digest=receipt_digest,
         prior_receipt_digest=prior_receipt_digest,
         pack_id=accepted.pack_id,
         record_id=accepted.record_id,
         event_type=event_type,
         published_at=published_at,
-        envelope_json={"receipt": {"merged_commit": commit_sha}},
+        reconciled_at=published_at,
+        signature_key_id="test-key",
+        envelope_json={
+            "receipt": {
+                "schema_version": "1.0",
+                "publication_id": str(publication_id),
+                "event_type": event_type,
+                "prior_receipt_digest": prior_receipt_digest,
+                "pack_id": accepted.pack_id,
+                "record_id": accepted.record_id,
+                "merged_commit": commit_sha,
+                "published_at": published_at.isoformat(),
+                "verified_steps": [
+                    {
+                        "step": "commit_record",
+                        "destination": accepted.repository,
+                        "external_reference": commit_sha,
+                    }
+                ],
+            },
+            "signature_key_id": "test-key",
+        },
     )
     return accepted, receipt, intent
 
@@ -117,7 +165,7 @@ async def test_current_progress_follows_correction_lineage_and_materialized_reco
             commit_sha=row[0].commit_sha,
             pack_id=row[0].pack_id,
             record_id=row[0].record_id,
-            event_type=row[0].event_type,
+                event_type=row[1].event_type,
             published_at=row[0].published_at,
             source_draft_id=intent.source_draft_id if row[2] is not None else UUID(int=0),
             source_draft_version=intent.source_draft_version if row[2] is not None else 1,
@@ -175,7 +223,7 @@ async def test_current_progress_fails_closed_on_invalid_relevant_receipt() -> No
         prior_receipt_digest=None,
         intent=intent,
     )
-    receipt.envelope_json = {"receipt": {"merged_commit": "e" * 40}}
+    receipt.envelope_json["receipt"]["merged_commit"] = "e" * 40
     binding = SimpleNamespace(
         mission_id=MISSION_ID,
         definition_id=DEFINITION_ID,

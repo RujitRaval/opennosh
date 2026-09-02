@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import cast
 from uuid import UUID
@@ -7,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.contributions.models import ContributionDraft
 from opennosh_api.missions.contracts import AcceptedMissionFact, MissionBindingFact
 from opennosh_api.missions.models import (
     MissionContributionBinding,
@@ -26,6 +28,12 @@ from opennosh_api.publication.models import (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class MissionProjectionInputs:
+    bindings: tuple[MissionBindingFact, ...]
+    accepted_events: tuple[AcceptedMissionFact, ...]
+
+
 class MissionRepository:
     """Transaction-scoped persistence for governed mission lifecycle changes."""
 
@@ -36,6 +44,12 @@ class MissionRepository:
         await self._session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
             {"scope": f"opennosh:mission:{mission_id}"},
+        )
+
+    async def lock_contribution_version(self, draft_id: UUID, draft_version: int) -> None:
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+            {"scope": f"opennosh:mission-binding:{draft_id}:{draft_version}"},
         )
 
     async def definition(self, definition_id: UUID) -> MissionDefinition | None:
@@ -65,6 +79,28 @@ class MissionRepository:
             ),
         )
 
+    async def contribution_draft(self, draft_id: UUID) -> ContributionDraft | None:
+        return cast(ContributionDraft | None, await self._session.get(ContributionDraft, draft_id))
+
+    async def contribution_binding(self, binding_id: UUID) -> MissionContributionBinding | None:
+        return cast(
+            MissionContributionBinding | None,
+            await self._session.get(MissionContributionBinding, binding_id),
+        )
+
+    async def contribution_binding_for_source(
+        self, draft_id: UUID, draft_version: int
+    ) -> MissionContributionBinding | None:
+        return cast(
+            MissionContributionBinding | None,
+            await self._session.scalar(
+                select(MissionContributionBinding).where(
+                    MissionContributionBinding.source_draft_id == draft_id,
+                    MissionContributionBinding.source_draft_version == draft_version,
+                )
+            ),
+        )
+
     async def latest_lifecycle_event(self, mission_id: UUID) -> MissionLifecycleEvent | None:
         return cast(
             MissionLifecycleEvent | None,
@@ -91,6 +127,53 @@ class MissionRepository:
             ),
         )
 
+    async def progress_activation(
+        self, definition_id: UUID
+    ) -> MissionProgressActivation | None:
+        return cast(
+            MissionProgressActivation | None,
+            await self._session.scalar(
+                select(MissionProgressActivation).where(
+                    MissionProgressActivation.definition_id == definition_id
+                )
+            ),
+        )
+
+    async def progress_checkpoint_for_digest(
+        self, definition_id: UUID, event_set_digest: str
+    ) -> MissionProgressCheckpoint | None:
+        return cast(
+            MissionProgressCheckpoint | None,
+            await self._session.scalar(
+                select(MissionProgressCheckpoint).where(
+                    MissionProgressCheckpoint.definition_id == definition_id,
+                    MissionProgressCheckpoint.event_set_digest == event_set_digest,
+                )
+            ),
+        )
+
+    async def progress_checkpoint(self, checkpoint_id: UUID) -> MissionProgressCheckpoint | None:
+        return cast(
+            MissionProgressCheckpoint | None,
+            await self._session.get(MissionProgressCheckpoint, checkpoint_id),
+        )
+
+    async def progress_records(
+        self, checkpoint_id: UUID
+    ) -> tuple[StoredMissionProgressRecord, ...]:
+        rows = (
+            await self._session.scalars(
+                select(StoredMissionProgressRecord)
+                .where(StoredMissionProgressRecord.checkpoint_id == checkpoint_id)
+                .order_by(
+                    StoredMissionProgressRecord.repository,
+                    StoredMissionProgressRecord.pack_id,
+                    StoredMissionProgressRecord.record_id,
+                )
+            )
+        ).all()
+        return tuple(rows)
+
     async def receipt(self, digest: str) -> PublicationReceiptRecord | None:
         return cast(
             PublicationReceiptRecord | None,
@@ -104,112 +187,25 @@ class MissionRepository:
     async def progress_is_current(self, checkpoint: MissionProgressCheckpoint) -> bool:
         """Rebuild and compare the active proof before irreversible completion."""
 
-        binding_rows = (
-            await self._session.scalars(
-                select(MissionContributionBinding).where(
-                    MissionContributionBinding.definition_id == checkpoint.definition_id
-                )
-            )
-        ).all()
-        bindings = tuple(
-            MissionBindingFact(
-                mission_id=row.mission_id,
-                definition_id=row.definition_id,
-                source_draft_id=row.source_draft_id,
-                source_draft_version=row.source_draft_version,
-            )
-            for row in binding_rows
-        )
-        accepted_rows = (
-            await self._session.execute(
-                select(AcceptedEvent, PublicationReceiptRecord, PublicationIntent)
-                .outerjoin(
-                    PublicationReceiptRecord,
-                    PublicationReceiptRecord.receipt_digest == AcceptedEvent.receipt_digest,
-                )
-                .outerjoin(
-                    PublicationIntent,
-                    PublicationIntent.id == AcceptedEvent.publication_intent_id,
-                )
-                .order_by(AcceptedEvent.published_at, AcceptedEvent.id)
-            )
-        ).all()
-        binding_sources = {
-            (binding.source_draft_id, binding.source_draft_version) for binding in bindings
-        }
-        relevant_indexes = {
-            index
-            for index, (_accepted, _receipt, intent) in enumerate(accepted_rows)
-            if intent is not None
-            and (intent.source_draft_id, intent.source_draft_version) in binding_sources
-        }
-        relevant_digests = {
-            accepted_rows[index][0].receipt_digest for index in relevant_indexes
-        }
-        changed = True
-        while changed:
-            changed = False
-            for index, (_accepted, receipt, _intent) in enumerate(accepted_rows):
-                if (
-                    index not in relevant_indexes
-                    and receipt is not None
-                    and receipt.prior_receipt_digest in relevant_digests
-                ):
-                    relevant_indexes.add(index)
-                    relevant_digests.add(receipt.receipt_digest)
-                    changed = True
-
-        accepted_facts: list[AcceptedMissionFact] = []
         try:
-            for index in sorted(relevant_indexes):
-                accepted, receipt, intent = accepted_rows[index]
-                if receipt is None:
-                    return False
-                envelope_receipt = receipt.envelope_json.get("receipt")
-                if not isinstance(envelope_receipt, dict) or (
-                    receipt.receipt_digest != accepted.receipt_digest
-                    or receipt.pack_id != accepted.pack_id
-                    or receipt.record_id != accepted.record_id
-                    or receipt.event_type != accepted.event_type
-                    or receipt.published_at != accepted.published_at
-                    or envelope_receipt.get("merged_commit") != accepted.commit_sha
-                ):
-                    return False
-                accepted_facts.append(
-                    AcceptedMissionFact(
-                        event_id=accepted.id,
-                        receipt_digest=accepted.receipt_digest,
-                        prior_receipt_digest=receipt.prior_receipt_digest,
-                        repository=accepted.repository,
-                        commit_sha=accepted.commit_sha,
-                        pack_id=accepted.pack_id,
-                        record_id=accepted.record_id,
-                        event_type=accepted.event_type,
-                        published_at=accepted.published_at,
-                        source_draft_id=(
-                            intent.source_draft_id if intent is not None else UUID(int=0)
-                        ),
-                        source_draft_version=(
-                            intent.source_draft_version if intent is not None else 1
-                        ),
-                    )
-                )
+            definition = await self.definition(checkpoint.definition_id)
+            if definition is None or definition.mission_id != checkpoint.mission_id:
+                return False
+            inputs = await self.projection_inputs(
+                mission_id=checkpoint.mission_id,
+                definition_id=checkpoint.definition_id,
+                target_pack_id=definition.target_pack_id,
+            )
             projected = project_mission_progress(
                 mission_id=checkpoint.mission_id,
                 definition_id=checkpoint.definition_id,
-                bindings=bindings,
-                accepted_events=accepted_facts,
+                bindings=inputs.bindings,
+                accepted_events=inputs.accepted_events,
             )
         except (MissionProjectionError, ValueError, TypeError):
             return False
 
-        stored_rows = (
-            await self._session.scalars(
-                select(StoredMissionProgressRecord).where(
-                    StoredMissionProgressRecord.checkpoint_id == checkpoint.id
-                )
-            )
-        ).all()
+        stored_rows = await self.progress_records(checkpoint.id)
         stored_material = {
             (
                 row.repository,
@@ -236,6 +232,130 @@ class MissionRepository:
             and checkpoint.event_set_digest == projected.event_set_digest
             and stored_material == projected_material
             and len(stored_rows) == len(stored_material)
+        )
+
+    async def projection_inputs(
+        self,
+        *,
+        mission_id: UUID,
+        definition_id: UUID,
+        target_pack_id: str,
+    ) -> MissionProjectionInputs:
+        """Load and verify the canonical accepted-event lineage for one definition."""
+
+        binding_rows = (
+            await self._session.scalars(
+                select(MissionContributionBinding).where(
+                    MissionContributionBinding.definition_id == definition_id
+                )
+            )
+        ).all()
+        bindings = tuple(
+            MissionBindingFact(
+                mission_id=row.mission_id,
+                definition_id=row.definition_id,
+                source_draft_id=row.source_draft_id,
+                source_draft_version=row.source_draft_version,
+            )
+            for row in binding_rows
+        )
+        relevant_digests = tuple(
+            str(digest)
+            for digest in (
+                await self._session.execute(
+                    text(
+                        """
+                        WITH RECURSIVE relevant_receipts(receipt_digest) AS (
+                            SELECT accepted.receipt_digest
+                            FROM accepted_events AS accepted
+                            JOIN publication_intents AS intent
+                              ON intent.id = accepted.publication_intent_id
+                            JOIN mission_contribution_bindings AS binding
+                              ON binding.source_draft_id = intent.source_draft_id
+                             AND binding.source_draft_version = intent.source_draft_version
+                            WHERE binding.definition_id = CAST(:definition_id AS uuid)
+                            UNION
+                            SELECT linked.receipt_digest
+                            FROM relevant_receipts AS relevant
+                            CROSS JOIN LATERAL (
+                                SELECT receipt.prior_receipt_digest AS receipt_digest
+                                FROM publication_receipts AS receipt
+                                WHERE receipt.receipt_digest = relevant.receipt_digest
+                                  AND receipt.prior_receipt_digest IS NOT NULL
+                                UNION
+                                SELECT receipt.receipt_digest
+                                FROM publication_receipts AS receipt
+                                WHERE receipt.prior_receipt_digest = relevant.receipt_digest
+                            ) AS linked
+                        )
+                        SELECT receipt_digest
+                        FROM relevant_receipts
+                        ORDER BY receipt_digest
+                        """
+                    ),
+                    {"definition_id": str(definition_id)},
+                )
+            )
+            .scalars()
+            .all()
+        )
+        accepted_rows = (
+            await self._session.execute(
+                select(AcceptedEvent, PublicationReceiptRecord, PublicationIntent)
+                .outerjoin(
+                    PublicationReceiptRecord,
+                    PublicationReceiptRecord.receipt_digest == AcceptedEvent.receipt_digest,
+                )
+                .outerjoin(
+                    PublicationIntent,
+                    PublicationIntent.id == AcceptedEvent.publication_intent_id,
+                )
+                .where(AcceptedEvent.receipt_digest.in_(relevant_digests))
+                .order_by(AcceptedEvent.published_at, AcceptedEvent.id)
+            )
+        ).all()
+
+        accepted_facts: list[AcceptedMissionFact] = []
+        for accepted, receipt, intent in accepted_rows:
+            if receipt is None:
+                raise MissionProjectionError("accepted_receipt_missing")
+            envelope_repository, envelope_commit = _receipt_envelope_material(receipt)
+            expected_event_type = _accepted_event_type(receipt.event_type)
+            if (
+                accepted.schema_version != "1.0"
+                or receipt.schema_version != "1.0"
+                or receipt.receipt_digest != accepted.receipt_digest
+                or receipt.publication_intent_id != accepted.publication_intent_id
+                or receipt.pack_id != accepted.pack_id
+                or accepted.pack_id != target_pack_id
+                or receipt.record_id != accepted.record_id
+                or expected_event_type != accepted.event_type
+                or receipt.published_at != accepted.published_at
+                or receipt.reconciled_at < receipt.published_at
+                or envelope_repository != accepted.repository
+                or envelope_commit != accepted.commit_sha
+            ):
+                raise MissionProjectionError("accepted_receipt_invalid")
+            accepted_facts.append(
+                AcceptedMissionFact(
+                    event_id=accepted.id,
+                    receipt_digest=accepted.receipt_digest,
+                    prior_receipt_digest=receipt.prior_receipt_digest,
+                    repository=accepted.repository,
+                    commit_sha=accepted.commit_sha,
+                    pack_id=accepted.pack_id,
+                    record_id=accepted.record_id,
+                    event_type=receipt.event_type,
+                    published_at=accepted.published_at,
+                    source_draft_id=(intent.source_draft_id if intent is not None else UUID(int=0)),
+                    source_draft_version=(
+                        intent.source_draft_version if intent is not None else 1
+                    ),
+                )
+            )
+        return MissionProjectionInputs(
+            bindings=bindings,
+            accepted_events=tuple(accepted_facts),
         )
 
     async def actor_is_active_human_steward(
@@ -274,8 +394,66 @@ class MissionRepository:
     def add_lifecycle_event(self, event: MissionLifecycleEvent) -> None:
         self._session.add(event)
 
+    def add_contribution_binding(self, binding: MissionContributionBinding) -> None:
+        self._session.add(binding)
+
+    def add_progress_checkpoint(self, checkpoint: MissionProgressCheckpoint) -> None:
+        self._session.add(checkpoint)
+
+    def add_progress_record(self, record: StoredMissionProgressRecord) -> None:
+        self._session.add(record)
+
+    def add_progress_activation(self, activation: MissionProgressActivation) -> None:
+        self._session.add(activation)
+
     async def flush(self) -> None:
         await self._session.flush()
 
 
-__all__ = ["MissionRepository"]
+def _accepted_event_type(receipt_event_type: str) -> str:
+    try:
+        return {
+            "publication": "record.published",
+            "correction": "record.corrected",
+            "revocation": "record.revoked",
+        }[receipt_event_type]
+    except KeyError as error:
+        raise MissionProjectionError("accepted_receipt_event_type_invalid") from error
+
+
+def _receipt_envelope_material(receipt: PublicationReceiptRecord) -> tuple[str, str]:
+    envelope = receipt.envelope_json
+    body = envelope.get("receipt")
+    if not isinstance(body, dict) or envelope.get("signature_key_id") != receipt.signature_key_id:
+        raise MissionProjectionError("accepted_receipt_invalid")
+    steps = body.get("verified_steps")
+    commit_steps = (
+        [step for step in steps if isinstance(step, dict) and step.get("step") == "commit_record"]
+        if isinstance(steps, list)
+        else []
+    )
+    published_at = body.get("published_at")
+    try:
+        envelope_published_at = datetime.fromisoformat(str(published_at).replace("Z", "+00:00"))
+    except ValueError as error:
+        raise MissionProjectionError("accepted_receipt_invalid") from error
+    if (
+        len(commit_steps) != 1
+        or body.get("schema_version") != receipt.schema_version
+        or body.get("publication_id") != str(receipt.publication_id)
+        or body.get("event_type") != receipt.event_type
+        or body.get("prior_receipt_digest") != receipt.prior_receipt_digest
+        or body.get("pack_id") != receipt.pack_id
+        or body.get("record_id") != receipt.record_id
+        or envelope_published_at != receipt.published_at
+        or commit_steps[0].get("external_reference") != body.get("merged_commit")
+    ):
+        raise MissionProjectionError("accepted_receipt_invalid")
+    repository = commit_steps[0].get("destination")
+    merged_commit = body.get("merged_commit")
+    if not isinstance(repository, str) or not isinstance(merged_commit, str):
+        raise MissionProjectionError("accepted_receipt_invalid")
+    return repository, merged_commit
+
+
+__all__ = ["MissionProjectionInputs", "MissionRepository"]

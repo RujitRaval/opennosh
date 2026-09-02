@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.79.0.0] - 2026-09-02
+
+### Added
+
+- Add contributor-owned, exact-draft-version mission binding for active definitions in the target
+  pack, serialized against competing bindings.
+- Add deterministic mission progress rebuilds that append complete checkpoints and records before
+  atomically advancing an optimistic activation pointer.
+
+### Security
+
+- Verify canonical accepted-event/receipt identity, event-type mapping, reconciliation time,
+  repository, commit, target pack, and complete correction/revocation lineage before any event
+  contributes progress; resolve only the definition-scoped lineage through an indexed recursive
+  query.
+- Reject conflicting checkpoint identifiers and stale activation revisions while keeping claims,
+  federation, and all five mission production switches unchanged and disabled.
+
 ## [0.78.0.0] - 2026-09-02
 
 ### Added
