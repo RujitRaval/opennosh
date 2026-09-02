@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.77.0.0] - 2026-09-02
+
+### Added
+
+- Add append-only, versioned Commons mission definitions, lifecycle facts, exact contribution
+  bindings, and pointer-last progress checkpoint tables.
+- Add a deterministic accepted-event projector that collapses exact retries, preserves correction
+  and revocation lineage, and counts only current published records bound to one definition.
+
+### Security
+
+- Fail closed on conflicting identities, missing or cross-mission receipt lineage, reordered lineage,
+  and cross-definition contribution bindings while retaining immutable event history.
+- Keep mission mutations, projection, public reads, activity maps, and pack release explicitly
+  disabled on Render and bind every switch into production readiness.
+
 ## [0.76.0.0] - 2026-09-02
 
 ### Added

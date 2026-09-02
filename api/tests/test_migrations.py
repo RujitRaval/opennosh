@@ -73,6 +73,12 @@ EXPECTED_TABLES = {
     "publication_durable_acknowledgements",
     "publication_receipts",
     "accepted_events",
+    "mission_definitions",
+    "mission_lifecycle_events",
+    "mission_contribution_bindings",
+    "mission_progress_checkpoints",
+    "mission_progress_records",
+    "mission_progress_activations",
 }
 
 

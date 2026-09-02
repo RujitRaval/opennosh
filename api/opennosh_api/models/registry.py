@@ -41,6 +41,14 @@ from opennosh_api.governance.models import (
     GovernanceReviewPrivateNote,
     GovernanceRoleAssignment,
 )
+from opennosh_api.missions.models import (
+    MissionContributionBinding,
+    MissionDefinition,
+    MissionLifecycleEvent,
+    MissionProgressActivation,
+    MissionProgressCheckpoint,
+    MissionProgressRecord,
+)
 from opennosh_api.models.auth import AuthRateLimit, AuthSession, User
 from opennosh_api.models.base import Base
 from opennosh_api.models.tables import (
@@ -106,6 +114,12 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     GovernanceMergeAuthorization,
     GovernancePublicationPause,
     GovernancePublicationIntervention,
+    MissionDefinition,
+    MissionLifecycleEvent,
+    MissionContributionBinding,
+    MissionProgressCheckpoint,
+    MissionProgressRecord,
+    MissionProgressActivation,
     FederationInvitation,
     FederationMaintainer,
     FederationPackInstallationEvent,
@@ -194,6 +208,12 @@ __all__ = [
     "GovernancePublicationPause",
     "GovernanceRecusal",
     "GovernanceRoleAssignment",
+    "MissionContributionBinding",
+    "MissionDefinition",
+    "MissionLifecycleEvent",
+    "MissionProgressActivation",
+    "MissionProgressCheckpoint",
+    "MissionProgressRecord",
     "LogEntry",
     "REGISTERED_MODELS",
     "PublicationIntent",

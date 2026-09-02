@@ -143,6 +143,19 @@ def _blueprint_flags(path: Path) -> dict[str, bool]:
         "federation_public_discovery_enabled": value(
             "opennosh-publication", "FEDERATION_PUBLIC_DISCOVERY_ENABLED"
         ),
+        "mission_mutations_enabled": value(
+            "opennosh-publication", "MISSION_MUTATIONS_ENABLED"
+        ),
+        "mission_projection_enabled": value(
+            "opennosh-publication", "MISSION_PROJECTION_ENABLED"
+        ),
+        "mission_public_enabled": value("opennosh-publication", "MISSION_PUBLIC_ENABLED"),
+        "mission_activity_map_enabled": value(
+            "opennosh-publication", "MISSION_ACTIVITY_MAP_ENABLED"
+        ),
+        "mission_pack_release_enabled": value(
+            "opennosh-publication", "MISSION_PACK_RELEASE_ENABLED"
+        ),
     }
 
 
