@@ -65,6 +65,12 @@ from opennosh_api.public.r2 import (
     WranglerR2ObjectWriter,
     publish_starter_release_to_r2,
 )
+from opennosh_api.publication.natural_proof import (
+    NaturalPublicationProofRequestError,
+    collect_natural_publication_proof,
+    load_natural_publication_proof_request,
+)
+from opennosh_api.publication.natural_readiness import collect_natural_publication_readiness
 from opennosh_api.publication.readiness import collect_production_claims_readiness
 from opennosh_api.settings import get_settings
 
@@ -161,6 +167,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build the read-only production claims activation report",
     )
     readiness.add_argument("--json", action="store_true")
+    natural_proof = commons_commands.add_parser(
+        "natural-publication-proof",
+        help="Verify one redacted natural browser-to-receipt lineage",
+    )
+    natural_proof.add_argument("--request-file", type=Path, required=True)
+    natural_proof.add_argument("--json", action="store_true")
+    natural_readiness = commons_commands.add_parser(
+        "natural-publication-readiness",
+        help="Build the disabled natural browser-to-receipt activation report",
+    )
+    natural_readiness.add_argument("--blueprint", type=Path, default=Path("render.yaml"))
+    natural_readiness.add_argument("--json", action="store_true")
     add_federation_parser(commands)
     return parser
 
@@ -258,6 +276,10 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
         return _run_resubmit_publication(arguments)
     if arguments.commons_command == "production-claims-readiness":
         return _run_production_claims_readiness(arguments)
+    if arguments.commons_command == "natural-publication-proof":
+        return _run_natural_publication_proof(arguments)
+    if arguments.commons_command == "natural-publication-readiness":
+        return _run_natural_publication_readiness(arguments)
     try:
         if arguments.commons_command == "build-starter-release":
             inventory = build_starter_release(
@@ -545,6 +567,42 @@ def _run_production_claims_readiness(arguments: argparse.Namespace) -> int:
     except (OSError, ValueError, ValidationError, asyncpg.PostgresError):
         print(
             "Production claims readiness failed: configuration or database probe failed",
+            file=sys.stderr,
+        )
+        return 5
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["status"] == "ready" else 2
+
+
+def _run_natural_publication_proof(arguments: argparse.Namespace) -> int:
+    try:
+        request = load_natural_publication_proof_request(arguments.request_file)
+    except NaturalPublicationProofRequestError:
+        print("Natural publication proof failed: request file is invalid", file=sys.stderr)
+        return 4
+    try:
+        report = asyncio.run(collect_natural_publication_proof(get_settings(), request))
+    except (LookupError, OSError, ValueError, ValidationError, asyncpg.PostgresError):
+        print(
+            "Natural publication proof failed: configuration or read-only probe failed",
+            file=sys.stderr,
+        )
+        return 5
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if report["status"] == "verified" else 2
+
+
+def _run_natural_publication_readiness(arguments: argparse.Namespace) -> int:
+    try:
+        report = asyncio.run(
+            collect_natural_publication_readiness(
+                get_settings(),
+                blueprint_path=arguments.blueprint,
+            )
+        )
+    except (OSError, ValueError, ValidationError, asyncpg.PostgresError):
+        print(
+            "Natural publication readiness failed: configuration or read-only probe failed",
             file=sys.stderr,
         )
         return 5

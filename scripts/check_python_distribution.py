@@ -42,6 +42,7 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
             "opennosh_api/foodpacks/food-pack.schema.json",
             "opennosh_api/database-capacity.v1.json",
             "opennosh_api/publication-claims-activation.v1.json",
+            "opennosh_api/natural-publication-proof-activation.v1.json",
             f"{dist_info}/entry_points.txt",
             f"{dist_info}/licenses/AUTHORS.md",
             f"{dist_info}/licenses/LICENSE",
@@ -76,6 +77,7 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
             "schemas/food-pack.schema.json",
             "config/database-capacity.v1.json",
             "config/publication-claims-activation.v1.json",
+            "config/natural-publication-proof-activation.v1.json",
             "NOTICE.md",
             "LICENSES.md",
         ):

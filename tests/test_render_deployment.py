@@ -29,6 +29,8 @@ from deploy.render_runtime import (
     publication_environment,
     role_database_url,
     run_api,
+    run_natural_publication_proof,
+    run_natural_publication_readiness,
     run_predeploy,
     run_publication,
     run_publication_readiness,
@@ -531,6 +533,81 @@ def test_render_readiness_uses_publication_role_without_enabling_claims(
     assert options["check"] is True
 
 
+def test_render_natural_proof_uses_read_only_publication_role_with_claims_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    captured: dict[str, object] = {}
+
+    def run(command: list[str], **options: object) -> None:
+        captured["command"] = command
+        captured["options"] = options
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+
+    run_natural_publication_proof(source, request_file="/tmp/natural-proof.json")
+
+    assert captured["command"] == [
+        "opennosh",
+        "commons",
+        "natural-publication-proof",
+        "--request-file",
+        "/tmp/natural-proof.json",
+        "--json",
+    ]
+    options = captured["options"]
+    assert isinstance(options, dict)
+    environment = options["env"]
+    assert isinstance(environment, dict)
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert "RENDER_DATABASE_URL" not in environment
+    assert options["check"] is True
+
+
+def test_render_natural_proof_refuses_claims_enabled() -> None:
+    with pytest.raises(ValueError, match="requires claims disabled"):
+        run_natural_publication_proof(
+            _claims_environment(),
+            request_file="/tmp/natural-proof.json",
+        )
+
+
+def test_render_natural_readiness_uses_deployed_blueprint_and_read_only_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    captured: dict[str, object] = {}
+
+    def run(command: list[str], **options: object) -> None:
+        captured["command"] = command
+        captured["options"] = options
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+
+    run_natural_publication_readiness(source)
+
+    assert captured["command"] == [
+        "opennosh",
+        "commons",
+        "natural-publication-readiness",
+        "--blueprint",
+        "/app/render.yaml",
+        "--json",
+    ]
+    options = captured["options"]
+    assert isinstance(options, dict)
+    environment = options["env"]
+    assert isinstance(environment, dict)
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert "RENDER_DATABASE_URL" not in environment
+    assert options["check"] is True
+
+
 def test_render_preactivation_smoke_keeps_live_adapters_but_no_claim_identity() -> None:
     source = _claims_environment()
     source.update(
@@ -861,6 +938,12 @@ async def test_publication_runtime_grants_only_reviewed_objects(
     )
 
     assert not any("ALL TABLES" in statement for statement in connection.executed)
+    assert not any(
+        f"ON TABLE {table} TO {PUBLICATION_ROLE}" in statement
+        and "SELECT (" not in statement
+        for table in ("contribution_drafts", "governance_review_cases")
+        for statement in connection.executed
+    )
     for table, privileges in PUBLICATION_TABLE_PRIVILEGES.items():
         assert f"GRANT {privileges} ON TABLE {table} TO {PUBLICATION_ROLE}" in connection.executed
     for table, grants in PUBLICATION_COLUMN_PRIVILEGES.items():
