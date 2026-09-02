@@ -112,6 +112,30 @@ describe("same-origin API proxy", () => {
     expect(response.headers.get("cache-control")).toContain("s-maxage=300");
   });
 
+  it("preserves mission catalog cache policy and strips session cookies", async () => {
+    const upstreamHeaders = new Headers({
+      "Cache-Control": "public, max-age=0, s-maxage=60, stale-if-error=300",
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({ schema_version: "1.0", state: "zero", reason: null, missions: [] }, {
+        headers: upstreamHeaders,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest("http://localhost:3000/api/v1/public/missions?limit=20", {
+      headers: { Cookie: "opennosh_session=must-not-cross-public-boundary" },
+    });
+
+    const response = await GET(request, {
+      params: Promise.resolve({ path: ["public", "missions"] }),
+    });
+
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("cookie")).toBeNull();
+    expect(response.headers.get("cache-control")).toBe(
+      "public, max-age=0, s-maxage=60, stale-if-error=300",
+    );
+  });
+
   it("preserves signed artifact cache headers and strips session cookies", async () => {
     const upstreamHeaders = new Headers({
       "Cache-Control": "public, max-age=31536000, immutable",

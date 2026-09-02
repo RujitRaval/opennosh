@@ -72,12 +72,17 @@ revocation removes it while every prior checkpoint and accepted event remains im
 
 ## Public and privacy boundary
 
-No public mission, organizer mutation, activity map, or mission-pack claim is enabled in this
-foundation. Later public work must use honest zero, unavailable, stale, paused, complete, and
-released states. Geographic aggregation is country-level or broader and requires at least ten
-underlying verified accepted events; smaller cohorts remain hidden or roll into a broader region.
-The system does not collect contributor geolocation for missions and does not expose rankings,
-leaderboards, streaks, or health comparisons.
+`GET /api/v1/public/missions` exposes a bounded catalog only when `MISSION_PUBLIC_ENABLED=true`.
+It selects the latest immutable definition for each mission, hides unmoderated proposals, derives
+lifecycle state from the append-only event chain, and reads counts only from the active verified
+checkpoint. Missing or cross-definition lifecycle proof fails the whole catalog closed. A missing
+checkpoint is explicitly unavailable rather than zero; an outdated checkpoint is stale. Released
+missions include the exact validated publication-receipt digest that authorized the transition.
+
+The response excludes contributor identity, location, rankings, leaderboards, streaks, and health
+comparisons. Geographic aggregation remains a later independent surface: it must be country-level
+or broader and require at least ten underlying verified accepted events, with smaller cohorts hidden
+or rolled upward. The system does not collect contributor geolocation for missions.
 
 ## Feature switches
 

@@ -1,6 +1,6 @@
 {
   "name": "opennosh",
-  "version": "0.79.0",
+  "version": "0.80.0",
   "description": "Bootstrap a local OpenNosh nutrition and strength tracker checkout.",
   "license": "MIT",
   "type": "module",

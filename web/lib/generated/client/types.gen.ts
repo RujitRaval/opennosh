@@ -2053,6 +2053,21 @@ export type MaintainerAttestationManifest = {
 };
 
 /**
+ * MissionCatalogState
+ */
+export type MissionCatalogState = 'unavailable' | 'zero' | 'live';
+
+/**
+ * MissionGapKind
+ */
+export type MissionGapKind = 'cuisine' | 'locale' | 'institution' | 'dataset' | 'missing_field';
+
+/**
+ * MissionLifecycleState
+ */
+export type MissionLifecycleState = 'proposed' | 'active' | 'paused' | 'completed' | 'released' | 'closed';
+
+/**
  * MostRecentVerifiedRecord
  */
 export type MostRecentVerifiedRecord = {
@@ -2655,6 +2670,103 @@ export type PublicFoodRecordResponse = {
      */
     schema_version?: '1.0';
 };
+
+/**
+ * PublicMission
+ */
+export type PublicMission = {
+    /**
+     * Acceptance Criteria
+     */
+    acceptance_criteria: string;
+    /**
+     * Acceptance Target
+     */
+    acceptance_target: number;
+    /**
+     * Accepted Count
+     */
+    accepted_count?: number | null;
+    /**
+     * Checkpoint Built At
+     */
+    checkpoint_built_at?: string | null;
+    /**
+     * Checkpoint Id
+     */
+    checkpoint_id?: string | null;
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Definition Version
+     */
+    definition_version: number;
+    gap_kind: MissionGapKind;
+    lifecycle_state: MissionLifecycleState;
+    /**
+     * Matched Event Count
+     */
+    matched_event_count?: number | null;
+    /**
+     * Mission Id
+     */
+    mission_id: string;
+    /**
+     * Next Review At
+     */
+    next_review_at?: string | null;
+    progress_state: PublicMissionState;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Release Receipt Digest
+     */
+    release_receipt_digest?: string | null;
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Target Dataset
+     */
+    target_dataset: string;
+    /**
+     * Target Pack Id
+     */
+    target_pack_id: string;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
+ * PublicMissionCatalog
+ */
+export type PublicMissionCatalog = {
+    /**
+     * Missions
+     */
+    missions?: Array<PublicMission>;
+    /**
+     * Reason
+     */
+    reason?: 'disabled' | 'proof_unavailable' | null;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    state: MissionCatalogState;
+};
+
+/**
+ * PublicMissionState
+ */
+export type PublicMissionState = 'unavailable' | 'zero' | 'partial' | 'live' | 'stale' | 'paused' | 'completed' | 'released' | 'closed';
 
 /**
  * PublicReleaseMetadata
@@ -8221,6 +8333,76 @@ export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses = {
 };
 
 export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponse = LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses[keyof LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses];
+
+export type MissionsApiV1PublicMissionsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/public/missions';
+};
+
+export type MissionsApiV1PublicMissionsGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type MissionsApiV1PublicMissionsGetError = MissionsApiV1PublicMissionsGetErrors[keyof MissionsApiV1PublicMissionsGetErrors];
+
+export type MissionsApiV1PublicMissionsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicMissionCatalog;
+};
+
+export type MissionsApiV1PublicMissionsGetResponse = MissionsApiV1PublicMissionsGetResponses[keyof MissionsApiV1PublicMissionsGetResponses];
 
 export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetData = {
     body?: never;
