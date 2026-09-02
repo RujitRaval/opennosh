@@ -48,7 +48,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "(action = 'remove') = (verified_release_id IS NULL)",
-            name=op.f("ck_federation_pack_installation_events_release_binding_matches_action"),
+            name=op.f("ck_federation_pack_installation_events_target_matches_action"),
         ),
         sa.ForeignKeyConstraint(
             ["actor_id"],
@@ -121,13 +121,13 @@ def upgrade() -> None:
         "record_count >= 0",
     )
     op.create_check_constraint(
-        op.f("ck_federation_projection_checkpoints_projection_counts_consistent"),
+        op.f("ck_federation_projection_checkpoints_counts_consistent"),
         "federation_projection_checkpoints",
         "(release_count = 0 AND record_count = 0) OR "
         "(release_count > 0 AND record_count > 0)",
     )
     op.create_check_constraint(
-        op.f("ck_federation_projection_checkpoints_registry_projection_nonempty"),
+        op.f("ck_federation_projection_checkpoints_registry_nonempty"),
         "federation_projection_checkpoints",
         "mode = 'installed' OR (release_count > 0 AND record_count > 0)",
     )
@@ -151,8 +151,8 @@ def downgrade() -> None:
         type_="unique",
     )
     for name in (
-        "registry_projection_nonempty",
-        "projection_counts_consistent",
+        "registry_nonempty",
+        "counts_consistent",
         "record_count_nonnegative",
         "release_count_nonnegative",
         "mode_allowed",

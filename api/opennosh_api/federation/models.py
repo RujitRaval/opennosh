@@ -305,7 +305,7 @@ class FederationPackInstallationEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base)
         CheckConstraint("reason_digest ~ '^[0-9a-f]{64}$'", name="reason_digest_sha256"),
         CheckConstraint(
             "(action = 'remove') = (verified_release_id IS NULL)",
-            name="release_binding_matches_action",
+            name="target_matches_action",
         ),
         UniqueConstraint(
             "repository_id", "pack_id", "generation", name="uq_federation_install_scope_gen"
@@ -348,11 +348,11 @@ class FederationProjectionCheckpoint(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         CheckConstraint(
             "(release_count = 0 AND record_count = 0) OR "
             "(release_count > 0 AND record_count > 0)",
-            name="projection_counts_consistent",
+            name="counts_consistent",
         ),
         CheckConstraint(
             "mode = 'installed' OR (release_count > 0 AND record_count > 0)",
-            name="registry_projection_nonempty",
+            name="registry_nonempty",
         ),
         UniqueConstraint(
             "mode", "release_set_digest", name="uq_federation_projection_mode_release_set"
