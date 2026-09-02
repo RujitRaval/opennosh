@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.72.0.0] - 2026-09-02
+
+### Added
+
+- Add an append-only federation release ledger that preserves the exact signed statement,
+  historical role key, governed publication receipt, accepted event, release identity, and
+  verification chronology for every accepted release.
+- Serialize release admission per repository and pack, make active-key exact replay idempotent,
+  reject same-version conflicts and governed-receipt rollbacks, and retain the existing retired-key
+  rejection after role-key rotation.
+
+### Security
+
+- Keep the single invitation-only enrollment scope, existing quarantine and claims controls, Render
+  topology, and every production-facing feature flag unchanged; this release does not expose the
+  registry ledger to public search or installation.
+- Refuse synthetic backfill of the earlier digest-only pilot audit event because its original signed
+  statement cannot be reconstructed losslessly; existing signed artifacts and receipts remain
+  untouched and readable.
+
 ## [0.71.0.1] - 2026-09-01
 
 ### Fixed

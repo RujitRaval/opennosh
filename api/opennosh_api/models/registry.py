@@ -18,6 +18,7 @@ from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationRelease,
     FederationRoleKey,
 )
 from opennosh_api.governance.models import (
@@ -102,6 +103,7 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     FederationMaintainer,
     FederationRoleKey,
     FederationAuditEvent,
+    FederationRelease,
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
@@ -156,6 +158,7 @@ __all__ = [
     "FederationAuditEvent",
     "FederationInvitation",
     "FederationMaintainer",
+    "FederationRelease",
     "FederationRoleKey",
     "Exercise",
     "FoodCommunity",

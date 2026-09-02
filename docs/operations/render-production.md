@@ -594,7 +594,9 @@ ledger.
    governed live release. The statement must bind the maintainer, repository, pack, publication
    UUID, release version, signed manifest digest, publication-receipt digest, HTTPS manifest URL,
    issue time, and current key ID. Run `opennosh federation publish-release --release-file ...` and
-   confirm its statement digest is recorded once and binds the canonical receipt ledger.
+   confirm its statement digest is recorded once, binds the canonical receipt ledger, and appears in
+   the immutable federation release ledger on deployments that include T34.5a. Replaying the exact
+   statement while the role key is current is an idempotent no-op.
 6. Generate an independent replacement Ed25519 key offline and run
    `opennosh federation rotate-key`. Resubmit the original signed statement and require exit code 3
    with `release_key_retired_or_untrusted`; the rejected operator attempt must appear in the audit
@@ -608,10 +610,18 @@ ledger.
    GitHub App credentials, and securely remove the exact token, private-key, and statement files.
 
 Abort on any scope mismatch, provider outage, insufficient repository permission, signature or
-receipt mismatch, duplicate invitation/release, unexpected active maintainer, claims-enabled state,
+receipt mismatch, conflicting invitation/release identity, unexpected active maintainer, claims-enabled state,
 or public-read regression. Do not edit federation rows manually, reuse an invitation, reactivate a
 quarantined maintainer, or delete the last verified public release. Remediation is a reviewed
 forward change; a distinct enrollment requires a later federation phase.
+
+When upgrading a deployment that already completed the original T33.4 ceremony, expect its historic
+`release_published` audit event to remain without a corresponding `federation_releases` row. That
+event intentionally retained only a redacted payload digest, so an automatic backfill would invent
+missing trust facts. Do not edit or synthesize a row. Existing public artifacts, receipts, and latest
+pointer remain authoritative and readable. Populate the new ledger only through a later approved
+re-submission whose signed statement, current role key, governed receipt, accepted event, and public
+URL all verify normally.
 
 ### T33.5 live federation failure-drill matrix
 

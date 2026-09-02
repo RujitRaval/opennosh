@@ -43,6 +43,7 @@ EXPECTED_TABLES = {
     "evidence_upload_sessions",
     "federation_invitations",
     "federation_maintainers",
+    "federation_releases",
     "federation_role_keys",
     "federation_audit_events",
     "governance_role_assignments",

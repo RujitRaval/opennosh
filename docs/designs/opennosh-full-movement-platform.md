@@ -269,6 +269,26 @@ Anonymous access means public reading has no account wall. Accountable mutations
 - Every quarantine or delisting includes a public reason, evidence, affected versions, decision authority, and appeal path. Emergency quarantine is reversible and requires later threshold confirmation.
 - Pack appeals are decided under registry policy. Pack communities retain authority over their own records, but cannot compel the shared registry to distribute an unsafe or incompatible release.
 
+### Release Ledger Foundation
+
+T34.5 begins with an additive PostgreSQL federation release ledger. It is an append-only operational
+projection, not a new canonical release source. Each accepted row retains the exact maintainer-signed
+statement and signature, the historical online role-key row, immutable repository and pack scope,
+the governed publication receipt and accepted event, the manifest and receipt digests, and both
+receipt-publication and verification times. Admission remains behind the isolated operator CLI.
+
+Release admission serializes per repository/pack. An exact replay is idempotent only while its
+signing key remains current; replay after rotation still fails as retired or untrusted. Reusing a
+release version for different signed material fails closed. A candidate whose governed receipt is
+not newer than the latest ledger row is a rollback, regardless of whether its opaque release label
+looks numerically newer. This avoids inventing ordering semantics for release labels while preserving
+the canonical publication chronology.
+
+The original one-release pilot audit event stored only a redacted payload digest, so migration cannot
+reconstruct its signed statement. The schema does not synthesize a trusted row. Existing public
+artifacts and receipts remain unchanged; any later reconciliation must re-submit independently
+verifiable signed input through a separately approved operator ceremony.
+
 ### Signing and Recovery Model
 
 Federation uses a TUF-style trust model rather than a single permanent signing key. Each pack publishes versioned root, targets, snapshot, and timestamp metadata. Root keys are kept offline where possible; online release roles use separate keys; sensitive roles support threshold signatures. Clients ship or explicitly trust pack roots, reject expired or rolled-back metadata, and can verify downloaded releases offline from bundled metadata.
