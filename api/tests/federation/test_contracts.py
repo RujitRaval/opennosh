@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -30,6 +31,7 @@ from opennosh_api.federation.github import (
     GitHubInstallationVerifier,
 )
 from opennosh_api.federation.repository import federation_scope_allows_claim
+from opennosh_api.federation.service import FederationService
 from opennosh_api.federation.settings import FederationOperatorSettings
 from pydantic import ValidationError
 
@@ -40,6 +42,20 @@ SCOPE = FederationScope(
     repository_id=1339461317,
     repository="RujitRaval/opennosh",
     pack_id="common-fruits",
+)
+SECOND_SCOPE = FederationScope(
+    github_account_id=280184756,
+    github_login="second-maintainer",
+    repository_id=1339461318,
+    repository="OpenNutrition/regional-produce",
+    pack_id="regional-produce",
+)
+THIRD_SCOPE = FederationScope(
+    github_account_id=280184756,
+    github_login="second-maintainer",
+    repository_id=1339461319,
+    repository="OpenNutrition/heritage-grains",
+    pack_id="heritage-grains",
 )
 
 
@@ -170,23 +186,150 @@ def test_federation_release_rejects_another_role_key() -> None:
         verify_release_signature(release, encoded_public_key=encode_public_key(other.public_key()))
 
 
-def test_operator_settings_pin_exactly_one_external_identity_and_scope() -> None:
-    settings = FederationOperatorSettings(
+def _operator_settings(**scope_options: object) -> FederationOperatorSettings:
+    return FederationOperatorSettings(
         administration_database_url="postgresql+asyncpg://admin:test@localhost/opennosh",
+        allowed_public_origin="https://opennosh.org",
+        inviter_actor_id=uuid4(),
+        github_app_id=4741063,
+        github_app_private_key=_rsa_pem(),
+        **scope_options,
+    )
+
+
+def test_operator_settings_preserve_the_legacy_exact_scope() -> None:
+    settings = _operator_settings(
         allowed_github_account_id=SCOPE.github_account_id,
         allowed_github_login=SCOPE.github_login,
         allowed_repository_id=SCOPE.repository_id,
         allowed_repository=SCOPE.repository,
         allowed_pack_id=SCOPE.pack_id,
-        allowed_public_origin="https://opennosh.org",
-        inviter_actor_id=uuid4(),
-        github_app_id=4741063,
-        github_app_private_key=_rsa_pem(),
     )
 
+    assert settings.allowed_scopes == (SCOPE,)
     assert settings.allowed_scope == SCOPE
     assert settings.allowed_public_origin == "https://opennosh.org"
     assert "PRIVATE KEY" not in repr(settings)
+
+
+def test_operator_settings_load_a_bounded_immutable_scope_allowlist() -> None:
+    payload = json.dumps(
+        [scope.model_dump(mode="json") for scope in (SCOPE, SECOND_SCOPE, THIRD_SCOPE)]
+    )
+    settings = _operator_settings(allowed_scopes_json=payload)
+
+    assert settings.allowed_scopes == (SCOPE, SECOND_SCOPE, THIRD_SCOPE)
+    assert payload not in repr(settings)
+    with pytest.raises(ValueError, match="multiple scopes"):
+        _ = settings.allowed_scope
+
+
+@pytest.mark.parametrize(
+    ("scope_options", "message"),
+    [
+        ({"allowed_scopes_json": "not-json"}, "JSON is invalid"),
+        ({"allowed_scopes_json": "{}"}, "JSON is invalid"),
+        (
+            {
+                "allowed_scopes_json": json.dumps(
+                    [{**SCOPE.model_dump(), "unexpected": True}]
+                )
+            },
+            "JSON is invalid",
+        ),
+        ({"allowed_scopes_json": "[]"}, "1 to 32"),
+        (
+            {"allowed_scopes_json": json.dumps([SCOPE.model_dump()] * 2)},
+            "duplicate scope",
+        ),
+        (
+            {
+                "allowed_scopes_json": json.dumps(
+                    [
+                        SCOPE.model_dump(),
+                        SECOND_SCOPE.model_copy(update={"pack_id": SCOPE.pack_id}).model_dump(),
+                    ]
+                )
+            },
+            "conflicting identities",
+        ),
+        (
+            {
+                "allowed_scopes_json": json.dumps(
+                    [
+                        SCOPE.model_dump(),
+                        SECOND_SCOPE.model_copy(
+                            update={
+                                "github_account_id": SCOPE.github_account_id,
+                                "github_login": "conflicting-login",
+                            }
+                        ).model_dump(),
+                    ]
+                )
+            },
+            "conflicting identities",
+        ),
+        (
+            {
+                "allowed_scopes_json": json.dumps(
+                    [
+                        SCOPE.model_dump(),
+                        SECOND_SCOPE.model_copy(
+                            update={
+                                "repository_id": SCOPE.repository_id,
+                                "repository": "DifferentOwner/different-repository",
+                            }
+                        ).model_dump(),
+                    ]
+                )
+            },
+            "conflicting identities",
+        ),
+        (
+            {
+                "allowed_scopes_json": json.dumps([SCOPE.model_dump()]),
+                "allowed_github_account_id": SCOPE.github_account_id,
+            },
+            "mutually exclusive",
+        ),
+        (
+            {"allowed_github_account_id": SCOPE.github_account_id},
+            "legacy scope configuration is incomplete",
+        ),
+    ],
+)
+def test_operator_settings_reject_ambiguous_or_incomplete_scope_policy(
+    scope_options: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        _operator_settings(**scope_options)
+
+
+def test_operator_settings_reject_more_than_32_scopes() -> None:
+    scopes = [
+        SCOPE.model_copy(
+            update={
+                "repository_id": SCOPE.repository_id + index,
+                "repository": f"RujitRaval/opennosh-{index}",
+                "pack_id": f"common-fruits-{index}",
+            }
+        ).model_dump(mode="json")
+        for index in range(1, 34)
+    ]
+
+    with pytest.raises(ValidationError, match="1 to 32"):
+        _operator_settings(allowed_scopes_json=json.dumps(scopes))
+
+
+def test_federation_service_rejects_duplicate_allowed_scopes() -> None:
+    with pytest.raises(ValueError, match="distinct allowed scopes"):
+        FederationService(
+            object(),  # type: ignore[arg-type]
+            allowed_scopes=(SCOPE, SCOPE),
+            allowed_public_origin="https://opennosh.org",
+            installation_verifier=object(),  # type: ignore[arg-type]
+        )
 
 
 def test_cli_exposes_all_steward_lifecycle_commands() -> None:

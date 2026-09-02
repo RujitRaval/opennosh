@@ -23,15 +23,23 @@ class FederationRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def lock_single_invitation_slot(self) -> None:
+    async def lock_invitation_scope(self, *, repository_id: int, pack_id: str) -> None:
         await self._session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
-            {"scope": "opennosh:federation:first-invitation"},
+            {"scope": f"opennosh:federation:invitation:{repository_id}:{pack_id}"},
         )
 
-    async def invitation_count(self) -> int:
+    async def invitation_count(self, *, repository_id: int, pack_id: str) -> int:
         return int(
-            await self._session.scalar(text("SELECT count(*) FROM federation_invitations")) or 0
+            await self._session.scalar(
+                select(text("count(*)"))
+                .select_from(FederationInvitation)
+                .where(
+                    FederationInvitation.repository_id == repository_id,
+                    FederationInvitation.pack_id == pack_id,
+                )
+            )
+            or 0
         )
 
     def add_invitation(self, invitation: FederationInvitation) -> None:
