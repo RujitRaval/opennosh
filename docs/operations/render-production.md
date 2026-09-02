@@ -888,6 +888,14 @@ separately authorized the projection worker. A disabled deployment must leave ac
 publication claims, federation state, signed public reads, and the active release unchanged. The
 production-claims readiness report must continue to show all mission switches false.
 
+While `MISSION_PUBLIC_ENABLED=false`, `GET /api/v1/public/missions` must return HTTP 200 with
+`state=unavailable`, `reason=disabled`, and an empty `missions` array. Enabling the route is a
+separate digest-bound activation; do not infer it from a successful deployment. If enabled storage
+cannot prove the latest definition or lifecycle event, the same route must return
+`state=unavailable`, `reason=proof_unavailable`, and no missions. A mission with no active progress
+checkpoint remains visible with `progress_state=unavailable`; a checkpoint that no longer matches
+verified accepted-event history uses `progress_state=stale` and never claims current progress.
+
 When mission projection is later authorized, bind only the contributor's exact current draft
 version to an active definition in the same target pack. A rebuild must start from verified
 `accepted_events` plus their reconciled publication receipts, append a complete checkpoint and

@@ -62,6 +62,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const cacheableAnonymousPublicRead =
     request.method === "GET" &&
     (encodedPath === "public/commons-snapshot" ||
+      encodedPath === "public/missions" ||
       encodedPath.startsWith("public/foods/") ||
       encodedPath.startsWith("public/releases/"));
   const upstreamPath = encodedPath === "healthz" ? "/healthz" : `/api/v1/${encodedPath}`;

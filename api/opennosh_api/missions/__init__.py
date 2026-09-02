@@ -17,6 +17,13 @@ from opennosh_api.missions.progress_service import (
     rebuild_mission_progress,
 )
 from opennosh_api.missions.projector import MissionProjectionError, project_mission_progress
+from opennosh_api.missions.public_service import (
+    MissionCatalogState,
+    PublicMission,
+    PublicMissionCatalog,
+    PublicMissionState,
+    public_mission_catalog,
+)
 from opennosh_api.missions.service import (
     MissionLifecycleError,
     ProposeMission,
@@ -34,9 +41,13 @@ __all__ = [
     "MissionLifecycleAction",
     "MissionLifecycleError",
     "MissionLifecycleState",
+    "MissionCatalogState",
     "MissionProgress",
     "MissionProgressBuild",
     "MissionProgressError",
+    "PublicMission",
+    "PublicMissionCatalog",
+    "PublicMissionState",
     "MissionProjectionError",
     "ProposeMission",
     "RebuildMissionProgress",
@@ -44,6 +55,7 @@ __all__ = [
     "lifecycle_state",
     "bind_mission_contribution",
     "project_mission_progress",
+    "public_mission_catalog",
     "propose_mission",
     "rebuild_mission_progress",
     "transition_mission",

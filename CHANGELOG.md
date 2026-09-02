@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.80.0.0] - 2026-09-02
+
+### Added
+
+- Add a bounded public Commons mission catalog with explicit zero, unavailable, live, partial,
+  stale, paused, completed, released, and closed states.
+- Publish only the latest moderated definition and its active verified progress checkpoint, including
+  the exact signed receipt digest behind every released outcome.
+
+### Security
+
+- Fail the catalog closed when definition, lifecycle, or storage proof is unavailable and mark
+  missing or outdated per-mission progress explicitly unavailable or stale; keep unmoderated
+  proposals and contributor identity or location data outside the response.
+- Keep the public mission route disabled in production, alongside mission mutations, projection,
+  activity maps, mission-pack release, federation, and publication claims.
+
 ## [0.79.0.0] - 2026-09-02
 
 ### Added
