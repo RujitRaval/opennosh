@@ -152,6 +152,10 @@ async def build_production_claims_readiness(
         failures.append("activation_id_present")
     if settings.publication_preactivation_smoke_enabled:
         failures.append("preactivation_smoke_enabled")
+    if settings.federation_ingestion_enabled:
+        failures.append("federation_ingestion_enabled")
+    if settings.federation_projection_enabled:
+        failures.append("federation_projection_enabled")
     if not settings.latest_refresh_enabled:
         failures.append("latest_refresh_disabled")
     if settings.publication_claim_concurrency != contract.activation.claim_concurrency:
@@ -263,6 +267,8 @@ async def build_production_claims_readiness(
             "continuous_claims_enabled": settings.publication_continuous_claims_enabled,
             "activation_id_present": bool(settings.publication_activation_ids),
             "preactivation_smoke_enabled": settings.publication_preactivation_smoke_enabled,
+            "federation_ingestion_enabled": settings.federation_ingestion_enabled,
+            "federation_projection_enabled": settings.federation_projection_enabled,
             "claim_concurrency": settings.publication_claim_concurrency,
             "latest_refresh_enabled": settings.latest_refresh_enabled,
             "credentials_complete": credentials_complete,

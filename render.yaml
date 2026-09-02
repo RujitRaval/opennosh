@@ -103,6 +103,10 @@ services:
         value: "1"
       - key: PUBLICATION_PREACTIVATION_SMOKE_ENABLED
         value: "false"
+      - key: FEDERATION_INGESTION_ENABLED
+        value: "false"
+      - key: FEDERATION_PROJECTION_ENABLED
+        value: "false"
       - key: LATEST_REFRESH_ENABLED
         value: "true"
       - key: LATEST_REFRESH_INTERVAL_SECONDS

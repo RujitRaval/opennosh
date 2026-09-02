@@ -245,6 +245,8 @@ def test_render_blueprint_links_claim_bootstrap_and_refresh_credentials_to_worke
     }
     assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
+    assert variables["FEDERATION_INGESTION_ENABLED"]["value"] == "false"
+    assert variables["FEDERATION_PROJECTION_ENABLED"]["value"] == "false"
     assert variables["LATEST_REFRESH_ENABLED"]["value"] == "true"
     assert variables["RENDER_DATABASE_URL"]["fromDatabase"] == {
         "name": "opennosh-db",
