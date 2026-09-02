@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.82.0.0] - 2026-09-02
+
+### Added
+
+- Add a disabled-by-default public mission activity endpoint that can publish country and
+  macroregion cohorts without contributor identities, filters, totals, or timestamps.
+- Bind every published region to the immutable approved pack manifest, version, and source digest
+  captured in the active mission progress checkpoint.
+
+### Security
+
+- Suppress cohorts below ten distinct accepted contributions and fail the entire activity response
+  closed when current proof is missing, inconsistent, stale, or exceeds bounded query limits.
+- Read the complete aggregation from one bounded repeatable-read transaction while keeping claims,
+  federation, activity maps, and all mission production switches disabled.
+
 ## [0.81.0.0] - 2026-09-02
 
 ### Added
