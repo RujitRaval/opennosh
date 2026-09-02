@@ -31,6 +31,7 @@ from opennosh_api.health import router as health_router
 from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
+from opennosh_api.missions.router import organizer_router as mission_organizer_router
 from opennosh_api.missions.router import router as missions_router
 from opennosh_api.problems import RequestIdMiddleware, install_problem_handlers
 from opennosh_api.public.artifacts import (
@@ -229,6 +230,7 @@ def create_app(
     application.include_router(database_metrics_router)
     application.include_router(public_commons_router)
     application.include_router(missions_router)
+    application.include_router(mission_organizer_router)
     application.include_router(public_artifact_router)
     application.include_router(contributions_router)
     application.include_router(governance_router)

@@ -600,28 +600,27 @@ class MissionRepository:
         pack_id: str,
         at: datetime,
     ) -> bool:
-        return bool(
-            await self._session.scalar(
-                text(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM users AS actor
-                        JOIN governance_role_assignments AS role
-                          ON role.actor_id = actor.id
-                        WHERE actor.id = :actor_id
-                          AND actor.actor_kind = 'person'
-                          AND actor.login_disabled_at IS NULL
-                          AND role.pack_id = :pack_id
-                          AND role.role = 'steward'
-                          AND role.granted_at <= :at
-                          AND (role.revoked_at IS NULL OR role.revoked_at > :at)
-                    )
-                    """
-                ),
-                {"actor_id": actor_id, "pack_id": pack_id, "at": at},
-            )
+        role_id = await self._session.scalar(
+            text(
+                """
+                SELECT role.id
+                FROM users AS actor
+                JOIN governance_role_assignments AS role
+                  ON role.actor_id = actor.id
+                WHERE actor.id = :actor_id
+                  AND actor.actor_kind = 'person'
+                  AND actor.login_disabled_at IS NULL
+                  AND role.pack_id = :pack_id
+                  AND role.role = 'steward'
+                  AND role.granted_at <= :at
+                  AND (role.revoked_at IS NULL OR role.revoked_at > :at)
+                LIMIT 1
+                FOR SHARE OF role
+                """
+            ),
+            {"actor_id": actor_id, "pack_id": pack_id, "at": at},
         )
+        return role_id is not None
 
     def add_definition(self, definition: MissionDefinition) -> None:
         self._session.add(definition)

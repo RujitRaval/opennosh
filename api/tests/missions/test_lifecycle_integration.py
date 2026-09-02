@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import asyncpg  # type: ignore[import-untyped]
 import pytest
 from alembic import command as alembic_command
+from opennosh_api.governance.service import revoke_steward
 from opennosh_api.jobs.worker import asyncpg_dsn
 from opennosh_api.missions.contracts import (
     MissionDefinitionSpec,
@@ -60,6 +61,12 @@ async def _exercise_concurrency(database_url: str) -> None:
                 (steward_b_id, NOW),
             ),
         )
+        steward_b_role_id = await connection.fetchval(
+            "SELECT id FROM governance_role_assignments "
+            "WHERE pack_id = 'opennosh-starter' AND actor_id = $1 AND role = 'steward'",
+            steward_b_id,
+        )
+        assert steward_b_role_id is not None
     finally:
         await connection.close()
 
@@ -177,6 +184,48 @@ async def _exercise_concurrency(database_url: str) -> None:
                     "WHERE mission_id = $1",
                     (mission_id,),
                 )
+
+        authorization_locked = asyncio.Event()
+        release_authorization = asyncio.Event()
+        completion_order: list[str] = []
+
+        async def authorize_while_locked() -> None:
+            async with sessions() as session, session.begin():
+                assert await MissionRepository(session).actor_is_active_human_steward(
+                    actor_id=steward_b_id,
+                    pack_id="opennosh-starter",
+                    at=NOW + timedelta(hours=1),
+                )
+                authorization_locked.set()
+                await release_authorization.wait()
+            completion_order.append("mission-authorization")
+
+        async def revoke_while_authorized() -> None:
+            async with sessions() as session, session.begin():
+                await revoke_steward(
+                    session,
+                    steward_b_role_id,
+                    revoked_by_actor_id=proposer_id,
+                    reason="Rotate the mission steward after the in-flight decision.",
+                    now=NOW + timedelta(hours=2),
+                )
+            completion_order.append("revocation")
+
+        authorization_task = asyncio.create_task(authorize_while_locked())
+        await authorization_locked.wait()
+        revocation_task = asyncio.create_task(revoke_while_authorized())
+        await asyncio.sleep(0.1)
+        assert not revocation_task.done()
+        release_authorization.set()
+        await asyncio.gather(authorization_task, revocation_task)
+        assert completion_order == ["mission-authorization", "revocation"]
+
+        async with sessions() as session, session.begin():
+            assert not await MissionRepository(session).actor_is_active_human_steward(
+                actor_id=steward_b_id,
+                pack_id="opennosh-starter",
+                at=NOW + timedelta(hours=3),
+            )
     finally:
         await engine.dispose()
 

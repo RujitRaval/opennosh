@@ -2058,14 +2058,207 @@ export type MaintainerAttestationManifest = {
 export type MissionCatalogState = 'unavailable' | 'zero' | 'live';
 
 /**
+ * MissionDefinitionSpec
+ */
+export type MissionDefinitionSpec = {
+    /**
+     * Acceptance Criteria
+     */
+    acceptance_criteria: string;
+    /**
+     * Acceptance Target
+     */
+    acceptance_target: number;
+    gap_kind: MissionGapKind;
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Target Dataset
+     */
+    target_dataset: string;
+    /**
+     * Target Pack Id
+     */
+    target_pack_id: string;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
  * MissionGapKind
  */
 export type MissionGapKind = 'cuisine' | 'locale' | 'institution' | 'dataset' | 'missing_field';
 
 /**
+ * MissionLifecycleAction
+ */
+export type MissionLifecycleAction = 'propose' | 'approve' | 'pause' | 'resume' | 'complete' | 'release' | 'close';
+
+/**
+ * MissionLifecycleResponse
+ */
+export type MissionLifecycleResponse = {
+    action: MissionLifecycleAction;
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    /**
+     * Mission Id
+     */
+    mission_id: string;
+    /**
+     * Next Review At
+     */
+    next_review_at?: string | null;
+    /**
+     * Occurred At
+     */
+    occurred_at: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Release Receipt Digest
+     */
+    release_receipt_digest?: string | null;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Sequence
+     */
+    sequence: number;
+    state: MissionLifecycleState;
+};
+
+/**
  * MissionLifecycleState
  */
 export type MissionLifecycleState = 'proposed' | 'active' | 'paused' | 'completed' | 'released' | 'closed';
+
+/**
+ * MissionPauseTransitionRequest
+ */
+export type MissionPauseTransitionRequest = {
+    /**
+     * Action
+     */
+    action: 'pause';
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    /**
+     * Expected Prior Event Id
+     */
+    expected_prior_event_id: string;
+    /**
+     * Next Review At
+     */
+    next_review_at: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+};
+
+/**
+ * MissionProposalRequest
+ */
+export type MissionProposalRequest = {
+    definition: MissionDefinitionSpec;
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    /**
+     * Mission Id
+     */
+    mission_id: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Responsible Steward Actor Id
+     */
+    responsible_steward_actor_id: string;
+};
+
+/**
+ * MissionReleaseTransitionRequest
+ */
+export type MissionReleaseTransitionRequest = {
+    /**
+     * Action
+     */
+    action: 'release';
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    /**
+     * Expected Prior Event Id
+     */
+    expected_prior_event_id: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+    /**
+     * Release Receipt Digest
+     */
+    release_receipt_digest: string;
+};
+
+/**
+ * MissionSimpleTransitionRequest
+ */
+export type MissionSimpleTransitionRequest = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'resume' | 'complete' | 'close';
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Event Id
+     */
+    event_id: string;
+    /**
+     * Expected Prior Event Id
+     */
+    expected_prior_event_id: string;
+    /**
+     * Public Reason
+     */
+    public_reason: string;
+};
 
 /**
  * MostRecentVerifiedRecord
@@ -8183,6 +8376,150 @@ export type DetailApiV1LogsEntryIdGetResponses = {
 };
 
 export type DetailApiV1LogsEntryIdGetResponse = DetailApiV1LogsEntryIdGetResponses[keyof DetailApiV1LogsEntryIdGetResponses];
+
+export type ProposeApiV1MissionsPostData = {
+    body: MissionProposalRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/missions';
+};
+
+export type ProposeApiV1MissionsPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ProposeApiV1MissionsPostError = ProposeApiV1MissionsPostErrors[keyof ProposeApiV1MissionsPostErrors];
+
+export type ProposeApiV1MissionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: MissionLifecycleResponse;
+};
+
+export type ProposeApiV1MissionsPostResponse = ProposeApiV1MissionsPostResponses[keyof ProposeApiV1MissionsPostResponses];
+
+export type TransitionApiV1MissionsMissionIdTransitionsPostData = {
+    /**
+     * Request
+     */
+    body: ({
+        action: 'approve' | 'close' | 'complete' | 'resume';
+    } & MissionSimpleTransitionRequest) | ({
+        action: 'pause';
+    } & MissionPauseTransitionRequest) | ({
+        action: 'release';
+    } & MissionReleaseTransitionRequest);
+    path: {
+        /**
+         * Mission Id
+         */
+        mission_id: string;
+    };
+    query?: never;
+    url: '/api/v1/missions/{mission_id}/transitions';
+};
+
+export type TransitionApiV1MissionsMissionIdTransitionsPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type TransitionApiV1MissionsMissionIdTransitionsPostError = TransitionApiV1MissionsMissionIdTransitionsPostErrors[keyof TransitionApiV1MissionsMissionIdTransitionsPostErrors];
+
+export type TransitionApiV1MissionsMissionIdTransitionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: MissionLifecycleResponse;
+};
+
+export type TransitionApiV1MissionsMissionIdTransitionsPostResponse = TransitionApiV1MissionsMissionIdTransitionsPostResponses[keyof TransitionApiV1MissionsMissionIdTransitionsPostResponses];
 
 export type CommonsSnapshotApiV1PublicCommonsSnapshotGetData = {
     body?: never;

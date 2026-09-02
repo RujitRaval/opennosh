@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.81.0.0] - 2026-09-02
+
+### Added
+
+- Add authenticated organizer endpoints for immutable mission proposals and optimistic lifecycle
+  transitions, returning bounded public event facts without actor identity.
+- Expose proposal, approval, pause, resume, completion, release, and closure through the existing
+  governed mission service and its exact event-id replay boundary.
+
+### Security
+
+- Require CSRF protection, a fresh human session, and active target-pack steward authority for every
+  mutation; hide disabled routes and missing mission proof behind the same generic not-found result.
+- Gate completion on mission projection and release on the independent mission-pack release switch;
+  keep claims, federation, and all five mission production switches unchanged and disabled.
+
 ## [0.80.0.0] - 2026-09-02
 
 ### Added

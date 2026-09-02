@@ -896,6 +896,12 @@ cannot prove the latest definition or lifecycle event, the same route must retur
 checkpoint remains visible with `progress_state=unavailable`; a checkpoint that no longer matches
 verified accepted-event history uses `progress_state=stale` and never claims current progress.
 
+While mission mutations remain disabled, `POST /api/v1/missions` and
+`POST /api/v1/missions/{mission_id}/transitions` must return the generic HTTP 404 response before
+request validation, authentication, or database access. A later activation must keep CSRF and fresh
+human-session checks, then verify active target-pack stewardship transactionally. Completion also
+requires projection enabled, and release requires the independent mission-pack release switch.
+
 When mission projection is later authorized, bind only the contributor's exact current draft
 version to an active definition in the same target pack. A rebuild must start from verified
 `accepted_events` plus their reconciled publication receipts, append a complete checkpoint and

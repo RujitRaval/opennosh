@@ -179,7 +179,12 @@ async def test_proposal_replay_is_idempotent_but_conflicting_key_fails() -> None
 @pytest.mark.asyncio
 async def test_proposal_requires_active_human_actor_and_responsible_steward() -> None:
     store = FakeMissionStore()
-    store.stewards.remove(STEWARD_ID)
+    store.stewards.clear()
+
+    with pytest.raises(MissionLifecycleError, match="mission_actor_not_active_steward"):
+        await propose_mission(store, _proposal(), now=NOW)
+
+    store.stewards.add(PROPOSER_ID)
 
     with pytest.raises(MissionLifecycleError, match="responsible_steward_not_active"):
         await propose_mission(store, _proposal(), now=NOW)
@@ -262,12 +267,13 @@ async def test_pause_replay_remains_idempotent_after_review_deadline() -> None:
 async def test_transition_rejects_backdated_chronology() -> None:
     store = FakeMissionStore()
     proposed = await _proposed(store)
+    proposed.occurred_at = NOW + timedelta(seconds=1)
 
     with pytest.raises(MissionLifecycleError, match="mission_event_time_invalid"):
         await transition_mission(
             store,
             _transition(proposed, MissionLifecycleAction.APPROVE),
-            now=NOW - timedelta(seconds=1),
+            now=NOW,
         )
 
 
@@ -320,6 +326,15 @@ async def test_transition_fails_closed_on_missing_scope_state_and_authority() ->
     store = FakeMissionStore()
     proposed = await _proposed(store)
     store.events.clear()
+    store.stewards.remove(STEWARD_ID)
+    with pytest.raises(MissionLifecycleError, match="mission_actor_not_active_steward"):
+        await transition_mission(
+            store,
+            _transition(proposed, MissionLifecycleAction.APPROVE),
+            now=NOW + timedelta(minutes=1),
+        )
+
+    store.stewards.add(STEWARD_ID)
     with pytest.raises(MissionLifecycleError, match="mission_not_found"):
         await transition_mission(
             store,
@@ -389,6 +404,16 @@ async def test_release_requires_a_later_valid_receipt_for_the_target_pack() -> N
     )
     digest = "a" * 64
     release = _transition(completed, MissionLifecycleAction.RELEASE, receipt=digest)
+
+    store.progress_current = False
+    with pytest.raises(MissionLifecycleError, match="mission_progress_stale"):
+        await transition_mission(store, release, now=NOW + timedelta(minutes=3))
+    store.progress_current = True
+
+    store.checkpoint.accepted_count = 9
+    with pytest.raises(MissionLifecycleError, match="mission_acceptance_target_not_met"):
+        await transition_mission(store, release, now=NOW + timedelta(minutes=3))
+    store.checkpoint.accepted_count = 10
 
     with pytest.raises(MissionLifecycleError, match="mission_release_receipt_not_found"):
         await transition_mission(store, release, now=NOW + timedelta(minutes=3))

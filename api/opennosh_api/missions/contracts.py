@@ -46,6 +46,100 @@ class MissionDefinitionSpec(BaseModel):
     acceptance_target: Annotated[int, Field(ge=1, le=100_000)]
     acceptance_criteria: Annotated[str, Field(min_length=1, max_length=2000)]
 
+    @field_validator("title", "summary", "target_dataset", "acceptance_criteria")
+    @classmethod
+    def public_text_is_meaningful(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Mission definition text must contain non-whitespace text")
+        return normalized
+
+
+class MissionProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mission_id: UUID
+    definition_id: UUID
+    event_id: UUID
+    responsible_steward_actor_id: UUID
+    definition: MissionDefinitionSpec
+    public_reason: Annotated[str, Field(min_length=1, max_length=2000)]
+
+    @field_validator("public_reason")
+    @classmethod
+    def public_reason_is_meaningful(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("public_reason must contain non-whitespace text")
+        return normalized
+
+
+class _MissionTransitionRequestBase(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    definition_id: UUID
+    event_id: UUID
+    expected_prior_event_id: UUID
+    public_reason: Annotated[str, Field(min_length=1, max_length=2000)]
+
+    @field_validator("public_reason")
+    @classmethod
+    def public_reason_is_meaningful(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("public_reason must contain non-whitespace text")
+        return normalized
+
+
+class MissionSimpleTransitionRequest(_MissionTransitionRequestBase):
+    action: Literal[
+        MissionLifecycleAction.APPROVE,
+        MissionLifecycleAction.RESUME,
+        MissionLifecycleAction.COMPLETE,
+        MissionLifecycleAction.CLOSE,
+    ]
+
+
+class MissionPauseTransitionRequest(_MissionTransitionRequestBase):
+    action: Literal[MissionLifecycleAction.PAUSE]
+    next_review_at: datetime
+
+    @field_validator("next_review_at")
+    @classmethod
+    def next_review_at_is_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("next_review_at must include a timezone")
+        return value
+
+
+class MissionReleaseTransitionRequest(_MissionTransitionRequestBase):
+    action: Literal[MissionLifecycleAction.RELEASE]
+    release_receipt_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+MissionTransitionRequest = Annotated[
+    MissionSimpleTransitionRequest
+    | MissionPauseTransitionRequest
+    | MissionReleaseTransitionRequest,
+    Field(discriminator="action"),
+]
+
+
+class MissionLifecycleResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    mission_id: UUID
+    definition_id: UUID
+    event_id: UUID
+    sequence: Annotated[int, Field(gt=0)]
+    action: MissionLifecycleAction
+    state: MissionLifecycleState
+    public_reason: Annotated[str, Field(min_length=1, max_length=2000)]
+    next_review_at: datetime | None = None
+    release_receipt_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    occurred_at: datetime
+
 
 class MissionBindingFact(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

@@ -35,6 +35,13 @@ decision requires an active human steward in the target pack and an exact expect
 reusing an event ID with the same request is idempotent, while conflicting reuse or stale state
 fails closed. Proposal approval must come from a different steward.
 
+Authenticated organizers use `POST /api/v1/missions` for proposals and
+`POST /api/v1/missions/{mission_id}/transitions` for later decisions. Both endpoints require a
+CSRF-bound fresh human session, then re-check active scoped stewardship inside the serialized
+transaction. Responses contain the public lifecycle fact but not the deciding actor. Completion is
+unavailable unless mission projection is enabled; release additionally requires the independent
+mission-pack release switch.
+
 The bounded transition graph is `proposed -> active -> paused -> active`, `active -> completed ->
 released`, with explicit closure from any non-closed state. Pauses require a future review time.
 Completion rebuilds progress from the current canonical accepted-event and receipt rows, checks the
@@ -94,8 +101,9 @@ or rolled upward. The system does not collect contributor geolocation for missio
 
 All five default to `false`, are explicitly false for the Render API and publication worker, and are
 included in production readiness. Activity maps require both public missions and projection. Mission
-pack release requires mutations and projection. Activation is a later digest-bound operator action,
-not an implication of implementation or merge approval.
+pack release requires mutations and projection. Disabled organizer mutation routes return the same
+generic not-found response before request validation, authentication, or database access. Activation
+is a later digest-bound operator action, not an implication of implementation or merge approval.
 
 ## Rollback
 
