@@ -686,6 +686,33 @@ reject mutation, and downgrade refuses while any such facts exist. Restore servi
 active checkpoint through a reviewed forward change. Keep enrollment, installation, public
 discovery, and publication claims disabled unless each receives its own exact-commit approval.
 
+### T34.5d cross-pack search
+
+T34.5d adds a read-only consumer for an already active verified projection. It does not activate
+that consumer. Keep this explicit value false on both `opennosh-api` and
+`opennosh-publication`:
+
+```text
+FEDERATION_SEARCH_ENABLED=false
+```
+
+Publication readiness and natural readiness bind this switch and block production-claims
+activation if it is true. While false, an explicit `source=federation` or `pack=...` search returns
+503 and ordinary USDA/community search continues unchanged. Do not enable ingestion, projection,
+search, installation, discovery, or enrollment as part of a deployment verification.
+
+After a separately approved search activation, verify `/api/v1/foods/capabilities`, then query one
+reviewed pack with `source=federation&pack=<pack-id>`. Confirm the response binds the expected
+checkpoint and release-set digest and that every result exposes exact pack/release/license/
+provenance and immutable variant metadata. Conflicts must remain separate variants; no displayed or
+stored nutrient value may be averaged. Advance the projection once in a controlled test and confirm
+an existing cursor stays on its retained snapshot with `release_set.stale=true`.
+
+Rollback sets `FEDERATION_SEARCH_ENABLED=false` first and verifies capabilities plus ordinary food
+search. Do not delete retained snapshots or append-only federation facts. A database downgrade past
+T34.5d refuses while retained federated search rows exist; use a reviewed forward migration after
+their normal retention window instead of destroying evidence.
+
 ### T33.5 live federation failure-drill matrix
 
 Run this matrix only after the T33.4 enrollment is quarantined, its temporary credentials are

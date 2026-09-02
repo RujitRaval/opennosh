@@ -78,9 +78,10 @@ this form so an ordinary account without targets does not create a failed browse
 
 The first page omits `cursor`. A response with `has_more: true` includes an opaque signed
 `next_cursor` that must be replayed with the same normalized query, locale, source filter, and
-page size. The token binds cursor and ranking versions, a retained projection snapshot, a SHA-256
-fingerprint of the normalized search inputs, the last deterministic rank/tie position, page size,
-and expiry. It never contains raw search text.
+page size. Federated searches additionally bind the sorted repeated `pack` filter and exact active
+release-set digest. The token binds cursor and ranking versions, a retained projection snapshot, a
+SHA-256 fingerprint of the normalized search inputs, the last deterministic rank/tie position,
+page size, release set, and expiry. It never contains raw search text.
 
 The current signing key signs new tokens while the current and previous keys verify them. Invalid,
 altered, malformed, and oversized tokens return `search_cursor_invalid` with HTTP 400. Expired
@@ -89,6 +90,17 @@ snapshots, mismatched inputs, changed ranking policy, and retired keys return
 page. An unsupported signed cursor schema or ranking version also requires restart; a missing version
 is invalid. The API does not silently cross projection snapshots within a pagination journey. Its
 production entrypoint disables raw access logging so query and cursor parameters are not logged.
+
+When `FEDERATION_SEARCH_ENABLED=true`, an explicit `source=federation` reads only the latest complete
+active verified projection. An optional repeated `pack` query also opts into that projection while
+selecting canonical pack IDs; results expose
+the exact pack version, verified release version and digest, license, provenance, immutable variant
+ID, deterministic equivalence-group ID, variant count, and conflict state. Equivalent records are
+grouped only when their normalized name/category and exact explicit source URI/license match.
+Nutrient disagreements remain separate variants and are never averaged. The response `release_set`
+object identifies its checkpoint and digest, selected packs, and whether a retained cursor snapshot
+has become stale relative to the current activation. The switch defaults to false; explicit
+federation or pack-filter requests fail closed while disabled.
 
 ## Public commons snapshot contract
 
