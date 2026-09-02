@@ -217,6 +217,10 @@ async def test_exact_release_survives_without_fastapi_or_postgresql(tmp_path: Pa
     manifest, _ = await service.signed_manifest(RELEASE)
 
     assert food.record.name == "Rajma masala"
+    assert (
+        hashlib.sha256(canonical_json(food.record.model_dump(mode="json"))).hexdigest()
+        == hashlib.sha256(RECORD).hexdigest()
+    )
     assert food.release.state == "verified"
     assert food.immutable_url.endswith(f"/releases/{RELEASE}/foods/community/rajma-masala")
     assert provenance == PROVENANCE

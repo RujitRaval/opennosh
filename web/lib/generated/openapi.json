@@ -4777,6 +4777,176 @@
         "title": "PublicDocumentManifest",
         "type": "object"
       },
+      "PublicFoodAttribution": {
+        "additionalProperties": false,
+        "description": "Stable attribution contract embedded in immutable signed food records.",
+        "properties": {
+          "contributed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contributed By"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Id"
+          },
+          "pack_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Version"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance"
+          },
+          "source": {
+            "enum": [
+              "usda",
+              "community"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source License"
+          },
+          "source_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Uri"
+          }
+        },
+        "required": [
+          "source",
+          "license"
+        ],
+        "title": "PublicFoodAttribution",
+        "type": "object"
+      },
+      "PublicFoodRecord": {
+        "additionalProperties": false,
+        "description": "Versioned public record shape; independent from mutable search metadata.",
+        "properties": {
+          "attribution": {
+            "$ref": "#/components/schemas/PublicFoodAttribution"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Local"
+          },
+          "nutrients": {
+            "additionalProperties": true,
+            "title": "Nutrients",
+            "type": "object"
+          },
+          "portions": {
+            "items": {
+              "$ref": "#/components/schemas/HouseholdPortion-Output"
+            },
+            "title": "Portions",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "usda",
+              "community"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "name",
+          "attribution",
+          "nutrients",
+          "portions"
+        ],
+        "title": "PublicFoodRecord",
+        "type": "object"
+      },
       "PublicFoodRecordResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4789,7 +4959,7 @@
             "type": "string"
           },
           "record": {
-            "$ref": "#/components/schemas/FoodDetail"
+            "$ref": "#/components/schemas/PublicFoodRecord"
           },
           "release": {
             "$ref": "#/components/schemas/PublicReleaseMetadata"

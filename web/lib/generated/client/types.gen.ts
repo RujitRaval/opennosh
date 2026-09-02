@@ -2550,6 +2550,93 @@ export type PublicDocumentManifest = {
 };
 
 /**
+ * PublicFoodAttribution
+ *
+ * Stable attribution contract embedded in immutable signed food records.
+ */
+export type PublicFoodAttribution = {
+    /**
+     * Contributed By
+     */
+    contributed_by?: string | null;
+    /**
+     * License
+     */
+    license: string;
+    /**
+     * Pack Id
+     */
+    pack_id?: string | null;
+    /**
+     * Pack Version
+     */
+    pack_version?: string | null;
+    /**
+     * Provenance
+     */
+    provenance?: string | null;
+    /**
+     * Source
+     */
+    source: 'usda' | 'community';
+    /**
+     * Source License
+     */
+    source_license?: string | null;
+    /**
+     * Source Uri
+     */
+    source_uri?: string | null;
+};
+
+/**
+ * PublicFoodRecord
+ *
+ * Versioned public record shape; independent from mutable search metadata.
+ */
+export type PublicFoodRecord = {
+    attribution: PublicFoodAttribution;
+    /**
+     * Category
+     */
+    category?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Name Local
+     */
+    name_local?: string | null;
+    /**
+     * Nutrients
+     */
+    nutrients: {
+        [key: string]: unknown;
+    };
+    /**
+     * Portions
+     */
+    portions: Array<HouseholdPortionOutput>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Source
+     */
+    source: 'usda' | 'community';
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
  * PublicFoodRecordResponse
  */
 export type PublicFoodRecordResponse = {
@@ -2561,7 +2648,7 @@ export type PublicFoodRecordResponse = {
      * Provenance Url
      */
     provenance_url: string;
-    record: FoodDetail;
+    record: PublicFoodRecord;
     release: PublicReleaseMetadata;
     /**
      * Schema Version
