@@ -119,6 +119,16 @@ def test_disabled_readiness_is_deterministic_and_binds_activation_contract() -> 
             "FEDERATION_SEARCH_ENABLED",
             "federation_search_enabled_already_enabled",
         ),
+        (
+            "opennosh-publication",
+            "FEDERATION_INSTALLATION_ENABLED",
+            "federation_installation_enabled_already_enabled",
+        ),
+        (
+            "opennosh-publication",
+            "FEDERATION_PUBLIC_DISCOVERY_ENABLED",
+            "federation_public_discovery_enabled_already_enabled",
+        ),
     ],
 )
 def test_readiness_blocks_if_any_production_surface_is_enabled(

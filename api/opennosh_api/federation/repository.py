@@ -11,6 +11,7 @@ from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationPackInstallationEvent,
     FederationProjectionActivation,
     FederationProjectionCheckpoint,
     FederationProjectionFood,
@@ -141,9 +142,7 @@ class FederationRepository:
 
     async def release_by_statement_digest(self, statement_digest: str) -> FederationRelease:
         release = await self._session.scalar(
-            select(FederationRelease).where(
-                FederationRelease.statement_digest == statement_digest
-            )
+            select(FederationRelease).where(FederationRelease.statement_digest == statement_digest)
         )
         if release is None:
             raise LookupError("federation_release_not_found")
@@ -157,9 +156,7 @@ class FederationRepository:
             raise LookupError("federation_role_key_not_found")
         return key
 
-    async def verified_release(
-        self, release_id: UUID
-    ) -> FederationVerifiedRelease | None:
+    async def verified_release(self, release_id: UUID) -> FederationVerifiedRelease | None:
         return cast(
             FederationVerifiedRelease | None,
             await self._session.scalar(
@@ -175,6 +172,95 @@ class FederationRepository:
     def add_release_status(self, event: FederationReleaseStatusEvent) -> None:
         self._session.add(event)
 
+    async def lock_installation_scope(self, *, repository_id: int, pack_id: str) -> None:
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+            {"scope": f"opennosh:federation:installation:{repository_id}:{pack_id}"},
+        )
+
+    async def latest_installation(
+        self, *, repository_id: int, pack_id: str
+    ) -> FederationPackInstallationEvent | None:
+        return cast(
+            FederationPackInstallationEvent | None,
+            await self._session.scalar(
+                select(FederationPackInstallationEvent)
+                .where(
+                    FederationPackInstallationEvent.repository_id == repository_id,
+                    FederationPackInstallationEvent.pack_id == pack_id,
+                )
+                .order_by(FederationPackInstallationEvent.generation.desc())
+                .limit(1)
+            ),
+        )
+
+    def add_installation(self, event: FederationPackInstallationEvent) -> None:
+        self._session.add(event)
+
+    async def installation_release(
+        self, verified_release_id: UUID
+    ) -> tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer]:
+        row = (
+            await self._session.execute(
+                select(FederationVerifiedRelease, FederationRelease, FederationMaintainer)
+                .join(
+                    FederationRelease, FederationRelease.id == FederationVerifiedRelease.release_id
+                )
+                .join(
+                    FederationMaintainer, FederationMaintainer.id == FederationRelease.maintainer_id
+                )
+                .where(FederationVerifiedRelease.id == verified_release_id)
+            )
+        ).one_or_none()
+        if row is None:
+            raise LookupError("federation_verified_release_not_found")
+        return row[0], row[1], row[2]
+
+    async def installed_verified_releases(
+        self,
+    ) -> tuple[tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer], ...]:
+        latest = (
+            select(
+                FederationPackInstallationEvent.repository_id,
+                FederationPackInstallationEvent.pack_id,
+                FederationPackInstallationEvent.verified_release_id,
+                FederationPackInstallationEvent.action,
+            )
+            .distinct(
+                FederationPackInstallationEvent.repository_id,
+                FederationPackInstallationEvent.pack_id,
+            )
+            .order_by(
+                FederationPackInstallationEvent.repository_id,
+                FederationPackInstallationEvent.pack_id,
+                FederationPackInstallationEvent.generation.desc(),
+            )
+            .subquery()
+        )
+        quarantined = exists().where(
+            FederationReleaseStatusEvent.release_id == FederationRelease.id,
+            FederationReleaseStatusEvent.state == "quarantined",
+        )
+        rows = (
+            await self._session.execute(
+                select(FederationVerifiedRelease, FederationRelease, FederationMaintainer)
+                .join(latest, latest.c.verified_release_id == FederationVerifiedRelease.id)
+                .join(
+                    FederationRelease, FederationRelease.id == FederationVerifiedRelease.release_id
+                )
+                .join(
+                    FederationMaintainer, FederationMaintainer.id == FederationRelease.maintainer_id
+                )
+                .where(
+                    latest.c.action != "remove",
+                    FederationMaintainer.state == "active",
+                    ~quarantined,
+                )
+                .order_by(FederationRelease.repository_id, FederationRelease.pack_id)
+            )
+        ).all()
+        return tuple((row[0], row[1], row[2]) for row in rows)
+
     async def release_is_quarantined(self, release_id: UUID) -> bool:
         return bool(
             await self._session.scalar(
@@ -189,10 +275,7 @@ class FederationRepository:
 
     async def lock_projection(self) -> None:
         await self._session.execute(
-            text(
-                "SELECT pg_advisory_xact_lock("
-                "hashtext('opennosh:federation:projection'))"
-            )
+            text("SELECT pg_advisory_xact_lock(hashtext('opennosh:federation:projection'))")
         )
 
     async def eligible_verified_releases(
@@ -237,17 +320,25 @@ class FederationRepository:
         return tuple(selected)
 
     async def projection_checkpoint(
-        self, release_set_digest: str
+        self, release_set_digest: str, *, mode: str = "registry"
     ) -> FederationProjectionCheckpoint | None:
         return cast(
             FederationProjectionCheckpoint | None,
             await self._session.scalar(
                 select(FederationProjectionCheckpoint).where(
-                    FederationProjectionCheckpoint.release_set_digest
-                    == release_set_digest
+                    FederationProjectionCheckpoint.release_set_digest == release_set_digest,
+                    FederationProjectionCheckpoint.mode == mode,
                 )
             ),
         )
+
+    async def projection_checkpoint_by_id(
+        self, checkpoint_id: UUID
+    ) -> FederationProjectionCheckpoint:
+        checkpoint = await self._session.get(FederationProjectionCheckpoint, checkpoint_id)
+        if checkpoint is None:
+            raise LookupError("federation_projection_checkpoint_not_found")
+        return checkpoint
 
     async def latest_projection_activation(self) -> FederationProjectionActivation | None:
         return cast(
@@ -360,6 +451,7 @@ class FederationRepository:
         if row is None:
             return None
         return row[0], row[1]
+
 
 class FederationClaimConnection(Protocol):
     async def fetchval(self, query: str, *args: object) -> object: ...

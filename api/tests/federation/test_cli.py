@@ -17,6 +17,7 @@ from opennosh_api.federation.contracts import (
     FederationScope,
     InvitationSecret,
     MaintainerStatus,
+    PackInstallationStatus,
     ProjectionStatus,
     SignedFederationRelease,
     VerifiedReleaseStatus,
@@ -122,9 +123,7 @@ class _Service:
         self.operations.append("rotate-key")
         return _status()
 
-    async def publish_release(
-        self, release: SignedFederationRelease, **_options: object
-    ) -> str:
+    async def publish_release(self, release: SignedFederationRelease, **_options: object) -> str:
         assert release.statement.publication_id == PUBLICATION_ID
         self.operations.append("publish-release")
         return "d" * 64
@@ -170,6 +169,65 @@ class _Service:
             record_count=3,
             activated_at=NOW,
         )
+
+    async def install_pack(
+        self, statement_digest: str, **_options: object
+    ) -> PackInstallationStatus:
+        return self._installation("install", statement_digest)
+
+    async def update_pack(
+        self, statement_digest: str, **_options: object
+    ) -> PackInstallationStatus:
+        return self._installation("update", statement_digest)
+
+    async def rollback_pack(
+        self, statement_digest: str, **_options: object
+    ) -> PackInstallationStatus:
+        return self._installation("rollback", statement_digest)
+
+    async def remove_pack(self, **options: object) -> PackInstallationStatus:
+        assert options["repository_id"] == SCOPE.repository_id
+        assert options["pack_id"] == SCOPE.pack_id
+        return self._installation("remove", None)
+
+    async def reconcile_installations(self, **_options: object) -> ProjectionStatus:
+        self.operations.append("reconcile-installations")
+        return ProjectionStatus(
+            mode="installed",
+            checkpoint_id=UUID("55555555-5555-4555-8555-555555555555"),
+            release_set_digest="a" * 64,
+            release_count=1,
+            record_count=3,
+            activated_at=NOW,
+        )
+
+    async def installation_status(self, **options: object) -> PackInstallationStatus:
+        assert options["repository_id"] == SCOPE.repository_id
+        assert options["pack_id"] == SCOPE.pack_id
+        self.operations.append("installation-status")
+        return self._installation_status("install", "d" * 64)
+
+    def _installation_status(
+        self, action: str, statement_digest: str | None
+    ) -> PackInstallationStatus:
+        return PackInstallationStatus(
+            repository_id=SCOPE.repository_id,
+            pack_id=SCOPE.pack_id,
+            state="removed" if action == "remove" else "installed",
+            action=action,  # type: ignore[arg-type]
+            generation=1,
+            verified_release_id=None if action == "remove" else PUBLICATION_ID,
+            statement_digest=statement_digest,
+            release_version=None if action == "remove" else "1.2.3.4",
+            pack_version=None if action == "remove" else "1.2.3.4",
+            occurred_at=NOW,
+            projection_checkpoint_id=UUID("55555555-5555-4555-8555-555555555555"),
+            release_set_digest="a" * 64,
+        )
+
+    def _installation(self, action: str, statement_digest: str | None) -> PackInstallationStatus:
+        self.operations.append(f"{action}-pack" if action != "remove" else "remove-pack")
+        return self._installation_status(action, statement_digest)
 
     async def quarantine(self, _maintainer_id: UUID, **_options: object) -> MaintainerStatus:
         self.operations.append("quarantine")
@@ -330,6 +388,29 @@ def test_federation_cli_runs_every_bounded_operation(
             "build verified projection",
             "--json",
         ],
+        ["federation", "install-pack", "--statement-digest", "d" * 64, "--reason", "install"],
+        ["federation", "update-pack", "--statement-digest", "d" * 64, "--reason", "update"],
+        ["federation", "rollback-pack", "--statement-digest", "d" * 64, "--reason", "rollback"],
+        [
+            "federation",
+            "remove-pack",
+            "--repository-id",
+            str(SCOPE.repository_id),
+            "--pack-id",
+            SCOPE.pack_id,
+            "--reason",
+            "remove",
+        ],
+        ["federation", "reconcile-installations", "--reason", "reconcile", "--json"],
+        [
+            "federation",
+            "installation-status",
+            "--repository-id",
+            str(SCOPE.repository_id),
+            "--pack-id",
+            SCOPE.pack_id,
+            "--json",
+        ],
         [
             "federation",
             "quarantine",
@@ -357,6 +438,12 @@ def test_federation_cli_runs_every_bounded_operation(
         "verify-artifacts",
         "quarantine-release",
         "build-projection",
+        "install-pack",
+        "update-pack",
+        "rollback-pack",
+        "remove-pack",
+        "reconcile-installations",
+        "installation-status",
         "quarantine",
         "revoke",
         "status",

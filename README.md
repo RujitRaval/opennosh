@@ -140,6 +140,12 @@ then community foods matching the requested locale, USDA generic foods, and comm
 other locales. The optional `source` filter accepts `community`, `usda`, or feature-gated
 `federation`.
 
+Self-hosted federation installations are also disabled by default. The administration CLI can
+install, update, roll back, remove, and reconcile exact verified releases into an append-only local
+PostgreSQL projection. Once artifacts are verified, installed-pack search is local and does not
+depend on a hosted federation service. Production keeps both `FEDERATION_INSTALLATION_ENABLED` and
+`FEDERATION_PUBLIC_DISCOVERY_ENABLED` false pending separate activation review.
+
 Raw queries must contain 2–100 characters; after whitespace normalization they must still contain
 at least two characters and a letter or number. A request returns at most 50 rows. When another
 page exists, the response includes an opaque `next_cursor`; send it back with the same query,

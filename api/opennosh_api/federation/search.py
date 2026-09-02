@@ -28,7 +28,7 @@ async def active_federation_projection(
                 text(
                     """
                     WITH active AS (
-                        SELECT checkpoint.id, checkpoint.release_set_digest
+                        SELECT checkpoint.id, checkpoint.release_set_digest, checkpoint.mode
                         FROM federation_projection_activations AS activation
                         JOIN federation_projection_checkpoints AS checkpoint
                           ON checkpoint.id = activation.checkpoint_id
@@ -57,6 +57,16 @@ async def active_federation_projection(
                                 AND status.state = 'quarantined'
                           )
                     ),
+                    installed_ranked AS (
+                        SELECT
+                            installation.verified_release_id,
+                            installation.action,
+                            row_number() OVER (
+                                PARTITION BY installation.repository_id, installation.pack_id
+                                ORDER BY installation.generation DESC
+                            ) AS scope_rank
+                        FROM federation_pack_installation_events AS installation
+                    ),
                     actual AS (
                         SELECT member.verified_release_id
                         FROM federation_projection_releases AS member
@@ -64,8 +74,28 @@ async def active_federation_projection(
                     ),
                     expected AS (
                         SELECT verified_release_id
-                        FROM eligible_ranked
-                        WHERE scope_rank = 1
+                        FROM eligible_ranked, active
+                        WHERE scope_rank = 1 AND active.mode = 'registry'
+                        UNION ALL
+                        SELECT installed.verified_release_id
+                        FROM installed_ranked AS installed
+                        JOIN federation_verified_releases AS verified
+                          ON verified.id = installed.verified_release_id
+                        JOIN federation_releases AS release
+                          ON release.id = verified.release_id
+                        JOIN federation_maintainers AS maintainer
+                          ON maintainer.id = release.maintainer_id
+                        CROSS JOIN active
+                        WHERE installed.scope_rank = 1
+                          AND installed.action <> 'remove'
+                          AND active.mode = 'installed'
+                          AND maintainer.state = 'active'
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM federation_release_status_events AS status
+                              WHERE status.release_id = release.id
+                                AND status.state = 'quarantined'
+                          )
                     )
                     SELECT
                         active.id AS checkpoint_id,

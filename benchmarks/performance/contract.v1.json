@@ -364,6 +364,26 @@
       "max_job_age_ms": 300000
     }
   },
+  "federation_search_gate": {
+    "profile": "launch-reference",
+    "boundary": "postgresql",
+    "records": 10000,
+    "packs": 40,
+    "releases": 120,
+    "scenarios": [
+      "exact-name",
+      "prefix-name",
+      "misspelling",
+      "non-latin-script",
+      "duplicate-cluster",
+      "conflicting-license",
+      "pack-filter",
+      "worst-case-cursor-pagination"
+    ],
+    "cold_p95_ms": 250,
+    "warm_p95_ms": 100,
+    "dedicated_engine_decision": "retain-postgresql"
+  },
   "extraction_policy": {
     "postgresql_gate_misses_required": 2,
     "same_contract_and_profile_required": true,

@@ -158,6 +158,10 @@ async def build_production_claims_readiness(
         failures.append("federation_projection_enabled")
     if settings.federation_search_enabled:
         failures.append("federation_search_enabled")
+    if settings.federation_installation_enabled:
+        failures.append("federation_installation_enabled")
+    if settings.federation_public_discovery_enabled:
+        failures.append("federation_public_discovery_enabled")
     if not settings.latest_refresh_enabled:
         failures.append("latest_refresh_disabled")
     if settings.publication_claim_concurrency != contract.activation.claim_concurrency:
@@ -272,6 +276,8 @@ async def build_production_claims_readiness(
             "federation_ingestion_enabled": settings.federation_ingestion_enabled,
             "federation_projection_enabled": settings.federation_projection_enabled,
             "federation_search_enabled": settings.federation_search_enabled,
+            "federation_installation_enabled": settings.federation_installation_enabled,
+            "federation_public_discovery_enabled": settings.federation_public_discovery_enabled,
             "claim_concurrency": settings.publication_claim_concurrency,
             "latest_refresh_enabled": settings.latest_refresh_enabled,
             "credentials_complete": credentials_complete,

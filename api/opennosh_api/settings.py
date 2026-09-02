@@ -137,6 +137,8 @@ class Settings(BaseSettings):
     federation_ingestion_enabled: bool = False
     federation_projection_enabled: bool = False
     federation_search_enabled: bool = False
+    federation_installation_enabled: bool = False
+    federation_public_discovery_enabled: bool = False
     publication_activation_ids: str = ""
     publication_claims_activation_contract_path: Path = Path(
         "config/publication-claims-activation.v1.json"
@@ -576,9 +578,7 @@ class Settings(BaseSettings):
         for group_name, group in evidence_groups.items():
             configured_count = sum(value is not None for value in group)
             if configured_count not in {0, len(group)}:
-                raise ValueError(
-                    f"Evidence {group_name} object-store configuration is incomplete"
-                )
+                raise ValueError(f"Evidence {group_name} object-store configuration is incomplete")
         if self.evidence_uploads_enabled and not all(evidence_groups["quarantine"]):
             raise ValueError("Evidence uploads require complete quarantine configuration")
         if self.evidence_uploads_enabled and not self.evidence_sanitization_enabled:

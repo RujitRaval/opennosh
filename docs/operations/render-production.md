@@ -713,6 +713,35 @@ search. Do not delete retained snapshots or append-only federation facts. A data
 T34.5d refuses while retained federated search rows exist; use a reviewed forward migration after
 their normal retention window instead of destroying evidence.
 
+### T34.5e self-hosted pack installation
+
+T34.5e deploys installation lifecycle and reconciliation code without authorizing either pack
+installation or public discovery. Keep these values explicit on both the API and publication
+worker, alongside the existing disabled federation switches:
+
+```text
+FEDERATION_INSTALLATION_ENABLED=false
+FEDERATION_PUBLIC_DISCOVERY_ENABLED=false
+```
+
+Both production-readiness digests bind these flags and block claims activation if either is true.
+For a separately approved self-hosted ceremony, enable ingestion and projection first, verify the
+exact release artifacts, then enable installation only for the administration CLI. Run
+`opennosh federation install-pack --statement-digest <sha256> --reason <reviewed-reason> --json`.
+Updates and rollbacks use the same exact digest binding; removal requires the exact repository ID
+and pack ID. `reconcile-installations` safely rebuilds the complete installed set and reuses an
+identical checkpoint.
+
+Inspect the JSON generation, release identity, checkpoint, and release-set digest after every
+command. A quarantined target, inactive scope, missing steward, or invalid chronology exits
+nonzero without moving the pointer. Removing the final pack must activate a zero-release installed
+checkpoint. Never delete installation events to accomplish a rollback.
+
+The representative benchmark contract keeps PostgreSQL as the search engine and pins federation
+coverage to names, scripts, misspellings, duplicates, license conflicts, pack filters, and the
+worst cursor page. Do not introduce a dedicated search service until the existing extraction policy
+records two reproducible PostgreSQL gate misses under the same contract and profile.
+
 ### T33.5 live federation failure-drill matrix
 
 Run this matrix only after the T33.4 enrollment is quarantined, its temporary credentials are

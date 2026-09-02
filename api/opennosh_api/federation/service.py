@@ -17,6 +17,7 @@ from opennosh_api.federation.contracts import (
     FederationScope,
     InvitationSecret,
     MaintainerStatus,
+    PackInstallationStatus,
     ProjectionStatus,
     SignedFederationRelease,
     VerifiedReleaseStatus,
@@ -34,6 +35,7 @@ from opennosh_api.federation.models import (
     FederationAuditEvent,
     FederationInvitation,
     FederationMaintainer,
+    FederationPackInstallationEvent,
     FederationProjectionActivation,
     FederationProjectionCheckpoint,
     FederationProjectionFood,
@@ -70,6 +72,7 @@ class FederationService:
         manifest_keys: ManifestKeyRing | None = None,
         ingestion_enabled: bool = False,
         projection_enabled: bool = False,
+        installation_enabled: bool = False,
     ) -> None:
         if not 1 <= len(allowed_scopes) <= 32:
             raise ValueError("Federation service requires 1 to 32 allowed scopes")
@@ -82,6 +85,7 @@ class FederationService:
         self._manifest_keys = manifest_keys
         self._ingestion_enabled = ingestion_enabled
         self._projection_enabled = projection_enabled
+        self._installation_enabled = installation_enabled
 
     async def invite(
         self,
@@ -678,100 +682,363 @@ class FederationService:
                     pack_id=release.pack_id,
                     at=timestamp,
                 )
+            return await self._activate_projection(
+                repository,
+                selected=selected,
+                actor_id=actor_id,
+                reason=reason,
+                timestamp=timestamp,
+                mode="registry",
+            )
 
-            release_set = [
-                {
-                    "artifact_digest": verified.artifact_digest,
-                    "pack_id": release.pack_id,
-                    "pack_version": verified.pack_version,
-                    "record_set_digest": verified.record_set_digest,
-                    "release_id": str(release.id),
-                    "release_version": release.release_version,
-                    "repository_id": release.repository_id,
-                    "statement_digest": release.statement_digest,
-                    "verified_release_id": str(verified.id),
-                }
-                for verified, release, _ in selected
-            ]
-            release_set.sort(
-                key=lambda item: (
-                    str(item["pack_id"]),
-                    cast(int, item["repository_id"]),
+    async def install_pack(
+        self, statement_digest: str, *, actor_id: UUID, reason: str, now: datetime | None = None
+    ) -> PackInstallationStatus:
+        return await self._change_installation(
+            "install", statement_digest=statement_digest, actor_id=actor_id, reason=reason, now=now
+        )
+
+    async def update_pack(
+        self, statement_digest: str, *, actor_id: UUID, reason: str, now: datetime | None = None
+    ) -> PackInstallationStatus:
+        return await self._change_installation(
+            "update", statement_digest=statement_digest, actor_id=actor_id, reason=reason, now=now
+        )
+
+    async def rollback_pack(
+        self, statement_digest: str, *, actor_id: UUID, reason: str, now: datetime | None = None
+    ) -> PackInstallationStatus:
+        return await self._change_installation(
+            "rollback", statement_digest=statement_digest, actor_id=actor_id, reason=reason, now=now
+        )
+
+    async def remove_pack(
+        self,
+        *,
+        repository_id: int,
+        pack_id: str,
+        actor_id: UUID,
+        reason: str,
+        now: datetime | None = None,
+    ) -> PackInstallationStatus:
+        return await self._change_installation(
+            "remove",
+            repository_id=repository_id,
+            pack_id=pack_id,
+            actor_id=actor_id,
+            reason=reason,
+            now=now,
+        )
+
+    async def reconcile_installations(
+        self, *, actor_id: UUID, reason: str, now: datetime | None = None
+    ) -> ProjectionStatus:
+        if not self._installation_enabled:
+            raise FederationError("federation_installation_disabled", exit_code=3)
+        if not self._projection_enabled:
+            raise FederationError("federation_projection_disabled", exit_code=3)
+        timestamp = _aware(now or datetime.now(UTC))
+        _require_reason(reason)
+        async with self._factory() as session, session.begin():
+            repository = FederationRepository(session)
+            await repository.lock_projection()
+            selected = await repository.installed_verified_releases()
+            return await self._activate_projection(
+                repository,
+                selected=selected,
+                actor_id=actor_id,
+                reason=reason,
+                timestamp=timestamp,
+                mode="installed",
+            )
+
+    async def installation_status(
+        self, *, repository_id: int, pack_id: str
+    ) -> PackInstallationStatus:
+        async with self._factory() as session:
+            repository = FederationRepository(session)
+            current = await repository.latest_installation(
+                repository_id=repository_id, pack_id=pack_id
+            )
+            if current is None:
+                raise FederationError("federation_pack_not_installed", exit_code=3)
+            target = (
+                await repository.installation_release(current.verified_release_id)
+                if current.verified_release_id is not None
+                else None
+            )
+            activation = await repository.latest_projection_activation()
+            if activation is None:
+                raise FederationError("federation_projection_missing", exit_code=5)
+            checkpoint = await repository.projection_checkpoint_by_id(activation.checkpoint_id)
+            projection = ProjectionStatus(
+                mode=cast(Any, checkpoint.mode),
+                checkpoint_id=checkpoint.id,
+                release_set_digest=checkpoint.release_set_digest,
+                release_count=checkpoint.release_count,
+                record_count=checkpoint.record_count,
+                activated_at=activation.activated_at,
+            )
+            quarantined = target is not None and await repository.release_is_quarantined(
+                target[1].id
+            )
+            return _installation_status(
+                current,
+                target=target,
+                projection=projection,
+                quarantined=quarantined,
+            )
+
+    async def _change_installation(
+        self,
+        action: str,
+        *,
+        actor_id: UUID,
+        reason: str,
+        statement_digest: str | None = None,
+        repository_id: int | None = None,
+        pack_id: str | None = None,
+        now: datetime | None = None,
+    ) -> PackInstallationStatus:
+        if not self._installation_enabled:
+            raise FederationError("federation_installation_disabled", exit_code=3)
+        if not self._projection_enabled:
+            raise FederationError("federation_projection_disabled", exit_code=3)
+        timestamp = _aware(now or datetime.now(UTC))
+        _require_reason(reason)
+        async with self._factory() as session, session.begin():
+            repository = FederationRepository(session)
+            target: (
+                tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer] | None
+            ) = None
+            if statement_digest is not None:
+                release = await repository.release_by_statement_digest(statement_digest)
+                verified = await repository.verified_release(release.id)
+                if verified is None:
+                    raise FederationError("release_artifacts_not_verified", exit_code=3)
+                maintainer = await repository.maintainer(release.maintainer_id)
+                target = (verified, release, maintainer)
+                repository_id, pack_id = release.repository_id, release.pack_id
+            if repository_id is None or pack_id is None:
+                raise FederationError("federation_installation_scope_missing", exit_code=2)
+            scope = next(
+                (
+                    candidate
+                    for candidate in self._allowed_scopes
+                    if candidate.repository_id == repository_id and candidate.pack_id == pack_id
+                ),
+                None,
+            )
+            if scope is None:
+                raise FederationError("federation_scope_not_invited", exit_code=3)
+            await _require_active_steward(
+                repository, actor_id=actor_id, pack_id=pack_id, at=timestamp
+            )
+            await repository.lock_installation_scope(repository_id=repository_id, pack_id=pack_id)
+            await repository.lock_projection()
+            current = await repository.latest_installation(
+                repository_id=repository_id, pack_id=pack_id
+            )
+            current_target = (
+                await repository.installation_release(current.verified_release_id)
+                if current is not None and current.verified_release_id is not None
+                else None
+            )
+            if action == "remove" and current is not None and current.action == "remove":
+                projection = await self._activate_projection(
+                    repository,
+                    selected=await repository.installed_verified_releases(),
+                    actor_id=actor_id,
+                    reason=reason,
+                    timestamp=timestamp,
+                    mode="installed",
+                )
+                return _installation_status(current, target=None, projection=projection)
+            if target is not None:
+                verified, release, maintainer = target
+                self._require_allowed_scope(_scope_for_maintainer(maintainer))
+                if maintainer.state != FederationLifecycleState.ACTIVE.value:
+                    raise FederationError("federation_scope_not_active", exit_code=3)
+                if await repository.release_is_quarantined(release.id):
+                    raise FederationError("federation_release_quarantined", exit_code=3)
+            if (
+                target is not None
+                and current is not None
+                and current.action == action
+                and current.verified_release_id == target[0].id
+            ):
+                selected = await repository.installed_verified_releases()
+                projection = await self._activate_projection(
+                    repository,
+                    selected=selected,
+                    actor_id=actor_id,
+                    reason=reason,
+                    timestamp=timestamp,
+                    mode="installed",
+                )
+                return _installation_status(current, target=target, projection=projection)
+            if action == "install" and current is not None and current.action != "remove":
+                raise FederationError("federation_pack_already_installed", exit_code=3)
+            if action in {"update", "rollback", "remove"} and (
+                current is None or current.action == "remove"
+            ):
+                raise FederationError("federation_pack_not_installed", exit_code=3)
+            if action in {"update", "rollback"}:
+                assert target is not None and current_target is not None
+                require_installation_chronology(
+                    action,
+                    current_published_at=current_target[1].receipt_published_at,
+                    target_published_at=target[1].receipt_published_at,
+                )
+            target_verified_id = target[0].id if target is not None else None
+            event = FederationPackInstallationEvent(
+                id=uuid4(),
+                repository_id=repository_id,
+                pack_id=pack_id,
+                verified_release_id=target_verified_id,
+                action=action,
+                generation=1 if current is None else current.generation + 1,
+                prior_event_id=None if current is None else current.id,
+                actor_id=actor_id,
+                reason_digest=_reason_digest(reason),
+                occurred_at=timestamp,
+                created_at=timestamp,
+            )
+            repository.add_installation(event)
+            await session.flush()
+            selected = await repository.installed_verified_releases()
+            projection = await self._activate_projection(
+                repository,
+                selected=selected,
+                actor_id=actor_id,
+                reason=reason,
+                timestamp=timestamp,
+                mode="installed",
+            )
+            event_type = {
+                "install": FederationEventType.PACK_INSTALLED,
+                "update": FederationEventType.PACK_UPDATED,
+                "rollback": FederationEventType.PACK_ROLLED_BACK,
+                "remove": FederationEventType.PACK_REMOVED,
+            }[action]
+            if target is not None:
+                audit_maintainer_id = target[2].id
+            else:
+                assert current_target is not None
+                audit_maintainer_id = current_target[2].id
+            repository.add_audit_event(
+                _audit_event(
+                    maintainer_id=audit_maintainer_id,
+                    actor_id=actor_id,
+                    event_type=event_type,
+                    reason=reason,
+                    payload={"generation": event.generation, "statement_digest": statement_digest},
+                    now=timestamp,
                 )
             )
-            release_set_digest = hashlib.sha256(canonical_json(release_set)).hexdigest()
-            record_count = sum(verified.record_count for verified, _, _ in selected)
-            checkpoint = await repository.projection_checkpoint(release_set_digest)
-            if checkpoint is None:
-                checkpoint = FederationProjectionCheckpoint(
-                    id=uuid4(),
-                    release_set_json=release_set,
-                    release_set_digest=release_set_digest,
-                    release_count=len(selected),
-                    record_count=record_count,
-                    built_at=timestamp,
-                    created_at=timestamp,
-                )
-                repository.add_projection_checkpoint(checkpoint)
-                for ordinal, (verified, _release, _) in enumerate(selected):
-                    repository.add_projection_release(
-                        FederationProjectionRelease(
-                            id=uuid4(),
-                            checkpoint_id=checkpoint.id,
-                            verified_release_id=verified.id,
-                            ordinal=ordinal,
-                            created_at=timestamp,
-                        )
-                    )
-                    for record in verified.records_json:
-                        repository.add_projection_food(
-                            _projection_food(
-                                checkpoint_id=checkpoint.id,
-                                verified_release_id=verified.id,
-                                record=record,
-                                created_at=timestamp,
-                            )
-                        )
-            elif (
-                checkpoint.release_set_json != release_set
-                or checkpoint.release_count != len(selected)
-                or checkpoint.record_count != record_count
-            ):
-                raise FederationError("federation_projection_checkpoint_conflict", exit_code=5)
+            return _installation_status(event, target=target, projection=projection)
 
-            current = await repository.latest_projection_activation()
-            if current is None or current.checkpoint_id != checkpoint.id:
-                repository.add_projection_activation(
-                    FederationProjectionActivation(
+    async def _activate_projection(
+        self,
+        repository: FederationRepository,
+        *,
+        selected: Sequence[
+            tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer]
+        ],
+        actor_id: UUID,
+        reason: str,
+        timestamp: datetime,
+        mode: str,
+    ) -> ProjectionStatus:
+        release_set = [
+            {
+                "artifact_digest": verified.artifact_digest,
+                "pack_id": release.pack_id,
+                "pack_version": verified.pack_version,
+                "record_set_digest": verified.record_set_digest,
+                "release_id": str(release.id),
+                "release_version": release.release_version,
+                "repository_id": release.repository_id,
+                "statement_digest": release.statement_digest,
+                "verified_release_id": str(verified.id),
+            }
+            for verified, release, _ in selected
+        ]
+        release_set.sort(key=lambda item: (str(item["pack_id"]), cast(int, item["repository_id"])))
+        release_set_digest = hashlib.sha256(canonical_json(release_set)).hexdigest()
+        record_count = sum(verified.record_count for verified, _, _ in selected)
+        checkpoint = await repository.projection_checkpoint(release_set_digest, mode=mode)
+        if checkpoint is None:
+            checkpoint = FederationProjectionCheckpoint(
+                id=uuid4(),
+                mode=mode,
+                release_set_json=release_set,
+                release_set_digest=release_set_digest,
+                release_count=len(selected),
+                record_count=record_count,
+                built_at=timestamp,
+                created_at=timestamp,
+            )
+            repository.add_projection_checkpoint(checkpoint)
+            for ordinal, (verified, _release, _) in enumerate(selected):
+                repository.add_projection_release(
+                    FederationProjectionRelease(
                         id=uuid4(),
                         checkpoint_id=checkpoint.id,
-                        actor_id=actor_id,
-                        reason_digest=_reason_digest(reason),
-                        activated_at=timestamp,
+                        verified_release_id=verified.id,
+                        ordinal=ordinal,
                         created_at=timestamp,
                     )
                 )
-                for _, release, maintainer in selected:
-                    repository.add_audit_event(
-                        _audit_event(
-                            maintainer_id=maintainer.id,
-                            actor_id=actor_id,
-                            event_type=FederationEventType.PROJECTION_ACTIVATED,
-                            reason=reason,
-                            payload={
-                                "checkpoint_id": str(checkpoint.id),
-                                "release_set_digest": release_set_digest,
-                                "statement_digest": release.statement_digest,
-                            },
-                            now=timestamp,
+                for record in verified.records_json:
+                    repository.add_projection_food(
+                        _projection_food(
+                            checkpoint_id=checkpoint.id,
+                            verified_release_id=verified.id,
+                            record=record,
+                            created_at=timestamp,
                         )
                     )
-            activated_at = (
-                timestamp
-                if current is None or current.checkpoint_id != checkpoint.id
-                else current.activated_at
+        elif (
+            checkpoint.release_set_json != release_set
+            or checkpoint.release_count != len(selected)
+            or checkpoint.record_count != record_count
+        ):
+            raise FederationError("federation_projection_checkpoint_conflict", exit_code=5)
+        current = await repository.latest_projection_activation()
+        if current is None or current.checkpoint_id != checkpoint.id:
+            repository.add_projection_activation(
+                FederationProjectionActivation(
+                    id=uuid4(),
+                    checkpoint_id=checkpoint.id,
+                    actor_id=actor_id,
+                    reason_digest=_reason_digest(reason),
+                    activated_at=timestamp,
+                    created_at=timestamp,
+                )
             )
+            for _, release, maintainer in selected:
+                repository.add_audit_event(
+                    _audit_event(
+                        maintainer_id=maintainer.id,
+                        actor_id=actor_id,
+                        event_type=FederationEventType.PROJECTION_ACTIVATED,
+                        reason=reason,
+                        payload={
+                            "checkpoint_id": str(checkpoint.id),
+                            "release_set_digest": release_set_digest,
+                            "statement_digest": release.statement_digest,
+                        },
+                        now=timestamp,
+                    )
+                )
+        activated_at = (
+            timestamp
+            if current is None or current.checkpoint_id != checkpoint.id
+            else current.activated_at
+        )
         return ProjectionStatus(
+            mode=cast(Any, mode),
             checkpoint_id=checkpoint.id,
             release_set_digest=checkpoint.release_set_digest,
             release_count=checkpoint.release_count,
@@ -1036,10 +1303,7 @@ async def _verify_stored_release_receipt(
         or receipt.published_at != release.receipt_published_at
         or release.receipt_published_at > release.issued_at
         or release.public_url
-        != (
-            f"{allowed_public_origin}/api/v1/public/releases/"
-            f"{release.release_version}/manifest"
-        )
+        != (f"{allowed_public_origin}/api/v1/public/releases/{release.release_version}/manifest")
     ):
         raise FederationArtifactError("governed_release_binding_mismatch")
 
@@ -1233,6 +1497,46 @@ def _audit_event(
         payload_digest=hashlib.sha256(canonical_json(payload)).hexdigest(),
         created_at=now,
     )
+
+
+def _installation_status(
+    event: FederationPackInstallationEvent,
+    *,
+    target: tuple[FederationVerifiedRelease, FederationRelease, FederationMaintainer] | None,
+    projection: ProjectionStatus,
+    quarantined: bool = False,
+) -> PackInstallationStatus:
+    return PackInstallationStatus(
+        repository_id=event.repository_id,
+        pack_id=event.pack_id,
+        state=(
+            "removed"
+            if event.action == "remove"
+            else ("quarantined" if quarantined else "installed")
+        ),
+        action=cast(Any, event.action),
+        generation=event.generation,
+        verified_release_id=event.verified_release_id,
+        statement_digest=target[1].statement_digest if target is not None else None,
+        release_version=target[1].release_version if target is not None else None,
+        pack_version=target[0].pack_version if target is not None else None,
+        occurred_at=event.occurred_at,
+        projection_checkpoint_id=projection.checkpoint_id,
+        release_set_digest=projection.release_set_digest,
+    )
+
+
+def require_installation_chronology(
+    action: str,
+    *,
+    current_published_at: datetime,
+    target_published_at: datetime,
+) -> None:
+    """Enforce update/rollback direction without interpreting version labels."""
+    if action == "update" and target_published_at <= current_published_at:
+        raise FederationError("federation_update_not_newer", exit_code=3)
+    if action == "rollback" and target_published_at >= current_published_at:
+        raise FederationError("federation_rollback_not_older", exit_code=3)
 
 
 def _status(maintainer: FederationMaintainer) -> MaintainerStatus:

@@ -654,9 +654,7 @@ async def run_multi_scope_lifecycle(database_url: str) -> None:
                     Ed25519PrivateKey.from_private_bytes(b"h" * 32).public_key()
                 ),
                 public_key_fingerprint=hashlib.sha256(
-                    Ed25519PrivateKey.from_private_bytes(b"h" * 32)
-                    .public_key()
-                    .public_bytes_raw()
+                    Ed25519PrivateKey.from_private_bytes(b"h" * 32).public_key().public_bytes_raw()
                 ).hexdigest(),
                 now=NOW + timedelta(minutes=1),
             )
@@ -715,11 +713,14 @@ def _global_core_pack_bytes() -> tuple[bytes, str]:
     assert prepared.pack_version is not None
     source = io.BytesIO(_pack_archive(packs_root, source_directory))
     output = io.BytesIO()
-    with zipfile.ZipFile(source) as incoming, zipfile.ZipFile(
-        output,
-        "w",
-        compression=zipfile.ZIP_DEFLATED,
-    ) as outgoing:
+    with (
+        zipfile.ZipFile(source) as incoming,
+        zipfile.ZipFile(
+            output,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as outgoing,
+    ):
         for info in incoming.infolist():
             payload = incoming.read(info)
             if info.filename == "pack.yaml":
@@ -745,9 +746,7 @@ async def run_verified_projection(database_url: str) -> None:
     manifest = PublicReadReleaseManifest(
         release_version=release_version,
         published_at=NOW,
-        publication_receipt_key=(
-            "receipts/v1/00000000-0000-0000-0000-000000000001.json"
-        ),
+        publication_receipt_key=("receipts/v1/00000000-0000-0000-0000-000000000001.json"),
         packs=(
             PublicPackArtifact(
                 pack_id="global-core",
@@ -809,6 +808,7 @@ async def run_verified_projection(database_url: str) -> None:
         ),
         ingestion_enabled=True,
         projection_enabled=True,
+        installation_enabled=True,
     )
     try:
         invitation = await service.invite(
@@ -845,8 +845,7 @@ async def run_verified_projection(database_url: str) -> None:
             manifest_digest=manifest_digest,
             receipt_digest=receipt_digest,
             public_url=(
-                "https://opennosh.example/api/v1/public/releases/"
-                f"{release_version}/manifest"
+                f"https://opennosh.example/api/v1/public/releases/{release_version}/manifest"
             ),
             issued_at=receipt.published_at + timedelta(minutes=1),
             key_id="projection-role-v1",
@@ -854,9 +853,7 @@ async def run_verified_projection(database_url: str) -> None:
         signed = SignedFederationRelease(
             statement=statement,
             signature=(
-                base64.urlsafe_b64encode(
-                    role_key.sign(release_signature_material(statement))
-                )
+                base64.urlsafe_b64encode(role_key.sign(release_signature_material(statement)))
                 .decode("ascii")
                 .rstrip("=")
             ),
@@ -936,6 +933,36 @@ async def run_verified_projection(database_url: str) -> None:
         )
         assert projection_replay.checkpoint_id == projection.checkpoint_id
         assert projection_replay.activated_at == projection.activated_at
+        installation = await service.install_pack(
+            statement_digest,
+            actor_id=actor_id,
+            reason="Install the exact verified release for offline search",
+            now=statement.issued_at + timedelta(minutes=5),
+        )
+        assert installation.state == "installed"
+        assert installation.action == "install"
+        assert installation.generation == 1
+        installation_replay = await service.install_pack(
+            statement_digest,
+            actor_id=actor_id,
+            reason="Replay the exact installed release",
+            now=statement.issued_at + timedelta(minutes=6),
+        )
+        assert installation_replay == installation
+        assert (
+            await service.installation_status(
+                repository_id=scope.repository_id,
+                pack_id=scope.pack_id,
+            )
+            == installation
+        )
+        projection = await service.reconcile_installations(
+            actor_id=actor_id,
+            reason="Prove installed projection reconciliation is idempotent",
+            now=statement.issued_at + timedelta(minutes=7),
+        )
+        assert projection.mode == "installed"
+        assert projection.checkpoint_id == installation.projection_checkpoint_id
 
         with TestClient(
             create_app(
@@ -985,10 +1012,7 @@ async def run_verified_projection(database_url: str) -> None:
             ordinary_search = client.get("/api/v1/foods/search", params={"q": "samosa"})
             assert ordinary_search.status_code == 200
             assert ordinary_search.json()["release_set"]["enabled"] is False
-            assert all(
-                row["source"] != "federation"
-                for row in ordinary_search.json()["items"]
-            )
+            assert all(row["source"] != "federation" for row in ordinary_search.json()["items"])
 
             cursor_page = client.get(
                 "/api/v1/foods/search",
@@ -1054,18 +1078,21 @@ async def run_verified_projection(database_url: str) -> None:
 
         connection = await asyncpg.connect(asyncpg_dsn(database_url))
         try:
-            assert await connection.fetchval(
-                "SELECT count(*) FROM federation_verified_releases"
-            ) == 1
-            assert await connection.fetchval(
-                "SELECT count(*) FROM federation_projection_checkpoints"
-            ) == 1
-            assert await connection.fetchval(
-                "SELECT count(*) FROM federation_projection_activations"
-            ) == 1
-            assert await connection.fetchval(
-                "SELECT count(*) FROM federation_projection_foods"
-            ) == artifact_status.record_count
+            assert (
+                await connection.fetchval("SELECT count(*) FROM federation_verified_releases") == 1
+            )
+            assert (
+                await connection.fetchval("SELECT count(*) FROM federation_projection_checkpoints")
+                == 2
+            )
+            assert (
+                await connection.fetchval("SELECT count(*) FROM federation_projection_activations")
+                == 2
+            )
+            assert (
+                await connection.fetchval("SELECT count(*) FROM federation_projection_foods")
+                == artifact_status.record_count * 2
+            )
             with pytest.raises(asyncpg.CheckViolationError, match="append_only"):
                 await connection.execute(
                     "DELETE FROM federation_projection_checkpoints WHERE id = $1",
@@ -1096,15 +1123,65 @@ async def run_verified_projection(database_url: str) -> None:
                 reason="Prove quarantine cannot replace the last active checkpoint",
                 now=statement.issued_at + timedelta(minutes=7),
             )
+        removed = await service.remove_pack(
+            repository_id=scope.repository_id,
+            pack_id=scope.pack_id,
+            actor_id=actor_id,
+            reason="Remove the final installed pack without retaining stale rows",
+            now=statement.issued_at + timedelta(minutes=8),
+        )
+        assert removed.state == "removed"
+        assert removed.generation == 2
+        removed_replay = await service.remove_pack(
+            repository_id=scope.repository_id,
+            pack_id=scope.pack_id,
+            actor_id=actor_id,
+            reason="Replay exact removal safely",
+            now=statement.issued_at + timedelta(minutes=9),
+        )
+        assert removed_replay == removed
         connection = await asyncpg.connect(asyncpg_dsn(database_url))
         try:
-            assert await connection.fetchval(
-                "SELECT checkpoint_id FROM federation_projection_activations "
-                "ORDER BY activated_at DESC LIMIT 1"
-            ) == projection.checkpoint_id
-            assert await connection.fetchval(
-                "SELECT count(*) FROM federation_release_status_events"
-            ) == 2
+            assert (
+                await connection.fetchval(
+                    "SELECT checkpoint_id FROM federation_projection_activations "
+                    "ORDER BY activated_at DESC LIMIT 1"
+                )
+                == removed.projection_checkpoint_id
+            )
+            assert (
+                await connection.fetchval(
+                    "SELECT release_count FROM federation_projection_checkpoints WHERE id = $1",
+                    removed.projection_checkpoint_id,
+                )
+                == 0
+            )
+            assert (
+                await connection.fetchval(
+                    "SELECT count(*) FROM federation_pack_installation_events"
+                )
+                == 2
+            )
+            assert (
+                await connection.fetchval("SELECT count(*) FROM federation_release_status_events")
+                == 2
+            )
+            with pytest.raises(asyncpg.CheckViolationError, match="append_only"):
+                await connection.execute(
+                    "DELETE FROM federation_pack_installation_events",
+                )
+            with pytest.raises(asyncpg.CheckViolationError):
+                await connection.execute(
+                    """
+                    INSERT INTO federation_projection_checkpoints (
+                        id, mode, release_set_json, release_set_digest,
+                        release_count, record_count, built_at, created_at
+                    ) VALUES ($1, 'installed', '[]'::jsonb, $2, 1, 0, $3, $3)
+                    """,
+                    uuid4(),
+                    "b" * 64,
+                    datetime.now(UTC),
+                )
         finally:
             await connection.close()
     finally:
@@ -1149,7 +1226,7 @@ def test_verified_artifact_projection_is_atomic_append_only_and_quarantine_safe(
     try:
         with pytest.raises(
             DBAPIError,
-            match="refusing downgrade while federation search identities exist",
+            match="refusing downgrade while pack installation facts exist",
         ):
             alembic_command.downgrade(config, "20260902_0026")
     finally:

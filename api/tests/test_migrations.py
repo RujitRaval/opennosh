@@ -46,6 +46,7 @@ EXPECTED_TABLES = {
     "federation_releases",
     "federation_verified_releases",
     "federation_release_status_events",
+    "federation_pack_installation_events",
     "federation_projection_checkpoints",
     "federation_projection_releases",
     "federation_projection_foods",
