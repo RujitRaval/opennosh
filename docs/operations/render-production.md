@@ -647,6 +647,45 @@ ceremony. Before a database downgrade past T34.5b, inspect `federation_invitatio
 refuses when more than one row exists because restoring the former global slot would require data
 loss. Resolve such a rollback through a reviewed forward change; never delete invitation history.
 
+### T34.5c verified ingestion and projection
+
+T34.5c deploys the verification and projection machinery without authorizing it to run in
+production. Keep these explicit Render values false:
+
+```text
+FEDERATION_INGESTION_ENABLED=false
+FEDERATION_PROJECTION_ENABLED=false
+```
+
+`python deploy/render_runtime.py publication-readiness` and the natural-publication readiness
+digest include both switches. A report is blocked if either is true. This slice does not add a
+projection worker, install packs, expose projected rows to search, change publication concurrency,
+or enable any public federation route.
+
+After a separate activation approval, an operator may use the administration CLI in this strict
+order: configure the exact reviewed scope allowlist and signed-manifest verifying keys; enable
+ingestion only; run `opennosh federation verify-artifacts` with the stored statement digest and
+exact manifest and pack files; inspect its redacted digest/count result; then, under a later
+projection approval, enable projection and run `opennosh federation build-projection`. Inputs must
+be regular files and are bounded before parsing. Verification repeats the maintainer release
+signature and enforces the release/manifest/pack identity, canonical manifest bytes, manifest
+signature, artifact digest and size, safe ZIP paths and compression, food-pack schema, and
+`CC0-1.0` license.
+
+Any signature, hash, manifest, archive, schema, identity, or license failure commits an append-only
+quarantine fact for that candidate and returns a nonzero exit. The previously verified release and
+active projection remain unchanged. `opennosh federation quarantine-release` is the explicit
+operator equivalent and is idempotent. Projection builds serialize globally, choose the latest
+non-quarantined verified release per active scope by governed receipt chronology, materialize every
+row in one transaction, and append the activation pointer last. Exact rebuilds reuse the same
+checkpoint; empty or incomplete candidates do not move the pointer.
+
+Rollback disables projection and ingestion first. Never update or delete verified-release,
+release-status, checkpoint, membership, projected-food, or activation rows; database triggers
+reject mutation, and downgrade refuses while any such facts exist. Restore service from the last
+active checkpoint through a reviewed forward change. Keep enrollment, installation, public
+discovery, and publication claims disabled unless each receives its own exact-commit approval.
+
 ### T33.5 live federation failure-drill matrix
 
 Run this matrix only after the T33.4 enrollment is quarantined, its temporary credentials are
