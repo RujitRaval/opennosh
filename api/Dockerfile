@@ -18,6 +18,7 @@ COPY api ./api
 COPY schemas ./schemas
 COPY config ./config
 COPY packs ./packs
+COPY render.yaml ./render.yaml
 COPY deploy/render_runtime.py ./deploy/render_runtime.py
 RUN uv sync --frozen --no-dev
 

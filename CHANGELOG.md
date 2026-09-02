@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.71.0.1] - 2026-09-01
+
+### Fixed
+
+- Package the committed Render Blueprint in the API runtime image so the disabled natural
+  publication readiness probe can validate production feature flags at `/app/render.yaml`.
+
 ## [0.71.0.0] - 2026-09-01
 
 ### Added
