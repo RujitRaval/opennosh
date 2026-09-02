@@ -61,6 +61,18 @@ EXPECTED_TABLE_OWNERS = {
         "opennosh_api.governance.models.GovernanceReviewPrivateNote"
     ),
     "governance_role_assignments": ("opennosh_api.governance.models.GovernanceRoleAssignment"),
+    "mission_contribution_bindings": (
+        "opennosh_api.missions.models.MissionContributionBinding"
+    ),
+    "mission_definitions": "opennosh_api.missions.models.MissionDefinition",
+    "mission_lifecycle_events": "opennosh_api.missions.models.MissionLifecycleEvent",
+    "mission_progress_activations": (
+        "opennosh_api.missions.models.MissionProgressActivation"
+    ),
+    "mission_progress_checkpoints": (
+        "opennosh_api.missions.models.MissionProgressCheckpoint"
+    ),
+    "mission_progress_records": "opennosh_api.missions.models.MissionProgressRecord",
     "publication_durable_acknowledgements": (
         "opennosh_api.publication.models.DurableAcknowledgement"
     ),
@@ -132,6 +144,12 @@ def test_registry_import_order_is_deterministic() -> None:
         "governance_merge_authorizations",
         "governance_publication_pauses",
         "governance_publication_interventions",
+        "mission_definitions",
+        "mission_lifecycle_events",
+        "mission_contribution_bindings",
+        "mission_progress_checkpoints",
+        "mission_progress_records",
+        "mission_progress_activations",
         "federation_invitations",
         "federation_maintainers",
         "federation_pack_installation_events",

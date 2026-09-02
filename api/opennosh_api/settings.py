@@ -139,6 +139,11 @@ class Settings(BaseSettings):
     federation_search_enabled: bool = False
     federation_installation_enabled: bool = False
     federation_public_discovery_enabled: bool = False
+    mission_mutations_enabled: bool = False
+    mission_projection_enabled: bool = False
+    mission_public_enabled: bool = False
+    mission_activity_map_enabled: bool = False
+    mission_pack_release_enabled: bool = False
     publication_activation_ids: str = ""
     publication_claims_activation_contract_path: Path = Path(
         "config/publication-claims-activation.v1.json"
@@ -394,6 +399,16 @@ class Settings(BaseSettings):
     def validate_rate_limit_retention(self) -> Self:
         if self.governance_mutations_enabled and not self.governance_steward_ui_enabled:
             raise ValueError("Governance mutations require the steward UI read surface")
+        if self.mission_mutations_enabled and not self.mission_public_enabled:
+            raise ValueError("Mission mutations require the public mission read surface")
+        if self.mission_activity_map_enabled and not (
+            self.mission_public_enabled and self.mission_projection_enabled
+        ):
+            raise ValueError("Mission activity maps require public missions and projection")
+        if self.mission_pack_release_enabled and not (
+            self.mission_mutations_enabled and self.mission_projection_enabled
+        ):
+            raise ValueError("Mission pack release requires mutations and projection")
         publication_secret_values = (
             self.online_manifest_signing_key_id,
             self.online_manifest_signing_key,

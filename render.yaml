@@ -68,6 +68,16 @@ services:
         value: "false"
       - key: FEDERATION_PUBLIC_DISCOVERY_ENABLED
         value: "false"
+      - key: MISSION_MUTATIONS_ENABLED
+        value: "false"
+      - key: MISSION_PROJECTION_ENABLED
+        value: "false"
+      - key: MISSION_PUBLIC_ENABLED
+        value: "false"
+      - key: MISSION_ACTIVITY_MAP_ENABLED
+        value: "false"
+      - key: MISSION_PACK_RELEASE_ENABLED
+        value: "false"
       - key: GOVERNANCE_FRESH_AUTH_SECONDS
         value: "900"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
@@ -118,6 +128,16 @@ services:
       - key: FEDERATION_INSTALLATION_ENABLED
         value: "false"
       - key: FEDERATION_PUBLIC_DISCOVERY_ENABLED
+        value: "false"
+      - key: MISSION_MUTATIONS_ENABLED
+        value: "false"
+      - key: MISSION_PROJECTION_ENABLED
+        value: "false"
+      - key: MISSION_PUBLIC_ENABLED
+        value: "false"
+      - key: MISSION_ACTIVITY_MAP_ENABLED
+        value: "false"
+      - key: MISSION_PACK_RELEASE_ENABLED
         value: "false"
       - key: LATEST_REFRESH_ENABLED
         value: "true"

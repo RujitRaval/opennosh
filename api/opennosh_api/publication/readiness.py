@@ -162,6 +162,16 @@ async def build_production_claims_readiness(
         failures.append("federation_installation_enabled")
     if settings.federation_public_discovery_enabled:
         failures.append("federation_public_discovery_enabled")
+    if settings.mission_mutations_enabled:
+        failures.append("mission_mutations_enabled")
+    if settings.mission_projection_enabled:
+        failures.append("mission_projection_enabled")
+    if settings.mission_public_enabled:
+        failures.append("mission_public_enabled")
+    if settings.mission_activity_map_enabled:
+        failures.append("mission_activity_map_enabled")
+    if settings.mission_pack_release_enabled:
+        failures.append("mission_pack_release_enabled")
     if not settings.latest_refresh_enabled:
         failures.append("latest_refresh_disabled")
     if settings.publication_claim_concurrency != contract.activation.claim_concurrency:
@@ -278,6 +288,11 @@ async def build_production_claims_readiness(
             "federation_search_enabled": settings.federation_search_enabled,
             "federation_installation_enabled": settings.federation_installation_enabled,
             "federation_public_discovery_enabled": settings.federation_public_discovery_enabled,
+            "mission_mutations_enabled": settings.mission_mutations_enabled,
+            "mission_projection_enabled": settings.mission_projection_enabled,
+            "mission_public_enabled": settings.mission_public_enabled,
+            "mission_activity_map_enabled": settings.mission_activity_map_enabled,
+            "mission_pack_release_enabled": settings.mission_pack_release_enabled,
             "claim_concurrency": settings.publication_claim_concurrency,
             "latest_refresh_enabled": settings.latest_refresh_enabled,
             "credentials_complete": credentials_complete,
