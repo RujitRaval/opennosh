@@ -52,6 +52,7 @@ async def _insert_accepted_event(
     commit_sha: str,
     published_at: datetime,
 ) -> None:
+    publication_id = uuid4()
     await connection.execute(
         """
         INSERT INTO publication_intents (
@@ -97,12 +98,33 @@ async def _insert_accepted_event(
         """,
         uuid4(),
         intent_id,
-        uuid4(),
+        publication_id,
         receipt_digest,
         receipt_event_type,
         prior_receipt_digest,
         PACK_ID,
-        json.dumps({"receipt": {"merged_commit": commit_sha}}),
+        json.dumps(
+            {
+                "receipt": {
+                    "schema_version": "1.0",
+                    "publication_id": str(publication_id),
+                    "event_type": receipt_event_type,
+                    "prior_receipt_digest": prior_receipt_digest,
+                    "pack_id": PACK_ID,
+                    "record_id": "food-1",
+                    "merged_commit": commit_sha,
+                    "published_at": published_at.isoformat(),
+                    "verified_steps": [
+                        {
+                            "step": "commit_record",
+                            "destination": "github:RujitRaval/opennosh",
+                            "external_reference": commit_sha,
+                        }
+                    ],
+                },
+                "signature_key_id": "mission-test-key",
+            }
+        ),
         published_at,
     )
     await connection.execute(

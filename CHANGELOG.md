@@ -13,8 +13,10 @@ All notable changes to opennosh will be documented in this file.
 
 ### Security
 
-- Verify canonical accepted-event/receipt identity, event-type mapping, reconciliation time, commit,
-  target pack, and complete correction/revocation lineage before any event contributes progress.
+- Verify canonical accepted-event/receipt identity, event-type mapping, reconciliation time,
+  repository, commit, target pack, and complete correction/revocation lineage before any event
+  contributes progress; resolve only the definition-scoped lineage through an indexed recursive
+  query.
 - Reject conflicting checkpoint identifiers and stale activation revisions while keeping claims,
   federation, and all five mission production switches unchanged and disabled.
 

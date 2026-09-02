@@ -264,6 +264,7 @@ class PublicationReceiptRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             "prior_receipt_digest IS NULL OR prior_receipt_digest ~ '^[0-9a-f]{64}$'",
             name="prior_receipt_digest_sha256",
         ),
+        Index("ix_publication_receipts_prior_digest", "prior_receipt_digest"),
         Index("ix_publication_receipts_pack_time", "pack_id", "published_at"),
     )
 

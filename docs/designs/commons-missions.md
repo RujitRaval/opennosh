@@ -60,7 +60,9 @@ A contributor may bind only their own exact current draft version, only while th
 definition is active, and only when the draft targets the definition's pack. The draft-version lock
 prevents one contribution version from joining competing definitions concurrently. Projection
 rebuilds verify the accepted-event and receipt representations, reconciliation time, canonical
-commit, definition pack, and complete ancestor/descendant receipt lineage before projecting.
+repository and commit, definition pack, and complete ancestor/descendant receipt lineage before
+projecting. The repository resolves that lineage recursively from definition-bound draft versions;
+it never loads the global accepted-event ledger into memory.
 
 Each rebuild reuses an identical verified checkpoint or appends a complete new checkpoint and its
 records. It then compares the caller's expected active checkpoint and moves the single mutable
