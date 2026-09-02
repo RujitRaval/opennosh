@@ -195,6 +195,9 @@ def test_food_details_are_source_qualified_and_license_separated() -> None:
         community = client.get("/api/v1/foods/community/local-apple")
         usda = client.get("/api/v1/foods/usda/100")
         missing = client.get("/api/v1/foods/community/missing")
+        disabled_federation = client.get(
+            "/api/v1/foods/federation/018f7d40-7b60-7000-8000-000000000099:apple"
+        )
         unsupported = client.get("/api/v1/foods/openfoodfacts/123")
         nul_source_id = client.get("/api/v1/foods/community/apple%00")
 
@@ -207,6 +210,8 @@ def test_food_details_are_source_qualified_and_license_separated() -> None:
     assert usda.json()["attribution"]["source_license"] == "CC0"
     assert usda.json()["portions"][0]["grams"] == "182"
     assert missing.status_code == 404
+    assert disabled_federation.status_code == 503
+    assert disabled_federation.json()["detail"] == "Federated food search is disabled."
     assert unsupported.status_code == 422
     assert nul_source_id.status_code == 422
 
