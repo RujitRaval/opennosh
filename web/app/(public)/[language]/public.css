@@ -278,6 +278,101 @@ img { height: auto; }
 .hub-page-build .hub-primary-action:hover { color: var(--commons-ink); background: var(--field-acid); }
 .hub-page-build .hub-content-ledger a:hover { color: var(--commons-ink); background: var(--field-acid); }
 
+.public-missions { margin-top: var(--stage-space); }
+.mission-section-heading, .mission-activity-heading {
+  display: grid;
+  grid-template-columns: .5fr 1.5fr;
+  gap: 2rem;
+  padding-top: .75rem;
+  border-top: 1px solid currentColor;
+}
+.mission-section-heading > p, .mission-section-heading > div > p,
+.mission-activity-heading > p, .mission-activity-heading > div > p { margin: 0; }
+.mission-section-heading > div > p, .mission-activity-heading > div > p {
+  max-width: 48rem;
+  margin-top: 1.5rem;
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+}
+.mission-section-heading h2, .mission-activity-heading h2 {
+  max-width: 13ch;
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(3.2rem, 7.5vw, 8rem);
+  font-weight: 800;
+  line-height: .84;
+  letter-spacing: -.065em;
+  text-wrap: balance;
+}
+.mission-catalog { margin-top: clamp(3rem, 7vw, 6rem); border-top: 1px solid currentColor; }
+.mission-state-head { display: flex; justify-content: space-between; gap: 2rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.mission-quiet-state, .mission-activity-quiet {
+  display: grid;
+  min-height: 19rem;
+  grid-template-columns: .5fr 1.5fr;
+  align-content: center;
+  gap: 2rem;
+  padding: clamp(2rem, 6vw, 6rem) 0;
+}
+.mission-quiet-state strong, .mission-activity-quiet strong {
+  max-width: 18ch;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2rem, 4vw, 4.5rem);
+  line-height: .94;
+  letter-spacing: -.045em;
+}
+.mission-quiet-state p, .mission-activity-quiet p { max-width: 42rem; margin: 0; font-size: 1.15rem; }
+.mission-list { margin: 0; padding: 0; list-style: none; }
+.mission-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(17rem, .9fr);
+  gap: clamp(2rem, 6vw, 7rem);
+  padding: clamp(3rem, 7vw, 7rem) 0;
+  border-bottom: 1px solid var(--line);
+}
+.mission-row-heading { min-width: 0; }
+.mission-row-heading > .mono { margin: 0 0 2rem; }
+.mission-row-heading h3 {
+  max-width: 13ch;
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2.7rem, 6vw, 6.5rem);
+  font-weight: 780;
+  line-height: .84;
+  letter-spacing: -.06em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.mission-row-heading > p:last-child { max-width: 42rem; margin: 2rem 0 0; font-size: 1.15rem; }
+.mission-definition-ledger { align-self: end; margin: 0; }
+.mission-definition-ledger > div { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; padding: .85rem 0; border-top: 1px solid var(--line); }
+.mission-definition-ledger dt, .mission-definition-ledger dd { margin: 0; }
+.mission-definition-ledger dd { overflow-wrap: anywhere; }
+.mission-progress { grid-column: 1 / -1; display: grid; grid-template-columns: .5fr 1.5fr; gap: .75rem 2rem; align-items: end; }
+.mission-progress > p, .mission-progress > strong { margin: 0; }
+.mission-progress > strong { font-family: var(--font-display), sans-serif; font-size: clamp(1.5rem, 3vw, 3rem); line-height: 1; letter-spacing: -.035em; }
+.mission-progress-track { grid-column: 1 / -1; display: block; height: .75rem; border: 1px solid currentColor; }
+.mission-progress-track i { display: block; width: var(--mission-progress); height: 100%; background: var(--dataset-indigo); }
+.mission-progress > small { grid-column: 2; }
+.mission-progress-unavailable .mission-progress-track { border-style: dashed; }
+.mission-progress-stale .mission-progress-track i, .mission-progress-paused .mission-progress-track i { background: var(--warning); }
+.mission-progress-completed .mission-progress-track i, .mission-progress-released .mission-progress-track i { background: var(--success); }
+.mission-activity-heading { margin-top: var(--stage-space); }
+.mission-activity {
+  --focus-ring: var(--field-acid);
+  --focus-gap: var(--dataset-indigo);
+  margin: clamp(3rem, 7vw, 6rem) calc(-1 * var(--page-pad)) calc(-1 * var(--stage-space));
+  padding: 0 var(--page-pad) var(--stage-space);
+  color: var(--rice-paper);
+  background: var(--dataset-indigo);
+}
+.mission-activity .mission-state-head { border-bottom-color: color-mix(in srgb, var(--rice-paper) 35%, transparent); }
+.mission-region-field { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.mission-region-field li { display: grid; min-height: 18rem; grid-template-columns: 1fr auto; align-content: space-between; gap: 1rem; padding: clamp(1.5rem, 4vw, 3rem); border-right: 1px solid color-mix(in srgb, var(--rice-paper) 35%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--rice-paper) 35%, transparent); }
+.mission-region-field li:nth-child(even) { border-right: 0; }
+.mission-region-field strong { grid-column: 1 / -1; font-family: var(--font-display), sans-serif; font-size: clamp(2.4rem, 5vw, 5rem); line-height: .85; letter-spacing: -.055em; overflow-wrap: anywhere; }
+.mission-region-field p { grid-column: 1 / -1; margin: 0; font-size: 1.15rem; }
+.mission-loading .mission-quiet-state { margin-top: 3rem; border-block: 1px solid var(--line); }
+
 .food-record-page { min-height: 100svh; padding: clamp(8rem, 13vw, 12rem) var(--page-pad) 0; }
 .food-record-page > .public-breadcrumbs { margin-bottom: clamp(2rem, 4vw, 4rem); }
 .food-record-first { display: grid; grid-template-columns: minmax(0, 7fr) minmax(18rem, 5fr); border-top: 1px solid currentColor; }
@@ -439,11 +534,16 @@ html[data-motion="off"] * { animation-play-state: paused !important; }
   .hub-page-contribute .hub-intro h1 { font-size: clamp(3.2rem, 14.5vw, 5.25rem); }
   .hub-page-build .hub-intro h1 { font-size: clamp(4rem, 23vw, 7rem); }
   .hub-description { font-size: 1.4rem; }
-  .hub-principles, .hub-contents-heading { grid-template-columns: 1fr; }
+  .hub-principles, .hub-contents-heading, .mission-section-heading, .mission-activity-heading { grid-template-columns: 1fr; }
   .hub-principles ol { grid-template-columns: 1fr; }
   .hub-principles li { min-height: 9rem; padding: 1rem 0; border-top: 1px solid var(--line); border-left: 0; }
   .hub-content-ledger a { grid-template-columns: 2rem 1fr auto; }
   .hub-content-ledger small { display: none; }
+  .mission-row, .mission-quiet-state, .mission-activity-quiet, .mission-progress { grid-template-columns: 1fr; }
+  .mission-definition-ledger > div { grid-template-columns: 1fr; gap: .25rem; }
+  .mission-progress > small { grid-column: 1; }
+  .mission-region-field { grid-template-columns: 1fr; }
+  .mission-region-field li, .mission-region-field li:nth-child(even) { min-height: 14rem; border-right: 0; }
   .food-record-page { padding-top: 7.5rem; }
   .food-record-first { grid-template-columns: 1fr; }
   .food-identity { padding: 1.5rem 0 2.5rem; }
@@ -521,6 +621,7 @@ html[data-motion="off"] * { animation-play-state: paused !important; }
   .tracker-link::after,
   .circle-link,
   .build-ledger a { transition: none; }
+  .mission-progress-track i { transition: none; }
   .ribbon-track { transform: translateX(0); }
 }
 

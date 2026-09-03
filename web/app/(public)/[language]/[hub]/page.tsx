@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { PublicFoodSearch } from "@/components/foods/public-food-search";
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
 import { PublicFooter } from "@/components/public/public-footer";
+import {
+  PublicMissionActivityLoading,
+  PublicMissionActivitySurface,
+  PublicMissionCatalogLoading,
+  PublicMissionCatalogSurface,
+  PublicMissionsFrame,
+} from "@/components/public/public-missions";
 import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
@@ -17,6 +25,10 @@ import {
   type InterfaceLanguage,
 } from "@/lib/routes";
 import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
+import {
+  getPublicMissionActivity,
+  getPublicMissionCatalog,
+} from "@/lib/public-missions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +41,16 @@ function navigationFor(language: InterfaceLanguage) {
 
 export function generateStaticParams() {
   return publicHubIds.map((hub) => ({ hub }));
+}
+
+async function PublicMissionCatalogServer({ language }: { language: InterfaceLanguage }) {
+  const catalog = await getPublicMissionCatalog();
+  return <PublicMissionCatalogSurface language={language} catalog={catalog} />;
+}
+
+async function PublicMissionActivityServer({ language }: { language: InterfaceLanguage }) {
+  const activity = await getPublicMissionActivity();
+  return <PublicMissionActivitySurface language={language} activity={activity} />;
 }
 
 export async function generateMetadata({
@@ -93,6 +115,22 @@ export default async function PublicHubPage({
         ? <PublicFoodSearch language={language} />
         : null}
 
+      {hub === "commons" && currentHub.children.some((child) => child.id === "missions") ? (
+        <PublicMissionsFrame
+          language={language}
+          catalogPanel={(
+            <Suspense fallback={<PublicMissionCatalogLoading language={language} />}>
+              <PublicMissionCatalogServer language={language} />
+            </Suspense>
+          )}
+          activityPanel={(
+            <Suspense fallback={<PublicMissionActivityLoading language={language} />}>
+              <PublicMissionActivityServer language={language} />
+            </Suspense>
+          )}
+        />
+      ) : null}
+
       <section id="principles" className="hub-principles" aria-labelledby="principles-title">
         <p id="principles-title" className="mono">{copy.navigation.guides}</p>
         <ol>
@@ -113,7 +151,7 @@ export default async function PublicHubPage({
         {currentHub.children.length > 0 ? (
           <div className="hub-content-ledger">
             {currentHub.children.map((child, index) => (
-              <Link id={child.id} key={child.id} href={child.href}>
+              <Link id={`hub-link-${child.id}`} key={child.id} href={child.href}>
                 <span className="mono">{String(index + 1).padStart(2, "0")}</span>
                 <strong>{child.label}</strong>
                 <small>{child.description}</small>

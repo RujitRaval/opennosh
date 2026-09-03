@@ -44,6 +44,99 @@ test("desktop trunk identifies the current hub, page, and next action", async ({
   await expect(page.getByRole("heading", { level: 1, name: "Build" })).toBeVisible();
 });
 
+test("Commons missions expose verified progress and privacy-thresholded regions", async ({ page }) => {
+  await page.goto("/en/commons");
+
+  await expect(page.getByRole("heading", { level: 2, name: "Fill a gap the commons can measure." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible();
+  await expect(page.getByText("4 of 10 accepted")).toBeVisible();
+
+  const activity = page.locator('[aria-label="Mission activity by broad pack locale"]');
+  await expect(activity.getByText("Jamaica")).toBeVisible();
+  await expect(activity.getByText("Latin America")).toBeVisible();
+  await expect(activity.getByText("14 accepted records")).toBeVisible();
+  await expect(activity.getByRole("time")).toHaveCount(0);
+  await expect(activity.getByText(/total|ranking|streak/i)).toHaveCount(0);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("Commons missions fail closed across lifecycle and proof states", async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "The state matrix runs once; mobile reflow is covered visually.");
+  const apiPort = process.env.E2E_API_PORT || "8001";
+  const setState = async (state: string) => {
+    const response = await request.post(`http://127.0.0.1:${apiPort}/__visual/mission-state?state=${state}`);
+    expect(response.ok()).toBe(true);
+  };
+
+  try {
+    await setState("disabled");
+    await page.goto("/en/commons?mission-state=disabled");
+    await expect(page.getByText("Public missions are not open yet.")).toBeVisible();
+    await expect(page.getByText("The geographic activity surface is not open yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 3 })).toHaveCount(0);
+
+    await setState("zero");
+    await page.goto("/en/commons?mission-state=zero");
+    await expect(page.getByText("No moderated missions are public yet.")).toBeVisible();
+    await expect(page.getByText("No region meets the privacy threshold yet.")).toBeVisible();
+
+    for (const state of ["paused", "stale", "released"] as const) {
+      await setState(state);
+      await page.goto(`/en/commons?mission-state=${state}`);
+      await expect(page.getByText({
+        paused: "Paused · 4 accepted",
+        stale: "Stale · 4 accepted at the last verified checkpoint",
+        released: "Released · 4 accepted",
+      }[state])).toBeVisible();
+    }
+
+    await setState("slow-activity");
+    const slowActivityNavigation = page.goto("/en/commons?mission-state=slow-activity");
+    await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible({ timeout: 800 });
+    await expect(page.getByText("Checking regional proof.")).toBeVisible({ timeout: 800 });
+    await slowActivityNavigation;
+    await expect(page.getByText("Jamaica")).toBeVisible();
+
+    await setState("slow-catalog");
+    const slowCatalogNavigation = page.goto("/en/commons?mission-state=slow-catalog");
+    await expect(page.getByText("Checking mission proof.")).toBeVisible({ timeout: 800 });
+    await expect(page.getByText("Jamaica")).toBeVisible({ timeout: 800 });
+    await slowCatalogNavigation;
+    await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible();
+
+    await setState("narrow");
+    await page.goto("/en/commons?mission-state=narrow");
+    await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible();
+    await expect(page.getByText("Regional proof is unavailable.")).toBeVisible();
+    await expect(page.getByText("Jamaica")).toHaveCount(0);
+
+    for (const state of ["malformed", "error"] as const) {
+      await setState(state);
+      await page.goto(`/en/commons?mission-state=${state}`);
+      await expect(page.getByText("Mission proof is unavailable.")).toBeVisible();
+      await expect(page.getByText("Regional proof is unavailable.")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(page.getByText(/accepted records$/)).toHaveCount(0);
+    }
+
+    const accessibility = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+  } finally {
+    await setState("live");
+  }
+});
+
 test("deep public pages expose their full breadcrumb and owning hub", async ({ page }, testInfo) => {
   await page.goto("/en/notices");
 

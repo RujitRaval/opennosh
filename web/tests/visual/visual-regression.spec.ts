@@ -53,6 +53,16 @@ test("public Explore hub and enabled search entry @desktop", async ({ page }) =>
   await expect(page.locator("main")).toHaveScreenshot("explore-hub.png");
 });
 
+test("Commons missions preserve hierarchy and privacy states @reflow @mobile @tablet @desktop @wide", async ({ page }) => {
+  await page.goto("/en/commons");
+  await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible();
+  await expect(page.getByText("14 accepted records")).toBeVisible();
+  await settleVisualPage(page);
+  await page.addStyleTag({ content: ".skip-link { display: none !important; }" });
+  await expectNoHorizontalOverflow(page);
+  await expect(page.locator(".public-missions")).toHaveScreenshot("commons-missions.png");
+});
+
 test("every contribution stage @desktop", async ({ page }) => {
   await seedContribution(page, completeContributionDraft);
   for (const stage of ["evidence", "details", "duplicates", "provenance", "review"] as const) {

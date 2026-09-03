@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
-  "generatedAt": "2026-08-27T00:31:27.168Z",
+  "generatedAt": "2026-09-03T01:50:39.311Z",
   "approval": {
-    "reason": "T31 completes the production Tracker lifecycle and makes starter-food Explore search operational",
-    "designDecision": "T31 production launch readiness: preserve Living Commons branding while adding recovery, onboarding, Account, Records, and live starter-catalogue states",
-    "reviewerAcknowledgement": "Rujit Raval approved PR #96 visual baseline updates on 2026-08-26 after inspecting the GitHub visual-regression artifact"
+    "reason": "Regenerate the new Commons mission baselines in the pinned Playwright CI runtime after CI proved host-rendering drift.",
+    "designDecision": "Preserve the reviewed mission hierarchy and privacy-safe states; change only the runtime-specific raster output.",
+    "reviewerAcknowledgement": "Owner-approved T34.6 ship; Codex full design review scored A with zero findings."
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
@@ -13,6 +13,7 @@
   ],
   "files": {
     "desktop-1440/commons-live.png": "6a5e6ca634e498b839931291ac756f7a967229412bda1901497164b79ea70ea3",
+    "desktop-1440/commons-missions.png": "8b7e5d1d1c7d2b8e0a4358bc6ba5084ffe6e0a05bc07387cbea672f9661ef107",
     "desktop-1440/commons-partial.png": "ab8d539f676bdd973a26da37114bc5f6c7a4d5e714de9489c34ba5eafc26ed59",
     "desktop-1440/commons-quiet.png": "5b37cd2616882e2d93f3496ff64694b4888edc3519d377370459919d3c2c38e1",
     "desktop-1440/commons-stale.png": "fdf213e33d23b8ee1cb623a4d42d42420406c425b664daf8d8914e607f18c122",
@@ -40,6 +41,7 @@
     "desktop-1440/tracker-records.png": "61c819ed4a746c01d0cbbfd432099143a79c4b427ed399d3d8919bbb9feec9fb",
     "desktop-1440/tracker-sign-in.png": "5e419af7c5f97d85831c22cd010366728e48c70d1bbf40e8eaecc1d0fd4619ba",
     "desktop-1440/tracker-trends.png": "b3c9f9764be2785067f49418f1563e3db11d03c43857cac2af010fb7381c6d55",
+    "mobile-390/commons-missions.png": "417b3ba4e289d911a8753e74c32dc64f5d9b156e17b137b73c1c2c6182247f1a",
     "mobile-390/homepage-first-viewport.png": "e91d44c6519d4774dfd82baaacada12a13428d6ed4d38fb252c81cd33a656b1f",
     "mobile-390/mobile-safe-area-actions.png": "da2081e9f320ea6c5d81dc8a31dccd76accd9bae27ae0bbd61b3a25cd4637658",
     "mobile-390/tracker-account.png": "263f0068a8010f47ac53f5a57ac604a236149039474c44f747d1bedd29ca456b",
@@ -49,9 +51,12 @@
     "mobile-390/tracker-records.png": "e62ed68c24aef69195762c67b9f0db56f9e51faf584a0af62dd056935905352a",
     "mobile-390/tracker-sign-in.png": "7f8de613b8c2b4b37b86ea21607a439cdabffa5f36ecdc627f1bb67b004ab1ce",
     "mobile-390/tracker-trends.png": "844db9ea46bcf9de5c82026892e87009a3cdfd2d40e587c73dfaf613b00167fb",
+    "reflow-320/commons-missions.png": "e0f0a637972ccdd37e234feac2b870e4a4e4af1b31a35e864764a04093404985",
     "reflow-320/food-record-first-viewport.png": "5baefde824106aa729a80786609a0a98baf4d7144772f36b511c78d2dc9bc991",
     "reflow-320/homepage-first-viewport.png": "ac9b9fb513a3489559df4daab1db03c86d3fe391bb7fcc6359b7b69abe14890c",
+    "tablet-768/commons-missions.png": "90868d83fe933c00d3f3e2a6affe91bb0fbf3b88edc256f79fa0204e7594c307",
     "tablet-768/homepage-first-viewport.png": "8c8c157e177bc3fedc8822e7d87b957128f775af431c5c2d78e5a7905953d1e6",
+    "wide-1728/commons-missions.png": "011d7e8db065cb46e46b00bff11eadfd32d99e8513ec343c0c53e438f0795b36",
     "wide-1728/homepage-first-viewport.png": "3c1e6a933b3cb8b436f379910664bb0104fb134fcd727651fdaa91ae483b654d"
   }
 }

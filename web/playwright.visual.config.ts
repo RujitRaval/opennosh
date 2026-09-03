@@ -73,7 +73,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `API_URL=${apiURL} OPENNOSH_VISUAL_FIXTURES=1 OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search NEXT_PUBLIC_OPENNOSH_ENABLE_PSEUDO_LOCALE=1 NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS=off npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      command: `API_URL=${apiURL} OPENNOSH_VISUAL_FIXTURES=1 OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions NEXT_PUBLIC_OPENNOSH_ENABLE_PSEUDO_LOCALE=1 NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS=off npm run dev -- --hostname 127.0.0.1 --port ${port}`,
       url: baseURL,
       reuseExistingServer: false,
       timeout: 120_000,

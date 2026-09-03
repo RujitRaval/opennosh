@@ -21,6 +21,89 @@ const commonsFixtures = JSON.parse(
   await readFile(new URL("./contracts/public/commons-states.json", import.meta.url), "utf8"),
 );
 let commonsState = "unavailable";
+let missionState = "live";
+const publicMissionsFixture = {
+  schema_version: "1.0",
+  state: "live",
+  reason: null,
+  missions: [{
+    mission_id: "11111111-1111-4111-8111-111111111111",
+    definition_id: "22222222-2222-4222-8222-222222222222",
+    definition_version: 3,
+    gap_kind: "locale",
+    title: "Document Caribbean breakfast staples",
+    summary: "Add source-backed records that preserve preparation and locale context.",
+    target_pack_id: "caribbean-community",
+    target_dataset: "foods",
+    acceptance_target: 10,
+    acceptance_criteria: "A record must be accepted into the signed target pack with eligible source proof.",
+    lifecycle_state: "active",
+    progress_state: "partial",
+    public_reason: "The current pack has a measurable preparation gap.",
+    next_review_at: null,
+    accepted_count: 4,
+    matched_event_count: 4,
+    checkpoint_id: "33333333-3333-4333-8333-333333333333",
+    checkpoint_built_at: "2026-09-02T18:00:00Z",
+    release_receipt_digest: null,
+  }],
+};
+const publicMissionActivityFixture = {
+  schema_version: "1.0",
+  state: "live",
+  reason: null,
+  minimum_cohort: 10,
+  regions: [
+    { region_code: "JM", level: "country", accepted_count: 14 },
+    { region_code: "419", level: "macroregion", accepted_count: 10 },
+  ],
+};
+
+const missionStates = new Set([
+  "live", "disabled", "zero", "paused", "stale", "released", "narrow", "malformed", "error",
+  "slow-activity", "slow-catalog",
+]);
+
+function missionCatalogForState(state) {
+  if (state === "disabled") {
+    return { schema_version: "1.0", state: "unavailable", reason: "disabled", missions: [] };
+  }
+  if (state === "zero") {
+    return { schema_version: "1.0", state: "zero", reason: null, missions: [] };
+  }
+  const mission = structuredClone(publicMissionsFixture.missions[0]);
+  if (state === "paused") {
+    mission.lifecycle_state = "paused";
+    mission.progress_state = "paused";
+    mission.next_review_at = "2026-09-15T16:00:00Z";
+  } else if (state === "stale") {
+    mission.progress_state = "stale";
+  } else if (state === "released") {
+    mission.lifecycle_state = "released";
+    mission.progress_state = "released";
+    mission.release_receipt_digest = "a".repeat(64);
+  } else if (state === "malformed") {
+    mission.progress_state = "live";
+    mission.accepted_count = 2;
+  }
+  return { ...publicMissionsFixture, missions: [mission] };
+}
+
+function missionActivityForState(state) {
+  if (state === "disabled") {
+    return { schema_version: "1.0", state: "unavailable", reason: "disabled", minimum_cohort: 10, regions: [] };
+  }
+  if (state === "zero") {
+    return { schema_version: "1.0", state: "zero", reason: null, minimum_cohort: 10, regions: [] };
+  }
+  if (state === "narrow" || state === "malformed") {
+    return {
+      ...publicMissionActivityFixture,
+      regions: [{ region_code: "JM", level: "country", accepted_count: 9 }],
+    };
+  }
+  return publicMissionActivityFixture;
+}
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
@@ -40,9 +123,50 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify({ state: commonsState }));
     return;
   }
+  if (request.method === "POST" && url.pathname === "/__visual/mission-state") {
+    const requestedState = url.searchParams.get("state");
+    if (!requestedState || !missionStates.has(requestedState)) {
+      response.statusCode = 400;
+      response.end(JSON.stringify({ detail: "Unknown mission fixture state" }));
+      return;
+    }
+    missionState = requestedState;
+    response.end(JSON.stringify({ state: missionState }));
+    return;
+  }
   if (url.pathname === "/api/v1/public/commons-snapshot") {
     response.setHeader("Cache-Control", "no-store");
     response.end(JSON.stringify(commonsFixtures[commonsState]));
+    return;
+  }
+  if (url.pathname === "/api/v1/public/missions") {
+    response.setHeader("Cache-Control", "no-store");
+    if (missionState === "error") {
+      response.statusCode = 503;
+      response.end(JSON.stringify({ detail: "Mission proof unavailable" }));
+      return;
+    }
+    const payload = JSON.stringify(missionCatalogForState(missionState));
+    if (missionState === "slow-catalog") {
+      setTimeout(() => response.end(payload), 1_000);
+      return;
+    }
+    response.end(payload);
+    return;
+  }
+  if (url.pathname === "/api/v1/public/missions/activity") {
+    response.setHeader("Cache-Control", "no-store");
+    if (missionState === "error") {
+      response.statusCode = 503;
+      response.end(JSON.stringify({ detail: "Mission activity proof unavailable" }));
+      return;
+    }
+    const payload = JSON.stringify(missionActivityForState(missionState));
+    if (missionState === "slow-activity") {
+      setTimeout(() => response.end(payload), 1_000);
+      return;
+    }
+    response.end(payload);
     return;
   }
   if ([

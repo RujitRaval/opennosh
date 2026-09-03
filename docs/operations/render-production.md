@@ -888,6 +888,11 @@ separately authorized the projection worker. A disabled deployment must leave ac
 publication claims, federation state, signed public reads, and the active release unchanged. The
 production-claims readiness report must continue to show all mission switches false.
 
+Keep `commons-missions` absent from the web service's `OPENNOSH_PUBLIC_NAV_FEATURES` value during
+this disabled deployment. The Commons page then has no mission navigation or mission API reads.
+A later activation must authorize the exact readiness digest before adding that web feature, and
+rollback removes it again without deleting any mission definition, checkpoint, or accepted event.
+
 While `MISSION_PUBLIC_ENABLED=false`, `GET /api/v1/public/missions` must return HTTP 200 with
 `state=unavailable`, `reason=disabled`, and an empty `missions` array. Enabling the route is a
 separate digest-bound activation; do not infer it from a successful deployment. If enabled storage
