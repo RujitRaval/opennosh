@@ -335,6 +335,7 @@ class OpenNoshMCPService:
         *,
         client_factory: Callable[[str], AsyncOpenNoshClient] = AsyncOpenNoshClient,
     ) -> None:
+        _LOGGER.disabled = False
         client = client_factory(target)
         self.target = client.origin
         self._client = client

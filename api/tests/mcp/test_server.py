@@ -162,13 +162,17 @@ async def test_search_preserves_release_proof_and_logs_only_counts(
     monkeypatch: Any,
 ) -> None:
     log_stream = io.StringIO()
+    logger = logging.getLogger("opennosh.mcp")
     handler = next(
         item
-        for item in logging.getLogger("opennosh.mcp").handlers
+        for item in logger.handlers
         if item.name == "opennosh-mcp-stderr"
     )
     monkeypatch.setattr(handler, "stream", log_stream)
+    monkeypatch.setattr(logger, "disabled", True)
     service = _service()
+
+    assert logger.disabled is False
 
     result = await _call(service, "search_foods", {"query": "rajma", "limit": 5})
 
