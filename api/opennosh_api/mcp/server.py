@@ -40,8 +40,10 @@ MCPResult = dict[str, object]
 ToolHandler = Callable[[dict[str, object]], Awaitable[MCPResult]]
 
 _LOGGER = logging.getLogger("opennosh.mcp")
-if not _LOGGER.handlers:
+_LOG_HANDLER_NAME = "opennosh-mcp-stderr"
+if not any(handler.name == _LOG_HANDLER_NAME for handler in _LOGGER.handlers):
     _handler = logging.StreamHandler()
+    _handler.set_name(_LOG_HANDLER_NAME)
     _handler.setFormatter(logging.Formatter("%(message)s"))
     _LOGGER.addHandler(_handler)
 _LOGGER.setLevel(logging.INFO)

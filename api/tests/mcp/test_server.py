@@ -162,7 +162,11 @@ async def test_search_preserves_release_proof_and_logs_only_counts(
     monkeypatch: Any,
 ) -> None:
     log_stream = io.StringIO()
-    handler = logging.getLogger("opennosh.mcp").handlers[0]
+    handler = next(
+        item
+        for item in logging.getLogger("opennosh.mcp").handlers
+        if item.name == "opennosh-mcp-stderr"
+    )
     monkeypatch.setattr(handler, "stream", log_stream)
     service = _service()
 
