@@ -216,7 +216,7 @@ jobs:
 
       - name: Test clean-installed developer starters
         run: |
-          npm --prefix packages/npm pack --pack-destination ../../dist
+          npm pack ./packages/npm --pack-destination dist
           NPM_PACKAGE_VERSION="$(cut -d. -f1-3 VERSION)"
           uv run python scripts/check_developer_starters.py \
             --npm-tarball "dist/opennosh-${NPM_PACKAGE_VERSION}.tgz" \
