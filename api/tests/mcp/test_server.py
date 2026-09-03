@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import logging
 import sys
@@ -158,9 +159,11 @@ async def test_stdio_entrypoint_negotiates_and_serves_local_validation() -> None
 
 @pytest.mark.asyncio
 async def test_search_preserves_release_proof_and_logs_only_counts(
-    caplog: Any, monkeypatch: Any
+    monkeypatch: Any,
 ) -> None:
-    monkeypatch.setattr(logging.getLogger("opennosh.mcp"), "propagate", True)
+    log_stream = io.StringIO()
+    handler = logging.getLogger("opennosh.mcp").handlers[0]
+    monkeypatch.setattr(handler, "stream", log_stream)
     service = _service()
 
     result = await _call(service, "search_foods", {"query": "rajma", "limit": 5})
@@ -173,7 +176,7 @@ async def test_search_preserves_release_proof_and_logs_only_counts(
     assert data["response"]["etag"] == '"fixture"'
     assert data["response"]["release_version"] == "0.82.1.0"
     assert data["response"]["release_state"] == "stale"
-    logged = caplog.text
+    logged = log_stream.getvalue()
     assert "method=search_foods status=success" in logged
     assert "count=0" in logged
     assert "rajma" not in logged
