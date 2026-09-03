@@ -2,6 +2,32 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.84.0.0] - 2026-09-03
+
+### Added
+
+- Let Node.js 20+ and modern-browser developers install the existing `opennosh` package and use a
+  typed, dependency-free preview client for all ten anonymous public read operations against hosted
+  or explicitly selected self-hosted origins.
+- Preserve the existing `npx opennosh init` bootstrap command while publishing ESM exports,
+  generated transport types, typed RFC 9457 errors, cache validators, cancellation, bounded
+  deadlines, and per-operation response limits.
+- Exercise the packed SDK through clean ESM and TypeScript consumers, the installed bootstrap
+  command, the minimum Node.js runtime, and a real Chromium cross-origin conditional request.
+
+### Changed
+
+- Generate SDK path schemas, accepted response media types, problem contracts, and size policies
+  from the reviewed compatibility manifest and OpenAPI, with repository gates that reject drift.
+- Allow browser SDK reads through narrowly scoped credential-free CORS responses and preflights for
+  the ten anonymous routes, while keeping private and mutation routes outside that policy.
+
+### Security
+
+- Refuse unsafe targets, redirects, malformed or oversized responses, invalid recovery links, and
+  raw transport-error disclosure; omit ambient credentials, retries, telemetry, and browser client
+  identifiers by default.
+
 ## [0.83.0.0] - 2026-09-03
 
 ### Added

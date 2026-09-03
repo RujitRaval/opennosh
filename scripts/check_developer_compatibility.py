@@ -19,6 +19,9 @@ GENERATED_SDK_PATH = Path("web/lib/generated/client/sdk.gen.ts")
 GENERATED_CLIENT_PATH = Path("web/lib/generated/client")
 GENERATOR_MANIFEST_PATH = Path("web/lib/generated/manifest.json")
 PACKAGE_PATH = Path("packages/npm/package.json")
+NPM_GENERATED_TYPES_PATH = Path("packages/npm/src/generated-types.d.ts")
+NPM_PROBLEM_CONTRACT_PATH = Path("packages/npm/src/generated-problem-contract.js")
+NPM_OPERATION_POLICY_PATH = Path("packages/npm/src/generated-operation-policy.js")
 COMPATIBILITY_FIXTURES_PATH = Path("tests/fixtures/developer-compatibility.v1.json")
 OPENAPI_N_MINUS_ONE_PATH = Path("tests/fixtures/openapi-1.0.0-public.json")
 OPENAPI_N_MINUS_ONE_SOURCE_COMMIT = "93d8446027ead93170ba2d9876dc41775f2ac9ad"
@@ -151,8 +154,76 @@ def validate_repository(root: Path) -> list[str]:
         issues.append(str(error))
         expected_package_version = None
     package = json.loads((root / PACKAGE_PATH).read_text(encoding="utf-8"))
+    openapi = json.loads((root / OPENAPI_PATH).read_text(encoding="utf-8"))
     if expected_package_version is not None and package.get("version") != expected_package_version:
         issues.append("npm package version must match VERSION")
+    if not (root / NPM_GENERATED_TYPES_PATH).is_file():
+        issues.append("npm generated transport types are missing")
+    elif (root / NPM_GENERATED_TYPES_PATH).read_bytes() != (
+        root / GENERATED_CLIENT_PATH / "types.gen.ts"
+    ).read_bytes():
+        issues.append("npm generated transport types are stale")
+    problem_contract_path = root / NPM_PROBLEM_CONTRACT_PATH
+    if not problem_contract_path.is_file():
+        issues.append("npm generated problem contract is missing")
+    else:
+        prefix = (
+            "// Generated from web/lib/generated/openapi.json. Do not edit.\n"
+            "export const PROBLEM_SCHEMAS = Object.freeze("
+        )
+        source = problem_contract_path.read_text(encoding="utf-8")
+        try:
+            generated_problem_schemas = json.loads(source.removeprefix(prefix).removesuffix(");\n"))
+        except json.JSONDecodeError:
+            generated_problem_schemas = None
+        expected_problem_schemas = {
+            name: openapi["components"]["schemas"][name]
+            for name in (
+                "FieldError",
+                "LatestStateReference",
+                "ProblemCode",
+                "ProblemDetails",
+                "RecoveryAction",
+            )
+        }
+        if not source.startswith(prefix) or generated_problem_schemas != expected_problem_schemas:
+            issues.append("npm generated problem contract is stale")
+    operation_policy_path = root / NPM_OPERATION_POLICY_PATH
+    operation_prefix = (
+        "// Generated from the developer compatibility manifest and OpenAPI. Do not edit.\n"
+        "export const PUBLIC_OPERATION_POLICIES = Object.freeze("
+    )
+    if not operation_policy_path.is_file():
+        issues.append("npm generated operation policy is missing")
+    else:
+        source = operation_policy_path.read_text(encoding="utf-8")
+        try:
+            generated_operation_policy = json.loads(
+                source.removeprefix(operation_prefix).removesuffix(");\n")
+            )
+        except json.JSONDecodeError:
+            generated_operation_policy = None
+        expected_operation_policy = {}
+        for operation in manifest["public_operations"]:
+            openapi_operation = openapi["paths"][operation["path"]]["get"]
+            parameters = openapi_operation.get("parameters", [])
+            expected_operation_policy[operation["path"]] = {
+                "acceptedMediaTypes": sorted(
+                    openapi_operation.get("responses", {}).get("200", {}).get("content", {})
+                ),
+                "mediaType": operation["media_type"],
+                "maxResponseBytes": operation["max_response_bytes"],
+                "pathParameters": {
+                    parameter["name"]: parameter["schema"]
+                    for parameter in parameters
+                    if parameter["in"] == "path"
+                },
+            }
+        if (
+            not source.startswith(operation_prefix)
+            or generated_operation_policy != expected_operation_policy
+        ):
+            issues.append("npm generated operation policy is stale")
     clients = manifest.get("clients", {})
     if expected_package_version is not None and clients.get("javascript", {}).get(
         "current"
@@ -173,7 +244,6 @@ def validate_repository(root: Path) -> list[str]:
                 f"clients.{name} must remain disabled at protocol 1.0.0 in the foundation slice"
             )
 
-    openapi = json.loads((root / OPENAPI_PATH).read_text(encoding="utf-8"))
     contract_version = openapi.get("info", {}).get("x-opennosh-contract-version")
     if manifest.get("openapi", {}).get("current") != contract_version:
         issues.append("openapi.current must match the generated OpenAPI contract")

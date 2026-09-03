@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { GET, POST } from "@/app/api/v1/[...path]/route";
+import { GET, OPTIONS, POST } from "@/app/api/v1/[...path]/route";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -110,6 +110,65 @@ describe("same-origin API proxy", () => {
     expect(response.status).toBe(304);
     expect(response.headers.get("etag")).toBe('"snapshot-etag"');
     expect(response.headers.get("cache-control")).toContain("s-maxage=300");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-expose-headers")).toContain("ETag");
+    expect(response.headers.get("access-control-expose-headers")).toContain("Retry-After");
+  });
+
+  it("answers SDK preflights only for anonymous read routes and allowed headers", async () => {
+    const request = new NextRequest("http://localhost:3000/api/v1/public/commons-snapshot", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://consumer.example",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "If-None-Match",
+      },
+    });
+
+    const response = await OPTIONS(request, {
+      params: Promise.resolve({ path: ["public", "commons-snapshot"] }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-allow-methods")).toBe("GET, HEAD, OPTIONS");
+    expect(response.headers.get("access-control-allow-headers")).toContain("If-None-Match");
+    expect(response.headers.get("vary")).toBeNull();
+
+    const privateResponse = await OPTIONS(request, {
+      params: Promise.resolve({ path: ["auth", "session"] }),
+    });
+    expect(privateResponse.status).toBe(405);
+
+    const rejectedHeader = await OPTIONS(new NextRequest(request.url, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://consumer.example",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+      },
+    }), { params: Promise.resolve({ path: ["public", "commons-snapshot"] }) });
+    expect(rejectedHeader.status).toBe(403);
+  });
+
+  it("strips cookies and forwards Node SDK identity only on SDK read routes", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ schema_version: "1.0" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest("http://localhost:3000/api/v1/foods/capabilities", {
+      headers: {
+        Cookie: "opennosh_session=must-not-cross-sdk-boundary",
+        "X-OpenNosh-Client": "js/0.84.0",
+      },
+    });
+
+    const response = await GET(request, {
+      params: Promise.resolve({ path: ["foods", "capabilities"] }),
+    });
+
+    const upstreamRequest = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(upstreamRequest.get("cookie")).toBeNull();
+    expect(upstreamRequest.get("x-opennosh-client")).toBe("js/0.84.0");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
   });
 
   it("preserves mission catalog cache policy and strips session cookies", async () => {
@@ -247,6 +306,26 @@ describe("same-origin API proxy", () => {
       schema_version: "1.0",
       recovery_actions: [{ id: "retry", label: "Try again" }],
     });
+  });
+
+  it("adds SDK CORS to public-food gateway failures and strips ambient cookies", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new Error("connection refused"));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = new NextRequest(
+      "http://localhost:3000/api/v1/public/foods/community/rajma-masala",
+      { headers: { Cookie: "opennosh_session=must-not-cross-sdk-boundary" } },
+    );
+
+    const response = await GET(request, {
+      params: Promise.resolve({
+        path: ["public", "foods", "community", "rajma-masala"],
+      }),
+    });
+
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("cookie")).toBeNull();
+    expect(response.status).toBe(502);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(response.headers.get("access-control-expose-headers")).toContain("X-Request-ID");
   });
 
   it("rejects path segments that could escape the versioned API", async () => {

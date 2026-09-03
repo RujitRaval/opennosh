@@ -29,6 +29,9 @@ def copy_contract(root: Path) -> None:
         "web/lib/generated/openapi.json",
         "web/lib/generated/manifest.json",
         "packages/npm/package.json",
+        "packages/npm/src/generated-types.d.ts",
+        "packages/npm/src/generated-problem-contract.js",
+        "packages/npm/src/generated-operation-policy.js",
         COMPATIBILITY_FIXTURES_PATH,
         OPENAPI_N_MINUS_ONE_PATH,
     ):
@@ -243,6 +246,53 @@ class DeveloperCompatibilityTests(unittest.TestCase):
             sdk_path = root / "web/lib/generated/client/sdk.gen.ts"
             sdk_path.write_text(sdk_path.read_text() + "// manual edit\n")
             self.assertIn("generated client digest is stale", validate_repository(root))
+
+    def test_npm_transport_types_must_match_the_canonical_generator(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_contract(root)
+            path = root / "packages/npm/src/generated-types.d.ts"
+            path.write_text(path.read_text(encoding="utf-8") + "// stale\n")
+
+            self.assertIn("npm generated transport types are stale", validate_repository(root))
+
+    def test_npm_problem_contract_must_match_the_canonical_openapi(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_contract(root)
+            path = root / "packages/npm/src/generated-problem-contract.js"
+            path.write_text(path.read_text(encoding="utf-8").replace("rate_limited", "other"))
+
+            self.assertIn("npm generated problem contract is stale", validate_repository(root))
+
+    def test_npm_operation_policy_must_match_the_compatibility_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_contract(root)
+            path = root / "packages/npm/src/generated-operation-policy.js"
+            path.write_text(path.read_text(encoding="utf-8").replace("24576", "24577"))
+
+            self.assertIn("npm generated operation policy is stale", validate_repository(root))
+
+    def test_missing_and_malformed_npm_generated_contracts_are_reported(self) -> None:
+        cases = (
+            ("packages/npm/src/generated-types.d.ts", None, "npm generated transport types are missing"),
+            ("packages/npm/src/generated-problem-contract.js", None, "npm generated problem contract is missing"),
+            ("packages/npm/src/generated-problem-contract.js", "not valid generated JSON\n", "npm generated problem contract is stale"),
+            ("packages/npm/src/generated-operation-policy.js", None, "npm generated operation policy is missing"),
+            ("packages/npm/src/generated-operation-policy.js", "not valid generated JSON\n", "npm generated operation policy is stale"),
+        )
+        for relative, replacement, expected in cases:
+            with self.subTest(relative=relative, replacement=replacement), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                copy_contract(root)
+                path = root / relative
+                if replacement is None:
+                    path.unlink()
+                else:
+                    path.write_text(replacement, encoding="utf-8")
+
+                self.assertIn(expected, validate_repository(root))
 
     def test_generated_client_must_include_non_get_operations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
