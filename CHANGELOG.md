@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.83.0.0] - 2026-09-03
+
+### Added
+
+- Give developers a machine-readable preview compatibility manifest for the hosted origin,
+  self-hosted endpoint policy, JavaScript, Python, CLI, MCP, embed protocols, and all ten anonymous
+  public read operations without enabling package or discovery surfaces.
+- Generate a complete, reproducible TypeScript transport client from OpenAPI and pin its file
+  inventory, operation count, and digest so reviewed contract output cannot drift silently.
+- Validate current and retained OpenAPI 1.0.0 response fixtures, RFC 9457 failures, rate-limit
+  guidance, stale verified records, unavailable proof, deprecation dates, and incompatible versions.
+
+### Changed
+
+- Package the compatibility manifest and schema in Python release artifacts, validate ecosystem-
+  specific versions, and make compatibility, packaging, lint, and CI gates fail closed on drift.
+
 ## [0.82.1.0] - 2026-09-02
 
 ### Added
