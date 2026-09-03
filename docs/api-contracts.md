@@ -57,11 +57,11 @@ operation, cannot land until it appears in this reviewed manifest and the genera
 
 `tests/fixtures/developer-compatibility.v1.json` exercises all ten current response shapes plus the
 retained food reads against a digest- and commit-pinned OpenAPI 1.0.0 snapshot, along with RFC 9457,
-rate-limit, stale verified, unavailable-proof, and incompatible-version cases. The generated fetch
-client remains an internal,
-low-level transport artifact in this slice; it is not a policy-compliant public SDK export. The
-handwritten JavaScript SDK wrapper owns redirect refusal, endpoint validation, credentials, limits,
-and deadlines in the next slice.
+rate-limit, stale verified, unavailable-proof, and incompatible-version cases. The npm package now
+exports the policy-compliant `OpenNoshClient` wrapper for Node.js 20+ and modern browsers. Generated
+path schemas, response media types, problem contracts, and transport types stay reproducible, while
+the handwritten wrapper owns target validation, redirect refusal, credentials, response limits,
+deadlines, cancellation, cache validators, and typed failures.
 
 Run the gate with:
 
