@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.82.1.0] - 2026-09-02
+
+### Added
+
+- Let visitors browse the Commons mission catalog and inspect privacy-safe regional activity,
+  including explicit zero, partial, stale, paused, completed, released, and unavailable states.
+- Stream catalog and activity independently so either surface remains useful when the other source is
+  slow or unavailable, while keeping the public mission navigation disabled in production by default.
+
+### Security
+
+- Admit only validated live or zero proof into a hard-expiry cache, fail closed on malformed,
+  duplicated, oversized, narrow-cohort, or unavailable proof, and never retain revoked claims through
+  stale-while-revalidate behavior.
+
 ## [0.82.0.0] - 2026-09-02
 
 ### Added
