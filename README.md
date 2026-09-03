@@ -170,9 +170,9 @@ Use the matching command-line reads against hosted opennosh or an explicit self-
 opennosh public capabilities --json
 opennosh public search rajma --locale en-IN
 opennosh public food community rajma-masala
-opennosh public manifest 0.85.0.0 --target https://nosh.example --json
-opennosh public provenance 0.85.0.0 community rajma-masala
-opennosh public download-pack 0.85.0.0 indian-staples-north 1.0.0 --output pack.zip
+opennosh public manifest 0.86.0.0 --target https://nosh.example --json
+opennosh public provenance 0.86.0.0 community rajma-masala
+opennosh public download-pack 0.86.0.0 indian-staples-north 1.0.0 --output pack.zip
 opennosh packs validate pack.zip --json
 ```
 
@@ -184,6 +184,19 @@ and refuse redirects. Public reads and local validation never install a pack. Th
 only self-hosted installation mutations, and their production feature flags remain disabled.
 The synchronous client runs the cancellable async transport core and must not be called from an
 already active event loop; use `AsyncOpenNoshClient` in async applications.
+
+The installed wheel also provides a preview, read-only MCP stdio server:
+
+```shell
+opennosh-mcp --target hosted
+opennosh-mcp --target https://nosh.example
+```
+
+It exposes exactly `search_foods`, `get_public_food`, `get_public_missions`,
+`get_public_mission_activity`, `get_release_manifest`, and `validate_pack`. The endpoint is fixed at
+startup; tool calls cannot provide a URL or credentials. `validate_pack` accepts one JSON object of
+at most 1 MiB and never reads a path. See [the MCP operations guide](docs/operations/mcp.md) for
+client configuration, result states, and rollback.
 
 This developer kit is preview software. MCP and embed discovery remain disabled, and the project
 does not claim general availability or external adoption before the separately reviewed trial gate.

@@ -20,6 +20,7 @@ EXPECTED_CONSOLE_SCRIPTS = {
     "opennosh-reconciler": "opennosh_api.entrypoints.reconciler:main",
     "opennosh-scheduler": "opennosh_api.entrypoints.scheduler:main",
     "opennosh-migrate": "opennosh_api.entrypoints.migration:main",
+    "opennosh-mcp": "opennosh_api.mcp.entrypoint:main",
 }
 
 
@@ -70,6 +71,9 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
                 issues.append("wheel metadata: Name must be opennosh")
             if metadata["Version"] != release_version:
                 issues.append("wheel metadata: Version must match VERSION")
+            requirements = metadata.get_all("Requires-Dist", [])
+            if not any(requirement.startswith("mcp<3,>=2") for requirement in requirements):
+                issues.append("wheel metadata: official MCP SDK dependency is missing")
 
     with tarfile.open(sdists[0]) as archive:
         names = set(archive.getnames())

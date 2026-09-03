@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.86.0.0] - 2026-09-03
+
+### Added
+
+- Add the preview `opennosh-mcp` stdio server, backed only by the supported Python SDK, with five
+  public-read tools and one bounded in-memory food-pack validation tool.
+- Publish strict input and result schemas plus a real client/server stdio contract test for the
+  MCP 1.0.0 surface.
+
+### Changed
+
+- Advance the JavaScript, Python, and CLI compatibility window while promoting only MCP artifact
+  status to preview; MCP and embed discovery remain disabled.
+
+### Security
+
+- Fix the remote endpoint at process startup, reject extra tool arguments, cap pack input at 1 MiB
+  before schema traversal, preserve unavailable proof as unavailable, and log only method, status,
+  latency, and result counts.
+
 ## [0.85.0.0] - 2026-09-03
 
 ### Added

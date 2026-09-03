@@ -276,16 +276,18 @@ def validate_repository(root: Path) -> list[str]:
     for name in ("python", "cli"):
         if clients.get(name, {}).get("current") != release_version:
             issues.append(f"clients.{name}.current must match VERSION")
-    for name in ("mcp", "embed"):
+    discovery_expectations = {"mcp": "preview", "embed": "disabled"}
+    for name, expected_status in discovery_expectations.items():
         client = clients.get(name, {})
         if (
             client.get("current") != "1.0.0"
             or client.get("contract_major") != 1
             or client.get("discovery_enabled") is not False
-            or client.get("status") != "disabled"
+            or client.get("status") != expected_status
         ):
             issues.append(
-                f"clients.{name} must remain disabled at protocol 1.0.0 in the foundation slice"
+                f"clients.{name} must be {expected_status} at protocol 1.0.0 "
+                "with discovery disabled"
             )
 
     contract_version = openapi.get("info", {}).get("x-opennosh-contract-version")

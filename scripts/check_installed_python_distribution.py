@@ -26,6 +26,7 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
             contracts = importlib.import_module("opennosh_api.contracts")
             validation = importlib.import_module("opennosh_api.foodpacks.validation")
             main = importlib.import_module("opennosh_api.main")
+            mcp_server = importlib.import_module("opennosh_api.mcp.server")
             sdk = importlib.import_module("opennosh_api.sdk")
             package_root = target.resolve()
             module_path = Path(validation.__file__).resolve()
@@ -47,6 +48,16 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
                 issues.append("installed wheel: application version does not match VERSION")
             if sdk.PACKAGE_VERSION != expected_version:
                 issues.append("installed wheel: SDK version does not match VERSION")
+            mcp_service = mcp_server.OpenNoshMCPService("hosted")
+            if [tool.name for tool in mcp_service.tools] != [
+                "search_foods",
+                "get_public_food",
+                "get_public_missions",
+                "get_public_mission_activity",
+                "get_release_manifest",
+                "validate_pack",
+            ]:
+                issues.append("installed wheel: MCP tool allowlist is invalid")
             for client_name in ("OpenNoshClient", "AsyncOpenNoshClient"):
                 client_type = getattr(sdk, client_name, None)
                 if not isinstance(client_type, type):

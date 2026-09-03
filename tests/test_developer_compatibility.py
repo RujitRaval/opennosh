@@ -116,7 +116,7 @@ class DeveloperCompatibilityTests(unittest.TestCase):
             )
             self.assertIn("clients.python.current must match VERSION", validate_repository(root))
 
-    def test_mcp_discovery_cannot_be_enabled_in_foundation(self) -> None:
+    def test_mcp_preview_cannot_enable_discovery(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             copy_contract(root)
@@ -127,7 +127,7 @@ class DeveloperCompatibilityTests(unittest.TestCase):
                 ),
             )
             self.assertIn(
-                "clients.mcp must remain disabled at protocol 1.0.0 in the foundation slice",
+                "clients.mcp must be preview at protocol 1.0.0 with discovery disabled",
                 validate_repository(root),
             )
 

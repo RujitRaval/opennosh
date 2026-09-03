@@ -22,7 +22,11 @@ def test_packaged_developer_compatibility_is_valid() -> None:
     assert manifest["clients"]["python"]["current"] == manifest["release_version"]
     assert manifest["clients"]["cli"]["current"] == manifest["release_version"]
     assert manifest["clients"]["mcp"]["contract_major"] == 1
+    assert manifest["clients"]["mcp"]["status"] == "preview"
+    assert manifest["clients"]["mcp"]["discovery_enabled"] is False
     assert manifest["clients"]["embed"]["contract_major"] == 1
+    assert manifest["clients"]["embed"]["status"] == "disabled"
+    assert manifest["clients"]["embed"]["discovery_enabled"] is False
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.99.0", "2.0.0", "2.4.1"])
