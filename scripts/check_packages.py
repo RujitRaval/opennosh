@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,24 @@ def validate_repository(root: Path) -> list[str]:
         issues.append("packages/npm/package.json: public bootstrap package cannot be private")
     if npm_metadata.get("bin", {}).get("opennosh") != "bin/opennosh.mjs":
         issues.append("packages/npm/package.json: opennosh executable is missing")
+    root_export = npm_metadata.get("exports", {}).get(".", {})
+    if (
+        npm_metadata.get("type") != "module"
+        or npm_metadata.get("main") != "./src/index.js"
+        or npm_metadata.get("types") != "./src/index.d.ts"
+        or root_export.get("import") != "./src/index.js"
+        or root_export.get("types") != "./src/index.d.ts"
+    ):
+        issues.append("packages/npm/package.json: ESM SDK root export is missing")
+    if "src" not in npm_metadata.get("files", []):
+        issues.append("packages/npm/package.json: SDK sources are missing from packed files")
+    sdk_source_path = root / "packages" / "npm" / "src" / "index.js"
+    sdk_source = (
+        sdk_source_path.read_text(encoding="utf-8") if sdk_source_path.is_file() else ""
+    )
+    sdk_version = re.search(r'^export const PACKAGE_VERSION = "([^"]+)";$', sdk_source, re.M)
+    if not sdk_source or sdk_version is None or sdk_version.group(1) != expected_npm_version:
+        issues.append("packages/npm/src/index.js: SDK version is stale")
 
     package_license = root / "packages" / "npm" / "LICENSE"
     if package_license.read_bytes() != (root / "LICENSE").read_bytes():

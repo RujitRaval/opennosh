@@ -52,6 +52,57 @@ class PackageCheckTests(unittest.TestCase):
 
         self.assertTrue(any("version must match" in issue for issue in issues))
 
+    def test_missing_npm_sdk_export_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_package_files(root)
+            package_path = root / "packages/npm/package.json"
+            metadata = json.loads(package_path.read_text(encoding="utf-8"))
+            metadata.pop("exports", None)
+            package_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            issues = validate_repository(root)
+
+        self.assertIn(
+            "packages/npm/package.json: ESM SDK root export is missing",
+            issues,
+        )
+
+    def test_missing_npm_sdk_sources_from_package_files_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_package_files(root)
+            package_path = root / "packages/npm/package.json"
+            metadata = json.loads(package_path.read_text(encoding="utf-8"))
+            metadata["files"] = ["bin"]
+            package_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            issues = validate_repository(root)
+
+        self.assertIn(
+            "packages/npm/package.json: SDK sources are missing from packed files",
+            issues,
+        )
+
+    def test_stale_npm_sdk_version_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_package_files(root)
+            source_path = root / "packages/npm/src/index.js"
+            current = json.loads(
+                (root / "packages/npm/package.json").read_text(encoding="utf-8")
+            )["version"]
+            source_path.write_text(
+                source_path.read_text(encoding="utf-8").replace(
+                    f'PACKAGE_VERSION = "{current}"', 'PACKAGE_VERSION = "9.9.9"'
+                ),
+                encoding="utf-8",
+            )
+
+            issues = validate_repository(root)
+
+        self.assertIn("packages/npm/src/index.js: SDK version is stale", issues)
+
     def test_all_package_identity_mismatches_are_reported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

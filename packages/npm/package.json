@@ -1,19 +1,33 @@
 {
   "name": "opennosh",
-  "version": "0.83.0",
-  "description": "Bootstrap a local OpenNosh nutrition and strength tracker checkout.",
+  "version": "0.84.0",
+  "description": "Preview JavaScript SDK and bootstrap CLI for OpenNosh public nutrition data.",
   "license": "MIT",
   "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "opennosh": "bin/opennosh.mjs"
   },
   "files": [
     "bin",
+    "src",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
     "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=20"

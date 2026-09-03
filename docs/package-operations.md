@@ -9,14 +9,15 @@ must never be committed.
 | Registry | Name | Purpose | Version form |
 |---|---|---|---|
 | PyPI | `opennosh` | Installable FastAPI application modules and the `opennosh` data-management CLI | Exact four-part repository `VERSION` |
-| npm | `opennosh` | `npx opennosh init` bootstrapper for cloning a safe local checkout | First three components of repository `VERSION` |
+| npm | `opennosh` | Preview JavaScript SDK for anonymous public reads plus `npx opennosh init` | First three components of repository `VERSION` |
 
-The npm bootstrapper has an immediate function. It is not an empty placeholder: npm prohibits
-packages that exist only to reserve a name. It refuses to overwrite an existing path, passes clone
-arguments directly to Git without a shell, and does not install Docker, run services, change global
-configuration, or collect telemetry.
+The npm package exports a dependency-free ESM client for the ten compatibility-manifest operations
+on Node.js 20+ and modern browsers. It also preserves the bootstrap command, which refuses to
+overwrite an existing path, passes clone arguments directly to Git without a shell, and does not
+install Docker, run services, change global configuration, or collect telemetry. The SDK usage and
+security boundaries are documented in [`packages/npm/README.md`](../packages/npm/README.md).
 
-Reproduce the artifact, identity, installed-wheel, and npm bootstrap checks locally before any
+Reproduce the artifact, identity, installed-wheel, npm SDK, and bootstrap checks locally before any
 publication attempt:
 
 ```shell

@@ -11,6 +11,34 @@ const forwardedRequestHeaders = [
   "x-csrf-token",
 ];
 
+const sdkCorsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Expose-Headers": "ETag, Retry-After, X-Request-ID",
+};
+
+function isSdkAnonymousRead(path: string[]): boolean {
+  const joined = path.join("/");
+  if ([
+    "foods/capabilities",
+    "foods/search",
+    "public/commons-snapshot",
+    "public/missions",
+    "public/missions/activity",
+  ].includes(joined)) return true;
+  if (path.length === 4 && path[0] === "public" && path[1] === "foods") return true;
+  if (path[0] !== "public" || path[1] !== "releases") return false;
+  return (path.length === 4 && path[3] === "manifest")
+    || (path.length === 6 && path[3] === "foods")
+    || (path.length === 7 && path[3] === "foods" && path[6] === "provenance")
+    || (path.length === 7 && path[3] === "packs" && path[6] === "download");
+}
+
+function withSdkCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(sdkCorsHeaders)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, headers });
+}
+
 function proxyProblem(
   status: 400 | 502,
   code: "invalid_request" | "upstream_unavailable",
@@ -44,6 +72,7 @@ function proxyProblem(
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
+  const sdkAnonymousRead = ["GET", "HEAD"].includes(request.method) && isSdkAnonymousRead(path);
   if (
     path.some(
       (segment) =>
@@ -59,12 +88,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   }
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join("/");
-  const cacheableAnonymousPublicRead =
-    request.method === "GET" &&
-    (encodedPath === "public/commons-snapshot" ||
-      encodedPath === "public/missions" ||
-      encodedPath.startsWith("public/foods/") ||
-      encodedPath.startsWith("public/releases/"));
+  const cacheableAnonymousPublicRead = sdkAnonymousRead && encodedPath.startsWith("public/");
   const upstreamPath = encodedPath === "healthz" ? "/healthz" : `/api/v1/${encodedPath}`;
   const target = new URL(`${upstreamPath}${request.nextUrl.search}`, apiOrigin);
   const headers = new Headers();
@@ -74,7 +98,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   }
   const proxyToken = process.env.WEB_PROXY_TOKEN;
   const clientAddress = request.headers.get("x-forwarded-for");
-  if (cacheableAnonymousPublicRead) headers.delete("cookie");
+  if (sdkAnonymousRead) {
+    headers.delete("cookie");
+    const sdkClient = request.headers.get("x-opennosh-client");
+    if (sdkClient) headers.set("x-opennosh-client", sdkClient);
+  }
   if (proxyToken && clientAddress) {
     headers.set("x-opennosh-client-address", clientAddress);
     headers.set("x-opennosh-proxy-token", proxyToken);
@@ -97,18 +125,47 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");
     if (!cacheableAnonymousPublicRead) responseHeaders.set("Cache-Control", "no-store");
-    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+    const response = new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+    return sdkAnonymousRead ? withSdkCors(response) : response;
   } catch {
-    return proxyProblem(
+    const response = proxyProblem(
       502,
       "upstream_unavailable",
       "Upstream service unavailable",
       "opennosh could not reach the API. Please try again.",
     );
+    return sdkAnonymousRead ? withSdkCors(response) : response;
   }
 }
 
+export async function OPTIONS(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> },
+): Promise<Response> {
+  const { path } = await context.params;
+  if (!isSdkAnonymousRead(path)) return new Response(null, { status: 405 });
+  const requestedMethod = request.headers.get("access-control-request-method")?.toUpperCase();
+  const requestedHeaders = (request.headers.get("access-control-request-headers") ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if ((requestedMethod && !["GET", "HEAD"].includes(requestedMethod))
+    || requestedHeaders.some((header) => !["accept", "if-none-match"].includes(header))) {
+    return new Response(null, { status: 403 });
+  }
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...sdkCorsHeaders,
+      "Access-Control-Allow-Headers": "Accept, If-None-Match",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 export const GET = proxy;
+export const HEAD = proxy;
 export const POST = proxy;
 export const PUT = proxy;
 export const PATCH = proxy;
