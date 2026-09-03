@@ -23,6 +23,7 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
         sys.path.insert(0, str(target))
         try:
             capacity = importlib.import_module("opennosh_api.capacity")
+            contracts = importlib.import_module("opennosh_api.contracts")
             validation = importlib.import_module("opennosh_api.foodpacks.validation")
             main = importlib.import_module("opennosh_api.main")
             package_root = target.resolve()
@@ -38,6 +39,9 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
             manifest = capacity.load_capacity_manifest()
             if manifest.schema_version != "1.0":
                 issues.append("installed wheel: capacity manifest is unavailable")
+            compatibility = contracts.load_developer_compatibility()
+            if compatibility.get("schema_version") != "1.0":
+                issues.append("installed wheel: developer compatibility manifest is unavailable")
             if main.read_app_version() != expected_version:
                 issues.append("installed wheel: application version does not match VERSION")
             for command, target_name in EXPECTED_CONSOLE_SCRIPTS.items():

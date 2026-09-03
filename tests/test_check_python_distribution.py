@@ -23,6 +23,8 @@ WHEEL_MEMBERS = {
     "opennosh_api/database-capacity.v1.json": b"{}",
     "opennosh_api/publication-claims-activation.v1.json": b"{}",
     "opennosh_api/natural-publication-proof-activation.v1.json": b"{}",
+    "opennosh_api/contracts/developer-compatibility.schema.json": b"{}",
+    "opennosh_api/contracts/developer-compatibility.v1.json": b"{}",
     f"{DIST_INFO}/entry_points.txt": ENTRY_POINTS,
     f"{DIST_INFO}/licenses/AUTHORS.md": b"contributors",
     f"{DIST_INFO}/licenses/LICENSE": b"MIT",
@@ -36,6 +38,8 @@ SDIST_MEMBERS = (
     "config/database-capacity.v1.json",
     "config/publication-claims-activation.v1.json",
     "config/natural-publication-proof-activation.v1.json",
+    "schemas/developer-compatibility.schema.json",
+    "config/developer-compatibility.v1.json",
     "NOTICE.md",
     "LICENSES.md",
 )

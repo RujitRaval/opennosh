@@ -150,7 +150,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint API and performance contract
-        run: uv run ruff check api benchmarks scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
+        run: uv run ruff check api benchmarks scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 
       - name: Type-check API and performance contract
         run: |
@@ -162,6 +162,9 @@ jobs:
           PYTHONPATH=api uv run python scripts/export_openapi.py
           git diff --exit-code -- web/lib/generated/openapi.json
           python3 scripts/check_openapi_compatibility.py --previous-ref HEAD^
+
+      - name: Verify developer compatibility contract
+        run: PYTHONPATH=api:. uv run python scripts/check_developer_compatibility.py
 
       - name: Validate food packs
         run: PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json

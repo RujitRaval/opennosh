@@ -1,0 +1,292 @@
+{
+  "schema_version": "1.0",
+  "compatible_contracts": ["2.0.0", "1.0.0"],
+  "incompatible_contracts": ["0.9.0", "3.0.0"],
+  "n_minus_one_source_commit": "93d8446027ead93170ba2d9876dc41775f2ac9ad",
+  "responses": [
+    {
+      "operation_id": "capabilities_api_v1_foods_capabilities_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "barcode_lookup_enabled": false,
+        "federation_search_enabled": false
+      }
+    },
+    {
+      "operation_id": "search_api_v1_foods_search_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "2.0",
+        "items": [],
+        "limit": 25,
+        "has_more": false,
+        "next_cursor": null,
+        "snapshot_id": "11111111-1111-4111-8111-111111111111",
+        "snapshot_expires_at": "2026-09-03T03:00:00Z",
+        "release_set": null
+      }
+    },
+    {
+      "operation_id": "commons_snapshot_api_v1_public_commons_snapshot_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1",
+        "snapshot_id": "developer-unavailable-20260903",
+        "as_of": "2026-09-03T03:00:00Z",
+        "state": "unavailable",
+        "release": null,
+        "verified_record_count": null,
+        "activity": {
+          "starts_at": "2026-09-02T03:00:00Z",
+          "ends_at": "2026-09-03T03:00:00Z",
+          "accepted_count": 0,
+          "events": [],
+          "most_recent_verified_record": null
+        },
+        "freshness": {
+          "release": "unavailable",
+          "activity": "unavailable",
+          "checked_at": "2026-09-03T03:00:00Z",
+          "stale_since": null
+        },
+        "reasons": ["latest_release_unavailable"]
+      }
+    },
+    {
+      "operation_id": "latest_food_api_v1_public_foods__source___source_id__get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "record": {
+          "schema_version": "1.0",
+          "id": "community:rajma-masala",
+          "source": "community",
+          "source_id": "rajma-masala",
+          "name": "Rajma masala",
+          "name_local": null,
+          "category": "Punjabi home-style preparation",
+          "attribution": {
+            "source": "community",
+            "license": "CC0-1.0",
+            "source_uri": "https://example.org/evidence/rajma-masala",
+            "source_license": "CC BY 4.0",
+            "contributed_by": "Punjab Foods Collective",
+            "pack_id": "north-india-home-foods",
+            "pack_version": "2.4.0",
+            "provenance": "Reviewed community evidence"
+          },
+          "nutrients": {"energy_kcal": "127"},
+          "portions": [{"name": "1 katori", "grams": "180"}]
+        },
+        "release": {
+          "release_version": "0.82.1.0",
+          "published_at": "2026-09-03T02:00:00Z",
+          "state": "verified",
+          "stale_age_seconds": 0
+        },
+        "immutable_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala",
+        "provenance_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala/provenance"
+      }
+    },
+    {
+      "operation_id": "missions_api_v1_public_missions_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "state": "unavailable",
+        "reason": "disabled",
+        "missions": []
+      }
+    },
+    {
+      "operation_id": "mission_activity_api_v1_public_missions_activity_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "state": "unavailable",
+        "reason": "disabled",
+        "minimum_cohort": 10,
+        "regions": []
+      }
+    },
+    {
+      "operation_id": "exact_food_api_v1_public_releases__release_version__foods__source___source_id__get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "record": {
+          "schema_version": "1.0",
+          "id": "community:rajma-masala",
+          "source": "community",
+          "source_id": "rajma-masala",
+          "name": "Rajma masala",
+          "name_local": null,
+          "category": null,
+          "attribution": {"source": "community", "license": "CC0-1.0"},
+          "nutrients": {"energy_kcal": "127"},
+          "portions": []
+        },
+        "release": {
+          "release_version": "0.82.1.0",
+          "published_at": "2026-09-03T02:00:00Z",
+          "state": "verified",
+          "stale_age_seconds": 0
+        },
+        "immutable_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala",
+        "provenance_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala/provenance"
+      }
+    },
+    {
+      "operation_id": "exact_provenance_api_v1_public_releases__release_version__foods__source___source_id__provenance_get",
+      "media_type": "text/html",
+      "body": "<!doctype html><html lang=\"en\"><title>OpenNosh provenance</title></html>"
+    },
+    {
+      "operation_id": "exact_manifest_api_v1_public_releases__release_version__manifest_get",
+      "media_type": "application/vnd.opennosh.release+json",
+      "body": {
+        "schema_version": "1",
+        "key_id": "publication-1",
+        "payload": {"release_version": "0.82.1.0"},
+        "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    {
+      "operation_id": "exact_pack_download_api_v1_public_releases__release_version__packs__pack_id___pack_version__download_get",
+      "media_type": "application/zip",
+      "body": "PK-compatible-binary-fixture"
+    }
+  ],
+  "n_minus_one_responses": [
+    {
+      "operation_id": "capabilities_api_v1_foods_capabilities_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "barcode_lookup_enabled": false
+      }
+    },
+    {
+      "operation_id": "search_api_v1_foods_search_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "items": [
+          {
+            "id": "community:beans",
+            "source": "community",
+            "source_id": "beans",
+            "name": "Black beans",
+            "name_local": null,
+            "category": null,
+            "attribution": {
+              "source": "community",
+              "license": "CC0-1.0",
+              "source_uri": "https://opennosh.org/packs/starter",
+              "source_license": null,
+              "contributed_by": null,
+              "pack_id": "starter-foods",
+              "pack_version": "2.4.0",
+              "provenance": "Community reviewed"
+            }
+          }
+        ],
+        "limit": 12,
+        "offset": 0,
+        "has_more": false
+      }
+    }
+  ],
+  "problems": [
+    {
+      "name": "rfc9457_failure",
+      "body": {
+        "schema_version": "1.0",
+        "type": "https://opennosh.org/problems/resource-not-found",
+        "title": "Resource not found",
+        "status": 404,
+        "detail": "The requested public resource does not exist.",
+        "code": "resource_not_found",
+        "request_id": "22222222-2222-4222-8222-222222222222",
+        "retry_after": null,
+        "field_errors": null,
+        "recovery_actions": null,
+        "latest_state": null
+      }
+    },
+    {
+      "name": "rate_limited",
+      "body": {
+        "schema_version": "1.0",
+        "type": "https://opennosh.org/problems/rate-limited",
+        "title": "Rate limited",
+        "status": 429,
+        "detail": "Retry after the declared delay.",
+        "code": "rate_limited",
+        "request_id": "33333333-3333-4333-8333-333333333333",
+        "retry_after": 60,
+        "field_errors": null,
+        "recovery_actions": null,
+        "latest_state": null
+      }
+    }
+  ],
+  "proof_states": [
+    {
+      "name": "stale_verified",
+      "operation_id": "exact_food_api_v1_public_releases__release_version__foods__source___source_id__get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "record": {
+          "schema_version": "1.0",
+          "id": "community:rajma-masala",
+          "source": "community",
+          "source_id": "rajma-masala",
+          "name": "Rajma masala",
+          "name_local": null,
+          "category": null,
+          "attribution": {"source": "community", "license": "CC0-1.0"},
+          "nutrients": {},
+          "portions": []
+        },
+        "release": {
+          "release_version": "0.82.1.0",
+          "published_at": "2026-09-03T02:00:00Z",
+          "state": "stale",
+          "stale_age_seconds": 3600
+        },
+        "immutable_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala",
+        "provenance_url": "/api/v1/public/releases/0.82.1.0/foods/community/rajma-masala/provenance"
+      }
+    },
+    {
+      "name": "unavailable_proof",
+      "operation_id": "commons_snapshot_api_v1_public_commons_snapshot_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1",
+        "snapshot_id": "developer-proof-unavailable-20260903",
+        "as_of": "2026-09-03T03:00:00Z",
+        "state": "unavailable",
+        "release": null,
+        "verified_record_count": null,
+        "activity": {
+          "starts_at": "2026-09-02T03:00:00Z",
+          "ends_at": "2026-09-03T03:00:00Z",
+          "accepted_count": 0,
+          "events": [],
+          "most_recent_verified_record": null
+        },
+        "freshness": {
+          "release": "unavailable",
+          "activity": "unavailable",
+          "checked_at": "2026-09-03T03:00:00Z",
+          "stale_since": null
+        },
+        "reasons": ["latest_release_unavailable"]
+      }
+    }
+  ]
+}
