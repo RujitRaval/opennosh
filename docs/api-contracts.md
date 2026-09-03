@@ -51,9 +51,10 @@ SDK. Its canonical SHA-256 excludes only the digest field itself. The matching J
 The initial preview pins OpenAPI 2.x plus the retained 1.x compatibility family, the npm three-part
 version, Python/CLI four-part artifact versions, MCP/embed protocol 1.0.0, nullable deprecation
 dates, ten anonymous developer operations, exact response byte limits, and
-the no-credentials/no-redirect/no-retry endpoint policy. MCP and embed discovery remain explicitly
-disabled. A new public GET operation under `/api/v1/public/`, or a change to either developer food
-operation, cannot land until it appears in this reviewed manifest and the generated SDK.
+the no-credentials/no-redirect/no-retry endpoint policy. MCP is an installable preview while MCP
+and embed discovery remain explicitly disabled. A new public GET operation under
+`/api/v1/public/`, or a change to either developer food operation, cannot land until it appears in
+this reviewed manifest and the generated SDK.
 
 `tests/fixtures/developer-compatibility.v1.json` exercises all ten current response shapes plus the
 retained food reads against a digest- and commit-pinned OpenAPI 1.0.0 snapshot, along with RFC 9457,
@@ -80,8 +81,17 @@ key-sorted with one newline. Exit `0` is success, `2` is invalid input or local 
 `opennosh packs validate` accepts a bounded local normalized JSON document or a bounded source ZIP,
 rejects traversal, links, encryption, duplicate names, unsupported compression, oversized members,
 and unexpected paths, and invokes the canonical food-pack validator without extracting the ZIP.
-These SDK and CLI surfaces remain preview; they do not activate MCP, embeds, federation discovery,
+These SDK and CLI surfaces remain preview; they do not activate embeds, federation discovery,
 missions, or production claims.
+
+The wheel's `opennosh-mcp` entrypoint serves MCP over stdio and delegates every remote read to
+`AsyncOpenNoshClient`. Its endpoint is selected once at startup using the same hosted/self-hosted
+origin policy. The allowlist contains five proof-preserving public reads and one local in-memory
+pack validator; it contains no write, operator, credential, URL-selection, filesystem, or shell
+tool. Every tool returns one `schema_version: "1.0"` object whose `state` distinguishes verified,
+stale verified, unavailable, valid, and invalid outcomes. A typed `problem` appears only when one
+exists. The process logs method, status, latency, and counts but never arguments or response bodies.
+MCP artifact status is preview at protocol 1.0.0, while discovery remains disabled.
 
 Run the gate with:
 

@@ -157,7 +157,7 @@ describe("same-origin API proxy", () => {
     const request = new NextRequest("http://localhost:3000/api/v1/foods/capabilities", {
       headers: {
         Cookie: "opennosh_session=must-not-cross-sdk-boundary",
-        "X-OpenNosh-Client": "js/0.85.0",
+        "X-OpenNosh-Client": "js/0.86.0",
       },
     });
 
@@ -167,7 +167,7 @@ describe("same-origin API proxy", () => {
 
     const upstreamRequest = new Headers(fetchMock.mock.calls[0][1]?.headers);
     expect(upstreamRequest.get("cookie")).toBeNull();
-    expect(upstreamRequest.get("x-opennosh-client")).toBe("js/0.85.0");
+    expect(upstreamRequest.get("x-opennosh-client")).toBe("js/0.86.0");
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
   });
 

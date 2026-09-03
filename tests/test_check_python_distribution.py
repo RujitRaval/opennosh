@@ -12,7 +12,7 @@ from scripts.check_python_distribution import (
     validate_distribution,
 )
 
-VERSION = "1.2.3.4"
+VERSION = "301.2.3.4"
 DIST_INFO = f"opennosh-{VERSION}.dist-info"
 ENTRY_POINTS = (
     "[console_scripts]\n"
@@ -30,7 +30,9 @@ WHEEL_MEMBERS = {
     f"{DIST_INFO}/licenses/LICENSE": b"MIT",
     f"{DIST_INFO}/licenses/LICENSES.md": b"licenses",
     f"{DIST_INFO}/licenses/NOTICE.md": b"notices",
-    f"{DIST_INFO}/METADATA": b"Name: opennosh\nVersion: 1.2.3.4\n",
+    f"{DIST_INFO}/METADATA": (
+        b"Name: opennosh\nVersion: 301.2.3.4\nRequires-Dist: mcp<3,>=2\n"
+    ),
 }
 SDIST_MEMBERS = (
     "VERSION",
