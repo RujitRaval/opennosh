@@ -12,7 +12,7 @@ install:
 	npm --prefix web ci
 
 lint:
-	uv run ruff check api benchmarks deploy/render_runtime.py scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_render_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
+	uv run ruff check api benchmarks deploy/render_runtime.py scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_developer_starters.py scripts/check_developer_trials.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_developer_trials.py tests/test_render_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 	sh -n deploy/render_web_start.sh
 	npm --prefix web run lint
 
@@ -23,6 +23,7 @@ typecheck:
 	npm --prefix web run typecheck
 
 test: contracts-check developer-compatibility-check foodpack-validate benchmark-contract-check database-capacity-check forge-policy-check trust-gates-check design-system-check
+	PYTHONPATH=api:. uv run python scripts/check_developer_trials.py
 	PYTHONPATH=api:. uv run pytest
 	PYTHONPATH=api:. uv run python -m unittest discover -s tests -v
 	python3 scripts/check_docs.py
@@ -35,7 +36,8 @@ package-check:
 	uv run python scripts/check_installed_python_distribution.py dist/opennosh-$$(cat VERSION)-py3-none-any.whl
 	npm --prefix packages/npm ci --ignore-scripts
 	npm --prefix packages/npm test
-	cd packages/npm && npm pack --dry-run
+	cd packages/npm && npm pack --pack-destination ../../dist
+	NPM_PACKAGE_VERSION=$$(cut -d. -f1-3 VERSION); uv run python scripts/check_developer_starters.py --npm-tarball "dist/opennosh-$${NPM_PACKAGE_VERSION}.tgz" --wheel "dist/opennosh-$$(cat VERSION)-py3-none-any.whl"
 
 contracts-generate:
 	PYTHONPATH=api uv run python scripts/export_openapi.py

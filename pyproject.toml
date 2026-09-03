@@ -85,6 +85,7 @@ packages = ["api/opennosh_api"]
 "config/publication-claims-activation.v1.json" = "opennosh_api/publication-claims-activation.v1.json"
 "config/natural-publication-proof-activation.v1.json" = "opennosh_api/natural-publication-proof-activation.v1.json"
 "schemas/developer-compatibility.schema.json" = "opennosh_api/contracts/developer-compatibility.schema.json"
+"schemas/developer-integration-trial.schema.json" = "opennosh_api/contracts/developer-integration-trial.schema.json"
 "config/developer-compatibility.v1.json" = "opennosh_api/contracts/developer-compatibility.v1.json"
 
 [tool.hatch.build.targets.sdist]
@@ -96,6 +97,7 @@ include = [
   "config/publication-claims-activation.v1.json",
   "config/natural-publication-proof-activation.v1.json",
   "schemas/developer-compatibility.schema.json",
+  "schemas/developer-integration-trial.schema.json",
   "config/developer-compatibility.v1.json",
   "AUTHORS.md",
   "LICENSE",

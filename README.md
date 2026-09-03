@@ -170,9 +170,9 @@ Use the matching command-line reads against hosted opennosh or an explicit self-
 opennosh public capabilities --json
 opennosh public search rajma --locale en-IN
 opennosh public food community rajma-masala
-opennosh public manifest 0.87.0.0 --target https://nosh.example --json
-opennosh public provenance 0.87.0.0 community rajma-masala
-opennosh public download-pack 0.87.0.0 indian-staples-north 1.0.0 --output pack.zip
+opennosh public manifest 0.88.0.0 --target https://nosh.example --json
+opennosh public provenance 0.88.0.0 community rajma-masala
+opennosh public download-pack 0.88.0.0 indian-staples-north 1.0.0 --output pack.zip
 opennosh packs validate pack.zip --json
 ```
 
@@ -216,6 +216,17 @@ The optional resize message uses the versioned
 only when `event.source` is the iframe window and `event.origin` is the exact opennosh origin. See
 [the embed operations guide](docs/operations/embeds.md) for exact-release provenance URLs, the
 receiver example, security headers, verification states, and rollback.
+
+Minimal [JavaScript](examples/javascript-public-read) and
+[Python](examples/python-public-read) starters demonstrate the same search → verified detail →
+attribution journey against hosted or self-hosted origins. Release gates install the packed npm and
+wheel artifacts into empty directories before running either starter, preventing source-checkout
+imports from masquerading as package success.
+
+External integration evidence belongs under
+[developer trial evidence](docs/evidence/developer-trials). Reports are privacy-minimized and
+schema-validated; two distinct independent operator logins are required before the compatibility
+manifest can claim stability. No external report has been accepted yet.
 
 This developer kit is preview software. MCP and embed discovery remain disabled, and the project
 does not claim general availability or external adoption before the separately reviewed trial gate.
