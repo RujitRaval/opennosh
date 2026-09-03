@@ -141,6 +141,21 @@ class DeveloperCompatibilityTests(unittest.TestCase):
             )
             self.assertTrue(any("manifest schema" in issue for issue in validate_repository(root)))
 
+    def test_embed_preview_cannot_enable_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_contract(root)
+            mutate_manifest(
+                root,
+                lambda payload: payload["clients"]["embed"].update(
+                    discovery_enabled=True, status="preview"
+                ),
+            )
+            self.assertIn(
+                "clients.embed must be preview at protocol 1.0.0 with discovery disabled",
+                validate_repository(root),
+            )
+
     def test_openapi_version_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

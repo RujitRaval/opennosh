@@ -219,6 +219,14 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
         "key": "PUBLIC_ARTIFACT_READS_ENABLED",
         "value": "false",
     }
+    assert web_variables["OPENNOSH_EMBED_DISCOVERY_ENABLED"] == {
+        "key": "OPENNOSH_EMBED_DISCOVERY_ENABLED",
+        "value": "false",
+    }
+    assert web_variables["OPENNOSH_EMBED_FRAME_ANCESTORS"] == {
+        "key": "OPENNOSH_EMBED_FRAME_ANCESTORS",
+        "value": "https:",
+    }
     assert api_variables["FEDERATION_SEARCH_ENABLED"] == {
         "key": "FEDERATION_SEARCH_ENABLED",
         "value": "false",

@@ -170,9 +170,9 @@ Use the matching command-line reads against hosted opennosh or an explicit self-
 opennosh public capabilities --json
 opennosh public search rajma --locale en-IN
 opennosh public food community rajma-masala
-opennosh public manifest 0.86.0.0 --target https://nosh.example --json
-opennosh public provenance 0.86.0.0 community rajma-masala
-opennosh public download-pack 0.86.0.0 indian-staples-north 1.0.0 --output pack.zip
+opennosh public manifest 0.87.0.0 --target https://nosh.example --json
+opennosh public provenance 0.87.0.0 community rajma-masala
+opennosh public download-pack 0.87.0.0 indian-staples-north 1.0.0 --output pack.zip
 opennosh packs validate pack.zip --json
 ```
 
@@ -197,6 +197,25 @@ It exposes exactly `search_foods`, `get_public_food`, `get_public_missions`,
 startup; tool calls cannot provide a URL or credentials. `validate_pack` accepts one JSON object of
 at most 1 MiB and never reads a path. See [the MCP operations guide](docs/operations/mcp.md) for
 client configuration, result states, and rollback.
+
+### Tracking-free embeds (preview)
+
+Embed a proof-bearing public food card without a loader or custom element:
+
+```html
+<iframe
+  title="opennosh food: Rajma masala"
+  src="https://opennosh.org/embed/v1/foods/community/rajma-masala"
+  sandbox="allow-scripts allow-same-origin allow-popups"
+  style="width:100%;height:320px;border:0"
+></iframe>
+```
+
+The optional resize message uses the versioned
+`{schema_version: "1.0", type: "opennosh.embed.resize", height}` contract. Receivers must accept it
+only when `event.source` is the iframe window and `event.origin` is the exact opennosh origin. See
+[the embed operations guide](docs/operations/embeds.md) for exact-release provenance URLs, the
+receiver example, security headers, verification states, and rollback.
 
 This developer kit is preview software. MCP and embed discovery remain disabled, and the project
 does not claim general availability or external adoption before the separately reviewed trial gate.

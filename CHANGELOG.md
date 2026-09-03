@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.87.0.0] - 2026-09-03
+
+### Added
+
+- Add tracking-free food and exact-release provenance embeds with visible source, license,
+  attribution, release, verification state, and direct provenance on every rendered card.
+- Add the versioned, origin-targeted resize message contract plus responsive, keyboard-accessible,
+  reduced-motion browser coverage from 280 through 1,200 pixels.
+
+### Changed
+
+- Promote the embed 1.0 contract to preview while keeping production embed discovery disabled.
+
+### Security
+
+- Fail closed unless the public API supplies verified or stale verified publication proof, and
+  refuse redirects, oversized bodies, unsafe proof links, malformed routes, and CSP injection.
+- Ship embed pages without cookies, storage, analytics, beacons, ambient credentials, third-party
+  requests, or permissive document capabilities; framing is the sole configured CSP exception.
+
 ## [0.86.0.0] - 2026-09-03
 
 ### Added
