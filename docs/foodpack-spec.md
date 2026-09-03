@@ -119,6 +119,17 @@ Contributor files remain YAML for quick editing. The loader combines `pack.yaml`
 make foodpack-validate
 ```
 
+An installed distribution can validate one normalized JSON document or one source ZIP without
+installing or extracting the pack:
+
+```bash
+opennosh packs validate path/to/pack.zip --json
+```
+
+The single-pack command applies bounded input and archive checks before invoking the same canonical
+validator. Repository contributors should continue to use `make foodpack-validate` for the complete
+directory and cross-pack checks.
+
 The command exits non-zero only for blocking errors and can emit a stable JSON report for CI and
 other tools. Runtime code calls `validate_pack_document` or `validate_pack_directories` from
 `opennosh_api.foodpacks.validation`; those are the same functions used by the command. Possible

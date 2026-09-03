@@ -40,10 +40,12 @@ package-check:
 contracts-generate:
 	PYTHONPATH=api uv run python scripts/export_openapi.py
 	npm --prefix web run generate:api-contracts
+	uv run python scripts/generate_python_sdk_contracts.py
+	uv run ruff format api/opennosh_api/sdk/_generated.py
 
 contracts-check:
 	$(MAKE) contracts-generate
-	git diff --exit-code -- web/lib/generated
+	git diff --exit-code -- web/lib/generated api/opennosh_api/sdk/_generated.py
 	python3 scripts/check_generated_imports.py
 	python3 scripts/check_openapi_compatibility.py
 

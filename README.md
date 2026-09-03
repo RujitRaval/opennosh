@@ -146,6 +146,48 @@ PostgreSQL projection. Once artifacts are verified, installed-pack search is loc
 depend on a hosted federation service. Production keeps both `FEDERATION_INSTALLATION_ENABLED` and
 `FEDERATION_PUBLIC_DISCOVERY_ENABLED` false pending separate activation review.
 
+### Python SDK and public CLI (preview)
+
+The installed `opennosh` wheel includes synchronous and asynchronous read clients for the ten
+anonymous developer operations. They preserve current and retained N-1 Pydantic public contracts,
+release identity, verification and staleness headers, attribution, provenance, cache validators,
+and typed problem details:
+
+```python
+from opennosh_api.sdk import AsyncOpenNoshClient, OpenNoshClient
+
+client = OpenNoshClient("hosted")
+results = client.search_foods("rajma", locale="en-IN", limit=10)
+food = client.get_public_food("community", results.data.items[0].source_id)
+
+async_client = AsyncOpenNoshClient("https://nosh.example")
+missions = await async_client.list_missions(limit=20)
+```
+
+Use the matching command-line reads against hosted opennosh or an explicit self-hosted origin:
+
+```shell
+opennosh public capabilities --json
+opennosh public search rajma --locale en-IN
+opennosh public food community rajma-masala
+opennosh public manifest 0.85.0.0 --target https://nosh.example --json
+opennosh public provenance 0.85.0.0 community rajma-masala
+opennosh public download-pack 0.85.0.0 indian-staples-north 1.0.0 --output pack.zip
+opennosh packs validate pack.zip --json
+```
+
+`--target` takes precedence over `OPENNOSH_TARGET`, which takes precedence over `hosted`
+(`https://opennosh.org`). Targets must be origin-only HTTPS URLs; plaintext HTTP is accepted only
+for exact loopback hosts. The clients send no bearer token, cookie, telemetry, or automatic retry,
+and refuse redirects. Public reads and local validation never install a pack. The existing governed
+`opennosh federation install-pack`, `update-pack`, and `installation-status` commands remain the
+only self-hosted installation mutations, and their production feature flags remain disabled.
+The synchronous client runs the cancellable async transport core and must not be called from an
+already active event loop; use `AsyncOpenNoshClient` in async applications.
+
+This developer kit is preview software. MCP and embed discovery remain disabled, and the project
+does not claim general availability or external adoption before the separately reviewed trial gate.
+
 Raw queries must contain 2–100 characters; after whitespace normalization they must still contain
 at least two characters and a letter or number. A request returns at most 50 rows. When another
 page exists, the response includes an opaque `next_cursor`; send it back with the same query,

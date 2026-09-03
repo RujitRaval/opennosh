@@ -62,6 +62,16 @@ class FoodSearchResponse(BaseModel):
     release_set: FoodSearchReleaseSet | None = None
 
 
+class FoodSearchResponseV1(BaseModel):
+    """Retained OpenAPI 1.x search envelope for N-1 SDK compatibility."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    items: list[FoodSearchItem]
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+    has_more: bool
+
+
 class FoodDetail(FoodSearchItem):
     schema_version: Literal["1.0"] = "1.0"
     nutrients: dict[str, Any]

@@ -63,6 +63,26 @@ path schemas, response media types, problem contracts, and transport types stay 
 the handwritten wrapper owns target validation, redirect refusal, credentials, response limits,
 deadlines, cancellation, cache validators, and typed failures.
 
+The Python wheel exposes the matching preview contract from `opennosh_api.sdk`. Both
+`OpenNoshClient` and `AsyncOpenNoshClient` reuse the API's Pydantic public response models and cover
+the same ten anonymous reads. The retained `FoodSearchResponseV1` model accepts the pinned OpenAPI
+1.x search envelope without weakening the current 2.x model. Response wrappers also retain release
+version, verified/stale state, stale age, and warning headers for HTML and ZIP reads where those
+facts are not carried in the body. Python sends the versioned SDK identifier header, never reads ambient
+proxy or credential state, refuses redirects, performs no automatic retry, and maps RFC 9457 or
+transport failures to `OpenNoshProblem`. The generated Python operation-policy module is checked
+against the same compatibility manifest and OpenAPI snapshot as the JavaScript SDK.
+
+The application CLI wraps only that supported SDK for `opennosh public ...` reads. Its target
+precedence is `--target`, then `OPENNOSH_TARGET`, then `hosted`; JSON output is compact and
+key-sorted with one newline. Exit `0` is success, `2` is invalid input or local pack validation,
+`3` is a public proof/compatibility failure, and `4` is a network, rate-limit, or upstream failure.
+`opennosh packs validate` accepts a bounded local normalized JSON document or a bounded source ZIP,
+rejects traversal, links, encryption, duplicate names, unsupported compression, oversized members,
+and unexpected paths, and invokes the canonical food-pack validator without extracting the ZIP.
+These SDK and CLI surfaces remain preview; they do not activate MCP, embeds, federation discovery,
+missions, or production claims.
+
 Run the gate with:
 
 ```sh

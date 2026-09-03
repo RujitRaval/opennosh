@@ -32,6 +32,7 @@ def copy_contract(root: Path) -> None:
         "packages/npm/src/generated-types.d.ts",
         "packages/npm/src/generated-problem-contract.js",
         "packages/npm/src/generated-operation-policy.js",
+        "api/opennosh_api/sdk/_generated.py",
         COMPATIBILITY_FIXTURES_PATH,
         OPENAPI_N_MINUS_ONE_PATH,
     ):
@@ -271,6 +272,33 @@ class DeveloperCompatibilityTests(unittest.TestCase):
             path.write_text(path.read_text(encoding="utf-8").replace("24576", "24577"))
 
             self.assertIn("npm generated operation policy is stale", validate_repository(root))
+
+    def test_python_operation_policy_must_match_the_compatibility_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_contract(root)
+            path = root / "api/opennosh_api/sdk/_generated.py"
+            path.write_text(path.read_text(encoding="utf-8").replace("24576", "24577"))
+
+            self.assertIn("Python generated operation policy is stale", validate_repository(root))
+
+    def test_missing_and_malformed_python_operation_policy_are_reported(self) -> None:
+        for replacement, expected in (
+            (None, "Python generated operation policy is missing"),
+            ("not valid Python\n", "Python generated operation policy is stale"),
+        ):
+            with (
+                self.subTest(replacement=replacement),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                copy_contract(root)
+                path = root / "api/opennosh_api/sdk/_generated.py"
+                if replacement is None:
+                    path.unlink()
+                else:
+                    path.write_text(replacement, encoding="utf-8")
+                self.assertIn(expected, validate_repository(root))
 
     def test_missing_and_malformed_npm_generated_contracts_are_reported(self) -> None:
         cases = (

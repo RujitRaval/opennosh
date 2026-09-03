@@ -252,6 +252,20 @@ def parse_pack_manifest(content: str) -> dict[str, object]:
     return value
 
 
+def parse_pack_foods(content: str) -> list[object]:
+    """Parse one bounded food-entry file with the canonical strict YAML loader."""
+
+    if len(content.encode("utf-8")) > MAX_YAML_FILE_BYTES:
+        raise ValueError("food-entry file exceeds the bounded YAML size")
+    try:
+        value = yaml.load(content, Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as error:
+        raise ValueError("food-entry file is invalid YAML") from error
+    if not isinstance(value, list):
+        raise ValueError("food-entry file must contain one list")
+    return value
+
+
 def load_pack_directory(directory: str | Path) -> LoadedFoodPack:
     """Load pack.yaml and every foods/*.yaml file into the schema's normalized shape."""
     pack_directory = Path(directory).resolve()
