@@ -1,0 +1,160 @@
+{
+  "$schema": "../schemas/developer-compatibility.schema.json",
+  "schema_version": "1.0",
+  "status": "preview",
+  "release_version": "0.82.1.0",
+  "public_origin": "https://opennosh.org",
+  "compatibility_sha256": "0f4574a60bee0b8d331f376dc045afb37ca7bb38eecb91117d0aed1cff4e9d47",
+  "openapi": {
+    "current": "2.0.0",
+    "supported": [
+      {
+        "major": 2,
+        "minimum": "2.0.0",
+        "deprecation_date": null
+      },
+      {
+        "major": 1,
+        "minimum": "1.0.0",
+        "deprecation_date": null
+      }
+    ]
+  },
+  "clients": {
+    "javascript": {
+      "package": "opennosh",
+      "current": "0.82.1",
+      "previous": null,
+      "contract_major": 2,
+      "status": "preview",
+      "deprecation_date": null
+    },
+    "python": {
+      "package": "opennosh",
+      "current": "0.82.1.0",
+      "previous": null,
+      "contract_major": 2,
+      "status": "preview",
+      "deprecation_date": null
+    },
+    "cli": {
+      "package": "opennosh",
+      "current": "0.82.1.0",
+      "previous": null,
+      "contract_major": 2,
+      "status": "preview",
+      "deprecation_date": null
+    },
+    "mcp": {
+      "current": "1.0.0",
+      "previous": null,
+      "contract_major": 1,
+      "status": "disabled",
+      "discovery_enabled": false,
+      "deprecation_date": null
+    },
+    "embed": {
+      "current": "1.0.0",
+      "previous": null,
+      "contract_major": 1,
+      "status": "disabled",
+      "discovery_enabled": false,
+      "deprecation_date": null
+    }
+  },
+  "endpoint_policy": {
+    "hosted_alias": "hosted",
+    "hosted_origin": "https://opennosh.org",
+    "https_required": true,
+    "http_loopback_hosts": [
+      "localhost",
+      "127.0.0.1",
+      "[::1]"
+    ],
+    "origin_only": true,
+    "redirects": "refuse",
+    "json_timeout_seconds": 10,
+    "download_timeout_seconds": 30,
+    "automatic_retries": 0,
+    "credentials": "omit",
+    "retry_after_min_seconds": 1,
+    "retry_after_max_seconds": 86400
+  },
+  "package_provenance": {
+    "repository": "https://github.com/RujitRaval/opennosh",
+    "release_workflow": ".github/workflows/publish-packages.yml",
+    "immutable_artifacts": true
+  },
+  "public_operations": [
+    {
+      "operation_id": "capabilities_api_v1_foods_capabilities_get",
+      "method": "GET",
+      "path": "/api/v1/foods/capabilities",
+      "media_type": "application/json",
+      "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "search_api_v1_foods_search_get",
+      "method": "GET",
+      "path": "/api/v1/foods/search",
+      "media_type": "application/json",
+      "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "commons_snapshot_api_v1_public_commons_snapshot_get",
+      "method": "GET",
+      "path": "/api/v1/public/commons-snapshot",
+      "media_type": "application/json",
+      "max_response_bytes": 24576
+    },
+    {
+      "operation_id": "latest_food_api_v1_public_foods__source___source_id__get",
+      "method": "GET",
+      "path": "/api/v1/public/foods/{source}/{source_id}",
+      "media_type": "application/json",
+      "max_response_bytes": 524288
+    },
+    {
+      "operation_id": "missions_api_v1_public_missions_get",
+      "method": "GET",
+      "path": "/api/v1/public/missions",
+      "media_type": "application/json",
+      "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "mission_activity_api_v1_public_missions_activity_get",
+      "method": "GET",
+      "path": "/api/v1/public/missions/activity",
+      "media_type": "application/json",
+      "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "exact_food_api_v1_public_releases__release_version__foods__source___source_id__get",
+      "method": "GET",
+      "path": "/api/v1/public/releases/{release_version}/foods/{source}/{source_id}",
+      "media_type": "application/json",
+      "max_response_bytes": 524288
+    },
+    {
+      "operation_id": "exact_provenance_api_v1_public_releases__release_version__foods__source___source_id__provenance_get",
+      "method": "GET",
+      "path": "/api/v1/public/releases/{release_version}/foods/{source}/{source_id}/provenance",
+      "media_type": "text/html",
+      "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "exact_manifest_api_v1_public_releases__release_version__manifest_get",
+      "method": "GET",
+      "path": "/api/v1/public/releases/{release_version}/manifest",
+      "media_type": "application/vnd.opennosh.release+json",
+      "max_response_bytes": 8388608
+    },
+    {
+      "operation_id": "exact_pack_download_api_v1_public_releases__release_version__packs__pack_id___pack_version__download_get",
+      "method": "GET",
+      "path": "/api/v1/public/releases/{release_version}/packs/{pack_id}/{pack_version}/download",
+      "media_type": "application/zip",
+      "max_response_bytes": 67108864
+    }
+  ]
+}

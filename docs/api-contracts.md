@@ -41,6 +41,39 @@ make contracts-check
 CI rejects dirty regeneration, generated imports outside the transport boundary, and breaking
 changes without an OpenAPI contract major-version increase.
 
+## Developer compatibility manifest
+
+`config/developer-compatibility.v1.json` is the machine-readable distribution boundary for the
+hosted origin, self-hosted origins, generated clients, and every operation that may enter a public
+SDK. Its canonical SHA-256 excludes only the digest field itself. The matching JSON Schema lives at
+`schemas/developer-compatibility.schema.json`.
+
+The initial preview pins OpenAPI 2.x plus the retained 1.x compatibility family, the npm three-part
+version, Python/CLI four-part artifact versions, MCP/embed protocol 1.0.0, nullable deprecation
+dates, ten anonymous developer operations, exact response byte limits, and
+the no-credentials/no-redirect/no-retry endpoint policy. MCP and embed discovery remain explicitly
+disabled. A new public GET operation under `/api/v1/public/`, or a change to either developer food
+operation, cannot land until it appears in this reviewed manifest and the generated SDK.
+
+`tests/fixtures/developer-compatibility.v1.json` exercises all ten current response shapes plus the
+retained food reads against a digest- and commit-pinned OpenAPI 1.0.0 snapshot, along with RFC 9457,
+rate-limit, stale verified, unavailable-proof, and incompatible-version cases. The generated fetch
+client remains an internal,
+low-level transport artifact in this slice; it is not a policy-compliant public SDK export. The
+handwritten JavaScript SDK wrapper owns redirect refusal, endpoint validation, credentials, limits,
+and deadlines in the next slice.
+
+Run the gate with:
+
+```sh
+make developer-compatibility-check
+```
+
+After an intentional manifest edit, refresh its digest once with
+`python scripts/check_developer_compatibility.py --write-digest`, inspect the diff, and run the gate
+again without `--write-digest`. A compatibility manifest is evidence, not an activation: package,
+MCP, and embed promotion still require their own reviewed release and production approval.
+
 ## Compatibility fixtures
 
 Golden fixtures under `web/tests/fixtures/contracts` cover the current and N-1 food-search

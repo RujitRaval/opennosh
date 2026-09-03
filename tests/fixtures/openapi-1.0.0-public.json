@@ -1,0 +1,90 @@
+{
+  "info": {"x-opennosh-contract-version": "1.0.0"},
+  "paths": {
+    "/api/v1/foods/capabilities": {
+      "get": {
+        "operationId": "capabilities_api_v1_foods_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/FoodCapabilities"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/foods/search": {
+      "get": {
+        "operationId": "search_api_v1_foods_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/FoodSearchResponse"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FoodCapabilities": {
+        "type": "object",
+        "required": ["barcode_lookup_enabled"],
+        "properties": {
+          "barcode_lookup_enabled": {"type": "boolean"},
+          "schema_version": {"const": "1.0", "default": "1.0", "type": "string"}
+        }
+      },
+      "FoodSearchResponse": {
+        "type": "object",
+        "required": ["items", "limit", "offset", "has_more"],
+        "properties": {
+          "schema_version": {"const": "1.0", "default": "1.0", "type": "string"},
+          "items": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/FoodSearchItem"}
+          },
+          "limit": {"type": "integer", "minimum": 1},
+          "offset": {"type": "integer", "minimum": 0},
+          "has_more": {"type": "boolean"}
+        }
+      },
+      "FoodSearchItem": {
+        "type": "object",
+        "required": ["id", "source", "source_id", "name", "attribution"],
+        "properties": {
+          "id": {"type": "string"},
+          "source": {"$ref": "#/components/schemas/FoodSource"},
+          "source_id": {"type": "string"},
+          "name": {"type": "string"},
+          "name_local": {"type": ["string", "null"]},
+          "category": {"type": ["string", "null"]},
+          "attribution": {"$ref": "#/components/schemas/FoodAttribution"}
+        }
+      },
+      "FoodAttribution": {
+        "type": "object",
+        "required": ["source", "license"],
+        "properties": {
+          "source": {"$ref": "#/components/schemas/FoodSource"},
+          "license": {"type": "string"},
+          "source_uri": {"type": ["string", "null"]},
+          "source_license": {"type": ["string", "null"]},
+          "contributed_by": {"type": ["string", "null"]},
+          "pack_id": {"type": ["string", "null"]},
+          "pack_version": {"type": ["string", "null"]},
+          "provenance": {"type": ["string", "null"]}
+        }
+      },
+      "FoodSource": {
+        "type": "string",
+        "enum": ["usda", "community"]
+      }
+    }
+  }
+}

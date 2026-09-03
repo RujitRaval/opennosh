@@ -6,5 +6,12 @@ export default defineConfig({
     path: "./lib/generated/client",
     postProcess: [],
   },
-  plugins: ["@hey-api/typescript"],
+  plugins: [
+    {
+      name: "@hey-api/client-fetch",
+      bundle: true,
+    },
+    "@hey-api/typescript",
+    "@hey-api/sdk",
+  ],
 });

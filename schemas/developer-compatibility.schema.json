@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/developer-compatibility.schema.json",
+  "title": "OpenNosh developer compatibility manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "status",
+    "release_version",
+    "public_origin",
+    "compatibility_sha256",
+    "openapi",
+    "clients",
+    "endpoint_policy",
+    "package_provenance",
+    "public_operations"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/developer-compatibility.schema.json"},
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["preview", "stable", "retired"]},
+    "release_version": {"$ref": "#/$defs/repositoryVersion"},
+    "public_origin": {"const": "https://opennosh.org"},
+    "compatibility_sha256": {"$ref": "#/$defs/sha256"},
+    "openapi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "supported"],
+      "properties": {
+        "current": {"$ref": "#/$defs/semver"},
+        "supported": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["major", "minimum", "deprecation_date"],
+            "properties": {
+              "major": {"type": "integer", "minimum": 0},
+              "minimum": {"$ref": "#/$defs/semver"},
+              "deprecation_date": {"$ref": "#/$defs/nullableDate"}
+            }
+          }
+        }
+      }
+    },
+    "clients": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["javascript", "python", "cli", "mcp", "embed"],
+      "properties": {
+        "javascript": {"$ref": "#/$defs/packageClient"},
+        "python": {"$ref": "#/$defs/packageClient"},
+        "cli": {"$ref": "#/$defs/packageClient"},
+        "mcp": {"$ref": "#/$defs/discoveryClient"},
+        "embed": {"$ref": "#/$defs/discoveryClient"}
+      }
+    },
+    "endpoint_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hosted_alias",
+        "hosted_origin",
+        "https_required",
+        "http_loopback_hosts",
+        "origin_only",
+        "redirects",
+        "json_timeout_seconds",
+        "download_timeout_seconds",
+        "automatic_retries",
+        "credentials",
+        "retry_after_min_seconds",
+        "retry_after_max_seconds"
+      ],
+      "properties": {
+        "hosted_alias": {"const": "hosted"},
+        "hosted_origin": {"const": "https://opennosh.org"},
+        "https_required": {"const": true},
+        "http_loopback_hosts": {
+          "const": ["localhost", "127.0.0.1", "[::1]"]
+        },
+        "origin_only": {"const": true},
+        "redirects": {"const": "refuse"},
+        "json_timeout_seconds": {"const": 10},
+        "download_timeout_seconds": {"const": 30},
+        "automatic_retries": {"const": 0},
+        "credentials": {"const": "omit"},
+        "retry_after_min_seconds": {"const": 1},
+        "retry_after_max_seconds": {"const": 86400}
+      }
+    },
+    "package_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "release_workflow", "immutable_artifacts"],
+      "properties": {
+        "repository": {"const": "https://github.com/RujitRaval/opennosh"},
+        "release_workflow": {"const": ".github/workflows/publish-packages.yml"},
+        "immutable_artifacts": {"const": true}
+      }
+    },
+    "public_operations": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/publicOperation"}
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$"
+    },
+    "repositoryVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})\\.(0|[1-9][0-9]{0,8})$"
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "packageClient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package",
+        "current",
+        "previous",
+        "contract_major",
+        "status",
+        "deprecation_date"
+      ],
+      "properties": {
+        "package": {"const": "opennosh"},
+        "current": {
+          "oneOf": [
+            {"$ref": "#/$defs/semver"},
+            {"$ref": "#/$defs/repositoryVersion"}
+          ]
+        },
+        "previous": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/semver"},
+            {"$ref": "#/$defs/repositoryVersion"}
+          ]
+        },
+        "contract_major": {"const": 2},
+        "status": {"const": "preview"},
+        "deprecation_date": {"$ref": "#/$defs/nullableDate"}
+      }
+    },
+    "discoveryClient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "previous",
+        "contract_major",
+        "status",
+        "discovery_enabled",
+        "deprecation_date"
+      ],
+      "properties": {
+        "current": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/semver"}]
+        },
+        "previous": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/semver"}]
+        },
+        "contract_major": {"const": 1},
+        "status": {"enum": ["disabled", "preview", "stable", "retired"]},
+        "discovery_enabled": {"type": "boolean"},
+        "deprecation_date": {"$ref": "#/$defs/nullableDate"}
+      }
+    },
+    "nullableDate": {
+      "oneOf": [{"type": "null"}, {"type": "string", "format": "date"}]
+    },
+    "publicOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id", "method", "path", "media_type", "max_response_bytes"],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,199}$"
+        },
+        "method": {"const": "GET"},
+        "path": {
+          "type": "string",
+          "pattern": "^/api/v1/(?:foods|public)/[A-Za-z0-9_/{}/.-]+$",
+          "maxLength": 240
+        },
+        "media_type": {
+          "enum": [
+            "application/json",
+            "application/vnd.opennosh.release+json",
+            "application/zip",
+            "text/html"
+          ]
+        },
+        "max_response_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      }
+    }
+  }
+}
