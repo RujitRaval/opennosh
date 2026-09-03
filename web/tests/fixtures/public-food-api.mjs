@@ -21,6 +21,42 @@ const commonsFixtures = JSON.parse(
   await readFile(new URL("./contracts/public/commons-states.json", import.meta.url), "utf8"),
 );
 let commonsState = "unavailable";
+const publicMissionsFixture = {
+  schema_version: "1.0",
+  state: "live",
+  reason: null,
+  missions: [{
+    mission_id: "11111111-1111-4111-8111-111111111111",
+    definition_id: "22222222-2222-4222-8222-222222222222",
+    definition_version: 3,
+    gap_kind: "locale",
+    title: "Document Caribbean breakfast staples",
+    summary: "Add source-backed records that preserve preparation and locale context.",
+    target_pack_id: "caribbean-community",
+    target_dataset: "foods",
+    acceptance_target: 10,
+    acceptance_criteria: "A record must be accepted into the signed target pack with eligible source proof.",
+    lifecycle_state: "active",
+    progress_state: "partial",
+    public_reason: "The current pack has a measurable preparation gap.",
+    next_review_at: null,
+    accepted_count: 4,
+    matched_event_count: 4,
+    checkpoint_id: "33333333-3333-4333-8333-333333333333",
+    checkpoint_built_at: "2026-09-02T18:00:00Z",
+    release_receipt_digest: null,
+  }],
+};
+const publicMissionActivityFixture = {
+  schema_version: "1.0",
+  state: "live",
+  reason: null,
+  minimum_cohort: 10,
+  regions: [
+    { region_code: "JM", level: "country", accepted_count: 14 },
+    { region_code: "419", level: "macroregion", accepted_count: 10 },
+  ],
+};
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
@@ -43,6 +79,16 @@ const server = createServer((request, response) => {
   if (url.pathname === "/api/v1/public/commons-snapshot") {
     response.setHeader("Cache-Control", "no-store");
     response.end(JSON.stringify(commonsFixtures[commonsState]));
+    return;
+  }
+  if (url.pathname === "/api/v1/public/missions") {
+    response.setHeader("Cache-Control", "no-store");
+    response.end(JSON.stringify(publicMissionsFixture));
+    return;
+  }
+  if (url.pathname === "/api/v1/public/missions/activity") {
+    response.setHeader("Cache-Control", "no-store");
+    response.end(JSON.stringify(publicMissionActivityFixture));
     return;
   }
   if ([

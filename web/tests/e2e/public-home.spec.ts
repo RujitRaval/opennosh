@@ -44,6 +44,31 @@ test("desktop trunk identifies the current hub, page, and next action", async ({
   await expect(page.getByRole("heading", { level: 1, name: "Build" })).toBeVisible();
 });
 
+test("Commons missions expose verified progress and privacy-thresholded regions", async ({ page }) => {
+  await page.goto("/en/commons");
+
+  await expect(page.getByRole("heading", { level: 2, name: "Fill a gap the commons can measure." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Document Caribbean breakfast staples" })).toBeVisible();
+  await expect(page.getByText("4 of 10 accepted")).toBeVisible();
+
+  const activity = page.locator('[aria-label="Mission activity by broad pack locale"]');
+  await expect(activity.getByText("Jamaica")).toBeVisible();
+  await expect(activity.getByText("Latin America")).toBeVisible();
+  await expect(activity.getByText("14 accepted records")).toBeVisible();
+  await expect(activity.getByRole("time")).toHaveCount(0);
+  await expect(activity.getByText(/total|ranking|streak/i)).toHaveCount(0);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("deep public pages expose their full breadcrumb and owning hub", async ({ page }, testInfo) => {
   await page.goto("/en/notices");
 

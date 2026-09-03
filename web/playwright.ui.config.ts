@@ -28,7 +28,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `API_URL=${apiURL} PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      command: `API_URL=${apiURL} PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

@@ -11,6 +11,7 @@ export const publicFeatureIds = [
   "contribution-flow",
   "public-packs",
   "api-reference",
+  "commons-missions",
 ] as const;
 
 export type PublicFeatureId = (typeof publicFeatureIds)[number];
@@ -55,6 +56,12 @@ const childDefinitions: readonly ChildDefinition[] = [
     id: "start",
     hub: "contribute",
     target: "start",
+  },
+  {
+    id: "missions",
+    hub: "commons",
+    feature: "commons-missions",
+    target: "missions",
   },
   {
     id: "packs",
@@ -111,7 +118,13 @@ export function buildPublicNavigation(
     const nextAction = id === "contribute"
       ? { label: hub.action, compactLabel: hub.compactAction, href: routes.contributionStart(language) }
       : id === "commons"
-        ? { label: hub.action, compactLabel: hub.compactAction, href: routes.publicNotices(language) }
+        ? enabled.has("commons-missions")
+          ? {
+              label: copy.children.missions.label,
+              compactLabel: copy.children.missions.label,
+              href: "#missions",
+            }
+          : { label: hub.action, compactLabel: hub.compactAction, href: routes.publicNotices(language) }
         : id === "explore"
           ? { label: hub.action, compactLabel: hub.compactAction, href: enabled.has("explorer-search") ? "#search" : "#principles" }
         : id === "build"

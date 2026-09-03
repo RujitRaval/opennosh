@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import { PublicFoodSearch } from "@/components/foods/public-food-search";
 import { PublicBreadcrumbs } from "@/components/public/public-breadcrumbs";
 import { PublicFooter } from "@/components/public/public-footer";
+import { PublicMissions, PublicMissionsLoading } from "@/components/public/public-missions";
 import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
@@ -17,6 +19,7 @@ import {
   type InterfaceLanguage,
 } from "@/lib/routes";
 import { formatMessage, getCatalog } from "@/lib/i18n/catalog";
+import { getPublicMissionsSnapshot } from "@/lib/public-missions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +32,11 @@ function navigationFor(language: InterfaceLanguage) {
 
 export function generateStaticParams() {
   return publicHubIds.map((hub) => ({ hub }));
+}
+
+async function PublicMissionsSurface({ language }: { language: InterfaceLanguage }) {
+  const snapshot = await getPublicMissionsSnapshot();
+  return <PublicMissions language={language} catalog={snapshot.catalog} activity={snapshot.activity} />;
 }
 
 export async function generateMetadata({
@@ -92,6 +100,12 @@ export default async function PublicHubPage({
       {hub === "explore" && currentHub.children.some((child) => child.id === "search")
         ? <PublicFoodSearch language={language} />
         : null}
+
+      {hub === "commons" && currentHub.children.some((child) => child.id === "missions") ? (
+        <Suspense fallback={<PublicMissionsLoading language={language} />}>
+          <PublicMissionsSurface language={language} />
+        </Suspense>
+      ) : null}
 
       <section id="principles" className="hub-principles" aria-labelledby="principles-title">
         <p id="principles-title" className="mono">{copy.navigation.guides}</p>

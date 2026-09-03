@@ -37,6 +37,15 @@ describe("public navigation contract", () => {
       "api",
       "notices",
     ]);
+
+    const missions = buildPublicNavigation("en", parsePublicFeatureFlags("commons-missions"));
+    expect(missions.find((hub) => hub.id === "commons")?.children.map((child) => child.id)).toEqual([
+      "missions",
+    ]);
+    expect(missions.find((hub) => hub.id === "commons")?.nextAction).toMatchObject({
+      label: "Commons missions",
+      href: "#missions",
+    });
   });
 
   it("resolves hub context for hub pages and their deep children", () => {

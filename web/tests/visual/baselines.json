@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
-  "generatedAt": "2026-08-27T00:31:27.168Z",
+  "generatedAt": "2026-09-03T01:09:46.200Z",
   "approval": {
-    "reason": "T31 completes the production Tracker lifecycle and makes starter-food Explore search operational",
-    "designDecision": "T31 production launch readiness: preserve Living Commons branding while adding recovery, onboarding, Account, Records, and live starter-catalogue states",
-    "reviewerAcknowledgement": "Rujit Raval approved PR #96 visual baseline updates on 2026-08-26 after inspecting the GitHub visual-regression artifact"
+    "reason": "T34.6 adds the public mission lifecycle and privacy-thresholded broad-region activity surface",
+    "designDecision": "Use a Living Commons mission ledger and broad-region field; expose only verified checkpoint progress and cohorts of at least ten accepted records",
+    "reviewerAcknowledgement": "Codex inspected all five rendered viewport baselines on 2026-09-02 under Rujit Raval’s approved autonomous T34.6 shipping scope"
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
@@ -13,6 +13,7 @@
   ],
   "files": {
     "desktop-1440/commons-live.png": "6a5e6ca634e498b839931291ac756f7a967229412bda1901497164b79ea70ea3",
+    "desktop-1440/commons-missions.png": "c856477ee7c8551b6ccba20dd8b8ae2fd6105810da979648bfb86288a163c7e9",
     "desktop-1440/commons-partial.png": "ab8d539f676bdd973a26da37114bc5f6c7a4d5e714de9489c34ba5eafc26ed59",
     "desktop-1440/commons-quiet.png": "5b37cd2616882e2d93f3496ff64694b4888edc3519d377370459919d3c2c38e1",
     "desktop-1440/commons-stale.png": "fdf213e33d23b8ee1cb623a4d42d42420406c425b664daf8d8914e607f18c122",
@@ -40,6 +41,7 @@
     "desktop-1440/tracker-records.png": "61c819ed4a746c01d0cbbfd432099143a79c4b427ed399d3d8919bbb9feec9fb",
     "desktop-1440/tracker-sign-in.png": "5e419af7c5f97d85831c22cd010366728e48c70d1bbf40e8eaecc1d0fd4619ba",
     "desktop-1440/tracker-trends.png": "b3c9f9764be2785067f49418f1563e3db11d03c43857cac2af010fb7381c6d55",
+    "mobile-390/commons-missions.png": "aa1204a49f938e4721fb73ae98626d7a5cfaeaf7c3f6cb4f53bd3478ad6df57d",
     "mobile-390/homepage-first-viewport.png": "e91d44c6519d4774dfd82baaacada12a13428d6ed4d38fb252c81cd33a656b1f",
     "mobile-390/mobile-safe-area-actions.png": "da2081e9f320ea6c5d81dc8a31dccd76accd9bae27ae0bbd61b3a25cd4637658",
     "mobile-390/tracker-account.png": "263f0068a8010f47ac53f5a57ac604a236149039474c44f747d1bedd29ca456b",
@@ -49,9 +51,12 @@
     "mobile-390/tracker-records.png": "e62ed68c24aef69195762c67b9f0db56f9e51faf584a0af62dd056935905352a",
     "mobile-390/tracker-sign-in.png": "7f8de613b8c2b4b37b86ea21607a439cdabffa5f36ecdc627f1bb67b004ab1ce",
     "mobile-390/tracker-trends.png": "844db9ea46bcf9de5c82026892e87009a3cdfd2d40e587c73dfaf613b00167fb",
+    "reflow-320/commons-missions.png": "ec361ef99c22d2da19101cf2eaa7cfbbb396a47255d205c4b016dd7f2d837839",
     "reflow-320/food-record-first-viewport.png": "5baefde824106aa729a80786609a0a98baf4d7144772f36b511c78d2dc9bc991",
     "reflow-320/homepage-first-viewport.png": "ac9b9fb513a3489559df4daab1db03c86d3fe391bb7fcc6359b7b69abe14890c",
+    "tablet-768/commons-missions.png": "6930441a2dacfe42274e575ceaaf0db5828d8e311865223f03a411d88babe67a",
     "tablet-768/homepage-first-viewport.png": "8c8c157e177bc3fedc8822e7d87b957128f775af431c5c2d78e5a7905953d1e6",
+    "wide-1728/commons-missions.png": "62af48979c5c116bd6f646f733f5fb1a9ad63c91e7b51d13f7e30d96006bedb1",
     "wide-1728/homepage-first-viewport.png": "3c1e6a933b3cb8b436f379910664bb0104fb134fcd727651fdaa91ae483b654d"
   }
 }
