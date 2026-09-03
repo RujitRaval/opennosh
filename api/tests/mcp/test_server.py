@@ -6,6 +6,7 @@ import logging
 import sys
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import httpx
@@ -16,13 +17,18 @@ from mcp.client.stdio import StdioServerParameters
 from mcp.shared.exceptions import MCPError
 from mcp.types import CallToolRequestParams, PaginatedRequestParams
 from opennosh_api.foodpacks.validation import load_pack_directory
+from opennosh_api.mcp import entrypoint
 from opennosh_api.mcp.entrypoint import main
 from opennosh_api.mcp.server import (
     MAX_PACK_ARGUMENT_BYTES,
     MCP_PROTOCOL_VERSION,
     OpenNoshMCPService,
+    _count_result,
+    _response_data,
+    _response_state,
+    build_server,
 )
-from opennosh_api.sdk import AsyncOpenNoshClient
+from opennosh_api.sdk import AsyncOpenNoshClient, OpenNoshResponse
 
 ROOT = Path(__file__).resolve().parents[3]
 COMPATIBILITY_FIXTURES = json.loads(
@@ -122,6 +128,18 @@ def test_version_and_exact_read_only_tool_catalog_are_stable() -> None:
     assert service.tools[-1].annotations is not None
     assert service.tools[-1].annotations.open_world_hint is False
 
+    protocol_server = build_server(
+        "https://nosh.example",
+        client_factory=cast(
+            Any,
+            lambda target: AsyncOpenNoshClient(
+                target,
+                transport=httpx.MockTransport(_response_for),
+            ),
+        ),
+    )
+    assert protocol_server.name == "opennosh-public"
+
 
 @pytest.mark.asyncio
 async def test_stdio_entrypoint_negotiates_and_serves_local_validation() -> None:
@@ -158,16 +176,48 @@ async def test_stdio_entrypoint_negotiates_and_serves_local_validation() -> None
 
 
 @pytest.mark.asyncio
+async def test_entrypoint_serve_wires_the_stdio_streams(monkeypatch: Any) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    class FakeServer:
+        def create_initialization_options(self) -> str:
+            return "options"
+
+        async def run(self, *arguments: object) -> None:
+            calls.append(arguments)
+
+    class FakeStdio:
+        async def __aenter__(self) -> tuple[str, str]:
+            return "read", "write"
+
+        async def __aexit__(self, *_arguments: object) -> None:
+            return None
+
+    fake_server = FakeServer()
+    monkeypatch.setattr(entrypoint, "build_server", lambda target: fake_server)
+    monkeypatch.setattr(entrypoint, "stdio_server", FakeStdio)
+
+    await entrypoint._serve("hosted")  # noqa: SLF001 - verifies the console wiring
+
+    assert calls == [("read", "write", "options")]
+
+
+def test_entrypoint_success_returns_zero(monkeypatch: Any) -> None:
+    def close_coroutine(awaitable: Any) -> None:
+        awaitable.close()
+
+    monkeypatch.setattr(entrypoint.asyncio, "run", close_coroutine)
+
+    assert main(["--target", "hosted"]) == 0
+
+
+@pytest.mark.asyncio
 async def test_search_preserves_release_proof_and_logs_only_counts(
     monkeypatch: Any,
 ) -> None:
     log_stream = io.StringIO()
     logger = logging.getLogger("opennosh.mcp")
-    handler = next(
-        item
-        for item in logger.handlers
-        if item.name == "opennosh-mcp-stderr"
-    )
+    handler = next(item for item in logger.handlers if item.name == "opennosh-mcp-stderr")
     monkeypatch.setattr(handler, "stream", log_stream)
     monkeypatch.setattr(logger, "disabled", True)
     service = _service()
@@ -288,11 +338,87 @@ async def test_validate_pack_accepts_only_one_bounded_in_memory_object() -> None
         "validate_pack",
         {"payload": "x" * MAX_PACK_ARGUMENT_BYTES},
     )
+    non_finite = await _call(service, "validate_pack", {"servings": float("nan")})
+    direct_too_large = await service._validate_pack(  # noqa: SLF001 - handler defense in depth
+        {"payload": "x" * MAX_PACK_ARGUMENT_BYTES}
+    )
 
     assert valid["state"] == "valid"
     assert cast(dict[str, object], valid["data"])["valid"] is True
     assert too_large["state"] == "invalid"
     assert cast(dict[str, object], too_large["problem"])["code"] == "pack_too_large"
+    assert cast(dict[str, object], non_finite["problem"])["code"] == "pack_invalid"
+    assert cast(dict[str, object], direct_too_large["problem"])["code"] == "pack_too_large"
+
+
+def test_response_state_and_count_helpers_fail_closed() -> None:
+    response = OpenNoshResponse(
+        data={"items": [{"id": "one"}]},
+        status=200,
+        url="https://nosh.example/api/v1/foods/search",
+        etag=None,
+        last_modified=None,
+        cache_control=None,
+        content_type="application/json",
+        release_state="verified",
+    )
+
+    assert _response_state(response) == "verified"
+    assert _response_data(response)["result"] == {"items": [{"id": "one"}]}
+    assert (
+        _response_state(
+            cast(
+                Any,
+                SimpleNamespace(
+                    release_state=None, data=SimpleNamespace(release=SimpleNamespace(state="stale"))
+                ),
+            )
+        )
+        == "stale_verified"
+    )
+    assert (
+        _response_state(
+            cast(
+                Any,
+                SimpleNamespace(
+                    release_state=None,
+                    data=SimpleNamespace(
+                        release_set=SimpleNamespace(enabled=False, digest=None, stale=False)
+                    ),
+                ),
+            )
+        )
+        == "unavailable"
+    )
+    assert (
+        _response_state(
+            cast(Any, SimpleNamespace(release_state=None, data=SimpleNamespace(state="live")))
+        )
+        == "verified"
+    )
+    assert (
+        _response_state(cast(Any, SimpleNamespace(release_state=None, data=object())))
+        == "unavailable"
+    )
+    assert _count_result({"data": {"result": "not-an-object"}}) == 0
+    assert _count_result({"data": {"result": {"unknown": []}}}) == 0
+    with pytest.raises(TypeError, match="structured SDK response"):
+        _response_data(cast(Any, SimpleNamespace(data=b"binary")))
+
+
+@pytest.mark.asyncio
+async def test_handler_type_errors_are_sanitized(monkeypatch: Any) -> None:
+    service = _service()
+
+    async def reject(_arguments: dict[str, object]) -> dict[str, object]:
+        raise TypeError("untrusted detail")
+
+    monkeypatch.setitem(service._handlers, "search_foods", reject)  # noqa: SLF001
+    result = await _call(service, "search_foods", {"query": "rajma"})
+
+    assert result["state"] == "invalid"
+    assert cast(dict[str, object], result["problem"])["code"] == "invalid_arguments"
+    assert "untrusted detail" not in json.dumps(result)
 
 
 @pytest.mark.asyncio
@@ -321,6 +447,8 @@ async def test_upstream_problems_are_typed_without_leaking_raw_bodies() -> None:
 @pytest.mark.asyncio
 async def test_unknown_tool_and_tool_pagination_are_protocol_errors() -> None:
     service = _service()
+    listed = await service.list_tools(cast(Any, None), None)
+    assert len(listed.tools) == 6
     with pytest.raises(MCPError) as unknown:
         await service.call_tool(
             cast(Any, None),
