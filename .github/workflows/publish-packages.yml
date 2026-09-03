@@ -73,7 +73,14 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npm test
-          npm pack --dry-run
+          npm pack --pack-destination ../../dist
+
+      - name: Test clean-installed developer starters
+        run: |
+          NPM_PACKAGE_VERSION="$(cut -d. -f1-3 VERSION)"
+          uv run python scripts/check_developer_starters.py \
+            --npm-tarball "dist/opennosh-${NPM_PACKAGE_VERSION}.tgz" \
+            --wheel "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
 
   pypi:
     name: publish opennosh to PyPI

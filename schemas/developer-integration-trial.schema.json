@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/developer-integration-trial.schema.json",
+  "title": "opennosh developer integration trial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "observed_at",
+    "endpoint_kind",
+    "operator",
+    "reviewer",
+    "clients",
+    "operations",
+    "assertions",
+    "problem_codes"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "report_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 96},
+    "observed_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "endpoint_kind": {"enum": ["hosted", "self_hosted"]},
+    "operator": {"$ref": "#/$defs/operator"},
+    "reviewer": {"$ref": "#/$defs/reviewer"},
+    "clients": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/client"}
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "contains": {"const": "search_foods"},
+      "items": {
+        "enum": [
+          "capabilities",
+          "search_foods",
+          "get_public_food",
+          "get_commons_snapshot",
+          "get_public_missions",
+          "get_public_mission_activity",
+          "get_release_food",
+          "get_release_provenance",
+          "get_release_manifest",
+          "download_pack"
+        ]
+      }
+    },
+    "assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["search_completed", "verified_detail", "attribution_preserved", "no_credentials"],
+      "properties": {
+        "search_completed": {"const": true},
+        "verified_detail": {"const": true},
+        "attribution_preserved": {"const": true},
+        "no_credentials": {"const": true}
+      }
+    },
+    "problem_codes": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+    }
+  },
+  "$defs": {
+    "githubLogin": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["github_login", "repository_collaborator", "authored_commit_in_preceding_90_days"],
+      "properties": {
+        "github_login": {"$ref": "#/$defs/githubLogin"},
+        "repository_collaborator": {"const": false},
+        "authored_commit_in_preceding_90_days": {"const": false}
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["github_login", "reviewed_at"],
+      "properties": {
+        "github_login": {"$ref": "#/$defs/githubLogin"},
+        "reviewed_at": {"type": "string", "format": "date-time", "pattern": "Z$"}
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "package_version", "artifact_sha256"],
+      "properties": {
+        "kind": {"enum": ["javascript", "python", "cli", "mcp", "embed"]},
+        "package_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$"},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

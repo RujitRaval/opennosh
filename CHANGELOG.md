@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.88.0.0] - 2026-09-03
+
+### Added
+
+- Add minimal JavaScript and Python starter applications for the same search, verified-detail, and
+  attribution journey against hosted or explicitly selected self-hosted origins.
+- Add a redacted developer-integration trial schema and repository gate that requires two distinct
+  independent operators before the developer compatibility status can become stable.
+- Add clean-install smoke coverage that runs both starters from packed npm and wheel artifacts in
+  empty temporary directories and rejects accidental source-checkout imports.
+
+### Changed
+
+- Advance the preview JavaScript, Python, and CLI compatibility window while leaving package, MCP,
+  and embed discovery disabled pending accepted external trials.
+
+### Security
+
+- Keep trial reports free of endpoint URLs, tokens, queries, food payloads, IPs, and credentials;
+  require immutable artifact hashes, public GitHub identities, and separate operator/reviewer roles.
+- Make both starters fail closed on missing or misbound release proof and verify that their clean
+  journeys send no bearer credential or cookie.
+
 ## [0.87.0.0] - 2026-09-03
 
 ### Added

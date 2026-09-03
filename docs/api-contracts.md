@@ -99,6 +99,13 @@ uses no cookies, storage, telemetry, or third-party requests. Its sole message i
 versioned resize object sent to the browser-supplied parent origin. Embed production discovery
 remains disabled independently from route availability.
 
+The JavaScript and Python starter applications run the same search, verified-detail, and attribution
+journey through the shipped SDKs. Package gates install the npm tarball and wheel into empty
+temporary directories, prove imports resolve from those installations, and run both starters
+against the hosted and self-hosted contract shape. Developer trial reports use
+`schemas/developer-integration-trial.schema.json`; the repository refuses a `stable` developer
+compatibility status until two distinct independent operators have supplied accepted reports.
+
 Run the gate with:
 
 ```sh

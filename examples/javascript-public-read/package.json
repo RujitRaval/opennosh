@@ -1,0 +1,14 @@
+{
+  "name": "opennosh-javascript-public-read-starter",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "opennosh": "^0.88.0"
+  }
+}

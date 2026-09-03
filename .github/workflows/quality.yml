@@ -140,6 +140,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
       - name: Set up uv
         uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
         with:
@@ -150,7 +156,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint API and performance contract
-        run: uv run ruff check api benchmarks scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_trust_gates.py api/tests/test_benchmark*.py
+        run: uv run ruff check api benchmarks scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_developer_starters.py scripts/check_developer_trials.py scripts/check_changed_coverage.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_developer_trials.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 
       - name: Type-check API and performance contract
         run: |
@@ -164,7 +170,9 @@ jobs:
           python3 scripts/check_openapi_compatibility.py --previous-ref HEAD^
 
       - name: Verify developer compatibility contract
-        run: PYTHONPATH=api:. uv run python scripts/check_developer_compatibility.py
+        run: |
+          PYTHONPATH=api:. uv run python scripts/check_developer_compatibility.py
+          PYTHONPATH=api:. uv run python scripts/check_developer_trials.py
 
       - name: Validate food packs
         run: PYTHONPATH=api uv run python -m opennosh_api.foodpacks.validation packs --json
@@ -205,6 +213,14 @@ jobs:
           python3 scripts/check_python_distribution.py dist
           uv run python scripts/check_installed_python_distribution.py \
             "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
+
+      - name: Test clean-installed developer starters
+        run: |
+          npm --prefix packages/npm pack --pack-destination ../../dist
+          NPM_PACKAGE_VERSION="$(cut -d. -f1-3 VERSION)"
+          uv run python scripts/check_developer_starters.py \
+            --npm-tarball "dist/opennosh-${NPM_PACKAGE_VERSION}.tgz" \
+            --wheel "dist/opennosh-$(cat VERSION)-py3-none-any.whl"
 
   trust-protocol:
     name: trust protocol coverage
