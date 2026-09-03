@@ -278,8 +278,10 @@ export const enCatalog = {
     country: "Country",
     macroregion: "Macroregion",
     regionAccepted: { one: "{count} accepted record", other: "{count} accepted records" },
-    loadingTitle: "Checking mission proof.",
-    loadingBody: "No mission, progress count, or region appears until both public responses pass validation.",
+    catalogLoadingTitle: "Checking mission proof.",
+    catalogLoadingBody: "No mission or progress count appears until the public catalog passes validation.",
+    activityLoadingTitle: "Checking regional proof.",
+    activityLoadingBody: "No region appears until the public activity response passes validation.",
   },
   contribution: {
     chapters: {

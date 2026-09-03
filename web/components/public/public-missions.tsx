@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type {
   PublicMission,
@@ -13,17 +13,35 @@ function localeFor(language: InterfaceLanguage) {
   return language === pseudoLanguage ? "en" : language;
 }
 
-function formatDate(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(localeFor(language), {
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const regionFormatters = new Map<string, Intl.DisplayNames>();
+
+function dateFormatter(language: InterfaceLanguage) {
+  const locale = localeFor(language);
+  const existing = dateFormatters.get(locale);
+  if (existing) return existing;
+  const formatter = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
-  }).format(new Date(value));
+  });
+  dateFormatters.set(locale, formatter);
+  return formatter;
+}
+
+function formatDate(value: string, language: InterfaceLanguage) {
+  return dateFormatter(language).format(new Date(value));
 }
 
 function regionName(code: string, language: InterfaceLanguage) {
   try {
-    return new Intl.DisplayNames([localeFor(language)], { type: "region" }).of(code) ?? code;
+    const locale = localeFor(language);
+    let formatter = regionFormatters.get(locale);
+    if (!formatter) {
+      formatter = new Intl.DisplayNames([locale], { type: "region" });
+      regionFormatters.set(locale, formatter);
+    }
+    return formatter.of(code) ?? code;
   } catch {
     return code;
   }
@@ -85,7 +103,7 @@ function MissionRow({ mission, language }: { mission: PublicMission; language: I
       </dl>
       <div className="mission-progress" style={style}>
         <p className="mono">{copy.progress}</p>
-        <strong role="status">{progressLabel(mission, language)}</strong>
+        <strong>{progressLabel(mission, language)}</strong>
         <span className="mission-progress-track" aria-hidden="true"><i /></span>
         {mission.next_review_at ? <small>{formatMessage(copy.reviewAt, { date: formatDate(mission.next_review_at, language) })}</small> : null}
         {mission.release_receipt_digest ? <small className="mono">{formatMessage(copy.releaseProof, { digest: mission.release_receipt_digest.slice(0, 12) })}</small> : null}
@@ -94,7 +112,7 @@ function MissionRow({ mission, language }: { mission: PublicMission; language: I
   );
 }
 
-function MissionCatalog({ catalog, language }: { catalog: PublicMissionCatalog; language: InterfaceLanguage }) {
+export function PublicMissionCatalogPanel({ catalog, language }: { catalog: PublicMissionCatalog; language: InterfaceLanguage }) {
   const copy = getCatalog(language).missions;
   if (catalog.state === "unavailable") {
     const disabled = catalog.reason === "disabled";
@@ -116,7 +134,7 @@ function MissionCatalog({ catalog, language }: { catalog: PublicMissionCatalog; 
   return <ol className="mission-list">{catalog.missions.map((item) => <MissionRow key={item.mission_id} mission={item} language={language} />)}</ol>;
 }
 
-function MissionActivity({ activity, language }: { activity: PublicMissionActivityMap; language: InterfaceLanguage }) {
+export function PublicMissionActivityPanel({ activity, language }: { activity: PublicMissionActivityMap; language: InterfaceLanguage }) {
   const copy = getCatalog(language).missions;
   if (activity.state === "unavailable") {
     const disabled = activity.reason === "disabled";
@@ -149,14 +167,14 @@ function MissionActivity({ activity, language }: { activity: PublicMissionActivi
   );
 }
 
-export function PublicMissions({
-  catalog,
-  activity,
+export function PublicMissionsFrame({
   language,
+  catalogPanel,
+  activityPanel,
 }: {
-  catalog: PublicMissionCatalog;
-  activity: PublicMissionActivityMap;
   language: InterfaceLanguage;
+  catalogPanel: ReactNode;
+  activityPanel: ReactNode;
 }) {
   const copy = getCatalog(language).missions;
   return (
@@ -168,10 +186,7 @@ export function PublicMissions({
           <p>{copy.lead}</p>
         </div>
       </div>
-      <div className={`mission-catalog mission-catalog-${catalog.state}`} aria-label={copy.catalogLabel}>
-        <div className="mission-state-head mono"><span>{copy.catalogLabel}</span><span>{copy.states[catalog.state]}</span></div>
-        <MissionCatalog catalog={catalog} language={language} />
-      </div>
+      {catalogPanel}
       <div className="mission-activity-heading">
         <p className="mono">{copy.activityEyebrow}</p>
         <div>
@@ -179,26 +194,75 @@ export function PublicMissions({
           <p>{copy.activityLead}</p>
         </div>
       </div>
-      <div className={`mission-activity mission-activity-${activity.state}`} aria-labelledby="mission-activity-title" aria-label={copy.activityLabel}>
-        <div className="mission-state-head mono"><span>{copy.activityLabel}</span><span>{copy.activityStates[activity.state]}</span></div>
-        <MissionActivity activity={activity} language={language} />
-      </div>
+      {activityPanel}
     </section>
   );
 }
 
-export function PublicMissionsLoading({ language = "en" }: { language?: InterfaceLanguage }) {
+export function PublicMissionCatalogSurface({ catalog, language }: { catalog: PublicMissionCatalog; language: InterfaceLanguage }) {
   const copy = getCatalog(language).missions;
   return (
-    <section id="missions" className="public-missions mission-loading" aria-labelledby="missions-title" aria-busy="true">
-      <div className="mission-section-heading">
-        <p className="mono">{copy.eyebrow}</p>
-        <div><h2 id="missions-title">{copy.title}</h2><p>{copy.lead}</p></div>
-      </div>
-      <div className="mission-quiet-state" role="status">
-        <strong>{copy.loadingTitle}</strong>
-        <p>{copy.loadingBody}</p>
-      </div>
-    </section>
+    <div className={`mission-catalog mission-catalog-${catalog.state}`} aria-label={copy.catalogLabel}>
+      <div className="mission-state-head mono"><span>{copy.catalogLabel}</span><span>{copy.states[catalog.state]}</span></div>
+      <PublicMissionCatalogPanel catalog={catalog} language={language} />
+    </div>
   );
+}
+
+export function PublicMissionActivitySurface({ activity, language }: { activity: PublicMissionActivityMap; language: InterfaceLanguage }) {
+  const copy = getCatalog(language).missions;
+  return (
+    <div className={`mission-activity mission-activity-${activity.state}`} aria-labelledby="mission-activity-title" aria-label={copy.activityLabel}>
+      <div className="mission-state-head mono"><span>{copy.activityLabel}</span><span>{copy.activityStates[activity.state]}</span></div>
+      <PublicMissionActivityPanel activity={activity} language={language} />
+    </div>
+  );
+}
+
+export function PublicMissions({
+  catalog,
+  activity,
+  language,
+}: {
+  catalog: PublicMissionCatalog;
+  activity: PublicMissionActivityMap;
+  language: InterfaceLanguage;
+}) {
+  return <PublicMissionsFrame
+    language={language}
+    catalogPanel={<PublicMissionCatalogSurface catalog={catalog} language={language} />}
+    activityPanel={<PublicMissionActivitySurface activity={activity} language={language} />}
+  />;
+}
+
+export function PublicMissionCatalogLoading({ language }: { language: InterfaceLanguage }) {
+  const copy = getCatalog(language).missions;
+  return (
+    <div className="mission-catalog mission-loading" aria-label={copy.catalogLabel} aria-busy="true">
+      <div className="mission-quiet-state" role="status">
+        <strong>{copy.catalogLoadingTitle}</strong>
+        <p>{copy.catalogLoadingBody}</p>
+      </div>
+    </div>
+  );
+}
+
+export function PublicMissionActivityLoading({ language }: { language: InterfaceLanguage }) {
+  const copy = getCatalog(language).missions;
+  return (
+    <div className="mission-activity mission-loading" aria-labelledby="mission-activity-title" aria-busy="true">
+      <div className="mission-activity-quiet" role="status">
+        <strong>{copy.activityLoadingTitle}</strong>
+        <p>{copy.activityLoadingBody}</p>
+      </div>
+    </div>
+  );
+}
+
+export function PublicMissionsLoading({ language = "en" }: { language?: InterfaceLanguage }) {
+  return <PublicMissionsFrame
+    language={language}
+    catalogPanel={<PublicMissionCatalogLoading language={language} />}
+    activityPanel={<PublicMissionActivityLoading language={language} />}
+  />;
 }

@@ -36,6 +36,7 @@ const digest = /^[0-9a-f]{64}$/;
 const country = /^[A-Z]{2}$/;
 const macroregion = /^\d{3}$/;
 const timestampOffset = /(?:Z|[+-]\d{2}:\d{2})$/;
+const maximumActivityRegions = 300;
 
 const catalogKeys = new Set(["schema_version", "state", "reason", "missions"]);
 const missionKeys = new Set([
@@ -203,7 +204,7 @@ export function publicMissionActivityMap(value: unknown): PublicMissionActivityM
   if (transport.schema_version !== "1.0") throw new Error("Unsupported public mission activity version");
   if (!activityStates.has(transport.state as TransportActivityState)) malformed("activity state");
   if (transport.minimum_cohort !== 10) malformed("activity cohort");
-  if (!Array.isArray(transport.regions) || transport.regions.length > 1_000) malformed("activity regions");
+  if (!Array.isArray(transport.regions) || transport.regions.length > maximumActivityRegions) malformed("activity regions");
   const state = transport.state as MissionActivityState;
   const reason = transport.reason ?? null;
   if (reason !== null && !unavailableReasons.has(reason)) malformed("activity reason");

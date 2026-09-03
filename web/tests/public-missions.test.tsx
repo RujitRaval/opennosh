@@ -2,7 +2,10 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PublicMissions, PublicMissionsLoading } from "@/components/public/public-missions";
-import { resolvePublicMissionsSnapshot } from "@/lib/public-missions";
+import {
+  createPublicMissionsSnapshotResolver,
+  resolvePublicMissionsSnapshot,
+} from "@/lib/public-missions";
 import {
   publicMissionActivityFixture,
   publicMissionCatalogFixture,
@@ -21,7 +24,7 @@ function responseFor(url: string | URL | Request) {
 }
 
 describe("public missions server adapter", () => {
-  it("resolves the catalog and privacy-thresholded activity in parallel cache domains", async () => {
+  it("resolves the catalog and privacy-thresholded activity through uncached network reads", async () => {
     const fetcher = vi.fn<typeof fetch>().mockImplementation(responseFor);
 
     const result = await resolvePublicMissionsSnapshot(fetcher);
@@ -31,24 +34,12 @@ describe("public missions server adapter", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher).toHaveBeenCalledWith(
       "http://localhost:8000/api/v1/public/missions",
-      expect.objectContaining({ next: { revalidate: 60, tags: ["public-missions"] } }),
+      expect.objectContaining({ cache: "no-store" }),
     );
     expect(fetcher).toHaveBeenCalledWith(
       "http://localhost:8000/api/v1/public/missions/activity",
-      expect.objectContaining({ next: { revalidate: 60, tags: ["public-mission-activity"] } }),
+      expect.objectContaining({ cache: "no-store" }),
     );
-  });
-
-  it("uses no-store only for deterministic visual fixtures", async () => {
-    vi.stubEnv("OPENNOSH_VISUAL_FIXTURES", "1");
-    const fetcher = vi.fn<typeof fetch>().mockImplementation(responseFor);
-
-    await resolvePublicMissionsSnapshot(fetcher);
-
-    for (const call of fetcher.mock.calls) {
-      expect(call[1]).toEqual(expect.objectContaining({ cache: "no-store" }));
-      expect(call[1]).not.toHaveProperty("next");
-    }
   });
 
   it("fails malformed catalog proof closed without hiding valid regional proof", async () => {
@@ -93,6 +84,138 @@ describe("public missions server adapter", () => {
       catalog: { state: "unavailable", missions: [] },
       activity: { state: "zero", regions: [] },
     });
+  });
+
+  it("caches only validated live or zero proof and never serves it after expiry", async () => {
+    let currentTime = 1_000;
+    let catalogProofAvailable = true;
+    const fetcher = vi.fn<typeof fetch>().mockImplementation((url) => {
+      if (String(url).endsWith("/activity")) {
+        return Promise.resolve(Response.json(publicMissionActivityFixture("zero")));
+      }
+      return Promise.resolve(Response.json(
+        catalogProofAvailable
+          ? publicMissionCatalogFixture()
+          : { ...publicMissionCatalogFixture("unavailable"), reason: "proof_unavailable" },
+      ));
+    });
+    const resolve = createPublicMissionsSnapshotResolver(fetcher, () => currentTime, 60_000);
+
+    await expect(resolve()).resolves.toMatchObject({
+      catalog: { state: "live" },
+      activity: { state: "zero" },
+    });
+    await resolve();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    catalogProofAvailable = false;
+    currentTime += 60_001;
+    await expect(resolve()).resolves.toMatchObject({
+      catalog: { state: "unavailable", reason: "proof_unavailable" },
+      activity: { state: "zero" },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(4);
+
+    await resolve();
+    expect(fetcher).toHaveBeenCalledTimes(5);
+  });
+
+  it.each([
+    ["inverted checkpoint counts", {
+      ...publicMissionCatalogFixture(),
+      missions: [{
+        ...publicMissionCatalogFixture().missions[0],
+        accepted_count: 5,
+        matched_event_count: 4,
+      }],
+    }],
+    ["partial checkpoint proof", {
+      ...publicMissionCatalogFixture(),
+      missions: [{
+        ...publicMissionCatalogFixture().missions[0],
+        checkpoint_id: null,
+      }],
+    }],
+    ["live-empty catalog", { ...publicMissionCatalogFixture(), missions: [] }],
+    ["zero-nonempty catalog", { ...publicMissionCatalogFixture(), state: "zero" }],
+    ["duplicate mission identity", {
+      ...publicMissionCatalogFixture(),
+      missions: [
+        publicMissionCatalogFixture().missions[0],
+        publicMissionCatalogFixture().missions[0],
+      ],
+    }],
+  ])("fails a catalog with %s closed independently", async (_label, catalog) => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation((url) => Promise.resolve(Response.json(
+      String(url).endsWith("/activity") ? publicMissionActivityFixture() : catalog,
+    )));
+
+    await expect(resolvePublicMissionsSnapshot(fetcher)).resolves.toMatchObject({
+      catalog: { state: "unavailable", reason: "proof_unavailable", missions: [] },
+      activity: { state: "live" },
+    });
+  });
+
+  it.each([
+    ["live-empty activity", { ...publicMissionActivityFixture(), regions: [] }],
+    ["zero-nonempty activity", { ...publicMissionActivityFixture(), state: "zero" }],
+    ["duplicate region identities", {
+      ...publicMissionActivityFixture(),
+      regions: [
+        publicMissionActivityFixture().regions[0],
+        publicMissionActivityFixture().regions[0],
+      ],
+    }],
+  ])("fails %s closed independently", async (_label, activity) => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation((url) => Promise.resolve(Response.json(
+      String(url).endsWith("/activity") ? activity : publicMissionCatalogFixture(),
+    )));
+
+    await expect(resolvePublicMissionsSnapshot(fetcher)).resolves.toMatchObject({
+      catalog: { state: "live" },
+      activity: { state: "unavailable", reason: "proof_unavailable", regions: [] },
+    });
+  });
+
+  it("fails an oversized regional presentation closed independently", async () => {
+    const regions = Array.from({ length: 301 }, (_, index) => ({
+      region_code: `${String.fromCharCode(65 + Math.floor(index / 26))}${String.fromCharCode(65 + (index % 26))}`,
+      level: "country" as const,
+      accepted_count: 10,
+    }));
+    const fetcher = vi.fn<typeof fetch>().mockImplementation((url) => Promise.resolve(Response.json(
+      String(url).endsWith("/activity")
+        ? { ...publicMissionActivityFixture(), regions }
+        : publicMissionCatalogFixture(),
+    )));
+
+    await expect(resolvePublicMissionsSnapshot(fetcher)).resolves.toMatchObject({
+      catalog: { state: "live" },
+      activity: { state: "unavailable", reason: "proof_unavailable", regions: [] },
+    });
+  });
+
+  it("coalesces concurrent cache misses without racing proof results", async () => {
+    let releaseRequest: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      await gate;
+      return Response.json(
+        String(url).endsWith("/activity")
+          ? publicMissionActivityFixture()
+          : publicMissionCatalogFixture(),
+      );
+    });
+    const resolve = createPublicMissionsSnapshotResolver(fetcher);
+
+    const first = resolve();
+    const second = resolve();
+    releaseRequest?.();
+
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -147,10 +270,23 @@ describe("public mission states", () => {
     expect(within(activity).queryByRole("time")).not.toBeInTheDocument();
   });
 
+  it("keeps static mission progress out of live status regions", () => {
+    const mission = publicMissionCatalogFixture().missions[0];
+    render(<PublicMissions
+      language="en"
+      catalog={{ ...publicMissionCatalogFixture(), missions: [mission, { ...mission, mission_id: "44444444-4444-4444-8444-444444444444" }] }}
+      activity={publicMissionActivityFixture("zero")}
+    />);
+    expect(screen.queryAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("No region meets the privacy threshold yet.");
+  });
+
   it("shows a truthful loading state without speculative missions or counts", () => {
     render(<PublicMissionsLoading />);
     expect(screen.getByText("Checking mission proof.")).toBeVisible();
-    expect(screen.getByText(/No mission, progress count, or region/)).toBeVisible();
+    expect(screen.getByText("Checking regional proof.")).toBeVisible();
+    expect(screen.getByText(/No mission or progress count/)).toBeVisible();
+    expect(screen.getByText(/No region appears/)).toBeVisible();
     expect(screen.queryByText("4 of 10 accepted")).not.toBeInTheDocument();
   });
 });

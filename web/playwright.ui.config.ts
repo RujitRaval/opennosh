@@ -8,7 +8,8 @@ const apiURL = `http://127.0.0.1:${apiPort}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "./test-results/ui-journeys",
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
@@ -28,7 +29,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `API_URL=${apiURL} PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      command: `API_URL=${apiURL} OPENNOSH_VISUAL_FIXTURES=1 PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

@@ -243,6 +243,9 @@ manifest bound to each accepted event's signed receipt, never mutable food rows 
 location, and the response exposes no filterable total from which a smaller cohort could be
 inferred. See the
 [Commons mission activity contract](docs/api-contracts.md#commons-mission-activity-contract).
+The Commons page renders the independently validated catalog and regional surface only when
+`OPENNOSH_PUBLIC_NAV_FEATURES` includes `commons-missions`. Render intentionally omits that web
+feature alongside the five disabled mission switches until a later digest-bound activation.
 
 Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
 `/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
