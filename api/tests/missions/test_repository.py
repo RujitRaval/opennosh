@@ -5,12 +5,17 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from opennosh_api.governance.contracts import ApprovedChangeSet, ApprovedFileChange
 from opennosh_api.missions.contracts import (
     AcceptedMissionFact,
     MissionBindingFact,
 )
 from opennosh_api.missions.projector import project_mission_progress
-from opennosh_api.missions.repository import MissionRepository
+from opennosh_api.missions.repository import (
+    MissionRepository,
+    _accepted_mission_fact,
+    _activity_locale_proof,
+)
 
 NOW = datetime(2026, 9, 2, 18, tzinfo=UTC)
 MISSION_ID = UUID("10000000-0000-4000-8000-000000000020")
@@ -42,7 +47,7 @@ class FakeSession:
         self,
         *,
         bindings: list[object],
-        accepted_rows: list[tuple[object, object, object]],
+        accepted_rows: list[tuple[object, object, object, object]],
         stored_rows: list[object],
     ) -> None:
         self.scalar_rows = [bindings, stored_rows]
@@ -59,9 +64,7 @@ class FakeSession:
     async def scalars(self, _statement: object) -> _ScalarRows:
         return _ScalarRows(self.scalar_rows.pop(0))
 
-    async def execute(
-        self, _statement: object, _parameters: object | None = None
-    ) -> _ExecutedRows:
+    async def execute(self, _statement: object, _parameters: object | None = None) -> _ExecutedRows:
         self.execute_count += 1
         if self.execute_count == 1:
             return _ExecutedRows([(row[0].receipt_digest,) for row in self.accepted_rows])
@@ -76,7 +79,7 @@ def _accepted_row(
     published_at: datetime,
     prior_receipt_digest: str | None,
     intent: object | None,
-) -> tuple[object, object, object | None]:
+) -> tuple[object, object, object | None, object | None]:
     publication_intent_id = uuid4()
     publication_id = uuid4()
     accepted = SimpleNamespace(
@@ -128,7 +131,136 @@ def _accepted_row(
             "signature_key_id": "test-key",
         },
     )
-    return accepted, receipt, intent
+    return accepted, receipt, intent, None
+
+
+def _activity_proof_material() -> tuple[object, object, object, object, str]:
+    changes = ApprovedChangeSet.build(
+        pack_id="opennosh-starter",
+        files=(
+            ApprovedFileChange(
+                path="packs/opennosh-starter/foods/food-1.yaml",
+                content="- slug: food-1\n",
+            ),
+            ApprovedFileChange(
+                path="packs/opennosh-starter/pack.yaml",
+                content=("id: opennosh-starter\nversion: 1.2.3\nlocale: zh-cmn-Hans-CN\n"),
+            ),
+        ),
+    )
+    decision_id = uuid4()
+    accepted, receipt, _intent, _decision = _accepted_row(
+        receipt_digest="a" * 64,
+        commit_sha="b" * 40,
+        event_type="publication",
+        published_at=NOW,
+        prior_receipt_digest=None,
+        intent=None,
+    )
+    intent = SimpleNamespace(
+        reviewed_decision_id=decision_id,
+        source_draft_id=DRAFT_ID,
+        source_draft_version=1,
+        pack_id=accepted.pack_id,
+        record_id=accepted.record_id,
+        approved_payload_digest=changes.digest,
+    )
+    decision = SimpleNamespace(
+        id=decision_id,
+        outcome="approved",
+        source_draft_id=DRAFT_ID,
+        source_draft_version=1,
+        pack_id=accepted.pack_id,
+        record_id=accepted.record_id,
+        forge_target=accepted.repository,
+        approved_payload_digest=changes.digest,
+        approved_changes_json=changes.as_json(),
+    )
+    receipt.envelope_json["receipt"].update(
+        {
+            "reviewed_decision_id": str(decision_id),
+            "approved_payload_digest": changes.digest,
+        }
+    )
+    return accepted, receipt, intent, decision, changes.digest
+
+
+def test_activity_locale_is_bound_to_exact_governed_repository_payload() -> None:
+    accepted, receipt, intent, decision, digest = _activity_proof_material()
+
+    fact = _accepted_mission_fact(
+        accepted,  # type: ignore[arg-type]
+        receipt,  # type: ignore[arg-type]
+        intent,  # type: ignore[arg-type]
+        decision,  # type: ignore[arg-type]
+        target_pack_id="opennosh-starter",
+    )
+
+    assert fact.activity_locale == "zh-cmn-Hans-CN"
+    assert fact.activity_pack_version == "1.2.3"
+    assert fact.activity_source_digest == digest
+
+    accepted.repository = "github:elsewhere/opennosh"
+    receipt.envelope_json["receipt"]["verified_steps"][0]["destination"] = accepted.repository
+    fact = _accepted_mission_fact(
+        accepted,  # type: ignore[arg-type]
+        receipt,  # type: ignore[arg-type]
+        intent,  # type: ignore[arg-type]
+        decision,  # type: ignore[arg-type]
+        target_pack_id="opennosh-starter",
+    )
+    assert fact.activity_locale is None
+    assert fact.activity_source_digest is None
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["receipt_body", "approved_changes", "manifest_missing", "manifest_yaml", "manifest_fields"],
+)
+def test_activity_locale_proof_fails_closed_on_unusable_manifest_material(
+    failure: str,
+) -> None:
+    accepted, receipt, intent, decision, _digest = _activity_proof_material()
+
+    if failure == "receipt_body":
+        receipt.envelope_json["receipt"] = "invalid"
+    elif failure == "approved_changes":
+        decision.approved_changes_json = []
+    else:
+        files = [
+            ApprovedFileChange(
+                path="packs/opennosh-starter/foods/food-1.yaml",
+                content="- slug: food-1\n",
+            )
+        ]
+        if failure != "manifest_missing":
+            manifest = (
+                "id: opennosh-starter\nversion: 1.2.3\nlocale: [\n"
+                if failure == "manifest_yaml"
+                else "id: opennosh-starter\nversion: invalid\nlocale: en-US\n"
+            )
+            files.append(
+                ApprovedFileChange(
+                    path="packs/opennosh-starter/pack.yaml",
+                    content=manifest,
+                )
+            )
+        changes = ApprovedChangeSet.build(pack_id="opennosh-starter", files=tuple(files))
+        decision.approved_changes_json = changes.as_json()
+        decision.approved_payload_digest = changes.digest
+        intent.approved_payload_digest = changes.digest
+        receipt.envelope_json["receipt"]["approved_payload_digest"] = changes.digest
+
+    locale, pack_version, source_digest = _activity_locale_proof(
+        accepted,  # type: ignore[arg-type]
+        receipt,  # type: ignore[arg-type]
+        intent,  # type: ignore[arg-type]
+        decision,  # type: ignore[arg-type]
+    )
+
+    assert locale is None
+    assert pack_version is None
+    assert source_digest is None
 
 
 @pytest.mark.asyncio
@@ -165,7 +297,7 @@ async def test_current_progress_follows_correction_lineage_and_materialized_reco
             commit_sha=row[0].commit_sha,
             pack_id=row[0].pack_id,
             record_id=row[0].record_id,
-                event_type=row[1].event_type,
+            event_type=row[1].event_type,
             published_at=row[0].published_at,
             source_draft_id=intent.source_draft_id if row[2] is not None else UUID(int=0),
             source_draft_version=intent.source_draft_version if row[2] is not None else 1,
@@ -199,6 +331,9 @@ async def test_current_progress_follows_correction_lineage_and_materialized_reco
         pack_id=active.pack_id,
         record_id=active.record_id,
         accepted_event_id=active.accepted_event_id,
+        activity_locale=active.activity_locale,
+        activity_pack_version=active.activity_pack_version,
+        activity_source_digest=active.activity_source_digest,
         published_at=active.published_at,
     )
     repository = MissionRepository(  # type: ignore[arg-type]
@@ -215,7 +350,7 @@ async def test_current_progress_follows_correction_lineage_and_materialized_reco
 @pytest.mark.asyncio
 async def test_current_progress_fails_closed_on_invalid_relevant_receipt() -> None:
     intent = SimpleNamespace(source_draft_id=DRAFT_ID, source_draft_version=1)
-    accepted, receipt, _intent = _accepted_row(
+    accepted, receipt, _intent, _decision = _accepted_row(
         receipt_digest="a" * 64,
         commit_sha="b" * 40,
         event_type="publication",
@@ -233,7 +368,7 @@ async def test_current_progress_fails_closed_on_invalid_relevant_receipt() -> No
     repository = MissionRepository(  # type: ignore[arg-type]
         FakeSession(
             bindings=[binding],
-            accepted_rows=[(accepted, receipt, intent)],
+            accepted_rows=[(accepted, receipt, intent, None)],
             stored_rows=[],
         )
     )

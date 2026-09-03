@@ -31,6 +31,7 @@ from opennosh_api.foodpacks.validation import (
     discover_pack_directories,
     load_pack_directory,
     main,
+    parse_pack_manifest,
     validate_pack_directories,
     validate_pack_document,
     validate_pack_roots,
@@ -82,6 +83,22 @@ def test_valid_directory_fixture_passes_without_warnings() -> None:
     assert report.valid
     assert report.errors == ()
     assert report.warnings == ()
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("x" * (MAX_YAML_FILE_BYTES + 1), "exceeds the bounded YAML size"),
+        ("locale: [", "invalid YAML"),
+        ("- locale: en-US\n", "one string-keyed mapping"),
+        ("1: en-US\n", "invalid YAML"),
+    ],
+)
+def test_pack_manifest_parser_rejects_unbounded_or_ambiguous_yaml(
+    content: str, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        parse_pack_manifest(content)
 
 
 @pytest.mark.parametrize(
