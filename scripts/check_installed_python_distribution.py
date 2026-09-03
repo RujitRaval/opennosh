@@ -26,6 +26,7 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
             contracts = importlib.import_module("opennosh_api.contracts")
             validation = importlib.import_module("opennosh_api.foodpacks.validation")
             main = importlib.import_module("opennosh_api.main")
+            sdk = importlib.import_module("opennosh_api.sdk")
             package_root = target.resolve()
             module_path = Path(validation.__file__).resolve()
             if not module_path.is_relative_to(package_root):
@@ -44,6 +45,18 @@ def validate_installed_wheel(wheel: Path, expected_version: str) -> list[str]:
                 issues.append("installed wheel: developer compatibility manifest is unavailable")
             if main.read_app_version() != expected_version:
                 issues.append("installed wheel: application version does not match VERSION")
+            if sdk.PACKAGE_VERSION != expected_version:
+                issues.append("installed wheel: SDK version does not match VERSION")
+            for client_name in ("OpenNoshClient", "AsyncOpenNoshClient"):
+                client_type = getattr(sdk, client_name, None)
+                if not isinstance(client_type, type):
+                    issues.append(f"installed wheel: SDK does not export {client_name}")
+                    continue
+                client = client_type("hosted")
+                if client.origin != "https://opennosh.org":
+                    issues.append(f"installed wheel: {client_name} hosted target is invalid")
+                if not callable(getattr(client, "download_pack", None)):
+                    issues.append(f"installed wheel: {client_name} public operations are missing")
             for command, target_name in EXPECTED_CONSOLE_SCRIPTS.items():
                 module_name, attribute_name = target_name.split(":", maxsplit=1)
                 module = importlib.import_module(module_name)

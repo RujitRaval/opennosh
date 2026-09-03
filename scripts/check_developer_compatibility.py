@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -22,6 +23,7 @@ PACKAGE_PATH = Path("packages/npm/package.json")
 NPM_GENERATED_TYPES_PATH = Path("packages/npm/src/generated-types.d.ts")
 NPM_PROBLEM_CONTRACT_PATH = Path("packages/npm/src/generated-problem-contract.js")
 NPM_OPERATION_POLICY_PATH = Path("packages/npm/src/generated-operation-policy.js")
+PYTHON_OPERATION_POLICY_PATH = Path("api/opennosh_api/sdk/_generated.py")
 COMPATIBILITY_FIXTURES_PATH = Path("tests/fixtures/developer-compatibility.v1.json")
 OPENAPI_N_MINUS_ONE_PATH = Path("tests/fixtures/openapi-1.0.0-public.json")
 OPENAPI_N_MINUS_ONE_SOURCE_COMMIT = "93d8446027ead93170ba2d9876dc41775f2ac9ad"
@@ -95,6 +97,38 @@ def _public_operations(openapi: dict[str, Any]) -> dict[str, str]:
     return operations
 
 
+def _expected_python_operation_policy(
+    openapi: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    policies: dict[str, dict[str, Any]] = {}
+    for declared in manifest["public_operations"]:
+        operation = openapi["paths"][declared["path"]]["get"]
+        content = operation.get("responses", {}).get("200", {}).get("content", {})
+        policies[declared["path"]] = {
+            "accepted_media_types": sorted(content) if isinstance(content, dict) else [],
+            "media_type": declared["media_type"],
+            "max_response_bytes": declared["max_response_bytes"],
+            "path_parameters": {
+                parameter["name"]: parameter["schema"]
+                for parameter in operation.get("parameters", [])
+                if parameter["in"] == "path"
+            },
+        }
+    return policies
+
+
+def _generated_python_operation_policy(path: Path) -> object:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "PUBLIC_OPERATION_POLICIES"
+        ):
+            return ast.literal_eval(node.value)
+    return None
+
+
 def _openapi_response_schema(
     openapi: dict[str, Any], operation: dict[str, Any], media_type: str
 ) -> dict[str, Any] | None:
@@ -107,9 +141,7 @@ def _openapi_response_schema(
         "$defs": openapi.get("components", {}).get("schemas", {}),
         **schema,
     }
-    return json.loads(
-        json.dumps(document).replace("#/components/schemas/", "#/$defs/")
-    )
+    return json.loads(json.dumps(document).replace("#/components/schemas/", "#/$defs/"))
 
 
 def _validate_response_fixture(
@@ -125,8 +157,7 @@ def _validate_response_fixture(
         return [f"{label}: media type {media_type} is not a declared 200 response"]
     errors = Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(body)
     return [
-        f"{label}: {error.message}"
-        for error in sorted(errors, key=lambda item: list(item.path))
+        f"{label}: {error.message}" for error in sorted(errors, key=lambda item: list(item.path))
     ]
 
 
@@ -224,10 +255,23 @@ def validate_repository(root: Path) -> list[str]:
             or generated_operation_policy != expected_operation_policy
         ):
             issues.append("npm generated operation policy is stale")
+    python_operation_policy_path = root / PYTHON_OPERATION_POLICY_PATH
+    if not python_operation_policy_path.is_file():
+        issues.append("Python generated operation policy is missing")
+    else:
+        try:
+            python_operation_policy = _generated_python_operation_policy(
+                python_operation_policy_path
+            )
+        except (OSError, SyntaxError, ValueError):
+            python_operation_policy = None
+        if python_operation_policy != _expected_python_operation_policy(openapi, manifest):
+            issues.append("Python generated operation policy is stale")
     clients = manifest.get("clients", {})
-    if expected_package_version is not None and clients.get("javascript", {}).get(
-        "current"
-    ) != expected_package_version:
+    if (
+        expected_package_version is not None
+        and clients.get("javascript", {}).get("current") != expected_package_version
+    ):
         issues.append("clients.javascript.current must match VERSION package prefix")
     for name in ("python", "cli"):
         if clients.get(name, {}).get("current") != release_version:
@@ -309,9 +353,7 @@ def validate_repository(root: Path) -> list[str]:
         if isinstance(item, dict) and isinstance(item.get("operation_id"), str)
     }
     response_fixtures = fixtures.get("responses", [])
-    fixture_ids = {
-        item.get("operation_id") for item in response_fixtures if isinstance(item, dict)
-    }
+    fixture_ids = {item.get("operation_id") for item in response_fixtures if isinstance(item, dict)}
     if fixture_ids != set(operation_by_id):
         issues.append("response fixtures must cover every public operation exactly once")
     if len(fixture_ids) != len(response_fixtures):
@@ -354,9 +396,7 @@ def validate_repository(root: Path) -> list[str]:
     }
     n_minus_one_fixtures = fixtures.get("n_minus_one_responses", [])
     n_minus_one_fixture_ids = {
-        item.get("operation_id")
-        for item in n_minus_one_fixtures
-        if isinstance(item, dict)
+        item.get("operation_id") for item in n_minus_one_fixtures if isinstance(item, dict)
     }
     if n_minus_one_fixture_ids != set(n_minus_one_by_id):
         issues.append("N-1 response fixtures must cover every retained public operation")
@@ -397,9 +437,9 @@ def validate_repository(root: Path) -> list[str]:
     for fixture in problem_fixtures:
         if not isinstance(fixture, dict):
             continue
-        errors = Draft202012Validator(
-            problem_schema, format_checker=FormatChecker()
-        ).iter_errors(fixture.get("body"))
+        errors = Draft202012Validator(problem_schema, format_checker=FormatChecker()).iter_errors(
+            fixture.get("body")
+        )
         for error in sorted(errors, key=lambda item: list(item.path)):
             issues.append(f"problem fixture {fixture.get('name')}: {error.message}")
 
@@ -435,9 +475,7 @@ def validate_repository(root: Path) -> list[str]:
     if re.search(r"export const \w+.*\.post<", sdk) is None:
         issues.append("generated SDK does not contain the complete operation client")
 
-    generator_manifest = json.loads(
-        (root / GENERATOR_MANIFEST_PATH).read_text(encoding="utf-8")
-    )
+    generator_manifest = json.loads((root / GENERATOR_MANIFEST_PATH).read_text(encoding="utf-8"))
     client_files = sorted(
         str(path.relative_to(root / GENERATED_CLIENT_PATH))
         for path in (root / GENERATED_CLIENT_PATH).rglob("*")

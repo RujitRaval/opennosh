@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
+import io
 import json
 import sys
 from collections.abc import Sequence
@@ -72,6 +74,12 @@ from opennosh_api.publication.natural_proof import (
 )
 from opennosh_api.publication.natural_readiness import collect_natural_publication_readiness
 from opennosh_api.publication.readiness import collect_production_claims_readiness
+from opennosh_api.sdk.cli import (
+    add_packs_parser,
+    add_public_parser,
+    run_packs_command,
+    run_public_command,
+)
 from opennosh_api.settings import get_settings
 
 
@@ -179,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     natural_readiness.add_argument("--blueprint", type=Path, default=Path("render.yaml"))
     natural_readiness.add_argument("--json", action="store_true")
+    add_public_parser(commands)
+    add_packs_parser(commands)
     add_federation_parser(commands)
     return parser
 
@@ -611,13 +621,44 @@ def _run_natural_publication_readiness(arguments: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    arguments = build_parser().parse_args(argv)
+    raw_arguments = list(argv) if argv is not None else sys.argv[1:]
+    json_public_command = (
+        bool(raw_arguments)
+        and raw_arguments[0] in {"public", "packs"}
+        and "--json" in raw_arguments
+    )
+    if json_public_command:
+        with contextlib.redirect_stderr(io.StringIO()):
+            try:
+                arguments = build_parser().parse_args(raw_arguments)
+            except SystemExit as error:
+                if error.code == 0:
+                    raise
+                print(
+                    json.dumps(
+                        {
+                            "schema_version": "1.0",
+                            "status": 0,
+                            "code": "invalid_input",
+                            "detail": "invalid input or target",
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                )
+                return 2
+    else:
+        arguments = build_parser().parse_args(raw_arguments)
     if arguments.command == "foods":
         return run_food_command(arguments)
     if arguments.command == "exercises":
         return run_exercise_command(arguments)
     if arguments.command == "commons":
         return run_commons_command(arguments)
+    if arguments.command == "public":
+        return run_public_command(arguments)
+    if arguments.command == "packs":
+        return run_packs_command(arguments)
     if arguments.command == "federation":
         return run_federation_command(arguments)
     raise AssertionError(f"unsupported command: {arguments.command}")

@@ -2,6 +2,31 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.85.0.0] - 2026-09-03
+
+### Added
+
+- Add installable synchronous and asynchronous Python clients for all ten anonymous public read
+  operations, preserving current and retained N-1 response contracts plus release and staleness
+  metadata.
+- Add public-read CLI commands and bounded local JSON or ZIP food-pack validation without installing
+  or extracting a pack.
+
+### Changed
+
+- Generate Python transport policy alongside the JavaScript policy and verify both source drift and
+  installed-wheel exports in release gates.
+- Keep the Python SDK, CLI, MCP, and embed surfaces in preview or disabled states without changing
+  any production activation switch.
+
+### Security
+
+- Enforce exact credential-free targets, cancellable wall-clock deadlines, redirect refusal,
+  response and archive limits, sanitized failures, terminal-safe output, and atomic no-overwrite
+  downloads.
+- Reject symlink inputs, ambiguous or ZIP64 central directories, unsafe archive members, and
+  non-standard JSON numbers before canonical pack validation.
+
 ## [0.84.0.0] - 2026-09-03
 
 ### Added
