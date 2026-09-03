@@ -50,6 +50,22 @@ async def _seed_activity_records(database_url: str) -> tuple[UUID, UUID, UUID]:
                 actor_id,
                 NOW,
             )
+            await connection.execute(
+                """
+                INSERT INTO mission_lifecycle_events (
+                    id, mission_id, definition_id, sequence, prior_event_id, action,
+                    actor_id, public_reason, next_review_at, release_receipt_digest, occurred_at
+                ) VALUES (
+                    $1, $2, $3, 1, NULL, 'propose', $4,
+                    'Synthetic activity aggregation fixture.', NULL, NULL, $5
+                )
+                """,
+                uuid4(),
+                mission_id,
+                definition_id,
+                actor_id,
+                NOW,
+            )
 
         accepted_ids: list[UUID] = []
         for index in range(11):
