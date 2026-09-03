@@ -23,13 +23,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `node tests/fixtures/public-food-api.mjs ${apiPort}`,
+      command: `node tests/fixtures/public-food-api.mjs ${apiPort} ${port}`,
       url: `${apiURL}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: `API_URL=${apiURL} OPENNOSH_VISUAL_FIXTURES=1 PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+      command: `API_URL=${apiURL} OPENNOSH_EMBED_FRAME_ANCESTORS=${apiURL} OPENNOSH_VISUAL_FIXTURES=1 PUBLIC_ARTIFACT_READS_ENABLED=true OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search,commons-missions OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true npm run dev -- --hostname 127.0.0.1 --port ${port}`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

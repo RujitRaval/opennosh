@@ -276,7 +276,7 @@ def validate_repository(root: Path) -> list[str]:
     for name in ("python", "cli"):
         if clients.get(name, {}).get("current") != release_version:
             issues.append(f"clients.{name}.current must match VERSION")
-    discovery_expectations = {"mcp": "preview", "embed": "disabled"}
+    discovery_expectations = {"mcp": "preview", "embed": "preview"}
     for name, expected_status in discovery_expectations.items():
         client = clients.get(name, {})
         if (

@@ -190,3 +190,7 @@ services:
         value: "false"
       - key: PUBLIC_ARTIFACT_READS_ENABLED
         value: "false"
+      - key: OPENNOSH_EMBED_DISCOVERY_ENABLED
+        value: "false"
+      - key: OPENNOSH_EMBED_FRAME_ANCESTORS
+        value: "https:"

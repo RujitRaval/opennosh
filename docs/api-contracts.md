@@ -51,8 +51,8 @@ SDK. Its canonical SHA-256 excludes only the digest field itself. The matching J
 The initial preview pins OpenAPI 2.x plus the retained 1.x compatibility family, the npm three-part
 version, Python/CLI four-part artifact versions, MCP/embed protocol 1.0.0, nullable deprecation
 dates, ten anonymous developer operations, exact response byte limits, and
-the no-credentials/no-redirect/no-retry endpoint policy. MCP is an installable preview while MCP
-and embed discovery remain explicitly disabled. A new public GET operation under
+the no-credentials/no-redirect/no-retry endpoint policy. MCP and embed artifacts are previews while
+their production discovery remains explicitly disabled. A new public GET operation under
 `/api/v1/public/`, or a change to either developer food operation, cannot land until it appears in
 this reviewed manifest and the generated SDK.
 
@@ -92,6 +92,12 @@ tool. Every tool returns one `schema_version: "1.0"` object whose `state` distin
 stale verified, unavailable, valid, and invalid outcomes. A typed `problem` appears only when one
 exists. The process logs method, status, latency, and counts but never arguments or response bodies.
 MCP artifact status is preview at protocol 1.0.0, while discovery remains disabled.
+
+The embed 1.0 preview renders only proof-bearing latest-food and exact-release provenance cards.
+Its server fetch is credential-free, redirect-refusing, bounded, and fail-closed; the browser page
+uses no cookies, storage, telemetry, or third-party requests. Its sole message is a bounded,
+versioned resize object sent to the browser-supplied parent origin. Embed production discovery
+remains disabled independently from route availability.
 
 Run the gate with:
 

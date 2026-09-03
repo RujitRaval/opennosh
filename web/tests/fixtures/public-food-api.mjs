@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 
 const port = Number(process.argv[2] ?? "8001");
+const webPort = Number(process.argv[3] ?? "3000");
 const fixture = JSON.parse(
   await readFile(new URL("./contracts/foods/v1-detail-community.json", import.meta.url), "utf8"),
 );
@@ -107,6 +108,25 @@ function missionActivityForState(state) {
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
+  if (url.pathname === "/embed-host") {
+    response.setHeader("Content-Type", "text/html; charset=utf-8");
+    response.end(`<!doctype html><title>Embed host</title>
+      <iframe title="OpenNosh food" sandbox="allow-scripts allow-same-origin allow-popups"
+        src="http://127.0.0.1:${webPort}/embed/v1/foods/community/rajma-masala"></iframe>
+      <output id="message-state">waiting</output>
+      <script>
+        const frame = document.querySelector("iframe");
+        addEventListener("message", (event) => {
+          if (event.source !== frame.contentWindow) return;
+          if (event.origin !== "http://127.0.0.1:${webPort}") return;
+          const data = event.data;
+          if (data?.schema_version !== "1.0" || data?.type !== "opennosh.embed.resize") return;
+          if (!Number.isInteger(data.height) || data.height < 160 || data.height > 1200) return;
+          document.querySelector("#message-state").value = JSON.stringify(data);
+        });
+      </script>`);
+    return;
+  }
   response.setHeader("Content-Type", "application/json");
   if (url.pathname === "/health") {
     response.end(JSON.stringify({ ok: true }));
@@ -172,10 +192,19 @@ const server = createServer((request, response) => {
   if ([
     "/api/v1/foods/community/rajma-masala",
     "/api/v1/public/foods/community/rajma-masala",
+    "/api/v1/public/releases/0.86.0.0/foods/community/rajma-masala",
   ].includes(url.pathname)) {
-    response.end(JSON.stringify(
-      url.pathname.startsWith("/api/v1/public/") ? publicFoodFixture : fixture,
-    ));
+    const exactRelease = url.pathname.startsWith("/api/v1/public/releases/0.86.0.0/");
+    response.end(JSON.stringify(url.pathname.startsWith("/api/v1/public/")
+      ? exactRelease
+        ? {
+            ...publicFoodFixture,
+            release: { ...publicFoodFixture.release, release_version: "0.86.0.0", state: "stale" },
+            immutable_url: "/api/v1/public/releases/0.86.0.0/foods/community/rajma-masala",
+            provenance_url: "/api/v1/public/releases/0.86.0.0/foods/community/rajma-masala/provenance",
+          }
+        : publicFoodFixture
+      : fixture));
     return;
   }
   if ([
