@@ -138,9 +138,7 @@ class DeveloperCompatibilityTests(unittest.TestCase):
                 root,
                 lambda payload: payload["clients"]["embed"].update(contract_major=2),
             )
-            self.assertTrue(
-                any("manifest schema" in issue for issue in validate_repository(root))
-            )
+            self.assertTrue(any("manifest schema" in issue for issue in validate_repository(root)))
 
     def test_openapi_version_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -276,14 +274,37 @@ class DeveloperCompatibilityTests(unittest.TestCase):
 
     def test_missing_and_malformed_npm_generated_contracts_are_reported(self) -> None:
         cases = (
-            ("packages/npm/src/generated-types.d.ts", None, "npm generated transport types are missing"),
-            ("packages/npm/src/generated-problem-contract.js", None, "npm generated problem contract is missing"),
-            ("packages/npm/src/generated-problem-contract.js", "not valid generated JSON\n", "npm generated problem contract is stale"),
-            ("packages/npm/src/generated-operation-policy.js", None, "npm generated operation policy is missing"),
-            ("packages/npm/src/generated-operation-policy.js", "not valid generated JSON\n", "npm generated operation policy is stale"),
+            (
+                "packages/npm/src/generated-types.d.ts",
+                None,
+                "npm generated transport types are missing",
+            ),
+            (
+                "packages/npm/src/generated-problem-contract.js",
+                None,
+                "npm generated problem contract is missing",
+            ),
+            (
+                "packages/npm/src/generated-problem-contract.js",
+                "not valid generated JSON\n",
+                "npm generated problem contract is stale",
+            ),
+            (
+                "packages/npm/src/generated-operation-policy.js",
+                None,
+                "npm generated operation policy is missing",
+            ),
+            (
+                "packages/npm/src/generated-operation-policy.js",
+                "not valid generated JSON\n",
+                "npm generated operation policy is stale",
+            ),
         )
         for relative, replacement, expected in cases:
-            with self.subTest(relative=relative, replacement=replacement), tempfile.TemporaryDirectory() as directory:
+            with (
+                self.subTest(relative=relative, replacement=replacement),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 root = Path(directory)
                 copy_contract(root)
                 path = root / relative
@@ -365,10 +386,7 @@ class DeveloperCompatibilityTests(unittest.TestCase):
             fixtures["n_minus_one_responses"][1]["body"]["schema_version"] = "2.0"
             path.write_text(json.dumps(fixtures), encoding="utf-8")
             self.assertTrue(
-                any(
-                    "response fixture 1.0.0 search" in issue
-                    for issue in validate_repository(root)
-                )
+                any("response fixture 1.0.0 search" in issue for issue in validate_repository(root))
             )
 
     def test_n_minus_one_schema_snapshot_is_digest_pinned(self) -> None:
