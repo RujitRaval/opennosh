@@ -144,6 +144,12 @@ class Settings(BaseSettings):
     mission_public_enabled: bool = False
     mission_activity_map_enabled: bool = False
     mission_pack_release_enabled: bool = False
+    reuse_registry_mutations_enabled: bool = False
+    reuse_verification_enabled: bool = False
+    reuse_public_enabled: bool = False
+    impact_aggregation_enabled: bool = False
+    impact_public_enabled: bool = False
+    public_status_enabled: bool = False
     publication_activation_ids: str = ""
     publication_claims_activation_contract_path: Path = Path(
         "config/publication-claims-activation.v1.json"
@@ -409,6 +415,14 @@ class Settings(BaseSettings):
             self.mission_mutations_enabled and self.mission_projection_enabled
         ):
             raise ValueError("Mission pack release requires mutations and projection")
+        if self.reuse_verification_enabled and not self.reuse_registry_mutations_enabled:
+            raise ValueError("Reuse verification requires registry mutations")
+        if self.reuse_public_enabled and not self.reuse_verification_enabled:
+            raise ValueError("Public reuse requires verification")
+        if self.impact_aggregation_enabled and not self.reuse_verification_enabled:
+            raise ValueError("Impact aggregation requires reuse verification")
+        if self.impact_public_enabled and not self.impact_aggregation_enabled:
+            raise ValueError("Public impact requires impact aggregation")
         publication_secret_values = (
             self.online_manifest_signing_key_id,
             self.online_manifest_signing_key,

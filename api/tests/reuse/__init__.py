@@ -1,0 +1,1 @@
+"""Reuse registry tests."""

@@ -2,6 +2,27 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.89.0.0] - 2026-09-03
+
+### Added
+
+- Add the authenticated voluntary reuse declaration foundation with normalized organization and
+  project identity, broad optional regions, owner-scoped reads, optimistic revisions, and
+  idempotent create, edit, submit, withdraw, and restore operations.
+- Add immutable reuse lifecycle audit events and database constraints that preserve every owner
+  action without creating a second user or food identity system.
+
+### Changed
+
+- Register the T34.8 reuse, impact, and public-operations feature gates while keeping every gate
+  disabled in application, example, and Render configuration.
+
+### Security
+
+- Store only hashes of idempotency keys, never fetch contributor-supplied project URLs in the API
+  process, hide cross-owner records as not found, and retain publication claims disabled at one
+  replica and concurrency one.
+
 ## [0.88.0.0] - 2026-09-03
 
 ### Added

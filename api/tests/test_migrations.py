@@ -79,6 +79,8 @@ EXPECTED_TABLES = {
     "mission_progress_checkpoints",
     "mission_progress_records",
     "mission_progress_activations",
+    "reuse_declarations",
+    "reuse_declaration_events",
 }
 
 

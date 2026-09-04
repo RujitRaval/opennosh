@@ -3328,6 +3328,154 @@ export type RegistrationResponse = {
 };
 
 /**
+ * ReuseDeclarationCreate
+ */
+export type ReuseDeclarationCreate = {
+    /**
+     * Organization Name
+     */
+    organization_name: string;
+    /**
+     * Project Name
+     */
+    project_name: string;
+    /**
+     * Project Url
+     */
+    project_url?: string | null;
+    /**
+     * Region Code
+     */
+    region_code?: string | null;
+    region_level?: ReuseRegionLevel | null;
+    /**
+     * Use Case
+     */
+    use_case: string;
+};
+
+/**
+ * ReuseDeclarationListResponse
+ */
+export type ReuseDeclarationListResponse = {
+    /**
+     * Declarations
+     */
+    declarations: Array<ReuseDeclarationResponse>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+};
+
+/**
+ * ReuseDeclarationPatch
+ */
+export type ReuseDeclarationPatch = {
+    /**
+     * Clear Project Url
+     */
+    clear_project_url?: boolean;
+    /**
+     * Clear Region
+     */
+    clear_region?: boolean;
+    /**
+     * Organization Name
+     */
+    organization_name?: string | null;
+    /**
+     * Project Name
+     */
+    project_name?: string | null;
+    /**
+     * Project Url
+     */
+    project_url?: string | null;
+    /**
+     * Region Code
+     */
+    region_code?: string | null;
+    region_level?: ReuseRegionLevel | null;
+    /**
+     * Use Case
+     */
+    use_case?: string | null;
+};
+
+/**
+ * ReuseDeclarationResponse
+ */
+export type ReuseDeclarationResponse = {
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Organization Name
+     */
+    organization_name: string;
+    /**
+     * Project Name
+     */
+    project_name: string;
+    /**
+     * Project Url
+     */
+    project_url: string | null;
+    /**
+     * Region Code
+     */
+    region_code: string | null;
+    region_level: ReuseRegionLevel | null;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    state: ReuseDeclarationState;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Use Case
+     */
+    use_case: string;
+    /**
+     * Withdrawn At
+     */
+    withdrawn_at: string | null;
+};
+
+/**
+ * ReuseDeclarationState
+ */
+export type ReuseDeclarationState = 'community_declared' | 'verification_pending' | 'verified' | 'withdrawn';
+
+/**
+ * ReuseRegionLevel
+ */
+export type ReuseRegionLevel = 'country' | 'macroregion';
+
+/**
+ * ReuseTransitionRequest
+ */
+export type ReuseTransitionRequest = {
+    /**
+     * Reason
+     */
+    reason?: string | null;
+};
+
+/**
  * ReviewApprovalResponse
  */
 export type ReviewApprovalResponse = {
@@ -9526,6 +9674,541 @@ export type UpdateApiV1RecipesRecipeIdPutResponses = {
 };
 
 export type UpdateApiV1RecipesRecipeIdPutResponse = UpdateApiV1RecipesRecipeIdPutResponses[keyof UpdateApiV1RecipesRecipeIdPutResponses];
+
+export type CreateReuseDeclarationApiV1ReuseDeclarationsPostData = {
+    body: ReuseDeclarationCreate;
+    headers: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/reuse/declarations';
+};
+
+export type CreateReuseDeclarationApiV1ReuseDeclarationsPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CreateReuseDeclarationApiV1ReuseDeclarationsPostError = CreateReuseDeclarationApiV1ReuseDeclarationsPostErrors[keyof CreateReuseDeclarationApiV1ReuseDeclarationsPostErrors];
+
+export type CreateReuseDeclarationApiV1ReuseDeclarationsPostResponses = {
+    /**
+     * The idempotent declaration already exists.
+     */
+    200: ReuseDeclarationResponse;
+    /**
+     * Successful Response
+     */
+    201: ReuseDeclarationResponse;
+};
+
+export type CreateReuseDeclarationApiV1ReuseDeclarationsPostResponse = CreateReuseDeclarationApiV1ReuseDeclarationsPostResponses[keyof CreateReuseDeclarationApiV1ReuseDeclarationsPostResponses];
+
+export type MyReuseDeclarationsApiV1ReuseDeclarationsMineGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/reuse/declarations/mine';
+};
+
+export type MyReuseDeclarationsApiV1ReuseDeclarationsMineGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type MyReuseDeclarationsApiV1ReuseDeclarationsMineGetError = MyReuseDeclarationsApiV1ReuseDeclarationsMineGetErrors[keyof MyReuseDeclarationsApiV1ReuseDeclarationsMineGetErrors];
+
+export type MyReuseDeclarationsApiV1ReuseDeclarationsMineGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationListResponse;
+};
+
+export type MyReuseDeclarationsApiV1ReuseDeclarationsMineGetResponse = MyReuseDeclarationsApiV1ReuseDeclarationsMineGetResponses[keyof MyReuseDeclarationsApiV1ReuseDeclarationsMineGetResponses];
+
+export type WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteData = {
+    body: ReuseTransitionRequest;
+    headers: {
+        /**
+         * If-Match
+         */
+        'If-Match': number;
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Declaration Id
+         */
+        declaration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reuse/declarations/{declaration_id}';
+};
+
+export type WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteError = WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteErrors[keyof WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteErrors];
+
+export type WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationResponse;
+};
+
+export type WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteResponse = WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteResponses[keyof WithdrawReuseDeclarationApiV1ReuseDeclarationsDeclarationIdDeleteResponses];
+
+export type GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Declaration Id
+         */
+        declaration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reuse/declarations/{declaration_id}';
+};
+
+export type GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetError = GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetErrors[keyof GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetErrors];
+
+export type GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationResponse;
+};
+
+export type GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetResponse = GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetResponses[keyof GetReuseDeclarationApiV1ReuseDeclarationsDeclarationIdGetResponses];
+
+export type EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchData = {
+    body: ReuseDeclarationPatch;
+    headers: {
+        /**
+         * If-Match
+         */
+        'If-Match': number;
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Declaration Id
+         */
+        declaration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reuse/declarations/{declaration_id}';
+};
+
+export type EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchError = EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchErrors[keyof EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchErrors];
+
+export type EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationResponse;
+};
+
+export type EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchResponse = EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchResponses[keyof EditReuseDeclarationApiV1ReuseDeclarationsDeclarationIdPatchResponses];
+
+export type RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostData = {
+    body: ReuseTransitionRequest;
+    headers: {
+        /**
+         * If-Match
+         */
+        'If-Match': number;
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Declaration Id
+         */
+        declaration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reuse/declarations/{declaration_id}/restore';
+};
+
+export type RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostError = RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostErrors[keyof RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostErrors];
+
+export type RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationResponse;
+};
+
+export type RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostResponse = RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostResponses[keyof RestoreReuseDeclarationApiV1ReuseDeclarationsDeclarationIdRestorePostResponses];
+
+export type SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostData = {
+    body: ReuseTransitionRequest;
+    headers: {
+        /**
+         * If-Match
+         */
+        'If-Match': number;
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key': string;
+    };
+    path: {
+        /**
+         * Declaration Id
+         */
+        declaration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reuse/declarations/{declaration_id}/submit';
+};
+
+export type SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostError = SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostErrors[keyof SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostErrors];
+
+export type SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReuseDeclarationResponse;
+};
+
+export type SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostResponse = SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostResponses[keyof SubmitReuseDeclarationApiV1ReuseDeclarationsDeclarationIdSubmitPostResponses];
 
 export type ListAllApiV1TargetsGetData = {
     body?: never;
