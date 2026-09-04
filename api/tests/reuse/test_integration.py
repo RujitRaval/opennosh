@@ -11,13 +11,18 @@ from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationPatch,
     ReuseEventType,
+    ReuseEvidenceStatus,
     ReuseRegionLevel,
+    ReuseVerificationEvidence,
 )
 from opennosh_api.reuse.service import (
     ReuseRegistryError,
     create_declaration,
+    list_public_declarations,
     patch_declaration,
     read_owned_declaration,
+    read_public_declaration,
+    review_declaration,
     transition_declaration,
 )
 from sqlalchemy import text
@@ -33,6 +38,7 @@ NOW = datetime(2026, 9, 3, 22, tzinfo=UTC)
 async def _exercise_registry(database_url: str) -> None:
     owner = uuid4()
     other = uuid4()
+    steward = uuid4()
     key = UUID("30000000-0000-4000-8000-000000000001")
     engine = create_async_engine(database_url)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -41,13 +47,30 @@ async def _exercise_registry(database_url: str) -> None:
             await connection.execute(
                 text(
                     "INSERT INTO users (id, email, password_hash) VALUES "
-                    "(:owner, :owner_email, 'hash'), (:other, :other_email, 'hash')"
+                    "(:owner, :owner_email, 'hash'), (:other, :other_email, 'hash'), "
+                    "(:steward, :steward_email, 'hash')"
                 ),
                 {
                     "owner": owner,
                     "owner_email": f"reuse-owner-{owner.hex}@example.test",
                     "other": other,
                     "other_email": f"reuse-other-{other.hex}@example.test",
+                    "steward": steward,
+                    "steward_email": f"reuse-steward-{steward.hex}@example.test",
+                },
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO governance_role_assignments "
+                    "(id, pack_id, actor_id, role, granted_by_actor_id, grant_reason, granted_at) "
+                    "VALUES (:id, 'opennosh-reuse-registry', :steward, 'steward', :owner, "
+                    "'Registry verification duty.', :granted_at)"
+                ),
+                {
+                    "id": uuid4(),
+                    "steward": steward,
+                    "owner": owner,
+                    "granted_at": NOW,
                 },
             )
 
@@ -117,6 +140,57 @@ async def _exercise_registry(database_url: str) -> None:
         assert declaration.state == "verification_pending"
 
         async with sessions() as session, session.begin():
+            declaration = await review_declaration(
+                session,
+                declaration_id=declaration_id,
+                steward_actor_id=steward,
+                expected_revision=3,
+                action=ReuseEventType.VERIFIED,
+                idempotency_key=uuid4(),
+                reason="Public adoption evidence independently reviewed.",
+                evidence=ReuseVerificationEvidence(
+                    source_url="https://evidence.example.test/adoption",
+                    observed_at=NOW,
+                    content_sha256="a" * 64,
+                    status=ReuseEvidenceStatus.ACCESSIBLE,
+                ),
+                now=NOW + timedelta(minutes=5),
+            )
+        assert declaration.state == "verified"
+        assert declaration.revision == 4
+
+        async with sessions() as session:
+            public_declaration, public_event = await read_public_declaration(
+                session,
+                declaration_id=declaration_id,
+            )
+            assert public_declaration.id == declaration_id
+            assert public_event is not None
+            assert public_event.evidence_json["content_sha256"] == "a" * 64
+            public_rows = await list_public_declarations(session)
+            assert any(row[0].id == declaration_id for row in public_rows)
+
+        async with sessions() as session, session.begin():
+            declaration = await transition_declaration(
+                session,
+                declaration_id=declaration_id,
+                owner_actor_id=owner,
+                expected_revision=4,
+                action=ReuseEventType.WITHDRAWN,
+                idempotency_key=uuid4(),
+                reason="Owner withdrew the declaration.",
+                now=NOW + timedelta(minutes=6),
+            )
+        assert declaration.state == "withdrawn"
+        async with sessions() as session:
+            with pytest.raises(ReuseRegistryError, match="not_found"):
+                await read_public_declaration(session, declaration_id=declaration_id)
+            assert not any(
+                row[0].id == declaration_id
+                for row in await list_public_declarations(session)
+            )
+
+        async with sessions() as session, session.begin():
             with pytest.raises(ReuseRegistryError, match="not_found"):
                 await read_owned_declaration(
                     session,
@@ -132,7 +206,7 @@ async def _exercise_registry(database_url: str) -> None:
                 ),
                 {"declaration_id": declaration_id},
             )
-            assert event_count == 3
+            assert event_count == 5
 
         async with engine.begin() as connection:
             with pytest.raises(DBAPIError, match="append-only"):

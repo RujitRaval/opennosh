@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -36,6 +36,18 @@ class ReuseEventType(StrEnum):
 class ReuseRegionLevel(StrEnum):
     COUNTRY = "country"
     MACROREGION = "macroregion"
+
+
+class ReuseEvidenceStatus(StrEnum):
+    ACCESSIBLE = "accessible"
+    INACCESSIBLE = "inaccessible"
+    UNAVAILABLE = "unavailable"
+
+
+class ReusePublicLabel(StrEnum):
+    COMMUNITY_DECLARED = "community_declared"
+    UNVERIFIED = "unverified"
+    VERIFIED = "verified"
 
 
 def normalize_label(value: str, *, maximum: int) -> str:
@@ -209,6 +221,94 @@ class ReuseTransitionRequest(BaseModel):
         return None if value is None else normalize_label(value, maximum=1000)
 
 
+class ReuseVerificationEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_url: Annotated[str, Field(min_length=1, max_length=2048)]
+    observed_at: datetime
+    content_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    status: ReuseEvidenceStatus
+
+    @field_validator("source_url")
+    @classmethod
+    def validate_source_url(cls, value: str) -> str:
+        normalized = normalize_public_url(value)
+        if normalized is None:
+            raise ValueError("Evidence URL must be a public HTTPS URL")
+        return normalized
+
+    @field_validator("observed_at")
+    @classmethod
+    def validate_observed_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Evidence observation time must include a timezone")
+        if value.utcoffset() != UTC.utcoffset(value):
+            raise ValueError("Evidence observation time must use UTC")
+        return value
+
+
+class ReuseVerificationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    reason: Annotated[str, Field(min_length=1, max_length=1000)]
+    evidence: ReuseVerificationEvidence
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        return normalize_label(value, maximum=1000)
+
+
+class ReuseReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    reason: Annotated[str, Field(min_length=1, max_length=1000)]
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        return normalize_label(value, maximum=1000)
+
+
+class ReuseReviewQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    declarations: tuple[ReuseDeclarationResponse, ...]
+
+
+class ReusePublicEvidenceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_url: str
+    observed_at: datetime
+    content_sha256: str
+
+
+class ReusePublicDeclarationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    id: UUID
+    organization_name: str
+    project_name: str
+    project_url: str | None
+    use_case: str
+    region_level: ReuseRegionLevel | None
+    region_code: str | None
+    verification_label: ReusePublicLabel
+    revision: int
+    updated_at: datetime
+    evidence: ReusePublicEvidenceResponse | None
+
+
+class ReusePublicListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    declarations: tuple[ReusePublicDeclarationResponse, ...]
+
+
 __all__ = [
     "ReuseDeclarationCreate",
     "ReuseDeclarationFields",
@@ -216,9 +316,18 @@ __all__ = [
     "ReuseDeclarationPatch",
     "ReuseDeclarationResponse",
     "ReuseDeclarationState",
+    "ReuseEvidenceStatus",
     "ReuseEventType",
+    "ReusePublicDeclarationResponse",
+    "ReusePublicEvidenceResponse",
+    "ReusePublicLabel",
+    "ReusePublicListResponse",
     "ReuseRegionLevel",
+    "ReuseReviewDecisionRequest",
+    "ReuseReviewQueueResponse",
     "ReuseTransitionRequest",
+    "ReuseVerificationEvidence",
+    "ReuseVerificationRequest",
     "normalize_label",
     "normalize_public_url",
     "normalized_key",

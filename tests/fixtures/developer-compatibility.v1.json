@@ -111,6 +111,36 @@
       }
     },
     {
+      "operation_id": "public_reuse_registry_api_v1_public_reuse_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "declarations": []
+      }
+    },
+    {
+      "operation_id": "public_reuse_declaration_api_v1_public_reuse__declaration_id__get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "id": "20000000-0000-4000-8000-000000000001",
+        "organization_name": "Community Kitchen",
+        "project_name": "Meal Commons",
+        "project_url": "https://example.test/reuse",
+        "use_case": "Uses verified records in a public menu.",
+        "region_level": "country",
+        "region_code": "US",
+        "verification_label": "verified",
+        "revision": 3,
+        "updated_at": "2026-09-04T02:00:00Z",
+        "evidence": {
+          "source_url": "https://evidence.example.test/adoption",
+          "observed_at": "2026-09-03T22:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
       "operation_id": "exact_food_api_v1_public_releases__release_version__foods__source___source_id__get",
       "media_type": "application/json",
       "body": {

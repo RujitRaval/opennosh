@@ -3,19 +3,23 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opennosh_api.governance.contracts import GovernanceRole
+from opennosh_api.governance.models import GovernanceRecusal, GovernanceRoleAssignment
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationFields,
     ReuseDeclarationPatch,
     ReuseDeclarationState,
     ReuseEventType,
+    ReuseEvidenceStatus,
     ReuseRegionLevel,
+    ReuseVerificationEvidence,
     normalized_key,
 )
 from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
@@ -25,6 +29,10 @@ class ReuseRegistryError(RuntimeError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+REUSE_GOVERNANCE_SCOPE = "opennosh-reuse-registry"
+REUSE_EVIDENCE_MAX_AGE = timedelta(days=30)
 
 
 def _require_aware(value: datetime) -> None:
@@ -100,6 +108,7 @@ def _append_event(
     idempotency_key_hash: str,
     request_hash: str,
     reason: str | None,
+    evidence_json: dict[str, object] | None = None,
     now: datetime,
     event_id_generator: Callable[[], UUID],
 ) -> None:
@@ -112,11 +121,204 @@ def _append_event(
             declaration_revision=declaration.revision,
             idempotency_key_hash=idempotency_key_hash,
             request_hash=request_hash,
-            evidence_json={},
+            evidence_json={} if evidence_json is None else evidence_json,
             reason=reason,
             occurred_at=now,
         )
     )
+
+
+async def _require_registry_steward(
+    session: AsyncSession,
+    *,
+    actor_id: UUID,
+    now: datetime,
+) -> None:
+    role_id = await session.scalar(
+        select(GovernanceRoleAssignment.id).where(
+            GovernanceRoleAssignment.pack_id == REUSE_GOVERNANCE_SCOPE,
+            GovernanceRoleAssignment.actor_id == actor_id,
+            GovernanceRoleAssignment.role == GovernanceRole.STEWARD.value,
+            GovernanceRoleAssignment.granted_at <= now,
+            (
+                GovernanceRoleAssignment.revoked_at.is_(None)
+                | (GovernanceRoleAssignment.revoked_at > now)
+            ),
+        )
+    )
+    if role_id is None:
+        raise ReuseRegistryError("reuse_steward_role_not_active")
+    recusal_id = await session.scalar(
+        select(GovernanceRecusal.id).where(
+            GovernanceRecusal.pack_id == REUSE_GOVERNANCE_SCOPE,
+            GovernanceRecusal.actor_id == actor_id,
+            GovernanceRecusal.recused_at <= now,
+        )
+    )
+    if recusal_id is not None:
+        raise ReuseRegistryError("reuse_steward_recused")
+
+
+async def list_reviewable_declarations(
+    session: AsyncSession,
+    *,
+    steward_actor_id: UUID,
+    now: datetime,
+    limit: int,
+) -> tuple[ReuseDeclaration, ...]:
+    _require_aware(now)
+    await _require_registry_steward(session, actor_id=steward_actor_id, now=now)
+    rows = await session.scalars(
+        select(ReuseDeclaration)
+        .where(
+            ReuseDeclaration.state == ReuseDeclarationState.VERIFICATION_PENDING.value,
+            ReuseDeclaration.owner_actor_id != steward_actor_id,
+        )
+        .order_by(ReuseDeclaration.updated_at, ReuseDeclaration.id)
+        .limit(limit)
+    )
+    return tuple(rows)
+
+
+def _validate_verification_evidence(
+    evidence: ReuseVerificationEvidence,
+    *,
+    now: datetime,
+) -> None:
+    if evidence.status is not ReuseEvidenceStatus.ACCESSIBLE:
+        raise ReuseRegistryError("reuse_verification_evidence_inaccessible")
+    if evidence.observed_at > now:
+        raise ReuseRegistryError("reuse_verification_evidence_from_future")
+    if evidence.observed_at < now - REUSE_EVIDENCE_MAX_AGE:
+        raise ReuseRegistryError("reuse_verification_evidence_stale")
+
+
+async def review_declaration(
+    session: AsyncSession,
+    *,
+    declaration_id: UUID,
+    steward_actor_id: UUID,
+    expected_revision: int,
+    action: ReuseEventType,
+    idempotency_key: UUID,
+    reason: str,
+    evidence: ReuseVerificationEvidence | None,
+    now: datetime,
+    event_id_generator: Callable[[], UUID] = uuid4,
+) -> ReuseDeclaration:
+    _require_aware(now)
+    if action not in {
+        ReuseEventType.VERIFIED,
+        ReuseEventType.CHANGES_REQUESTED,
+        ReuseEventType.REJECTED,
+    }:
+        raise ValueError("Unsupported reuse review transition")
+    if action is ReuseEventType.VERIFIED:
+        if evidence is None:
+            raise ReuseRegistryError("reuse_verification_evidence_unavailable")
+        _validate_verification_evidence(evidence, now=now)
+    elif evidence is not None:
+        raise ValueError("Non-verification reviews cannot attach verification evidence")
+
+    await _require_registry_steward(session, actor_id=steward_actor_id, now=now)
+    key_hash = _key_hash(idempotency_key)
+    request_hash = _request_hash(
+        {
+            "action": action.value,
+            "actor_id": steward_actor_id,
+            "declaration_id": declaration_id,
+            "expected_revision": expected_revision,
+            "reason": reason,
+            "evidence": None if evidence is None else evidence.model_dump(mode="json"),
+        }
+    )
+    existing = await _idempotent_result(
+        session,
+        actor_id=steward_actor_id,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+    )
+    if existing is not None:
+        return existing
+
+    declaration = await session.scalar(
+        select(ReuseDeclaration).where(ReuseDeclaration.id == declaration_id).with_for_update()
+    )
+    if declaration is None:
+        raise ReuseRegistryError("reuse_declaration_not_found")
+    if declaration.owner_actor_id == steward_actor_id:
+        raise ReuseRegistryError("reuse_self_review_prohibited")
+    if declaration.revision != expected_revision:
+        raise ReuseRegistryError("reuse_revision_conflict")
+    if declaration.state != ReuseDeclarationState.VERIFICATION_PENDING.value:
+        raise ReuseRegistryError("reuse_review_transition_not_allowed")
+
+    declaration.state = (
+        ReuseDeclarationState.VERIFIED.value
+        if action is ReuseEventType.VERIFIED
+        else ReuseDeclarationState.COMMUNITY_DECLARED.value
+    )
+    declaration.revision += 1
+    declaration.updated_at = now
+    _append_event(
+        session,
+        declaration=declaration,
+        actor_id=steward_actor_id,
+        event_type=action,
+        idempotency_key_hash=key_hash,
+        request_hash=request_hash,
+        reason=reason,
+        evidence_json={} if evidence is None else evidence.model_dump(mode="json"),
+        now=now,
+        event_id_generator=event_id_generator,
+    )
+    await session.flush()
+    return declaration
+
+
+async def list_public_declarations(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+) -> tuple[tuple[ReuseDeclaration, ReuseDeclarationEvent | None], ...]:
+    result = await session.execute(
+        select(ReuseDeclaration, ReuseDeclarationEvent)
+        .outerjoin(
+            ReuseDeclarationEvent,
+            (ReuseDeclarationEvent.declaration_id == ReuseDeclaration.id)
+            & (ReuseDeclarationEvent.declaration_revision == ReuseDeclaration.revision)
+            & (ReuseDeclarationEvent.event_type == ReuseEventType.VERIFIED.value),
+        )
+        .where(ReuseDeclaration.state != ReuseDeclarationState.WITHDRAWN.value)
+        .order_by(ReuseDeclaration.updated_at.desc(), ReuseDeclaration.id)
+        .limit(limit)
+    )
+    return tuple((row[0], row[1]) for row in result.all())
+
+
+async def read_public_declaration(
+    session: AsyncSession,
+    *,
+    declaration_id: UUID,
+) -> tuple[ReuseDeclaration, ReuseDeclarationEvent | None]:
+    row = (
+        await session.execute(
+            select(ReuseDeclaration, ReuseDeclarationEvent)
+            .outerjoin(
+                ReuseDeclarationEvent,
+                (ReuseDeclarationEvent.declaration_id == ReuseDeclaration.id)
+                & (ReuseDeclarationEvent.declaration_revision == ReuseDeclaration.revision)
+                & (ReuseDeclarationEvent.event_type == ReuseEventType.VERIFIED.value),
+            )
+            .where(
+                ReuseDeclaration.id == declaration_id,
+                ReuseDeclaration.state != ReuseDeclarationState.WITHDRAWN.value,
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        raise ReuseRegistryError("reuse_declaration_not_found")
+    return row[0], row[1]
 
 
 async def create_declaration(
@@ -401,10 +603,16 @@ async def read_owned_declaration(
 
 
 __all__ = [
+    "REUSE_EVIDENCE_MAX_AGE",
+    "REUSE_GOVERNANCE_SCOPE",
     "ReuseRegistryError",
     "create_declaration",
     "list_owned_declarations",
+    "list_public_declarations",
+    "list_reviewable_declarations",
     "patch_declaration",
     "read_owned_declaration",
+    "read_public_declaration",
+    "review_declaration",
     "transition_declaration",
 ]
