@@ -7,11 +7,12 @@ from uuid import UUID
 import pytest
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationState,
+    ReuseDependencyInput,
     ReuseEventType,
     ReuseEvidenceStatus,
     ReuseVerificationEvidence,
 )
-from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent, ReuseDependency
 from opennosh_api.reuse.service import (
     ReuseRegistryError,
     list_reviewable_declarations,
@@ -139,6 +140,117 @@ async def test_verify_records_accessible_fresh_digest_bound_evidence() -> None:
     assert event.evidence_json == evidence.model_dump(mode="json")
     assert event.declaration_revision == 3
     assert session.flushes == 1
+
+
+@pytest.mark.asyncio
+async def test_verify_records_only_explicit_release_resolved_dependencies() -> None:
+    declaration = _declaration()
+    dependency = ReuseDependencyInput(
+        source_pack_id="global-core",
+        source_release_id="0.91.0.0",
+        source_artifact_digest="d" * 64,
+        dependency_kind="data",
+    )
+    session = FakeSession([ROLE_ID, None, None, declaration, None])
+    resolved: list[ReuseDependencyInput] = []
+
+    async def resolver(candidate: ReuseDependencyInput) -> bool:
+        resolved.append(candidate)
+        return True
+
+    identifiers = iter(
+        (
+            UUID("40000000-0000-4000-8000-000000000001"),
+            UUID("40000000-0000-4000-8000-000000000002"),
+        )
+    )
+    await review_declaration(
+        session,  # type: ignore[arg-type]
+        declaration_id=DECLARATION_ID,
+        steward_actor_id=STEWARD,
+        expected_revision=2,
+        action=ReuseEventType.VERIFIED,
+        idempotency_key=UUID("30000000-0000-4000-8000-000000000050"),
+        reason="Release and digest verified.",
+        evidence=_evidence(),
+        dependencies=(dependency,),
+        dependency_resolver=resolver,
+        now=NOW,
+        event_id_generator=lambda: next(identifiers),
+    )
+    assert resolved == [dependency]
+    stored = next(value for value in session.added if isinstance(value, ReuseDependency))
+    event = next(value for value in session.added if isinstance(value, ReuseDeclarationEvent))
+    assert stored.evidence_event_id == event.id
+    assert stored.source_release_id == "0.91.0.0"
+    assert stored.source_artifact_digest == "d" * 64
+    assert session.flushes == 2
+
+
+@pytest.mark.asyncio
+async def test_unresolved_or_unavailable_dependency_never_verifies() -> None:
+    dependency = ReuseDependencyInput(
+        source_pack_id="global-core",
+        source_release_id="0.91.0.0",
+        source_artifact_digest="d" * 64,
+        dependency_kind="data",
+    )
+    for resolver, code in (
+        (None, "reuse_dependency_proof_unavailable"),
+        (lambda _candidate: _false(), "reuse_dependency_proof_invalid"),
+    ):
+        declaration = _declaration()
+        with pytest.raises(ReuseRegistryError, match=code):
+            await review_declaration(
+                FakeSession([ROLE_ID, None, None, declaration]),  # type: ignore[arg-type]
+                declaration_id=DECLARATION_ID,
+                steward_actor_id=STEWARD,
+                expected_revision=2,
+                action=ReuseEventType.VERIFIED,
+                idempotency_key=UUID("30000000-0000-4000-8000-000000000051"),
+                reason="Release checked.",
+                evidence=_evidence(),
+                dependencies=(dependency,),
+                dependency_resolver=resolver,
+                now=NOW,
+            )
+        assert declaration.state == ReuseDeclarationState.VERIFICATION_PENDING.value
+
+
+@pytest.mark.asyncio
+async def test_nonsteward_cannot_trigger_dependency_resolution() -> None:
+    dependency = ReuseDependencyInput(
+        source_pack_id="global-core",
+        source_release_id="0.91.0.0",
+        source_artifact_digest="d" * 64,
+        dependency_kind="data",
+    )
+    called = False
+
+    async def resolver(_candidate: ReuseDependencyInput) -> bool:
+        nonlocal called
+        called = True
+        return True
+
+    with pytest.raises(ReuseRegistryError, match="reuse_steward_role_not_active"):
+        await review_declaration(
+            FakeSession([None]),  # type: ignore[arg-type]
+            declaration_id=DECLARATION_ID,
+            steward_actor_id=STEWARD,
+            expected_revision=2,
+            action=ReuseEventType.VERIFIED,
+            idempotency_key=UUID("30000000-0000-4000-8000-000000000052"),
+            reason="Release checked.",
+            evidence=_evidence(),
+            dependencies=(dependency,),
+            dependency_resolver=resolver,
+            now=NOW,
+        )
+    assert not called
+
+
+async def _false() -> bool:
+    return False
 
 
 @pytest.mark.asyncio

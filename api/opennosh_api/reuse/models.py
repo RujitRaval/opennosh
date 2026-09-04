@@ -122,4 +122,46 @@ class ReuseDeclarationEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-__all__ = ["ReuseDeclaration", "ReuseDeclarationEvent"]
+class ReuseDependency(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "reuse_dependencies"
+    __table_args__ = (
+        CheckConstraint(
+            "source_pack_id ~ '^[a-z0-9]+(-[a-z0-9]+)*$'",
+            name="source_pack_id_safe",
+        ),
+        CheckConstraint(
+            "source_release_id ~ '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$'",
+            name="source_release_id_version",
+        ),
+        CheckConstraint(
+            "source_artifact_digest ~ '^[0-9a-f]{64}$'",
+            name="source_artifact_digest_sha256",
+        ),
+        CheckConstraint(
+            "dependency_kind IN ('runtime','data','research','derived')",
+            name="dependency_kind_allowed",
+        ),
+        UniqueConstraint(
+            "declaration_id",
+            "source_pack_id",
+            "source_release_id",
+            "dependency_kind",
+            name="uq_reuse_dependency_identity",
+        ),
+        Index("ix_reuse_dependencies_declaration", "declaration_id", "created_at"),
+        Index("ix_reuse_dependencies_source", "source_pack_id", "source_release_id"),
+    )
+
+    declaration_id: Mapped[UUID] = mapped_column(
+        ForeignKey("reuse_declarations.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_release_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    source_artifact_digest: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    dependency_kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    evidence_event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("reuse_declaration_events.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
+__all__ = ["ReuseDeclaration", "ReuseDeclarationEvent", "ReuseDependency"]

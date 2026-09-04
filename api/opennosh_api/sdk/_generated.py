@@ -130,6 +130,12 @@ PUBLIC_OPERATION_POLICIES: Final[dict[str, dict[str, Any]]] = {
         "media_type": "application/json",
         "path_parameters": {},
     },
+    "/api/v1/public/reuse/dependencies": {
+        "accepted_media_types": ["application/json"],
+        "max_response_bytes": 524288,
+        "media_type": "application/json",
+        "path_parameters": {},
+    },
     "/api/v1/public/reuse/{declaration_id}": {
         "accepted_media_types": ["application/json"],
         "max_response_bytes": 524288,

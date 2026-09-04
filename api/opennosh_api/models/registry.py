@@ -75,7 +75,7 @@ from opennosh_api.publication.models import (
     PublicationReceiptRecord,
     PublicationStep,
 )
-from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent, ReuseDependency
 
 ModelClass = type[DeclarativeBase]
 
@@ -136,6 +136,7 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     FederationProjectionActivation,
     ReuseDeclaration,
     ReuseDeclarationEvent,
+    ReuseDependency,
     ImpactSnapshot,
     PublicationIntent,
     PublicationStep,
@@ -227,6 +228,7 @@ __all__ = [
     "PublicationStep",
     "ReuseDeclaration",
     "ReuseDeclarationEvent",
+    "ReuseDependency",
     "Recipe",
     "RecipeIngredient",
     "TABLE_MODEL_OWNERS",

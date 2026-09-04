@@ -1,8 +1,8 @@
 # Voluntary reuse registry
 
-opennosh 0.90 adds disabled-by-default steward verification and public read contracts to the
-ownership and audit foundation for the T34.8 reuse registry. It does not activate production or
-public impact claims.
+opennosh 0.92 adds disabled-by-default steward verification, public reads, and proof-backed
+dependency edges to the ownership and audit foundation for the T34.8 reuse registry. It does not
+activate production or public impact claims.
 
 ## Trust boundary
 
@@ -20,6 +20,9 @@ public impact claims.
   `opennosh-reuse-registry` scope. Revoked, recused, and self-reviewing stewards cannot decide.
 - Evidence URLs are never fetched by the API. A verification records a UTC observation time,
   lowercase SHA-256 content digest, accessibility state, public HTTPS source, and public reason.
+- Dependencies are explicit review facts, never inferred from declaration text, imports, traffic,
+  accounts, or organization identity. Each fact pins an existing signed release, pack, artifact
+  digest, and one of `runtime`, `data`, `research`, or `derived`.
 
 ## Lifecycle
 
@@ -60,9 +63,30 @@ limit, uses deterministic ordering, and returns at most 100 records. Pending rec
 `verified`. Withdrawn declarations are absent while their audit rows remain retained. Public
 responses expose no owner or steward identifiers and use bounded shared-cache policy.
 
+### Dependency projection
+
+A steward may attach at most 100 sorted, unique dependency facts to the verification request. The
+API resolves the exact four-part release through the existing cryptographically verified public
+artifact reader and accepts a fact only when that signed manifest contains the named pack with the
+exact lowercase SHA-256 download digest. Missing releases, packs, digest mismatches, malformed
+facts, or unavailable artifact proof cannot create a verified dependency.
+
+`GET /api/v1/public/reuse/dependencies` is available under the same `REUSE_PUBLIC_ENABLED` gate.
+It accepts no query parameters, returns at most 100 edges in deterministic source/project order,
+and carries only declaration ID, project label, pack ID, release ID, artifact digest, dependency
+kind, the exact `verified` label, and the UTC evidence observation date. It revalidates every edge
+against signed artifacts before publishing and uses a response-derived SHA-256 ETag.
+
+An edge is joined to the exact verification event and current declaration revision. Editing,
+resubmitting, correction, rejection, or withdrawal therefore removes the old edge from public
+reads without deleting declaration audit history. Artifact proof loss fails the whole dependency
+read with a bounded retry response instead of publishing an unproved edge or silently presenting
+an incomplete graph.
+
 ## Rollback
 
 Set `REUSE_VERIFICATION_ENABLED=false` to stop reviews and `REUSE_PUBLIC_ENABLED=false` to remove
 public reads. Set `REUSE_REGISTRY_MUTATIONS_ENABLED=false` to stop the owner registry. Preserve the
-additive tables and immutable audit rows. Downgrade the foundation migration only when no
-post-migration registry data exists.
+additive tables, dependency projection, and immutable audit rows. Downgrade the dependency
+migration only when `reuse_dependencies` is empty; otherwise retain it while the public gate is
+off. Downgrade the foundation migration only when no post-migration registry data exists.

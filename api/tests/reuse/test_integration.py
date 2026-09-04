@@ -10,6 +10,7 @@ from alembic import command as alembic_command
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationPatch,
+    ReuseDependencyInput,
     ReuseEventType,
     ReuseEvidenceStatus,
     ReuseRegionLevel,
@@ -19,6 +20,7 @@ from opennosh_api.reuse.service import (
     ReuseRegistryError,
     create_declaration,
     list_public_declarations,
+    list_public_dependencies,
     patch_declaration,
     read_owned_declaration,
     read_public_declaration,
@@ -139,6 +141,16 @@ async def _exercise_registry(database_url: str) -> None:
             )
         assert declaration.state == "verification_pending"
 
+        dependency = ReuseDependencyInput(
+            source_pack_id="global-core",
+            source_release_id="0.91.0.0",
+            source_artifact_digest="d" * 64,
+            dependency_kind="data",
+        )
+
+        async def valid_dependency(_candidate: ReuseDependencyInput) -> bool:
+            return True
+
         async with sessions() as session, session.begin():
             declaration = await review_declaration(
                 session,
@@ -154,6 +166,8 @@ async def _exercise_registry(database_url: str) -> None:
                     content_sha256="a" * 64,
                     status=ReuseEvidenceStatus.ACCESSIBLE,
                 ),
+                dependencies=(dependency,),
+                dependency_resolver=valid_dependency,
                 now=NOW + timedelta(minutes=5),
             )
         assert declaration.state == "verified"
@@ -169,6 +183,12 @@ async def _exercise_registry(database_url: str) -> None:
             assert public_event.evidence_json["content_sha256"] == "a" * 64
             public_rows = await list_public_declarations(session)
             assert any(row[0].id == declaration_id for row in public_rows)
+            dependency_rows = await list_public_dependencies(session)
+            assert len(dependency_rows) == 1
+            stored_dependency, bound_declaration, bound_event = dependency_rows[0]
+            assert stored_dependency.source_artifact_digest == "d" * 64
+            assert bound_declaration.id == declaration_id
+            assert bound_event.declaration_revision == 4
 
         async with sessions() as session, session.begin():
             declaration = await transition_declaration(
@@ -189,6 +209,7 @@ async def _exercise_registry(database_url: str) -> None:
                 row[0].id == declaration_id
                 for row in await list_public_declarations(session)
             )
+            assert await list_public_dependencies(session) == ()
 
         async with sessions() as session, session.begin():
             with pytest.raises(ReuseRegistryError, match="not_found"):
@@ -207,6 +228,14 @@ async def _exercise_registry(database_url: str) -> None:
                 {"declaration_id": declaration_id},
             )
             assert event_count == 5
+            dependency_count = await session.scalar(
+                text(
+                    "SELECT count(*) FROM reuse_dependencies "
+                    "WHERE declaration_id = :declaration_id"
+                ),
+                {"declaration_id": declaration_id},
+            )
+            assert dependency_count == 1
 
         async with engine.begin() as connection:
             with pytest.raises(DBAPIError, match="append-only"):

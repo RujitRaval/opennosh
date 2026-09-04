@@ -70,6 +70,14 @@ export const PUBLIC_OPERATION_POLICIES = Object.freeze({
     "maxResponseBytes": 2097152,
     "pathParameters": {}
   },
+  "/api/v1/public/reuse/dependencies": {
+    "acceptedMediaTypes": [
+      "application/json"
+    ],
+    "mediaType": "application/json",
+    "maxResponseBytes": 524288,
+    "pathParameters": {}
+  },
   "/api/v1/public/impact": {
     "acceptedMediaTypes": [
       "application/json"

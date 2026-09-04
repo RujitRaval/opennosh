@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -48,6 +48,13 @@ class ReusePublicLabel(StrEnum):
     COMMUNITY_DECLARED = "community_declared"
     UNVERIFIED = "unverified"
     VERIFIED = "verified"
+
+
+class ReuseDependencyKind(StrEnum):
+    RUNTIME = "runtime"
+    DATA = "data"
+    RESEARCH = "research"
+    DERIVED = "derived"
 
 
 def normalize_label(value: str, *, maximum: int) -> str:
@@ -247,16 +254,47 @@ class ReuseVerificationEvidence(BaseModel):
         return value
 
 
+class ReuseDependencyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_pack_id: Annotated[
+        str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=160)
+    ]
+    source_release_id: Annotated[
+        str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$", max_length=160)
+    ]
+    source_artifact_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    dependency_kind: ReuseDependencyKind
+
+
 class ReuseVerificationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     reason: Annotated[str, Field(min_length=1, max_length=1000)]
     evidence: ReuseVerificationEvidence
+    dependencies: Annotated[tuple[ReuseDependencyInput, ...], Field(max_length=100)] = ()
 
     @field_validator("reason")
     @classmethod
     def validate_reason(cls, value: str) -> str:
         return normalize_label(value, maximum=1000)
+
+    @field_validator("dependencies")
+    @classmethod
+    def validate_dependencies(
+        cls, value: tuple[ReuseDependencyInput, ...]
+    ) -> tuple[ReuseDependencyInput, ...]:
+        identities = tuple(
+            (
+                item.source_pack_id,
+                item.source_release_id,
+                item.dependency_kind.value,
+            )
+            for item in value
+        )
+        if identities != tuple(sorted(set(identities))):
+            raise ValueError("Reuse dependencies must be sorted and unique")
+        return value
 
 
 class ReuseReviewDecisionRequest(BaseModel):
@@ -309,6 +347,30 @@ class ReusePublicListResponse(BaseModel):
     declarations: tuple[ReusePublicDeclarationResponse, ...]
 
 
+class ReusePublicDependencyEdge(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    declaration_id: UUID
+    project_label: Annotated[str, Field(min_length=1, max_length=160)]
+    source_pack_id: Annotated[
+        str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=160)
+    ]
+    source_release_id: Annotated[
+        str, Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$", max_length=160)
+    ]
+    source_artifact_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    dependency_kind: ReuseDependencyKind
+    verification_label: Literal["verified"] = "verified"
+    evidence_observed_on: date
+
+
+class ReusePublicDependencyListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["1.0"] = "1.0"
+    dependencies: Annotated[tuple[ReusePublicDependencyEdge, ...], Field(max_length=100)]
+
+
 __all__ = [
     "ReuseDeclarationCreate",
     "ReuseDeclarationFields",
@@ -316,9 +378,13 @@ __all__ = [
     "ReuseDeclarationPatch",
     "ReuseDeclarationResponse",
     "ReuseDeclarationState",
+    "ReuseDependencyInput",
+    "ReuseDependencyKind",
     "ReuseEvidenceStatus",
     "ReuseEventType",
     "ReusePublicDeclarationResponse",
+    "ReusePublicDependencyEdge",
+    "ReusePublicDependencyListResponse",
     "ReusePublicEvidenceResponse",
     "ReusePublicLabel",
     "ReusePublicListResponse",

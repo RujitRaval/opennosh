@@ -3564,6 +3564,30 @@ export type ReuseDeclarationResponse = {
 export type ReuseDeclarationState = 'community_declared' | 'verification_pending' | 'verified' | 'withdrawn';
 
 /**
+ * ReuseDependencyInput
+ */
+export type ReuseDependencyInput = {
+    dependency_kind: ReuseDependencyKind;
+    /**
+     * Source Artifact Digest
+     */
+    source_artifact_digest: string;
+    /**
+     * Source Pack Id
+     */
+    source_pack_id: string;
+    /**
+     * Source Release Id
+     */
+    source_release_id: string;
+};
+
+/**
+ * ReuseDependencyKind
+ */
+export type ReuseDependencyKind = 'runtime' | 'data' | 'research' | 'derived';
+
+/**
  * ReuseEvidenceStatus
  */
 export type ReuseEvidenceStatus = 'accessible' | 'inaccessible' | 'unavailable';
@@ -3611,6 +3635,55 @@ export type ReusePublicDeclarationResponse = {
      */
     use_case: string;
     verification_label: ReusePublicLabel;
+};
+
+/**
+ * ReusePublicDependencyEdge
+ */
+export type ReusePublicDependencyEdge = {
+    /**
+     * Declaration Id
+     */
+    declaration_id: string;
+    dependency_kind: ReuseDependencyKind;
+    /**
+     * Evidence Observed On
+     */
+    evidence_observed_on: string;
+    /**
+     * Project Label
+     */
+    project_label: string;
+    /**
+     * Source Artifact Digest
+     */
+    source_artifact_digest: string;
+    /**
+     * Source Pack Id
+     */
+    source_pack_id: string;
+    /**
+     * Source Release Id
+     */
+    source_release_id: string;
+    /**
+     * Verification Label
+     */
+    verification_label?: 'verified';
+};
+
+/**
+ * ReusePublicDependencyListResponse
+ */
+export type ReusePublicDependencyListResponse = {
+    /**
+     * Dependencies
+     */
+    dependencies: Array<ReusePublicDependencyEdge>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
 };
 
 /**
@@ -3712,6 +3785,10 @@ export type ReuseVerificationEvidence = {
  * ReuseVerificationRequest
  */
 export type ReuseVerificationRequest = {
+    /**
+     * Dependencies
+     */
+    dependencies?: Array<ReuseDependencyInput>;
     evidence: ReuseVerificationEvidence;
     /**
      * Reason
@@ -10004,6 +10081,71 @@ export type PublicReuseRegistryApiV1PublicReuseGetResponses = {
 };
 
 export type PublicReuseRegistryApiV1PublicReuseGetResponse = PublicReuseRegistryApiV1PublicReuseGetResponses[keyof PublicReuseRegistryApiV1PublicReuseGetResponses];
+
+export type PublicReuseDependenciesApiV1PublicReuseDependenciesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/reuse/dependencies';
+};
+
+export type PublicReuseDependenciesApiV1PublicReuseDependenciesGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PublicReuseDependenciesApiV1PublicReuseDependenciesGetError = PublicReuseDependenciesApiV1PublicReuseDependenciesGetErrors[keyof PublicReuseDependenciesApiV1PublicReuseDependenciesGetErrors];
+
+export type PublicReuseDependenciesApiV1PublicReuseDependenciesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReusePublicDependencyListResponse;
+};
+
+export type PublicReuseDependenciesApiV1PublicReuseDependenciesGetResponse = PublicReuseDependenciesApiV1PublicReuseDependenciesGetResponses[keyof PublicReuseDependenciesApiV1PublicReuseDependenciesGetResponses];
 
 export type PublicReuseDeclarationApiV1PublicReuseDeclarationIdGetData = {
     body?: never;

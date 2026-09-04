@@ -81,6 +81,7 @@ EXPECTED_TABLES = {
     "mission_progress_activations",
     "reuse_declarations",
     "reuse_declaration_events",
+    "reuse_dependencies",
     "impact_snapshots",
 }
 

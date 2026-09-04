@@ -12,8 +12,8 @@ from opennosh_api.database import get_database_session
 from opennosh_api.main import create_app
 from opennosh_api.reuse import router as reuse_router_module
 from opennosh_api.reuse.contracts import ReuseEventType
-from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
-from opennosh_api.reuse.router import require_reuse_review_csrf
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent, ReuseDependency
+from opennosh_api.reuse.router import get_reuse_artifact_service, require_reuse_review_csrf
 from opennosh_api.reuse.service import ReuseRegistryError
 from opennosh_api.settings import Settings
 
@@ -100,6 +100,7 @@ def test_review_and_public_routes_fail_closed_before_validation_or_database_io()
         client.post("/api/v1/governance/reuse/reviews/not-a-uuid/request-changes", json={}),
         client.post("/api/v1/governance/reuse/reviews/not-a-uuid/reject", json={}),
         client.get("/api/v1/public/reuse"),
+        client.get("/api/v1/public/reuse/dependencies"),
         client.get("/api/v1/public/reuse/not-a-uuid"),
     ]
     assert [response.status_code for response in responses] == [404] * len(responses)
@@ -114,6 +115,7 @@ def test_review_and_public_openapi_contracts_are_bounded_and_identity_safe() -> 
         "/api/v1/governance/reuse/reviews/{declaration_id}/request-changes",
         "/api/v1/governance/reuse/reviews/{declaration_id}/reject",
         "/api/v1/public/reuse",
+        "/api/v1/public/reuse/dependencies",
         "/api/v1/public/reuse/{declaration_id}",
     ):
         assert path in paths
@@ -122,6 +124,11 @@ def test_review_and_public_openapi_contracts_are_bounded_and_identity_safe() -> 
     serialized = json.dumps(public_list).lower()
     for forbidden in ("owner_actor_id", "actor_id", "organization_key", "request_hash"):
         assert forbidden not in serialized
+    dependencies = paths["/api/v1/public/reuse/dependencies"]["get"]
+    assert dependencies.get("parameters", []) == []
+    dependency_contract = json.dumps(dependencies).lower()
+    for forbidden in ("owner_actor_id", "actor_id", "organization_key", "source_url"):
+        assert forbidden not in dependency_contract
 
 
 def test_review_mutations_require_fresh_auth() -> None:
@@ -271,6 +278,115 @@ def test_public_registry_maps_exact_labels_evidence_and_cache_policy(
     detail = client.get(f"/api/v1/public/reuse/{verified.id}")
     assert detail.status_code == 200
     assert detail.headers["etag"] == "3"
+
+
+def test_public_dependencies_are_verified_revision_bound_and_stably_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declaration = _declaration(state="verified", revision=3)
+    event = _event(declaration)
+    dependency = ReuseDependency(
+        id=UUID("60000000-0000-4000-8000-000000000001"),
+        declaration_id=declaration.id,
+        source_pack_id="global-core",
+        source_release_id="0.91.0.0",
+        source_artifact_digest="d" * 64,
+        dependency_kind="data",
+        evidence_event_id=event.id,
+        created_at=NOW,
+    )
+
+    async def fake_dependencies(*_args: object, **_kwargs: object) -> tuple[object, ...]:
+        return ((dependency, declaration, event),)
+
+    class ArtifactService:
+        async def resolve_release(self, *, release_version: str) -> object:
+            assert release_version == "0.91.0.0"
+            return SimpleNamespace(
+                manifest=SimpleNamespace(
+                    packs=(
+                        SimpleNamespace(
+                            pack_id="global-core",
+                            download=SimpleNamespace(digest="d" * 64),
+                        ),
+                    )
+                )
+            )
+
+    monkeypatch.setattr(reuse_router_module, "list_public_dependencies", fake_dependencies)
+    app = create_app(
+        _settings(
+            reuse_registry_mutations_enabled=True,
+            reuse_verification_enabled=True,
+            reuse_public_enabled=True,
+        ),
+        app_version="test",
+    )
+    app.dependency_overrides[get_database_session] = lambda: RecordingDatabase()
+    app.dependency_overrides[get_reuse_artifact_service] = lambda: ArtifactService()
+    client = TestClient(app)
+    first = client.get("/api/v1/public/reuse/dependencies")
+    second = client.get("/api/v1/public/reuse/dependencies")
+    assert first.status_code == 200
+    assert first.json() == {
+        "schema_version": "1.0",
+        "dependencies": [
+            {
+                "declaration_id": str(DECLARATION_ID),
+                "project_label": "Meal Commons",
+                "source_pack_id": "global-core",
+                "source_release_id": "0.91.0.0",
+                "source_artifact_digest": "d" * 64,
+                "dependency_kind": "data",
+                "verification_label": "verified",
+                "evidence_observed_on": "2026-09-03",
+            }
+        ],
+    }
+    assert first.headers["cache-control"] == "public, max-age=60, stale-while-revalidate=300"
+    assert first.headers["etag"] == second.headers["etag"]
+    assert first.headers["etag"].startswith('"sha256-')
+
+
+def test_public_dependencies_fail_closed_when_signed_artifact_no_longer_resolves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declaration = _declaration(state="verified", revision=3)
+    event = _event(declaration)
+    dependency = ReuseDependency(
+        id=UUID("60000000-0000-4000-8000-000000000002"),
+        declaration_id=declaration.id,
+        source_pack_id="global-core",
+        source_release_id="0.91.0.0",
+        source_artifact_digest="d" * 64,
+        dependency_kind="data",
+        evidence_event_id=event.id,
+        created_at=NOW,
+    )
+
+    async def fake_dependencies(*_args: object, **_kwargs: object) -> tuple[object, ...]:
+        return ((dependency, declaration, event),)
+
+    class ArtifactService:
+        async def resolve_release(self, *, release_version: str) -> object:
+            del release_version
+            return SimpleNamespace(manifest=SimpleNamespace(packs=()))
+
+    monkeypatch.setattr(reuse_router_module, "list_public_dependencies", fake_dependencies)
+    app = create_app(
+        _settings(
+            reuse_registry_mutations_enabled=True,
+            reuse_verification_enabled=True,
+            reuse_public_enabled=True,
+        ),
+        app_version="test",
+    )
+    app.dependency_overrides[get_database_session] = lambda: RecordingDatabase()
+    app.dependency_overrides[get_reuse_artifact_service] = lambda: ArtifactService()
+    response = TestClient(app).get("/api/v1/public/reuse/dependencies")
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == "60"
+    assert response.json()["detail"] == "reuse_dependency_proof_unavailable"
 
 
 def test_review_authorization_errors_and_public_missing_records_are_safe(

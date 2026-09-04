@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Never
+from typing import Annotated, Never, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,13 +16,22 @@ from opennosh_api.auth.dependencies import (
     require_csrf,
 )
 from opennosh_api.database import get_database_session
+from opennosh_api.public.artifacts import (
+    ArtifactNotFoundError,
+    ArtifactUnavailableError,
+    PublicArtifactReadService,
+)
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationListResponse,
     ReuseDeclarationPatch,
     ReuseDeclarationResponse,
+    ReuseDependencyInput,
+    ReuseDependencyKind,
     ReuseEventType,
     ReusePublicDeclarationResponse,
+    ReusePublicDependencyEdge,
+    ReusePublicDependencyListResponse,
     ReusePublicEvidenceResponse,
     ReusePublicLabel,
     ReusePublicListResponse,
@@ -32,12 +42,13 @@ from opennosh_api.reuse.contracts import (
     ReuseVerificationEvidence,
     ReuseVerificationRequest,
 )
-from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent, ReuseDependency
 from opennosh_api.reuse.service import (
     ReuseRegistryError,
     create_declaration,
     list_owned_declarations,
     list_public_declarations,
+    list_public_dependencies,
     list_reviewable_declarations,
     patch_declaration,
     read_owned_declaration,
@@ -109,7 +120,34 @@ def _raise_registry_error(error: ReuseRegistryError) -> Never:
         raise _disabled() from error
     if error.code == "reuse_steward_role_not_active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error.code) from error
+    if error.code == "reuse_dependency_proof_unavailable":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=error.code,
+            headers={"Retry-After": "60"},
+        ) from error
     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error.code) from error
+
+
+def get_reuse_artifact_service(request: Request) -> PublicArtifactReadService:
+    return cast(PublicArtifactReadService, request.app.state.public_artifact_read_service)
+
+
+async def _dependency_is_verified(
+    service: PublicArtifactReadService,
+    dependency: ReuseDependencyInput,
+) -> bool:
+    try:
+        release = await service.resolve_release(release_version=dependency.source_release_id)
+    except ArtifactNotFoundError:
+        return False
+    except ArtifactUnavailableError as error:
+        raise ReuseRegistryError("reuse_dependency_proof_unavailable") from error
+    return any(
+        pack.pack_id == dependency.source_pack_id
+        and pack.download.digest == dependency.source_artifact_digest
+        for pack in release.manifest.packs
+    )
 
 
 def _public_label(declaration: ReuseDeclaration) -> ReusePublicLabel:
@@ -445,6 +483,8 @@ async def _review_transition(
     action: ReuseEventType,
     reason: str,
     evidence: ReuseVerificationEvidence | None,
+    dependencies: tuple[ReuseDependencyInput, ...] = (),
+    artifact_service: PublicArtifactReadService | None = None,
 ) -> ReuseDeclarationResponse:
     try:
         declaration = await review_declaration(
@@ -456,6 +496,12 @@ async def _review_transition(
             idempotency_key=idempotency_key,
             reason=reason,
             evidence=evidence,
+            dependencies=dependencies,
+            dependency_resolver=(
+                None
+                if artifact_service is None
+                else lambda dependency: _dependency_is_verified(artifact_service, dependency)
+            ),
             now=datetime.now(UTC),
         )
         await _commit_or_raise(database)
@@ -483,6 +529,9 @@ async def verify_reuse_declaration(
     response: Response,
     current: Annotated[CurrentSession, Depends(require_reuse_review_csrf)],
     database: Annotated[AsyncSession, Depends(get_database_session)],
+    artifact_service: Annotated[
+        PublicArtifactReadService, Depends(get_reuse_artifact_service)
+    ],
     expected_revision: Annotated[int, Header(alias="If-Match", ge=1)],
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
 ) -> ReuseDeclarationResponse:
@@ -496,6 +545,8 @@ async def verify_reuse_declaration(
         action=ReuseEventType.VERIFIED,
         reason=request.reason,
         evidence=request.evidence,
+        dependencies=request.dependencies,
+        artifact_service=artifact_service,
     )
 
 
@@ -591,6 +642,56 @@ async def public_reuse_registry(
             _public_response(declaration, event) for declaration, event in declarations
         )
     )
+
+
+def _dependency_input(row: ReuseDependency) -> ReuseDependencyInput:
+    return ReuseDependencyInput(
+        source_pack_id=row.source_pack_id,
+        source_release_id=row.source_release_id,
+        source_artifact_digest=row.source_artifact_digest,
+        dependency_kind=ReuseDependencyKind(row.dependency_kind),
+    )
+
+
+@public_router.get(
+    "/dependencies",
+    response_model=ReusePublicDependencyListResponse,
+    dependencies=[Depends(require_public_reuse)],
+)
+async def public_reuse_dependencies(
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    artifact_service: Annotated[
+        PublicArtifactReadService, Depends(get_reuse_artifact_service)
+    ],
+) -> ReusePublicDependencyListResponse:
+    rows = await list_public_dependencies(database)
+    edges: list[ReusePublicDependencyEdge] = []
+    for dependency, declaration, event in rows:
+        proof = _dependency_input(dependency)
+        try:
+            valid = await _dependency_is_verified(artifact_service, proof)
+        except ReuseRegistryError as error:
+            _raise_registry_error(error)
+        if not valid:
+            _raise_registry_error(ReuseRegistryError("reuse_dependency_proof_unavailable"))
+        evidence = ReuseVerificationEvidence.model_validate(event.evidence_json)
+        edges.append(
+            ReusePublicDependencyEdge(
+                declaration_id=declaration.id,
+                project_label=declaration.project_name,
+                source_pack_id=dependency.source_pack_id,
+                source_release_id=dependency.source_release_id,
+                source_artifact_digest=dependency.source_artifact_digest,
+                dependency_kind=ReuseDependencyKind(dependency.dependency_kind),
+                evidence_observed_on=evidence.observed_at.date(),
+            )
+        )
+    result = ReusePublicDependencyListResponse(dependencies=tuple(edges))
+    payload = result.model_dump_json().encode()
+    _public_cache(response)
+    response.headers["ETag"] = f'"sha256-{hashlib.sha256(payload).hexdigest()}"'
+    return result
 
 
 @public_router.get(
