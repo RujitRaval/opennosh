@@ -41,6 +41,7 @@ from opennosh_api.governance.models import (
     GovernanceReviewPrivateNote,
     GovernanceRoleAssignment,
 )
+from opennosh_api.impact.models import ImpactSnapshot
 from opennosh_api.missions.models import (
     MissionContributionBinding,
     MissionDefinition,
@@ -135,6 +136,7 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     FederationProjectionActivation,
     ReuseDeclaration,
     ReuseDeclarationEvent,
+    ImpactSnapshot,
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
@@ -211,6 +213,7 @@ __all__ = [
     "GovernancePublicationPause",
     "GovernanceRecusal",
     "GovernanceRoleAssignment",
+    "ImpactSnapshot",
     "MissionContributionBinding",
     "MissionDefinition",
     "MissionLifecycleEvent",

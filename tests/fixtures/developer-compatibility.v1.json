@@ -111,6 +111,29 @@
       }
     },
     {
+      "operation_id": "public_impact_api_v1_public_impact_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "state": "unavailable",
+        "reason": "disabled",
+        "metric_definition_version": "1.0",
+        "observed_at": "1970-01-01T00:00:00Z",
+        "source_checkpoint_id": null,
+        "minimum_cohort": 10,
+        "global": {
+          "verified_adopters": 0,
+          "community_declarations": 0,
+          "accepted_contributions": 0,
+          "pack_installs": 0,
+          "api_reads": 0,
+          "artifact_downloads": 0
+        },
+        "regions": [],
+        "digest": "ccd699039006b9f1e26e7f8e0836346b32ca39cb7e622412e38be51c8a21c6da"
+      }
+    },
+    {
       "operation_id": "public_reuse_registry_api_v1_public_reuse_get",
       "media_type": "application/json",
       "body": {

@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.91.0.0] - 2026-09-04
+
+### Added
+
+- Add immutable, digest-bound public impact snapshots with exact global metric definitions and
+  country or macroregion cells released only at a minimum cohort of ten.
+- Add the disabled-by-default `/api/v1/public/impact` contract with deterministic disabled and
+  proof-unavailable responses and fixed released-snapshot reads.
+
+### Changed
+
+- Count verified adopters as distinct current organizations with accessible fresh evidence,
+  retain community declarations as a separate measure, and deduplicate accepted events.
+
+### Security
+
+- Use actor and organization identifiers only transiently for cardinality, persist only safe
+  aggregates, forbid arbitrary ranges and public filters, and keep operational metrics global.
+- Leave impact aggregation, public impact, every other T34.8 flag, and publication claims disabled.
+
 ## [0.90.0.0] - 2026-09-04
 
 ### Added

@@ -36,6 +36,12 @@ PUBLIC_OPERATION_POLICIES: Final[dict[str, dict[str, Any]]] = {
             },
         },
     },
+    "/api/v1/public/impact": {
+        "accepted_media_types": ["application/json"],
+        "max_response_bytes": 524288,
+        "media_type": "application/json",
+        "path_parameters": {},
+    },
     "/api/v1/public/missions": {
         "accepted_media_types": ["application/json"],
         "max_response_bytes": 2097152,
