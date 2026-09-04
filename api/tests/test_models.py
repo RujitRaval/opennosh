@@ -62,6 +62,7 @@ EXPECTED_TABLES = {
     "accepted_events",
     "reuse_declarations",
     "reuse_declaration_events",
+    "impact_snapshots",
 }
 
 OWNER_TABLES = {

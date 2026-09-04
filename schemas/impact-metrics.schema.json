@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/impact-metrics.schema.json",
+  "title": "OpenNosh privacy-safe impact metric definitions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "metric_definition_version",
+    "minimum_cohort",
+    "snapshot_policy",
+    "metrics"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/impact-metrics.schema.json"},
+    "schema_version": {"const": "1.0"},
+    "metric_definition_version": {"const": "1.0"},
+    "minimum_cohort": {"const": 10},
+    "snapshot_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixed_releases_only",
+        "arbitrary_ranges",
+        "suppressed_partition_totals",
+        "suppression_counts",
+        "raw_identifiers",
+        "contributor_dimensions",
+        "location_inference",
+        "allowed_region_sources"
+      ],
+      "properties": {
+        "fixed_releases_only": {"const": true},
+        "arbitrary_ranges": {"const": false},
+        "suppressed_partition_totals": {"const": false},
+        "suppression_counts": {"const": false},
+        "raw_identifiers": {"const": false},
+        "contributor_dimensions": {"const": false},
+        "location_inference": {"const": false},
+        "allowed_region_sources": {
+          "const": ["voluntary_declaration", "proof_bound_pack_locale"]
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "definition", "regionalization"],
+        "properties": {
+          "id": {
+            "enum": [
+              "verified_adopters",
+              "community_declarations",
+              "accepted_contributions",
+              "pack_installs",
+              "api_reads",
+              "artifact_downloads"
+            ]
+          },
+          "definition": {"type": "string", "minLength": 1, "maxLength": 500},
+          "regionalization": {"enum": ["explicit_proof_only", "global_only"]}
+        }
+      }
+    }
+  }
+}

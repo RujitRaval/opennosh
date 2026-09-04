@@ -1,0 +1,48 @@
+{
+  "$schema": "../schemas/impact-metrics.schema.json",
+  "schema_version": "1.0",
+  "metric_definition_version": "1.0",
+  "minimum_cohort": 10,
+  "snapshot_policy": {
+    "fixed_releases_only": true,
+    "arbitrary_ranges": false,
+    "suppressed_partition_totals": false,
+    "suppression_counts": false,
+    "raw_identifiers": false,
+    "contributor_dimensions": false,
+    "location_inference": false,
+    "allowed_region_sources": ["voluntary_declaration", "proof_bound_pack_locale"]
+  },
+  "metrics": [
+    {
+      "id": "verified_adopters",
+      "definition": "Distinct normalized organizations with a current verified declaration and accessible, fresh public evidence.",
+      "regionalization": "explicit_proof_only"
+    },
+    {
+      "id": "community_declarations",
+      "definition": "Current voluntary reuse declarations in the community-declared state, excluding pending, verified, and withdrawn records.",
+      "regionalization": "explicit_proof_only"
+    },
+    {
+      "id": "accepted_contributions",
+      "definition": "Distinct accepted publication events in the released source checkpoint.",
+      "regionalization": "explicit_proof_only"
+    },
+    {
+      "id": "pack_installs",
+      "definition": "Proof-bound pack installation events in the released source checkpoint.",
+      "regionalization": "global_only"
+    },
+    {
+      "id": "api_reads",
+      "definition": "Aggregate public API reads from an explicit non-identifying operational counter.",
+      "regionalization": "global_only"
+    },
+    {
+      "id": "artifact_downloads",
+      "definition": "Aggregate artifact downloads from an explicit non-identifying operational counter.",
+      "regionalization": "global_only"
+    }
+  ]
+}

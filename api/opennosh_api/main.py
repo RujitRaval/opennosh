@@ -28,6 +28,7 @@ from opennosh_api.foods.router import export_router as food_export_router
 from opennosh_api.foods.router import router as foods_router
 from opennosh_api.governance.router import router as governance_router
 from opennosh_api.health import router as health_router
+from opennosh_api.impact.router import router as public_impact_router
 from opennosh_api.integrations.open_food_facts import OpenFoodFactsClient
 from opennosh_api.logs.cache_control import FoodLogNoStoreMiddleware
 from opennosh_api.logs.router import router as logs_router
@@ -246,6 +247,7 @@ def create_app(
     application.include_router(reuse_governance_router)
     application.include_router(reuse_router)
     application.include_router(public_reuse_router)
+    application.include_router(public_impact_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

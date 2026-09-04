@@ -1812,6 +1812,69 @@ export type HouseholdPortionOutput = {
 };
 
 /**
+ * ImpactRegion
+ */
+export type ImpactRegion = {
+    /**
+     * Accepted Contributions
+     */
+    accepted_contributions?: number;
+    /**
+     * Community Declarations
+     */
+    community_declarations?: number;
+    level: ImpactRegionLevel;
+    /**
+     * Region Code
+     */
+    region_code: string;
+    /**
+     * Verified Adopters
+     */
+    verified_adopters?: number;
+};
+
+/**
+ * ImpactRegionLevel
+ */
+export type ImpactRegionLevel = 'country' | 'macroregion';
+
+/**
+ * ImpactState
+ */
+export type ImpactState = 'unavailable' | 'zero' | 'live';
+
+/**
+ * ImpactTotals
+ */
+export type ImpactTotals = {
+    /**
+     * Accepted Contributions
+     */
+    accepted_contributions?: number;
+    /**
+     * Api Reads
+     */
+    api_reads?: number;
+    /**
+     * Artifact Downloads
+     */
+    artifact_downloads?: number;
+    /**
+     * Community Declarations
+     */
+    community_declarations?: number;
+    /**
+     * Pack Installs
+     */
+    pack_installs?: number;
+    /**
+     * Verified Adopters
+     */
+    verified_adopters?: number;
+};
+
+/**
  * LatestStateReference
  */
 export type LatestStateReference = {
@@ -2867,6 +2930,46 @@ export type PublicFoodRecordResponse = {
      * Schema Version
      */
     schema_version?: '1.0';
+};
+
+/**
+ * PublicImpactSnapshot
+ */
+export type PublicImpactSnapshot = {
+    /**
+     * Digest
+     */
+    digest: string;
+    global: ImpactTotals;
+    /**
+     * Metric Definition Version
+     */
+    metric_definition_version?: '1.0';
+    /**
+     * Minimum Cohort
+     */
+    minimum_cohort?: 10;
+    /**
+     * Observed At
+     */
+    observed_at: string;
+    /**
+     * Reason
+     */
+    reason?: 'disabled' | 'proof_unavailable' | null;
+    /**
+     * Regions
+     */
+    regions?: Array<ImpactRegion>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Source Checkpoint Id
+     */
+    source_checkpoint_id?: string | null;
+    state: ImpactState;
 };
 
 /**
@@ -9332,6 +9435,71 @@ export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses = {
 };
 
 export type LatestFoodApiV1PublicFoodsSourceSourceIdGetResponse = LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses[keyof LatestFoodApiV1PublicFoodsSourceSourceIdGetResponses];
+
+export type PublicImpactApiV1PublicImpactGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/impact';
+};
+
+export type PublicImpactApiV1PublicImpactGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PublicImpactApiV1PublicImpactGetError = PublicImpactApiV1PublicImpactGetErrors[keyof PublicImpactApiV1PublicImpactGetErrors];
+
+export type PublicImpactApiV1PublicImpactGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicImpactSnapshot;
+};
+
+export type PublicImpactApiV1PublicImpactGetResponse = PublicImpactApiV1PublicImpactGetResponses[keyof PublicImpactApiV1PublicImpactGetResponses];
 
 export type MissionsApiV1PublicMissionsGetData = {
     body?: never;
