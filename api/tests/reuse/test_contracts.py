@@ -5,6 +5,8 @@ from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationPatch,
     ReuseRegionLevel,
+    ReuseTransitionRequest,
+    normalize_label,
     normalize_public_url,
     normalized_key,
 )
@@ -91,3 +93,20 @@ def test_patch_requires_a_change_and_explicit_clear_operations() -> None:
             clear_region=True,
         )
     assert ReuseDeclarationPatch(clear_region=True).clear_region
+
+
+def test_optional_values_and_transition_reasons_are_normalized() -> None:
+    assert normalize_public_url(None) is None
+    assert normalize_public_url("   ") is None
+    with pytest.raises(ValueError, match="printable plain text"):
+        normalize_label("unsafe<markup>", maximum=160)
+
+    patch = ReuseDeclarationPatch(
+        organization_name="  Community   Kitchen ",
+        region_level=ReuseRegionLevel.MACROREGION,
+        region_code="001",
+    )
+    assert patch.organization_name == "Community Kitchen"
+    assert patch.region_code == "001"
+    assert ReuseTransitionRequest().reason is None
+    assert ReuseTransitionRequest(reason="  Owner   request. ").reason == "Owner request."

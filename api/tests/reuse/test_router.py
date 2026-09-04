@@ -11,7 +11,9 @@ from opennosh_api.auth.dependencies import get_current_session, require_csrf
 from opennosh_api.database import get_database_session
 from opennosh_api.main import create_app
 from opennosh_api.reuse import router as reuse_router_module
+from opennosh_api.reuse.contracts import ReuseEventType
 from opennosh_api.reuse.models import ReuseDeclaration
+from opennosh_api.reuse.service import ReuseRegistryError
 from opennosh_api.settings import Settings
 
 OWNER = UUID("10000000-0000-4000-8000-000000000001")
@@ -201,3 +203,107 @@ def test_enabled_mutations_require_csrf_idempotency_and_revision_headers() -> No
         json={"use_case": "Updated public menu."},
     )
     assert missing_headers.status_code == 422
+
+
+def test_enabled_owner_routes_exercise_reads_edits_and_transitions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declaration = _declaration()
+    database = RecordingDatabase()
+    transitions: list[ReuseEventType] = []
+
+    async def fake_list(*_args: object, **_kwargs: object) -> tuple[ReuseDeclaration, ...]:
+        return (declaration,)
+
+    async def fake_read(*_args: object, **_kwargs: object) -> ReuseDeclaration:
+        return declaration
+
+    async def fake_patch(*_args: object, **_kwargs: object) -> ReuseDeclaration:
+        declaration.revision = 2
+        return declaration
+
+    async def fake_transition(*_args: object, **kwargs: object) -> ReuseDeclaration:
+        action = kwargs["action"]
+        assert isinstance(action, ReuseEventType)
+        transitions.append(action)
+        declaration.revision += 1
+        return declaration
+
+    monkeypatch.setattr(reuse_router_module, "list_owned_declarations", fake_list)
+    monkeypatch.setattr(reuse_router_module, "read_owned_declaration", fake_read)
+    monkeypatch.setattr(reuse_router_module, "patch_declaration", fake_patch)
+    monkeypatch.setattr(reuse_router_module, "transition_declaration", fake_transition)
+    app = create_app(_settings(reuse_registry_mutations_enabled=True), app_version="test")
+    current = SimpleNamespace(user_id=OWNER)
+    app.dependency_overrides[require_csrf] = lambda: current
+    app.dependency_overrides[get_current_session] = lambda: current
+    app.dependency_overrides[get_database_session] = lambda: database
+    client = TestClient(app)
+    headers = {"Idempotency-Key": IDEMPOTENCY_KEY, "If-Match": "1"}
+
+    mine = client.get("/api/v1/reuse/declarations/mine?limit=1")
+    assert mine.status_code == 200
+    assert mine.json()["declarations"][0]["id"] == str(DECLARATION_ID)
+
+    read = client.get(f"/api/v1/reuse/declarations/{DECLARATION_ID}")
+    assert read.status_code == 200
+    assert read.headers["etag"] == "1"
+
+    edited = client.patch(
+        f"/api/v1/reuse/declarations/{DECLARATION_ID}",
+        json={"use_case": "Updated public menu."},
+        headers=headers,
+    )
+    assert edited.status_code == 200
+    assert edited.headers["etag"] == "2"
+
+    for method, suffix in (
+        ("post", "submit"),
+        ("delete", ""),
+        ("post", "restore"),
+    ):
+        url = f"/api/v1/reuse/declarations/{DECLARATION_ID}"
+        if suffix:
+            url += f"/{suffix}"
+        response = client.request(method, url, json={"reason": "Owner request."}, headers=headers)
+        assert response.status_code == 200
+    assert transitions == [
+        ReuseEventType.SUBMITTED,
+        ReuseEventType.WITHDRAWN,
+        ReuseEventType.RESTORED,
+    ]
+    assert database.commits == 4
+
+
+def test_registry_errors_are_rolled_back_and_mapped_without_disclosure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = RecordingDatabase()
+
+    async def missing(*_args: object, **_kwargs: object) -> ReuseDeclaration:
+        raise ReuseRegistryError("reuse_audit_proof_unavailable")
+
+    async def conflict(*_args: object, **_kwargs: object) -> ReuseDeclaration:
+        raise ReuseRegistryError("reuse_revision_conflict")
+
+    monkeypatch.setattr(reuse_router_module, "read_owned_declaration", missing)
+    monkeypatch.setattr(reuse_router_module, "patch_declaration", conflict)
+    app = create_app(_settings(reuse_registry_mutations_enabled=True), app_version="test")
+    current = SimpleNamespace(user_id=OWNER)
+    app.dependency_overrides[require_csrf] = lambda: current
+    app.dependency_overrides[get_current_session] = lambda: current
+    app.dependency_overrides[get_database_session] = lambda: database
+    client = TestClient(app)
+
+    hidden = client.get(f"/api/v1/reuse/declarations/{DECLARATION_ID}")
+    assert hidden.status_code == 404
+    assert hidden.json()["detail"] == "The requested resource was not found."
+
+    stale = client.patch(
+        f"/api/v1/reuse/declarations/{DECLARATION_ID}",
+        json={"use_case": "Updated public menu."},
+        headers={"Idempotency-Key": IDEMPOTENCY_KEY, "If-Match": "1"},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"] == "reuse_revision_conflict"
+    assert database.rollbacks == 1
