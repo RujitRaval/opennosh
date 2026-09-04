@@ -11,11 +11,13 @@ from typing import Any, Literal, Protocol
 from uuid import UUID
 
 import asyncpg  # type: ignore[import-untyped]
+from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.engine import make_url
 
 from opennosh_api.capacity import ProcessRole, load_capacity_manifest
 from opennosh_api.jobs.pgqueuer import PUBLICATION_ENTRYPOINT, decode_message
+from opennosh_api.public_operations.manifest import load_public_status_manifest
 from opennosh_api.publication.credentials import validate_publication_claim_credentials
 from opennosh_api.publication.state import PublicationState
 from opennosh_api.settings import Settings
@@ -26,6 +28,15 @@ _QUEUE_STATES = frozenset(
     {"queued", "picked", "successful", "exception", "canceled", "deleted", "failed"}
 )
 _FEDERATION_STATES = frozenset({"requested", "verified", "active", "quarantined", "revoked"})
+_LIVING_COMMONS_MIGRATION = "20260904_0036"
+_LIVING_COMMONS_FLAGS = (
+    "reuse_registry_mutations_enabled",
+    "reuse_verification_enabled",
+    "reuse_public_enabled",
+    "impact_aggregation_enabled",
+    "impact_public_enabled",
+    "public_status_enabled",
+)
 
 
 class ReadinessConnection(Protocol):
@@ -104,6 +115,34 @@ def readiness_digest(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(_canonical_json(unsigned)).hexdigest()
 
 
+def default_readiness_schema_path() -> Path:
+    packaged = Path(
+        str(resources.files("opennosh_api").joinpath("publication-readiness.schema.json"))
+    )
+    if packaged.is_file():
+        return packaged
+    return Path(__file__).resolve().parents[3] / "schemas/publication-readiness.schema.json"
+
+
+def default_impact_metrics_path() -> Path:
+    packaged = Path(str(resources.files("opennosh_api").joinpath("impact-metrics.v1.json")))
+    if packaged.is_file():
+        return packaged
+    return Path(__file__).resolve().parents[3] / "config/impact-metrics.v1.json"
+
+
+def _json_digest(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return hashlib.sha256(_canonical_json(payload)).hexdigest()
+
+
+def validate_readiness_report(report: Mapping[str, object]) -> None:
+    schema = json.loads(default_readiness_schema_path().read_text(encoding="utf-8"))
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(report)
+    if report.get("readiness_sha256") != readiness_digest(report):
+        raise ValueError("Readiness report digest does not match canonical content")
+
+
 def _postgres_dsn(database_url: str) -> str:
     url = make_url(database_url)
     if url.get_backend_name() != "postgresql":
@@ -172,6 +211,9 @@ async def build_production_claims_readiness(
         failures.append("mission_activity_map_enabled")
     if settings.mission_pack_release_enabled:
         failures.append("mission_pack_release_enabled")
+    for flag in _LIVING_COMMONS_FLAGS:
+        if bool(getattr(settings, flag)):
+            failures.append(flag)
     if not settings.latest_refresh_enabled:
         failures.append("latest_refresh_disabled")
     if settings.publication_claim_concurrency != contract.activation.claim_concurrency:
@@ -270,6 +312,11 @@ async def build_production_claims_readiness(
     )
     if unknown_federation:
         failures.append("unknown_federation_state")
+    migration_rows = await connection.fetch("SELECT version_num FROM alembic_version")
+    migration_heads = sorted(str(row["version_num"]) for row in migration_rows)
+    if migration_heads != [_LIVING_COMMONS_MIGRATION]:
+        failures.append("living_commons_migration_not_current")
+    status_manifest = load_public_status_manifest(settings.public_status_manifest_path)
     process_role = settings.process_role
 
     report: dict[str, object] = {
@@ -293,6 +340,7 @@ async def build_production_claims_readiness(
             "mission_public_enabled": settings.mission_public_enabled,
             "mission_activity_map_enabled": settings.mission_activity_map_enabled,
             "mission_pack_release_enabled": settings.mission_pack_release_enabled,
+            **{flag: bool(getattr(settings, flag)) for flag in _LIVING_COMMONS_FLAGS},
             "claim_concurrency": settings.publication_claim_concurrency,
             "latest_refresh_enabled": settings.latest_refresh_enabled,
             "credentials_complete": credentials_complete,
@@ -313,10 +361,23 @@ async def build_production_claims_readiness(
         },
         "publication_intents": {"counts": intent_counts},
         "federation_scopes": {"counts": federation_counts},
+        "living_commons": {
+            "migration_heads": migration_heads,
+            "expected_migration_head": _LIVING_COMMONS_MIGRATION,
+            "all_capabilities_disabled": not any(
+                bool(getattr(settings, flag)) for flag in _LIVING_COMMONS_FLAGS
+            ),
+            "impact_metric_manifest_sha256": _json_digest(default_impact_metrics_path()),
+            "public_status_manifest_sha256": status_manifest.digest,
+            "public_status_component_ids": [
+                component.component_id for component in status_manifest.components
+            ],
+        },
         "activation_candidate": contract.model_dump(mode="json"),
         "failures": sorted(set(failures)),
     }
     report["readiness_sha256"] = readiness_digest(report)
+    validate_readiness_report(report)
     return report
 
 

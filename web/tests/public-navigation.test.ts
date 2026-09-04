@@ -46,11 +46,25 @@ describe("public navigation contract", () => {
       label: "Commons missions",
       href: "#missions",
     });
+
+    const livingCommons = buildPublicNavigation(
+      "en",
+      parsePublicFeatureFlags("public-reuse,public-impact,public-status"),
+    );
+    expect(livingCommons.find((hub) => hub.id === "commons")?.children.map((child) => child.id)).toEqual([
+      "reuse", "impact", "status",
+    ]);
+    expect(livingCommons.find((hub) => hub.id === "commons")?.children.map((child) => child.href)).toEqual([
+      "/en/reuse", "/en/impact", "/en/status",
+    ]);
   });
 
   it("resolves hub context for hub pages and their deep children", () => {
     expect(resolvePublicHub(routes.publicHub("commons"), "en")).toBe("commons");
     expect(resolvePublicHub(routes.publicNotices(), "en")).toBe("build");
+    expect(resolvePublicHub(routes.publicReuse(), "en")).toBe("commons");
+    expect(resolvePublicHub(routes.publicImpact(), "en")).toBe("commons");
+    expect(resolvePublicHub(routes.publicStatus(), "en")).toBe("commons");
     expect(resolvePublicHub(routes.publicHome(), "en")).toBeUndefined();
   });
 

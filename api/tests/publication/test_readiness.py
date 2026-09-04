@@ -17,6 +17,7 @@ from opennosh_api.publication.readiness import (
     default_activation_contract_path,
     load_activation_contract,
     readiness_digest,
+    validate_readiness_report,
 )
 from opennosh_api.settings import Settings
 
@@ -69,6 +70,8 @@ class FakeReadinessConnection:
                 {"state": "active", "count": 1},
                 {"state": "quarantined", "count": 1},
             ]
+        if "FROM alembic_version" in query:
+            return [{"version_num": "20260904_0036"}]
         raise AssertionError(query)
 
 
@@ -83,6 +86,20 @@ def _settings() -> Settings:
         federation_ingestion_enabled=False,
         federation_projection_enabled=False,
         federation_search_enabled=False,
+        federation_installation_enabled=False,
+        federation_public_discovery_enabled=False,
+        mission_mutations_enabled=False,
+        mission_projection_enabled=False,
+        mission_public_enabled=False,
+        mission_activity_map_enabled=False,
+        mission_pack_release_enabled=False,
+        reuse_registry_mutations_enabled=False,
+        reuse_verification_enabled=False,
+        reuse_public_enabled=False,
+        impact_aggregation_enabled=False,
+        impact_public_enabled=False,
+        public_status_enabled=False,
+        public_status_manifest_path=ROOT / "config/public-status.v1.json",
         publication_activation_ids="",
         latest_refresh_enabled=True,
         render_git_commit="56633741ccaa6ce8f9193830c7a733fc78935fce",
@@ -111,6 +128,9 @@ async def test_readiness_report_is_deterministic_redacted_and_read_only(
     assert first == second
     assert first["status"] == "ready"
     assert first["readiness_sha256"] == readiness_digest(first)
+    validate_readiness_report(first)
+    assert first["living_commons"]["migration_heads"] == ["20260904_0036"]
+    assert first["living_commons"]["all_capabilities_disabled"] is True
     assert first["queue"] == {
         "counts": {
             "canceled": 0,
@@ -202,6 +222,12 @@ async def test_readiness_blocks_while_preactivation_smoke_is_enabled(
         ("latest_refresh_enabled", False, "latest_refresh_disabled"),
         ("publication_claim_concurrency", 2, "claim_concurrency_not_pinned"),
         ("render_git_commit", None, "deployed_commit_missing_or_invalid"),
+        ("reuse_registry_mutations_enabled", True, "reuse_registry_mutations_enabled"),
+        ("reuse_verification_enabled", True, "reuse_verification_enabled"),
+        ("reuse_public_enabled", True, "reuse_public_enabled"),
+        ("impact_aggregation_enabled", True, "impact_aggregation_enabled"),
+        ("impact_public_enabled", True, "impact_public_enabled"),
+        ("public_status_enabled", True, "public_status_enabled"),
     ],
 )
 @pytest.mark.asyncio
@@ -381,6 +407,30 @@ async def test_readiness_blocks_capacity_contract_drift(
     assert report["status"] == "blocked"
     assert "claim_concurrency_exceeds_capacity" in report["failures"]
     assert "publication_replica_count_not_pinned" in report["failures"]
+
+
+@pytest.mark.asyncio
+async def test_readiness_blocks_when_living_commons_migration_is_not_current(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StaleMigrationConnection(FakeReadinessConnection):
+        async def fetch(self, query: str, *arguments: object) -> list[dict[str, Any]]:
+            if "FROM alembic_version" in query:
+                self.queries.append(query)
+                return [{"version_num": "20260904_0035"}]
+            return await super().fetch(query, *arguments)
+
+    monkeypatch.setattr(
+        readiness_module, "validate_publication_claim_credentials", lambda _settings: object()
+    )
+    report = await build_production_claims_readiness(
+        StaleMigrationConnection(),
+        _settings(),
+        load_activation_contract(ROOT / "config/publication-claims-activation.v1.json"),
+        observed_at=OBSERVED_AT,
+    )
+    assert report["status"] == "blocked"
+    assert "living_commons_migration_not_current" in report["failures"]
 
 
 @pytest.mark.parametrize(

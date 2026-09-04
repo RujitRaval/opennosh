@@ -95,6 +95,9 @@ export const routes = {
   root: "/",
   publicHome: (language: InterfaceLanguage = defaultLanguage) => `/${language}`,
   publicNotices: (language: InterfaceLanguage = defaultLanguage) => `/${language}/notices`,
+  publicReuse: (language: InterfaceLanguage = defaultLanguage) => `/${language}/reuse`,
+  publicImpact: (language: InterfaceLanguage = defaultLanguage) => `/${language}/impact`,
+  publicStatus: (language: InterfaceLanguage = defaultLanguage) => `/${language}/status`,
   publicHub: (
     hub: PublicHubId,
     language: InterfaceLanguage = defaultLanguage,
