@@ -19,12 +19,22 @@ from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ValidationError
 
 from opennosh_api.foods.schemas import FoodCapabilities, FoodSearchResponse, FoodSearchResponseV1
+from opennosh_api.impact.contracts import PublicImpactSnapshot
 from opennosh_api.missions.activity_service import PublicMissionActivityMap
 from opennosh_api.missions.public_service import PublicMissionCatalog
 from opennosh_api.problems.schemas import ProblemDetails, RecoveryAction
 from opennosh_api.public.artifacts import PublicFoodRecordResponse
 from opennosh_api.public_commons.manifests import SignedEnvelope
 from opennosh_api.public_commons.schemas import PublicCommonsSnapshot
+from opennosh_api.public_operations.contracts import (
+    PublicIncidentListResponse,
+    PublicStatusResponse,
+)
+from opennosh_api.reuse.contracts import (
+    ReusePublicDeclarationResponse,
+    ReusePublicDependencyListResponse,
+    ReusePublicListResponse,
+)
 from opennosh_api.sdk._generated import PUBLIC_OPERATION_POLICIES
 
 HOSTED_ORIGIN = "https://opennosh.org"
@@ -359,6 +369,49 @@ class _ClientMethods:
             timeout_seconds=timeout,
         )
 
+    def list_reuse(self, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/reuse",
+            model=ReusePublicListResponse,
+            timeout_seconds=timeout,
+        )
+
+    def list_reuse_dependencies(self, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/reuse/dependencies",
+            model=ReusePublicDependencyListResponse,
+            timeout_seconds=timeout,
+        )
+
+    def get_impact(self, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/impact",
+            model=PublicImpactSnapshot,
+            timeout_seconds=timeout,
+        )
+
+    def get_public_status(self, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/status",
+            model=PublicStatusResponse,
+            timeout_seconds=timeout,
+        )
+
+    def list_public_incidents(self, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/incidents",
+            model=PublicIncidentListResponse,
+            timeout_seconds=timeout,
+        )
+
+    def get_reuse_declaration(self, declaration_id: str, *, timeout: float | None = None) -> Any:
+        return self._request(
+            "/api/v1/public/reuse/{declaration_id}",
+            model=ReusePublicDeclarationResponse,
+            values={"declaration_id": declaration_id},
+            timeout_seconds=timeout,
+        )
+
     def get_release_food(
         self, release_version: str, source: str, source_id: str, *, timeout: float | None = None
     ) -> Any:
@@ -409,7 +462,7 @@ class _ClientMethods:
 
 
 class OpenNoshClient(_ClientMethods):
-    """Synchronous client for the ten supported anonymous public operations."""
+    """Synchronous client for the sixteen supported anonymous public operations."""
 
     def __init__(
         self, target: str = "hosted", *, transport: httpx.AsyncBaseTransport | None = None
@@ -479,6 +532,45 @@ class OpenNoshClient(_ClientMethods):
         return cast(
             OpenNoshResponse[PublicMissionActivityMap],
             super().get_mission_activity(timeout=timeout),
+        )
+
+    def list_reuse(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicListResponse]:
+        return cast(OpenNoshResponse[ReusePublicListResponse], super().list_reuse(timeout=timeout))
+
+    def list_reuse_dependencies(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicDependencyListResponse]:
+        return cast(
+            OpenNoshResponse[ReusePublicDependencyListResponse],
+            super().list_reuse_dependencies(timeout=timeout),
+        )
+
+    def get_impact(self, *, timeout: float | None = None) -> OpenNoshResponse[PublicImpactSnapshot]:
+        return cast(OpenNoshResponse[PublicImpactSnapshot], super().get_impact(timeout=timeout))
+
+    def get_public_status(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[PublicStatusResponse]:
+        return cast(
+            OpenNoshResponse[PublicStatusResponse], super().get_public_status(timeout=timeout)
+        )
+
+    def list_public_incidents(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[PublicIncidentListResponse]:
+        return cast(
+            OpenNoshResponse[PublicIncidentListResponse],
+            super().list_public_incidents(timeout=timeout),
+        )
+
+    def get_reuse_declaration(
+        self, declaration_id: str, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicDeclarationResponse]:
+        return cast(
+            OpenNoshResponse[ReusePublicDeclarationResponse],
+            super().get_reuse_declaration(declaration_id, timeout=timeout),
         )
 
     def get_release_food(
@@ -639,6 +731,54 @@ class AsyncOpenNoshClient(_ClientMethods):
         return cast(
             OpenNoshResponse[PublicMissionActivityMap],
             await super().get_mission_activity(timeout=timeout),
+        )
+
+    async def list_reuse(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicListResponse]:
+        return cast(
+            OpenNoshResponse[ReusePublicListResponse],
+            await super().list_reuse(timeout=timeout),
+        )
+
+    async def list_reuse_dependencies(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicDependencyListResponse]:
+        return cast(
+            OpenNoshResponse[ReusePublicDependencyListResponse],
+            await super().list_reuse_dependencies(timeout=timeout),
+        )
+
+    async def get_impact(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[PublicImpactSnapshot]:
+        return cast(
+            OpenNoshResponse[PublicImpactSnapshot],
+            await super().get_impact(timeout=timeout),
+        )
+
+    async def get_public_status(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[PublicStatusResponse]:
+        return cast(
+            OpenNoshResponse[PublicStatusResponse],
+            await super().get_public_status(timeout=timeout),
+        )
+
+    async def list_public_incidents(
+        self, *, timeout: float | None = None
+    ) -> OpenNoshResponse[PublicIncidentListResponse]:
+        return cast(
+            OpenNoshResponse[PublicIncidentListResponse],
+            await super().list_public_incidents(timeout=timeout),
+        )
+
+    async def get_reuse_declaration(
+        self, declaration_id: str, *, timeout: float | None = None
+    ) -> OpenNoshResponse[ReusePublicDeclarationResponse]:
+        return cast(
+            OpenNoshResponse[ReusePublicDeclarationResponse],
+            await super().get_reuse_declaration(declaration_id, timeout=timeout),
         )
 
     async def get_release_food(

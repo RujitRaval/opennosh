@@ -6,9 +6,15 @@ import type {
   PublicFoodRecordResponse,
   PublicMissionActivityMap,
   PublicMissionCatalog,
+  PublicImpactSnapshot,
+  PublicIncidentListResponse,
+  PublicStatusResponse,
   ProblemCode,
   RecoveryAction,
   SignedEnvelope,
+  ReusePublicDeclarationResponse,
+  ReusePublicDependencyListResponse,
+  ReusePublicListResponse,
 } from "./generated-types.js";
 
 export type {
@@ -19,9 +25,15 @@ export type {
   PublicFoodRecordResponse,
   PublicMissionActivityMap,
   PublicMissionCatalog,
+  PublicImpactSnapshot,
+  PublicIncidentListResponse,
+  PublicStatusResponse,
   RecoveryAction,
   SignedEnvelope,
   ProblemCode,
+  ReusePublicDeclarationResponse,
+  ReusePublicDependencyListResponse,
+  ReusePublicListResponse,
 } from "./generated-types.js";
 
 export declare const PACKAGE_VERSION: string;
@@ -82,6 +94,7 @@ export interface ReleaseFoodParameters {
 }
 
 export interface ReleaseParameters { releaseVersion: string; }
+export interface ReuseDeclarationParameters { declarationId: string; }
 export interface PackDownloadParameters extends ReleaseParameters { packId: string; packVersion: string; }
 export interface CommonsSnapshotOptions extends RequestOptions { ifNoneMatch?: string; }
 
@@ -94,6 +107,12 @@ export declare class OpenNoshClient {
   getPublicFood(parameters: PublicFoodParameters, options?: RequestOptions): Promise<OpenNoshResponse<PublicFoodRecordResponse>>;
   listMissions(parameters?: { limit?: number }, options?: RequestOptions): Promise<OpenNoshResponse<PublicMissionCatalog>>;
   getMissionActivity(options?: RequestOptions): Promise<OpenNoshResponse<PublicMissionActivityMap>>;
+  listReuse(options?: RequestOptions): Promise<OpenNoshResponse<ReusePublicListResponse>>;
+  listReuseDependencies(options?: RequestOptions): Promise<OpenNoshResponse<ReusePublicDependencyListResponse>>;
+  getImpact(options?: RequestOptions): Promise<OpenNoshResponse<PublicImpactSnapshot>>;
+  getStatus(options?: RequestOptions): Promise<OpenNoshResponse<PublicStatusResponse>>;
+  listIncidents(options?: RequestOptions): Promise<OpenNoshResponse<PublicIncidentListResponse>>;
+  getReuseDeclaration(parameters: ReuseDeclarationParameters, options?: RequestOptions): Promise<OpenNoshResponse<ReusePublicDeclarationResponse>>;
   getReleaseFood(parameters: ReleaseFoodParameters, options?: RequestOptions): Promise<OpenNoshResponse<PublicFoodRecordResponse>>;
   getProvenance(parameters: ReleaseFoodParameters, options?: RequestOptions): Promise<OpenNoshResponse<string>>;
   getReleaseManifest(parameters: ReleaseParameters, options?: RequestOptions): Promise<OpenNoshResponse<SignedEnvelope>>;

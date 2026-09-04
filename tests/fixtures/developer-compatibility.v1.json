@@ -150,6 +150,32 @@
       }
     },
     {
+      "operation_id": "public_status_api_v1_public_status_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "configuration_digest": "9ce76da28b03d2ac9fdfe92cdcbdb4689921de69395588cf54ce31f8f1413df4",
+        "components": [
+          {"component_id": "api", "display_name": "Public API", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "contributions", "display_name": "Contribution intake", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "downloads", "display_name": "Artifact downloads", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "evidence-processing", "display_name": "Evidence processing", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 600, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "publication", "display_name": "Publication", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 600, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "reuse-registry", "display_name": "Reuse registry", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "search", "display_name": "Food search", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []},
+          {"component_id": "tracker", "display_name": "Private tracker", "state": "unknown", "reason": "missing_evidence", "observed_at": null, "freshness_window_seconds": 300, "evidence_digest": null, "affected_versions": []}
+        ]
+      }
+    },
+    {
+      "operation_id": "public_incidents_api_v1_public_incidents_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1.0",
+        "incidents": []
+      }
+    },
+    {
       "operation_id": "public_reuse_declaration_api_v1_public_reuse__declaration_id__get",
       "media_type": "application/json",
       "body": {

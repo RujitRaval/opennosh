@@ -1,0 +1,46 @@
+{
+  "$schema": "../schemas/public-status.schema.json",
+  "schema_version": "1.0",
+  "components": [
+    {
+      "component_id": "api",
+      "display_name": "Public API",
+      "freshness_window_seconds": 300
+    },
+    {
+      "component_id": "contributions",
+      "display_name": "Contribution intake",
+      "freshness_window_seconds": 300
+    },
+    {
+      "component_id": "downloads",
+      "display_name": "Artifact downloads",
+      "freshness_window_seconds": 300
+    },
+    {
+      "component_id": "evidence-processing",
+      "display_name": "Evidence processing",
+      "freshness_window_seconds": 600
+    },
+    {
+      "component_id": "publication",
+      "display_name": "Publication",
+      "freshness_window_seconds": 600
+    },
+    {
+      "component_id": "reuse-registry",
+      "display_name": "Reuse registry",
+      "freshness_window_seconds": 300
+    },
+    {
+      "component_id": "search",
+      "display_name": "Food search",
+      "freshness_window_seconds": 300
+    },
+    {
+      "component_id": "tracker",
+      "display_name": "Private tracker",
+      "freshness_window_seconds": 300
+    }
+  ]
+}

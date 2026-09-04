@@ -50,7 +50,7 @@ test("rejects unsafe or non-origin targets", () => {
   assert.throws(() => normalizeTarget(targetWithUserInfo.href), TypeError);
 });
 
-test("maps all fourteen public operations without credentials, redirects, retries, or hidden identifiers", async () => {
+test("maps all sixteen public operations without credentials, redirects, retries, or hidden identifiers", async () => {
   const calls = [];
   const fetch = async (url, options) => {
     calls.push({ url: String(url), options });
@@ -75,13 +75,19 @@ test("maps all fourteen public operations without credentials, redirects, retrie
     client.getPublicFood({ source: "community", sourceId: "food-id", version: "2" }),
     client.listMissions({ limit: 12 }),
     client.getMissionActivity(),
+    client.listReuse(),
+    client.listReuseDependencies(),
+    client.getImpact(),
+    client.getStatus(),
+    client.listIncidents(),
+    client.getReuseDeclaration({ declarationId: "20000000-0000-4000-8000-000000000001" }),
     client.getReleaseFood({ releaseVersion: "1.2.3.4", source: "usda", sourceId: "42" }),
     client.getProvenance({ releaseVersion: "1.2.3.4", source: "usda", sourceId: "42" }),
     client.getReleaseManifest({ releaseVersion: "1.2.3.4" }),
     client.downloadPack({ releaseVersion: "1.2.3.4", packId: "core", packVersion: "4.5.6" }),
   ]);
 
-  assert.equal(calls.length, 10);
+  assert.equal(calls.length, 16);
   assert.deepEqual(calls.map(({ url }) => new URL(url).pathname), [
     "/api/v1/foods/capabilities",
     "/api/v1/foods/search",
@@ -89,6 +95,12 @@ test("maps all fourteen public operations without credentials, redirects, retrie
     "/api/v1/public/foods/community/food-id",
     "/api/v1/public/missions",
     "/api/v1/public/missions/activity",
+    "/api/v1/public/reuse",
+    "/api/v1/public/reuse/dependencies",
+    "/api/v1/public/impact",
+    "/api/v1/public/status",
+    "/api/v1/public/incidents",
+    "/api/v1/public/reuse/20000000-0000-4000-8000-000000000001",
     "/api/v1/public/releases/1.2.3.4/foods/usda/42",
     "/api/v1/public/releases/1.2.3.4/foods/usda/42/provenance",
     "/api/v1/public/releases/1.2.3.4/manifest",
@@ -111,8 +123,8 @@ test("maps all fourteen public operations without credentials, redirects, retrie
   assert.equal(results[0].data.verification, "verified");
   assert.equal(results[0].etag, '"digest"');
   assert.equal(results[0].cache_control, "public, immutable");
-  assert.equal(results[7].data, "<main>verified provenance</main>");
-  assert.deepEqual([...results[9].data], [80, 75, 3, 4]);
+  assert.equal(results[13].data, "<main>verified provenance</main>");
+  assert.deepEqual([...results[15].data], [80, 75, 3, 4]);
 });
 
 test("sends client identity only in Node and omits it in browser-worker globals", async () => {
@@ -296,6 +308,12 @@ test("enforces the exact response limit for every public operation", async () =>
     ["/api/v1/public/foods/{source}/{source_id}", (client) => client.getPublicFood({ source: "usda", sourceId: "rice" })],
     ["/api/v1/public/missions", (client) => client.listMissions()],
     ["/api/v1/public/missions/activity", (client) => client.getMissionActivity()],
+    ["/api/v1/public/reuse", (client) => client.listReuse()],
+    ["/api/v1/public/reuse/dependencies", (client) => client.listReuseDependencies()],
+    ["/api/v1/public/impact", (client) => client.getImpact()],
+    ["/api/v1/public/status", (client) => client.getStatus()],
+    ["/api/v1/public/incidents", (client) => client.listIncidents()],
+    ["/api/v1/public/reuse/{declaration_id}", (client) => client.getReuseDeclaration({ declarationId: "20000000-0000-4000-8000-000000000001" })],
     ["/api/v1/public/releases/{release_version}/foods/{source}/{source_id}", (client) => client.getReleaseFood({ releaseVersion: "1.2.3.4", source: "usda", sourceId: "rice" })],
     ["/api/v1/public/releases/{release_version}/foods/{source}/{source_id}/provenance", (client) => client.getProvenance({ releaseVersion: "1.2.3.4", source: "usda", sourceId: "rice" })],
     ["/api/v1/public/releases/{release_version}/manifest", (client) => client.getReleaseManifest({ releaseVersion: "1.2.3.4" })],

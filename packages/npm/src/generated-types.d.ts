@@ -1875,6 +1875,24 @@ export type ImpactTotals = {
 };
 
 /**
+ * IncidentRecoveryEvidence
+ */
+export type IncidentRecoveryEvidence = {
+    /**
+     * Content Sha256
+     */
+    content_sha256: string;
+    /**
+     * Observed At
+     */
+    observed_at: string;
+    /**
+     * Status
+     */
+    status?: 'verified';
+};
+
+/**
  * LatestStateReference
  */
 export type LatestStateReference = {
@@ -2748,6 +2766,43 @@ export type PublicCommonsSnapshot = {
 };
 
 /**
+ * PublicComponentState
+ */
+export type PublicComponentState = 'operational' | 'degraded' | 'outage' | 'maintenance' | 'unknown';
+
+/**
+ * PublicComponentStatus
+ */
+export type PublicComponentStatus = {
+    /**
+     * Affected Versions
+     */
+    affected_versions?: Array<string>;
+    /**
+     * Component Id
+     */
+    component_id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Evidence Digest
+     */
+    evidence_digest?: string | null;
+    /**
+     * Freshness Window Seconds
+     */
+    freshness_window_seconds: number;
+    /**
+     * Observed At
+     */
+    observed_at?: string | null;
+    reason?: PublicStatusUnknownReason | null;
+    state: PublicComponentState;
+};
+
+/**
  * PublicDecisionResponse
  */
 export type PublicDecisionResponse = {
@@ -2973,6 +3028,69 @@ export type PublicImpactSnapshot = {
 };
 
 /**
+ * PublicIncident
+ */
+export type PublicIncident = {
+    /**
+     * Affected Component Ids
+     */
+    affected_component_ids: Array<string>;
+    /**
+     * Affected Versions
+     */
+    affected_versions: Array<string>;
+    /**
+     * Guidance
+     */
+    guidance: string;
+    /**
+     * Incident Id
+     */
+    incident_id: string;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Public Summary
+     */
+    public_summary: string;
+    recovery_evidence?: IncidentRecoveryEvidence | null;
+    /**
+     * Resolved At
+     */
+    resolved_at?: string | null;
+    state: PublicIncidentState;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * PublicIncidentListResponse
+ */
+export type PublicIncidentListResponse = {
+    /**
+     * Incidents
+     */
+    incidents: Array<PublicIncident>;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+};
+
+/**
+ * PublicIncidentState
+ */
+export type PublicIncidentState = 'investigating' | 'identified' | 'monitoring' | 'resolved';
+
+/**
  * PublicMission
  */
 export type PublicMission = {
@@ -3175,6 +3293,29 @@ export type PublicReleaseProof = {
      */
     version: string;
 };
+
+/**
+ * PublicStatusResponse
+ */
+export type PublicStatusResponse = {
+    /**
+     * Components
+     */
+    components: Array<PublicComponentStatus>;
+    /**
+     * Configuration Digest
+     */
+    configuration_digest: string;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+};
+
+/**
+ * PublicStatusUnknownReason
+ */
+export type PublicStatusUnknownReason = 'missing_evidence' | 'stale_evidence' | 'malformed_evidence';
 
 /**
  * QuantityUnit
@@ -9578,6 +9719,71 @@ export type PublicImpactApiV1PublicImpactGetResponses = {
 
 export type PublicImpactApiV1PublicImpactGetResponse = PublicImpactApiV1PublicImpactGetResponses[keyof PublicImpactApiV1PublicImpactGetResponses];
 
+export type PublicIncidentsApiV1PublicIncidentsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/incidents';
+};
+
+export type PublicIncidentsApiV1PublicIncidentsGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PublicIncidentsApiV1PublicIncidentsGetError = PublicIncidentsApiV1PublicIncidentsGetErrors[keyof PublicIncidentsApiV1PublicIncidentsGetErrors];
+
+export type PublicIncidentsApiV1PublicIncidentsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicIncidentListResponse;
+};
+
+export type PublicIncidentsApiV1PublicIncidentsGetResponse = PublicIncidentsApiV1PublicIncidentsGetResponses[keyof PublicIncidentsApiV1PublicIncidentsGetResponses];
+
 export type MissionsApiV1PublicMissionsGetData = {
     body?: never;
     path?: never;
@@ -10216,6 +10422,71 @@ export type PublicReuseDeclarationApiV1PublicReuseDeclarationIdGetResponses = {
 };
 
 export type PublicReuseDeclarationApiV1PublicReuseDeclarationIdGetResponse = PublicReuseDeclarationApiV1PublicReuseDeclarationIdGetResponses[keyof PublicReuseDeclarationApiV1PublicReuseDeclarationIdGetResponses];
+
+export type PublicStatusApiV1PublicStatusGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/status';
+};
+
+export type PublicStatusApiV1PublicStatusGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type PublicStatusApiV1PublicStatusGetError = PublicStatusApiV1PublicStatusGetErrors[keyof PublicStatusApiV1PublicStatusGetErrors];
+
+export type PublicStatusApiV1PublicStatusGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PublicStatusResponse;
+};
+
+export type PublicStatusApiV1PublicStatusGetResponse = PublicStatusApiV1PublicStatusGetResponses[keyof PublicStatusApiV1PublicStatusGetResponses];
 
 export type ListAllApiV1RecipesGetData = {
     body?: never;

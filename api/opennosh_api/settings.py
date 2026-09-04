@@ -150,6 +150,7 @@ class Settings(BaseSettings):
     impact_aggregation_enabled: bool = False
     impact_public_enabled: bool = False
     public_status_enabled: bool = False
+    public_status_manifest_path: Path | None = None
     publication_activation_ids: str = ""
     publication_claims_activation_contract_path: Path = Path(
         "config/publication-claims-activation.v1.json"

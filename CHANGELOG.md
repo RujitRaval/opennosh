@@ -2,6 +2,24 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.93.0.0] - 2026-09-04
+
+### Added
+
+- Add a fixed, versioned eight-component public-status manifest with explicit freshness windows
+  and append-only digest-bound monitor observations.
+- Add append-only public incident records and state events with affected component/version sets,
+  public guidance, and mandatory verified recovery evidence before resolution.
+- Add disabled-by-default, filterless `/api/v1/public/status` and
+  `/api/v1/public/incidents` contracts to the generated TypeScript, Python, and npm SDK surfaces.
+
+### Security
+
+- Project `unknown` for missing, stale, future, malformed, or unsuccessful operational evidence;
+  absence of an incident never becomes evidence of health.
+- Exclude credentials, provider resource IDs, hostnames, IP addresses, logs, and private topology
+  from both public projections, and keep all T34.8 and publication-claims flags disabled.
+
 ## [0.92.0.0] - 2026-09-04
 
 ### Added

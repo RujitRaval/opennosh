@@ -64,6 +64,9 @@ EXPECTED_TABLES = {
     "reuse_declaration_events",
     "reuse_dependencies",
     "impact_snapshots",
+    "public_component_observations",
+    "public_incidents",
+    "public_incident_events",
 }
 
 OWNER_TABLES = {

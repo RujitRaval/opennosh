@@ -50,13 +50,13 @@ SDK. Its canonical SHA-256 excludes only the digest field itself. The matching J
 
 The initial preview pins OpenAPI 2.x plus the retained 1.x compatibility family, the npm three-part
 version, Python/CLI four-part artifact versions, MCP/embed protocol 1.0.0, nullable deprecation
-dates, fourteen anonymous developer operations, exact response byte limits, and
+dates, sixteen anonymous developer operations, exact response byte limits, and
 the no-credentials/no-redirect/no-retry endpoint policy. MCP and embed artifacts are previews while
 their production discovery remains explicitly disabled. A new public GET operation under
 `/api/v1/public/`, or a change to either developer food operation, cannot land until it appears in
 this reviewed manifest and the generated SDK.
 
-`tests/fixtures/developer-compatibility.v1.json` exercises all fourteen current response shapes plus the
+`tests/fixtures/developer-compatibility.v1.json` exercises all sixteen current response shapes plus the
 retained food reads against a digest- and commit-pinned OpenAPI 1.0.0 snapshot, along with RFC 9457,
 rate-limit, stale verified, unavailable-proof, and incompatible-version cases. The npm package now
 exports the policy-compliant `OpenNoshClient` wrapper for Node.js 20+ and modern browsers. Generated
@@ -66,13 +66,19 @@ deadlines, cancellation, cache validators, and typed failures.
 
 The Python wheel exposes the matching preview contract from `opennosh_api.sdk`. Both
 `OpenNoshClient` and `AsyncOpenNoshClient` reuse the API's Pydantic public response models and cover
-the same ten anonymous reads. The retained `FoodSearchResponseV1` model accepts the pinned OpenAPI
+the same sixteen anonymous reads. The retained `FoodSearchResponseV1` model accepts the pinned OpenAPI
 1.x search envelope without weakening the current 2.x model. Response wrappers also retain release
 version, verified/stale state, stale age, and warning headers for HTML and ZIP reads where those
 facts are not carried in the body. Python sends the versioned SDK identifier header, never reads ambient
 proxy or credential state, refuses redirects, performs no automatic retry, and maps RFC 9457 or
 transport failures to `OpenNoshProblem`. The generated Python operation-policy module is checked
 against the same compatibility manifest and OpenAPI snapshot as the JavaScript SDK.
+
+The public-operations pair is deliberately filterless. `/api/v1/public/status` returns the fixed
+component inventory and projects unknown from missing, stale, future, malformed, or unsuccessful
+operational evidence. `/api/v1/public/incidents` returns only bounded safe incident snapshots and
+requires digest-bound recovery evidence for resolution. Both reject partial database results and
+exclude infrastructure identifiers, logs, credentials, and private topology.
 
 The application CLI wraps only that supported SDK for `opennosh public ...` reads. Its target
 precedence is `--target`, then `OPENNOSH_TARGET`, then `hosted`; JSON output is compact and

@@ -105,7 +105,7 @@
     },
     "public_operations": {
       "type": "array",
-      "minItems": 14,
+      "minItems": 16,
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/publicOperation"}
     }
