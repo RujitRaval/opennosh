@@ -78,6 +78,18 @@ services:
         value: "false"
       - key: MISSION_PACK_RELEASE_ENABLED
         value: "false"
+      - key: REUSE_REGISTRY_MUTATIONS_ENABLED
+        value: "false"
+      - key: REUSE_VERIFICATION_ENABLED
+        value: "false"
+      - key: REUSE_PUBLIC_ENABLED
+        value: "false"
+      - key: IMPACT_AGGREGATION_ENABLED
+        value: "false"
+      - key: IMPACT_PUBLIC_ENABLED
+        value: "false"
+      - key: PUBLIC_STATUS_ENABLED
+        value: "false"
       - key: GOVERNANCE_FRESH_AUTH_SECONDS
         value: "900"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH
@@ -138,6 +150,18 @@ services:
       - key: MISSION_ACTIVITY_MAP_ENABLED
         value: "false"
       - key: MISSION_PACK_RELEASE_ENABLED
+        value: "false"
+      - key: REUSE_REGISTRY_MUTATIONS_ENABLED
+        value: "false"
+      - key: REUSE_VERIFICATION_ENABLED
+        value: "false"
+      - key: REUSE_PUBLIC_ENABLED
+        value: "false"
+      - key: IMPACT_AGGREGATION_ENABLED
+        value: "false"
+      - key: IMPACT_PUBLIC_ENABLED
+        value: "false"
+      - key: PUBLIC_STATUS_ENABLED
         value: "false"
       - key: LATEST_REFRESH_ENABLED
         value: "true"

@@ -60,6 +60,8 @@ EXPECTED_TABLES = {
     "publication_durable_acknowledgements",
     "publication_receipts",
     "accepted_events",
+    "reuse_declarations",
+    "reuse_declaration_events",
 }
 
 OWNER_TABLES = {
