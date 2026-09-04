@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.governance.contracts import GovernanceRole
@@ -16,13 +16,14 @@ from opennosh_api.reuse.contracts import (
     ReuseDeclarationFields,
     ReuseDeclarationPatch,
     ReuseDeclarationState,
+    ReuseDependencyInput,
     ReuseEventType,
     ReuseEvidenceStatus,
     ReuseRegionLevel,
     ReuseVerificationEvidence,
     normalized_key,
 )
-from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent, ReuseDependency
 
 
 class ReuseRegistryError(RuntimeError):
@@ -111,21 +112,38 @@ def _append_event(
     evidence_json: dict[str, object] | None = None,
     now: datetime,
     event_id_generator: Callable[[], UUID],
-) -> None:
-    session.add(
-        ReuseDeclarationEvent(
-            id=event_id_generator(),
-            declaration_id=declaration.id,
-            actor_id=actor_id,
-            event_type=event_type.value,
-            declaration_revision=declaration.revision,
-            idempotency_key_hash=idempotency_key_hash,
-            request_hash=request_hash,
-            evidence_json={} if evidence_json is None else evidence_json,
-            reason=reason,
-            occurred_at=now,
-        )
+) -> ReuseDeclarationEvent:
+    event = ReuseDeclarationEvent(
+        id=event_id_generator(),
+        declaration_id=declaration.id,
+        actor_id=actor_id,
+        event_type=event_type.value,
+        declaration_revision=declaration.revision,
+        idempotency_key_hash=idempotency_key_hash,
+        request_hash=request_hash,
+        evidence_json={} if evidence_json is None else evidence_json,
+        reason=reason,
+        occurred_at=now,
     )
+    session.add(event)
+    return event
+
+
+DependencyProofResolver = Callable[[ReuseDependencyInput], Awaitable[bool]]
+
+
+async def _validate_dependency_proofs(
+    dependencies: tuple[ReuseDependencyInput, ...],
+    *,
+    resolver: DependencyProofResolver | None,
+) -> None:
+    if not dependencies:
+        return
+    if resolver is None:
+        raise ReuseRegistryError("reuse_dependency_proof_unavailable")
+    for dependency in dependencies:
+        if not await resolver(dependency):
+            raise ReuseRegistryError("reuse_dependency_proof_invalid")
 
 
 async def _require_registry_steward(
@@ -203,6 +221,8 @@ async def review_declaration(
     idempotency_key: UUID,
     reason: str,
     evidence: ReuseVerificationEvidence | None,
+    dependencies: tuple[ReuseDependencyInput, ...] = (),
+    dependency_resolver: DependencyProofResolver | None = None,
     now: datetime,
     event_id_generator: Callable[[], UUID] = uuid4,
 ) -> ReuseDeclaration:
@@ -219,6 +239,8 @@ async def review_declaration(
         _validate_verification_evidence(evidence, now=now)
     elif evidence is not None:
         raise ValueError("Non-verification reviews cannot attach verification evidence")
+    elif dependencies:
+        raise ValueError("Non-verification reviews cannot attach dependencies")
 
     await _require_registry_steward(session, actor_id=steward_actor_id, now=now)
     key_hash = _key_hash(idempotency_key)
@@ -230,6 +252,7 @@ async def review_declaration(
             "expected_revision": expected_revision,
             "reason": reason,
             "evidence": None if evidence is None else evidence.model_dump(mode="json"),
+            "dependencies": [item.model_dump(mode="json") for item in dependencies],
         }
     )
     existing = await _idempotent_result(
@@ -252,6 +275,8 @@ async def review_declaration(
         raise ReuseRegistryError("reuse_revision_conflict")
     if declaration.state != ReuseDeclarationState.VERIFICATION_PENDING.value:
         raise ReuseRegistryError("reuse_review_transition_not_allowed")
+    if action is ReuseEventType.VERIFIED:
+        await _validate_dependency_proofs(dependencies, resolver=dependency_resolver)
 
     declaration.state = (
         ReuseDeclarationState.VERIFIED.value
@@ -260,7 +285,7 @@ async def review_declaration(
     )
     declaration.revision += 1
     declaration.updated_at = now
-    _append_event(
+    event = _append_event(
         session,
         declaration=declaration,
         actor_id=steward_actor_id,
@@ -273,7 +298,67 @@ async def review_declaration(
         event_id_generator=event_id_generator,
     )
     await session.flush()
+    if dependencies:
+        for dependency in dependencies:
+            existing_dependency = await session.scalar(
+                select(ReuseDependency).where(
+                    ReuseDependency.declaration_id == declaration.id,
+                    ReuseDependency.source_pack_id == dependency.source_pack_id,
+                    ReuseDependency.source_release_id == dependency.source_release_id,
+                    ReuseDependency.dependency_kind == dependency.dependency_kind.value,
+                )
+            )
+            if existing_dependency is None:
+                session.add(
+                    ReuseDependency(
+                        id=event_id_generator(),
+                        declaration_id=declaration.id,
+                        source_pack_id=dependency.source_pack_id,
+                        source_release_id=dependency.source_release_id,
+                        source_artifact_digest=dependency.source_artifact_digest,
+                        dependency_kind=dependency.dependency_kind.value,
+                        evidence_event_id=event.id,
+                        created_at=now,
+                    )
+                )
+            else:
+                await session.execute(
+                    update(ReuseDependency)
+                    .where(ReuseDependency.id == existing_dependency.id)
+                    .values(
+                        source_artifact_digest=dependency.source_artifact_digest,
+                        evidence_event_id=event.id,
+                    )
+                )
+        await session.flush()
     return declaration
+
+
+async def list_public_dependencies(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+) -> tuple[tuple[ReuseDependency, ReuseDeclaration, ReuseDeclarationEvent], ...]:
+    result = await session.execute(
+        select(ReuseDependency, ReuseDeclaration, ReuseDeclarationEvent)
+        .join(ReuseDeclaration, ReuseDeclaration.id == ReuseDependency.declaration_id)
+        .join(ReuseDeclarationEvent, ReuseDeclarationEvent.id == ReuseDependency.evidence_event_id)
+        .where(
+            ReuseDeclaration.state == ReuseDeclarationState.VERIFIED.value,
+            ReuseDeclarationEvent.declaration_id == ReuseDeclaration.id,
+            ReuseDeclarationEvent.declaration_revision == ReuseDeclaration.revision,
+            ReuseDeclarationEvent.event_type == ReuseEventType.VERIFIED.value,
+        )
+        .order_by(
+            ReuseDependency.source_pack_id,
+            ReuseDependency.source_release_id,
+            ReuseDependency.dependency_kind,
+            ReuseDeclaration.project_key,
+            ReuseDeclaration.id,
+        )
+        .limit(limit)
+    )
+    return tuple((row[0], row[1], row[2]) for row in result.all())
 
 
 async def list_public_declarations(
@@ -608,6 +693,7 @@ __all__ = [
     "ReuseRegistryError",
     "create_declaration",
     "list_owned_declarations",
+    "list_public_dependencies",
     "list_public_declarations",
     "list_reviewable_declarations",
     "patch_declaration",

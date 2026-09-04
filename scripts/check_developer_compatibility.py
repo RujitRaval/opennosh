@@ -38,6 +38,7 @@ EXPECTED_OPERATION_POLICY = {
     "/api/v1/public/missions/activity": ("application/json", 2_097_152),
     "/api/v1/public/impact": ("application/json", 524_288),
     "/api/v1/public/reuse": ("application/json", 2_097_152),
+    "/api/v1/public/reuse/dependencies": ("application/json", 524_288),
     "/api/v1/public/reuse/{declaration_id}": ("application/json", 524_288),
     "/api/v1/public/releases/{release_version}/foods/{source}/{source_id}": (
         "application/json",

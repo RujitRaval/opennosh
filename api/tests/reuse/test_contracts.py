@@ -4,6 +4,8 @@ import pytest
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationPatch,
+    ReuseDependencyInput,
+    ReuseDependencyKind,
     ReuseEvidenceStatus,
     ReusePublicLabel,
     ReuseRegionLevel,
@@ -171,3 +173,79 @@ def test_review_reason_and_public_labels_are_exact() -> None:
         "unverified",
         "verified",
     }
+
+
+def test_verification_dependencies_are_explicit_sorted_and_digest_bound() -> None:
+    dependency = {
+        "source_pack_id": "global-core",
+        "source_release_id": "0.91.0.0",
+        "source_artifact_digest": "c" * 64,
+        "dependency_kind": "data",
+    }
+    request = ReuseVerificationRequest(
+        reason="Signed release checked.",
+        evidence={
+            "source_url": "https://evidence.example.test/adoption",
+            "observed_at": "2026-09-03T22:00:00Z",
+            "content_sha256": "b" * 64,
+            "status": "accessible",
+        },
+        dependencies=[dependency],
+    )
+    assert request.dependencies == (ReuseDependencyInput.model_validate(dependency),)
+    assert {kind.value for kind in ReuseDependencyKind} == {
+        "runtime",
+        "data",
+        "research",
+        "derived",
+    }
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"source_pack_id": "../private"},
+        {"source_pack_id": "Global-Core"},
+        {"source_release_id": "latest"},
+        {"source_artifact_digest": "C" * 64},
+        {"dependency_kind": "inferred"},
+    ],
+)
+def test_dependency_contract_rejects_unpinned_or_inferred_edges(
+    change: dict[str, object],
+) -> None:
+    values: dict[str, object] = {
+        "source_pack_id": "global-core",
+        "source_release_id": "0.91.0.0",
+        "source_artifact_digest": "c" * 64,
+        "dependency_kind": "data",
+    }
+    values.update(change)
+    with pytest.raises(ValidationError):
+        ReuseDependencyInput.model_validate(values)
+
+
+def test_verification_dependency_set_rejects_duplicates_and_unsorted_input() -> None:
+    evidence = {
+        "source_url": "https://evidence.example.test/adoption",
+        "observed_at": "2026-09-03T22:00:00Z",
+        "content_sha256": "b" * 64,
+        "status": "accessible",
+    }
+    first = {
+        "source_pack_id": "alpha",
+        "source_release_id": "0.91.0.0",
+        "source_artifact_digest": "a" * 64,
+        "dependency_kind": "data",
+    }
+    second = {
+        "source_pack_id": "zeta",
+        "source_release_id": "0.91.0.0",
+        "source_artifact_digest": "b" * 64,
+        "dependency_kind": "runtime",
+    }
+    for dependencies in ([first, first], [second, first]):
+        with pytest.raises(ValidationError, match="sorted and unique"):
+            ReuseVerificationRequest(
+                reason="Evidence reviewed.", evidence=evidence, dependencies=dependencies
+            )

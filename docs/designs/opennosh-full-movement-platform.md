@@ -61,7 +61,7 @@ The program must extend these systems. It must not create a second canonical foo
 | Operational workflow | PostgreSQL | Accounts, drafts, review queues, rate limits, abuse restrictions, mission proposals | Mutable under authorization and audit logging; deletion follows account and retention policy. |
 | External evidence | Private object storage outside the webroot | Rewritten package images and OCR inputs | Content-addressed, access-controlled, retained or removed under the evidence policy below. |
 | Derived projection | PostgreSQL/search index/cache | Search documents, activity events, pack health, aggregate metrics | Rebuildable from canonical artifacts and operational events; never treated as canonical evidence. |
-| External declaration | PostgreSQL with audit history | Voluntary reuse registry entries and verification state | Owner-editable, moderator-verifiable, removable, and never promoted to verified without evidence. |
+| External declaration | PostgreSQL with audit history | Voluntary reuse registry entries and verification state | Owner-editable, steward-verifiable, removable, and never promoted to verified without evidence. |
 
 ### Canonical Flow and Reconciliation
 

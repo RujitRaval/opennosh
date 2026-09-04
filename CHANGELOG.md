@@ -2,6 +2,27 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.92.0.0] - 2026-09-04
+
+### Added
+
+- Add explicit reuse dependency facts bound to the exact independent verification event,
+  declaration revision, signed release, pack, artifact digest, and dependency kind.
+- Add the fixed, filterless `/api/v1/public/reuse/dependencies` projection with deterministic
+  ordering, bounded output, stable ETags, and exact public verification labels.
+
+### Changed
+
+- Extend reuse verification so stewards can record a sorted, unique set of release-pinned
+  dependencies only after the existing signed artifact manifest resolves each pack and digest.
+
+### Security
+
+- Never infer dependencies from text, imports, traffic, or organization identity; fail closed when
+  artifact proof is missing or unavailable and hide edges after withdrawal or revision changes.
+- Keep every T34.8 capability, both publication-claims flags, one publication replica, and claim
+  concurrency one unchanged and disabled.
+
 ## [0.91.0.0] - 2026-09-04
 
 ### Added

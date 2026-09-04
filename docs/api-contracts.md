@@ -50,13 +50,13 @@ SDK. Its canonical SHA-256 excludes only the digest field itself. The matching J
 
 The initial preview pins OpenAPI 2.x plus the retained 1.x compatibility family, the npm three-part
 version, Python/CLI four-part artifact versions, MCP/embed protocol 1.0.0, nullable deprecation
-dates, ten anonymous developer operations, exact response byte limits, and
+dates, fourteen anonymous developer operations, exact response byte limits, and
 the no-credentials/no-redirect/no-retry endpoint policy. MCP and embed artifacts are previews while
 their production discovery remains explicitly disabled. A new public GET operation under
 `/api/v1/public/`, or a change to either developer food operation, cannot land until it appears in
 this reviewed manifest and the generated SDK.
 
-`tests/fixtures/developer-compatibility.v1.json` exercises all ten current response shapes plus the
+`tests/fixtures/developer-compatibility.v1.json` exercises all fourteen current response shapes plus the
 retained food reads against a digest- and commit-pinned OpenAPI 1.0.0 snapshot, along with RFC 9457,
 rate-limit, stale verified, unavailable-proof, and incompatible-version cases. The npm package now
 exports the policy-compliant `OpenNoshClient` wrapper for Node.js 20+ and modern browsers. Generated
