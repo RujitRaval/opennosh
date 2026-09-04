@@ -1,7 +1,8 @@
 # Voluntary reuse registry
 
-opennosh 0.89 establishes the disabled-by-default ownership and audit foundation for the public
-reuse registry described by T34.8. It does not activate public impact claims.
+opennosh 0.90 adds disabled-by-default steward verification and public read contracts to the
+ownership and audit foundation for the T34.8 reuse registry. It does not activate production or
+public impact claims.
 
 ## Trust boundary
 
@@ -15,19 +16,26 @@ reuse registry described by T34.8. It does not activate public impact claims.
   three-digit UN M49 macroregions only.
 - Every mutation appends an immutable event. Database triggers reject event updates and deletes.
 - Cross-owner reads return the same not-found response as missing declarations.
+- Verification reuses the existing `steward` grant under the reserved
+  `opennosh-reuse-registry` scope. Revoked, recused, and self-reviewing stewards cannot decide.
+- Evidence URLs are never fetched by the API. A verification records a UTC observation time,
+  lowercase SHA-256 content digest, accessibility state, public HTTPS source, and public reason.
 
 ## Lifecycle
 
 ```text
 create -> community_declared
 community_declared -> verification_pending | withdrawn
-verification_pending -> community_declared (edit) | withdrawn
+verification_pending -> verified | community_declared (edit, changes requested, or rejected)
+                       | withdrawn
+verified -> community_declared (edit) | withdrawn
 withdrawn -> community_declared (restore)
 ```
 
-Verification is intentionally reserved for the next release slice. Editing a pending or future
-verified declaration returns it to `community_declared` so stale evidence cannot retain a verified
-label.
+Editing a pending or verified declaration returns it to `community_declared`; the owner must submit
+the corrected revision again. Verification accepts only accessible evidence observed in UTC no
+more than 30 days earlier and never accepts future observations. Unavailable, inaccessible, stale,
+or malformed proof cannot produce a verified state.
 
 ## API contract
 
@@ -40,8 +48,21 @@ The routes return 404 while `REUSE_REGISTRY_MUTATIONS_ENABLED=false`. The remain
 also default to false. Invalid transitions, stale revisions, duplicate owner/project identities,
 and idempotency payload mismatches return 409.
 
+Registry stewards use `/api/v1/governance/reuse/reviews`. The fixed queue contains at most 100
+oldest pending declarations and omits the steward's own records. Review mutations require fresh
+authentication, CSRF, `Idempotency-Key`, and `If-Match`; decisions append to the same immutable
+event history as owner actions.
+
+Public list and detail reads live at `/api/v1/public/reuse` and remain 404 until
+`REUSE_PUBLIC_ENABLED=true` with verification enabled. The collection has no filters or caller-set
+limit, uses deterministic ordering, and returns at most 100 records. Pending records are labeled
+`unverified`, owner declarations are `community_declared`, and evidence-backed records are
+`verified`. Withdrawn declarations are absent while their audit rows remain retained. Public
+responses expose no owner or steward identifiers and use bounded shared-cache policy.
+
 ## Rollback
 
-Set `REUSE_REGISTRY_MUTATIONS_ENABLED=false` to stop all registry access. Preserve the additive
-tables and immutable audit rows. Downgrade the migration only when no post-migration registry data
-exists.
+Set `REUSE_VERIFICATION_ENABLED=false` to stop reviews and `REUSE_PUBLIC_ENABLED=false` to remove
+public reads. Set `REUSE_REGISTRY_MUTATIONS_ENABLED=false` to stop the owner registry. Preserve the
+additive tables and immutable audit rows. Downgrade the foundation migration only when no
+post-migration registry data exists.

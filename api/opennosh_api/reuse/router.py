@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Never
 from uuid import UUID
 
@@ -21,20 +21,35 @@ from opennosh_api.reuse.contracts import (
     ReuseDeclarationPatch,
     ReuseDeclarationResponse,
     ReuseEventType,
+    ReusePublicDeclarationResponse,
+    ReusePublicEvidenceResponse,
+    ReusePublicLabel,
+    ReusePublicListResponse,
+    ReuseRegionLevel,
+    ReuseReviewDecisionRequest,
+    ReuseReviewQueueResponse,
     ReuseTransitionRequest,
+    ReuseVerificationEvidence,
+    ReuseVerificationRequest,
 )
-from opennosh_api.reuse.models import ReuseDeclaration
+from opennosh_api.reuse.models import ReuseDeclaration, ReuseDeclarationEvent
 from opennosh_api.reuse.service import (
     ReuseRegistryError,
     create_declaration,
     list_owned_declarations,
+    list_public_declarations,
+    list_reviewable_declarations,
     patch_declaration,
     read_owned_declaration,
+    read_public_declaration,
+    review_declaration,
     transition_declaration,
 )
 from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/reuse/declarations", tags=["reuse"])
+governance_router = APIRouter(prefix="/api/v1/governance/reuse", tags=["governance"])
+public_router = APIRouter(prefix="/api/v1/public/reuse", tags=["public-reuse"])
 
 
 def _disabled() -> HTTPException:
@@ -51,6 +66,34 @@ def require_registry_mutations(
         raise _disabled()
 
 
+def require_reuse_verification(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> None:
+    if not settings.reuse_verification_enabled:
+        raise _disabled()
+
+
+def require_public_reuse(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> None:
+    if not settings.reuse_public_enabled:
+        raise _disabled()
+
+
+def require_reuse_review_csrf(
+    current: Annotated[CurrentSession, Depends(require_csrf)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> CurrentSession:
+    if current.session.created_at < datetime.now(UTC) - timedelta(
+        seconds=settings.governance_fresh_auth_seconds
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="fresh_auth_required",
+        )
+    return current
+
+
 def _response(declaration: ReuseDeclaration) -> ReuseDeclarationResponse:
     return ReuseDeclarationResponse.model_validate(declaration)
 
@@ -64,7 +107,54 @@ def _no_store(response: Response, declaration: ReuseDeclaration | None = None) -
 def _raise_registry_error(error: ReuseRegistryError) -> Never:
     if error.code in {"reuse_declaration_not_found", "reuse_audit_proof_unavailable"}:
         raise _disabled() from error
+    if error.code == "reuse_steward_role_not_active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error.code) from error
     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=error.code) from error
+
+
+def _public_label(declaration: ReuseDeclaration) -> ReusePublicLabel:
+    if declaration.state == "verified":
+        return ReusePublicLabel.VERIFIED
+    if declaration.state == "verification_pending":
+        return ReusePublicLabel.UNVERIFIED
+    return ReusePublicLabel.COMMUNITY_DECLARED
+
+
+def _public_response(
+    declaration: ReuseDeclaration,
+    event: ReuseDeclarationEvent | None,
+) -> ReusePublicDeclarationResponse:
+    evidence = None
+    if declaration.state == "verified":
+        if event is None:
+            raise ReuseRegistryError("reuse_audit_proof_unavailable")
+        verified = ReuseVerificationEvidence.model_validate(event.evidence_json)
+        evidence = ReusePublicEvidenceResponse(
+            source_url=verified.source_url,
+            observed_at=verified.observed_at,
+            content_sha256=verified.content_sha256,
+        )
+    return ReusePublicDeclarationResponse(
+        id=declaration.id,
+        organization_name=declaration.organization_name,
+        project_name=declaration.project_name,
+        project_url=declaration.project_url,
+        use_case=declaration.use_case,
+        region_level=(
+            None if declaration.region_level is None else ReuseRegionLevel(declaration.region_level)
+        ),
+        region_code=declaration.region_code,
+        verification_label=_public_label(declaration),
+        revision=declaration.revision,
+        updated_at=declaration.updated_at,
+        evidence=evidence,
+    )
+
+
+def _public_cache(response: Response, declaration: ReuseDeclaration | None = None) -> None:
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+    if declaration is not None:
+        response.headers["ETag"] = str(declaration.revision)
 
 
 async def _commit_or_raise(database: AsyncSession) -> None:
@@ -319,4 +409,209 @@ async def restore_reuse_declaration(
     )
 
 
-__all__ = ["router"]
+@governance_router.get(
+    "/reviews",
+    response_model=ReuseReviewQueueResponse,
+    dependencies=[Depends(require_reuse_verification)],
+)
+async def reuse_review_queue(
+    response: Response,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReuseReviewQueueResponse:
+    _no_store(response)
+    try:
+        declarations = await list_reviewable_declarations(
+            database,
+            steward_actor_id=current.user_id,
+            now=datetime.now(UTC),
+            limit=100,
+        )
+    except ReuseRegistryError as error:
+        _raise_registry_error(error)
+    return ReuseReviewQueueResponse(
+        declarations=tuple(_response(declaration) for declaration in declarations)
+    )
+
+
+async def _review_transition(
+    *,
+    declaration_id: UUID,
+    response: Response,
+    current: CurrentSession,
+    database: AsyncSession,
+    expected_revision: int,
+    idempotency_key: UUID,
+    action: ReuseEventType,
+    reason: str,
+    evidence: ReuseVerificationEvidence | None,
+) -> ReuseDeclarationResponse:
+    try:
+        declaration = await review_declaration(
+            database,
+            declaration_id=declaration_id,
+            steward_actor_id=current.user_id,
+            expected_revision=expected_revision,
+            action=action,
+            idempotency_key=idempotency_key,
+            reason=reason,
+            evidence=evidence,
+            now=datetime.now(UTC),
+        )
+        await _commit_or_raise(database)
+    except ReuseRegistryError as error:
+        await database.rollback()
+        _raise_registry_error(error)
+    except IntegrityError as error:
+        await database.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="reuse_registry_constraint_conflict",
+        ) from error
+    _no_store(response, declaration)
+    return _response(declaration)
+
+
+@governance_router.post(
+    "/reviews/{declaration_id}/verify",
+    response_model=ReuseDeclarationResponse,
+    dependencies=[Depends(require_reuse_verification)],
+)
+async def verify_reuse_declaration(
+    declaration_id: UUID,
+    request: ReuseVerificationRequest,
+    response: Response,
+    current: Annotated[CurrentSession, Depends(require_reuse_review_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    expected_revision: Annotated[int, Header(alias="If-Match", ge=1)],
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+) -> ReuseDeclarationResponse:
+    return await _review_transition(
+        declaration_id=declaration_id,
+        response=response,
+        current=current,
+        database=database,
+        expected_revision=expected_revision,
+        idempotency_key=idempotency_key,
+        action=ReuseEventType.VERIFIED,
+        reason=request.reason,
+        evidence=request.evidence,
+    )
+
+
+async def _nonapproval_review(
+    *,
+    declaration_id: UUID,
+    request: ReuseReviewDecisionRequest,
+    response: Response,
+    current: CurrentSession,
+    database: AsyncSession,
+    expected_revision: int,
+    idempotency_key: UUID,
+    action: ReuseEventType,
+) -> ReuseDeclarationResponse:
+    return await _review_transition(
+        declaration_id=declaration_id,
+        response=response,
+        current=current,
+        database=database,
+        expected_revision=expected_revision,
+        idempotency_key=idempotency_key,
+        action=action,
+        reason=request.reason,
+        evidence=None,
+    )
+
+
+@governance_router.post(
+    "/reviews/{declaration_id}/request-changes",
+    response_model=ReuseDeclarationResponse,
+    dependencies=[Depends(require_reuse_verification)],
+)
+async def request_reuse_changes(
+    declaration_id: UUID,
+    request: ReuseReviewDecisionRequest,
+    response: Response,
+    current: Annotated[CurrentSession, Depends(require_reuse_review_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    expected_revision: Annotated[int, Header(alias="If-Match", ge=1)],
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+) -> ReuseDeclarationResponse:
+    return await _nonapproval_review(
+        declaration_id=declaration_id,
+        request=request,
+        response=response,
+        current=current,
+        database=database,
+        expected_revision=expected_revision,
+        idempotency_key=idempotency_key,
+        action=ReuseEventType.CHANGES_REQUESTED,
+    )
+
+
+@governance_router.post(
+    "/reviews/{declaration_id}/reject",
+    response_model=ReuseDeclarationResponse,
+    dependencies=[Depends(require_reuse_verification)],
+)
+async def reject_reuse_declaration(
+    declaration_id: UUID,
+    request: ReuseReviewDecisionRequest,
+    response: Response,
+    current: Annotated[CurrentSession, Depends(require_reuse_review_csrf)],
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    expected_revision: Annotated[int, Header(alias="If-Match", ge=1)],
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+) -> ReuseDeclarationResponse:
+    return await _nonapproval_review(
+        declaration_id=declaration_id,
+        request=request,
+        response=response,
+        current=current,
+        database=database,
+        expected_revision=expected_revision,
+        idempotency_key=idempotency_key,
+        action=ReuseEventType.REJECTED,
+    )
+
+
+@public_router.get(
+    "",
+    response_model=ReusePublicListResponse,
+    dependencies=[Depends(require_public_reuse)],
+)
+async def public_reuse_registry(
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReusePublicListResponse:
+    _public_cache(response)
+    declarations = await list_public_declarations(database)
+    return ReusePublicListResponse(
+        declarations=tuple(
+            _public_response(declaration, event) for declaration, event in declarations
+        )
+    )
+
+
+@public_router.get(
+    "/{declaration_id}",
+    response_model=ReusePublicDeclarationResponse,
+    dependencies=[Depends(require_public_reuse)],
+)
+async def public_reuse_declaration(
+    declaration_id: UUID,
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> ReusePublicDeclarationResponse:
+    try:
+        declaration, event = await read_public_declaration(
+            database,
+            declaration_id=declaration_id,
+        )
+    except ReuseRegistryError as error:
+        _raise_registry_error(error)
+    _public_cache(response, declaration)
+    return _public_response(declaration, event)
+
+
+__all__ = ["governance_router", "public_router", "router"]

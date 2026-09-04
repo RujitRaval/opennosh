@@ -44,7 +44,15 @@ from opennosh_api.public_commons.manifests import ManifestKeyRing, PublicCommons
 from opennosh_api.public_commons.router import router as public_commons_router
 from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.recipes.router import router as recipes_router
-from opennosh_api.reuse.router import router as reuse_router
+from opennosh_api.reuse.router import (
+    governance_router as reuse_governance_router,
+)
+from opennosh_api.reuse.router import (
+    public_router as public_reuse_router,
+)
+from opennosh_api.reuse.router import (
+    router as reuse_router,
+)
 from opennosh_api.settings import Settings, get_settings
 from opennosh_api.targets.router import router as targets_router
 from opennosh_api.workouts.router import router as workouts_router
@@ -235,7 +243,9 @@ def create_app(
     application.include_router(public_artifact_router)
     application.include_router(contributions_router)
     application.include_router(governance_router)
+    application.include_router(reuse_governance_router)
     application.include_router(reuse_router)
+    application.include_router(public_reuse_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)

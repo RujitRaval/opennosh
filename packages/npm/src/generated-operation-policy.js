@@ -62,6 +62,28 @@ export const PUBLIC_OPERATION_POLICIES = Object.freeze({
     "maxResponseBytes": 2097152,
     "pathParameters": {}
   },
+  "/api/v1/public/reuse": {
+    "acceptedMediaTypes": [
+      "application/json"
+    ],
+    "mediaType": "application/json",
+    "maxResponseBytes": 2097152,
+    "pathParameters": {}
+  },
+  "/api/v1/public/reuse/{declaration_id}": {
+    "acceptedMediaTypes": [
+      "application/json"
+    ],
+    "mediaType": "application/json",
+    "maxResponseBytes": 524288,
+    "pathParameters": {
+      "declaration_id": {
+        "format": "uuid",
+        "title": "Declaration Id",
+        "type": "string"
+      }
+    }
+  },
   "/api/v1/public/releases/{release_version}/foods/{source}/{source_id}": {
     "acceptedMediaTypes": [
       "application/json"

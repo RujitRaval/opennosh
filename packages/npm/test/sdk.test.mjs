@@ -50,7 +50,7 @@ test("rejects unsafe or non-origin targets", () => {
   assert.throws(() => normalizeTarget(targetWithUserInfo.href), TypeError);
 });
 
-test("maps all ten public operations without credentials, redirects, retries, or hidden identifiers", async () => {
+test("maps all twelve public operations without credentials, redirects, retries, or hidden identifiers", async () => {
   const calls = [];
   const fetch = async (url, options) => {
     calls.push({ url: String(url), options });

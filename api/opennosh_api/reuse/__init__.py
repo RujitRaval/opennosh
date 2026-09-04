@@ -6,6 +6,10 @@ from opennosh_api.reuse.contracts import (
     ReuseDeclarationResponse,
     ReuseDeclarationState,
     ReuseEventType,
+    ReuseEvidenceStatus,
+    ReusePublicDeclarationResponse,
+    ReusePublicLabel,
+    ReuseVerificationEvidence,
 )
 
 __all__ = [
@@ -13,5 +17,9 @@ __all__ = [
     "ReuseDeclarationPatch",
     "ReuseDeclarationResponse",
     "ReuseDeclarationState",
+    "ReuseEvidenceStatus",
     "ReuseEventType",
+    "ReusePublicDeclarationResponse",
+    "ReusePublicLabel",
+    "ReuseVerificationEvidence",
 ]

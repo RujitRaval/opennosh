@@ -4,8 +4,12 @@ import pytest
 from opennosh_api.reuse.contracts import (
     ReuseDeclarationCreate,
     ReuseDeclarationPatch,
+    ReuseEvidenceStatus,
+    ReusePublicLabel,
     ReuseRegionLevel,
     ReuseTransitionRequest,
+    ReuseVerificationEvidence,
+    ReuseVerificationRequest,
     normalize_label,
     normalize_public_url,
     normalized_key,
@@ -110,3 +114,60 @@ def test_optional_values_and_transition_reasons_are_normalized() -> None:
     assert patch.region_code == "001"
     assert ReuseTransitionRequest().reason is None
     assert ReuseTransitionRequest(reason="  Owner   request. ").reason == "Owner request."
+
+
+def test_verification_evidence_is_utc_digest_bound_and_never_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Evidence URLs must remain untrusted text")
+
+    monkeypatch.setattr("socket.getaddrinfo", forbidden)
+    evidence = ReuseVerificationEvidence(
+        source_url="https://evidence.example.test/adoption",
+        observed_at="2026-09-03T22:00:00Z",
+        content_sha256="a" * 64,
+        status=ReuseEvidenceStatus.ACCESSIBLE,
+    )
+    assert evidence.source_url == "https://evidence.example.test/adoption"
+    assert evidence.observed_at.isoformat() == "2026-09-03T22:00:00+00:00"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source_url": "http://evidence.example.test/adoption"},
+        {"observed_at": "2026-09-03T22:00:00"},
+        {"observed_at": "2026-09-03T18:00:00-04:00"},
+        {"content_sha256": "A" * 64},
+        {"content_sha256": "a" * 63},
+    ],
+)
+def test_verification_evidence_rejects_malformed_proof(changes: dict[str, object]) -> None:
+    values: dict[str, object] = {
+        "source_url": "https://evidence.example.test/adoption",
+        "observed_at": "2026-09-03T22:00:00Z",
+        "content_sha256": "a" * 64,
+        "status": "accessible",
+    }
+    values.update(changes)
+    with pytest.raises(ValidationError):
+        ReuseVerificationEvidence.model_validate(values)
+
+
+def test_review_reason_and_public_labels_are_exact() -> None:
+    request = ReuseVerificationRequest(
+        reason="  Independently   observed. ",
+        evidence={
+            "source_url": "https://evidence.example.test/adoption",
+            "observed_at": "2026-09-03T22:00:00Z",
+            "content_sha256": "b" * 64,
+            "status": "accessible",
+        },
+    )
+    assert request.reason == "Independently observed."
+    assert {label.value for label in ReusePublicLabel} == {
+        "community_declared",
+        "unverified",
+        "verified",
+    }

@@ -2,6 +2,27 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.90.0.0] - 2026-09-04
+
+### Added
+
+- Add a bounded reuse review queue plus verify, request-changes, and reject transitions for active
+  `opennosh-reuse-registry` stewards who are neither recused nor declaration owners.
+- Add disabled-by-default public registry list and detail contracts with exact
+  `community_declared`, `unverified`, and `verified` labels and evidence-bound verified records.
+
+### Changed
+
+- Advance the reuse lifecycle so fresh accessible evidence can establish a verified projection,
+  while correction or rejection returns a declaration to its community-declared state.
+
+### Security
+
+- Require fresh authenticated sessions, CSRF protection, idempotency, and optimistic revisions for
+  review decisions; reject unavailable, inaccessible, stale, future, malformed, or non-UTC proof.
+- Keep evidence URLs as unfetched untrusted HTTPS text, hide withdrawn records from public reads,
+  and leave every T34.8 and publication-claim gate disabled.
+
 ## [0.89.0.0] - 2026-09-03
 
 ### Added
