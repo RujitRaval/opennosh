@@ -1146,11 +1146,12 @@ A versioned benchmark corpus includes short and long names, multiple scripts, mi
 
 ### Public Status Contract
 
-- Components report `operational`, `degraded`, `partial_outage`, `major_outage`, or `maintenance`, with observed time, affected release set, user impact, workaround, and next update.
+- Components report `operational`, `degraded`, `outage`, `maintenance`, or `unknown`. Operational requires a successful monitor observation newer than the component's versioned freshness window; missing, stale, future, malformed, or unsuccessful operational evidence is unknown.
 - Search staleness, contribution pause, evidence-processing delay, publication backlog, registry quarantine, API rate incident, download failure, and tracker outage remain separate components.
 - Inline product notices consume the same status source and link to the incident. The status page never contradicts the affected screen.
 - Security incidents publish user impact and safe actions promptly while exploit details, credentials, and active containment data remain restricted.
 - Recovery closes only after the verification query and synthetic user journey pass, not merely when a process restarts.
+- Incident transitions are append-only and version-aware. Resolution requires a verified UTC recovery observation and lowercase SHA-256 evidence digest.
 - Self-hosted deployments receive the schema, local page, and health endpoint; remote publication or subscription is optional.
 
 ## Deployment and Rollout Decisions

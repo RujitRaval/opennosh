@@ -891,6 +891,7 @@ diagnostic reruns only collect evidence. See [Testing](docs/testing.md#risk-tier
 | `docs/domain-operations.md` | Non-secret domain, redirect, DNSSEC, and inbound-mail operations record | Maintainers |
 | `docs/testing.md` | API, PostgreSQL, deterministic workflow-testkit, and fault-matrix commands and extension rules | Backend contributors + release reviewers |
 | `docs/package-operations.md` | PyPI and npm release controls, verified publication evidence, and ongoing release procedure | Maintainers + release reviewers |
+| `docs/public-operations.md` | Fixed status freshness, append-only incidents, recovery proof, redaction, and rollback | Operators + security reviewers |
 | `docs/clean-install-verification.md` | Independent-machine Docker Compose, browser QA, and restart-persistence evidence | Operators + release reviewers |
 | `docs/operations/governed-forge.md` | Steward approval, protected-merge trust boundary, two-App permissions, activation, intervention, and recovery runbook | Operators + security reviewers |
 | `docs/operations/render-production.md` | Render deployment, isolated worker credentials, publication activation, federation enrollment, and live failure-drill ceremonies | Operators + security reviewers |

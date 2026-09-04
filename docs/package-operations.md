@@ -16,7 +16,7 @@ compatibility-manifest operations. Its `opennosh public ...` commands use that s
 and `opennosh packs validate` checks one bounded JSON or ZIP food pack locally without installing
 or extracting it. These developer surfaces remain preview software.
 
-The npm package exports a dependency-free ESM client for the ten compatibility-manifest operations
+The npm package exports a dependency-free ESM client for the sixteen compatibility-manifest operations
 on Node.js 20+ and modern browsers. It also preserves the bootstrap command, which refuses to
 overwrite an existing path, passes clone arguments directly to Git without a shell, and does not
 install Docker, run services, change global configuration, or collect telemetry. The SDK usage and

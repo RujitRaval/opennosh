@@ -83,6 +83,11 @@ EXPECTED_TABLE_OWNERS = {
     "reuse_declaration_events": "opennosh_api.reuse.models.ReuseDeclarationEvent",
     "reuse_dependencies": "opennosh_api.reuse.models.ReuseDependency",
     "impact_snapshots": "opennosh_api.impact.models.ImpactSnapshot",
+    "public_component_observations": (
+        "opennosh_api.public_operations.models.PublicComponentObservation"
+    ),
+    "public_incidents": "opennosh_api.public_operations.models.PublicIncident",
+    "public_incident_events": "opennosh_api.public_operations.models.PublicIncidentEvent",
     "exercises": "opennosh_api.models.tables.Exercise",
     "food_search_snapshot_items": "opennosh_api.models.tables.FoodSearchSnapshotItem",
     "food_search_snapshots": "opennosh_api.models.tables.FoodSearchSnapshot",
@@ -170,6 +175,9 @@ def test_registry_import_order_is_deterministic() -> None:
         "reuse_declaration_events",
         "reuse_dependencies",
         "impact_snapshots",
+        "public_component_observations",
+        "public_incidents",
+        "public_incident_events",
         "publication_intents",
         "publication_steps",
         "publication_durable_acknowledgements",

@@ -26,13 +26,19 @@ const POLICY = Object.freeze({
   getPublicFood: operationPolicy("/api/v1/public/foods/{source}/{source_id}"),
   listMissions: operationPolicy("/api/v1/public/missions"),
   getMissionActivity: operationPolicy("/api/v1/public/missions/activity"),
+  listReuse: operationPolicy("/api/v1/public/reuse"),
+  listReuseDependencies: operationPolicy("/api/v1/public/reuse/dependencies"),
+  getImpact: operationPolicy("/api/v1/public/impact"),
+  getStatus: operationPolicy("/api/v1/public/status"),
+  listIncidents: operationPolicy("/api/v1/public/incidents"),
+  getReuseDeclaration: operationPolicy("/api/v1/public/reuse/{declaration_id}"),
   getReleaseFood: operationPolicy("/api/v1/public/releases/{release_version}/foods/{source}/{source_id}"),
   getProvenance: operationPolicy("/api/v1/public/releases/{release_version}/foods/{source}/{source_id}/provenance"),
   getReleaseManifest: operationPolicy("/api/v1/public/releases/{release_version}/manifest"),
   downloadPack: operationPolicy("/api/v1/public/releases/{release_version}/packs/{pack_id}/{pack_version}/download", { timeoutMs: DOWNLOAD_TIMEOUT_MS, binary: true }),
 });
 
-export const PACKAGE_VERSION = "0.92.0";
+export const PACKAGE_VERSION = "0.93.0";
 
 export class OpenNoshProblem extends Error {
   constructor(status, code, detail, requestReference = null, recoveryActions = [], retryAfterSeconds = null) {
@@ -306,6 +312,35 @@ export class OpenNoshClient {
 
   getMissionActivity(options) {
     return this.#request(POLICY.getMissionActivity, {}, {}, options);
+  }
+
+  listReuse(options) {
+    return this.#request(POLICY.listReuse, {}, {}, options);
+  }
+
+  listReuseDependencies(options) {
+    return this.#request(POLICY.listReuseDependencies, {}, {}, options);
+  }
+
+  getImpact(options) {
+    return this.#request(POLICY.getImpact, {}, {}, options);
+  }
+
+  getStatus(options) {
+    return this.#request(POLICY.getStatus, {}, {}, options);
+  }
+
+  listIncidents(options) {
+    return this.#request(POLICY.listIncidents, {}, {}, options);
+  }
+
+  getReuseDeclaration(parameters, options) {
+    return this.#request(
+      POLICY.getReuseDeclaration,
+      { declaration_id: parameters?.declarationId },
+      {},
+      options,
+    );
   }
 
   getReleaseFood(parameters, options) {

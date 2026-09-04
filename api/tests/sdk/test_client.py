@@ -9,7 +9,17 @@ from pathlib import Path
 import httpx
 import pytest
 from opennosh_api.foods.schemas import FoodCapabilities, FoodSearchResponse, FoodSearchResponseV1
+from opennosh_api.impact.contracts import PublicImpactSnapshot
 from opennosh_api.public.artifacts import PublicFoodRecordResponse
+from opennosh_api.public_operations.contracts import (
+    PublicIncidentListResponse,
+    PublicStatusResponse,
+)
+from opennosh_api.reuse.contracts import (
+    ReusePublicDeclarationResponse,
+    ReusePublicDependencyListResponse,
+    ReusePublicListResponse,
+)
 from opennosh_api.sdk import (
     PACKAGE_VERSION,
     AsyncOpenNoshClient,
@@ -39,6 +49,18 @@ def response_for(request: httpx.Request) -> httpx.Response:
         operation = "missions_api_v1_public_missions_get"
     elif path == "/api/v1/public/missions/activity":
         operation = "mission_activity_api_v1_public_missions_activity_get"
+    elif path == "/api/v1/public/reuse":
+        operation = "public_reuse_registry_api_v1_public_reuse_get"
+    elif path == "/api/v1/public/reuse/dependencies":
+        operation = "public_reuse_dependencies_api_v1_public_reuse_dependencies_get"
+    elif path == "/api/v1/public/impact":
+        operation = "public_impact_api_v1_public_impact_get"
+    elif path == "/api/v1/public/status":
+        operation = "public_status_api_v1_public_status_get"
+    elif path == "/api/v1/public/incidents":
+        operation = "public_incidents_api_v1_public_incidents_get"
+    elif path == "/api/v1/public/reuse/20000000-0000-4000-8000-000000000001":
+        operation = "public_reuse_declaration_api_v1_public_reuse__declaration_id__get"
     elif path.endswith("/provenance"):
         operation = (
             "exact_provenance_api_v1_public_releases__release_version__foods__source___source_id__"
@@ -110,24 +132,36 @@ def test_sync_client_maps_all_operations_without_credentials_or_retries() -> Non
         client.get_public_food("community", "rajma-masala", version="2"),
         client.list_missions(limit=12),
         client.get_mission_activity(),
+        client.list_reuse(),
+        client.list_reuse_dependencies(),
+        client.get_impact(),
+        client.get_public_status(),
+        client.list_public_incidents(),
+        client.get_reuse_declaration("20000000-0000-4000-8000-000000000001"),
         client.get_release_food("0.82.1.0", "community", "rajma-masala"),
         client.get_provenance("0.82.1.0", "community", "rajma-masala"),
         client.get_release_manifest("0.82.1.0"),
         client.download_pack("0.82.1.0", "north-india-home-foods", "2.4.0"),
     ]
 
-    assert len(requests) == 10
+    assert len(requests) == 16
     assert isinstance(results[0].data, FoodCapabilities)
     assert isinstance(results[1].data, FoodSearchResponse)
     assert isinstance(results[3].data, PublicFoodRecordResponse)
     assert results[3].data.record.attribution.license == "CC0-1.0"
-    assert results[7].data.startswith("<!doctype html>")
-    assert results[9].data.startswith(b"PK")
+    assert isinstance(results[6].data, ReusePublicListResponse)
+    assert isinstance(results[7].data, ReusePublicDependencyListResponse)
+    assert isinstance(results[8].data, PublicImpactSnapshot)
+    assert isinstance(results[9].data, PublicStatusResponse)
+    assert isinstance(results[10].data, PublicIncidentListResponse)
+    assert isinstance(results[11].data, ReusePublicDeclarationResponse)
+    assert results[13].data.startswith("<!doctype html>")
+    assert results[15].data.startswith(b"PK")
     assert results[0].etag == '"fixture"'
-    assert results[7].release_version == "0.82.1.0"
-    assert results[7].release_state == "stale"
-    assert results[7].stale_age_seconds == 3600
-    assert results[7].warning is not None
+    assert results[13].release_version == "0.82.1.0"
+    assert results[13].release_state == "stale"
+    assert results[13].stale_age_seconds == 3600
+    assert results[13].warning is not None
     assert requests[1].url.params.get_list("pack") == ["north", "home"]
     assert requests[2].headers["if-none-match"] == '"old"'
     for request in requests:
@@ -154,6 +188,12 @@ async def test_async_client_uses_the_same_models_and_policy() -> None:
         await client.get_public_food("community", "rajma-masala"),
         await client.list_missions(limit=12),
         await client.get_mission_activity(),
+        await client.list_reuse(),
+        await client.list_reuse_dependencies(),
+        await client.get_impact(),
+        await client.get_public_status(),
+        await client.list_public_incidents(),
+        await client.get_reuse_declaration("20000000-0000-4000-8000-000000000001"),
         await client.get_release_food("0.82.1.0", "community", "rajma-masala"),
         await client.get_provenance("0.82.1.0", "community", "rajma-masala"),
         await client.get_release_manifest("0.82.1.0"),
@@ -162,9 +202,15 @@ async def test_async_client_uses_the_same_models_and_policy() -> None:
 
     assert isinstance(results[0].data, FoodCapabilities)
     assert results[3].data.record.name == "Rajma masala"
-    assert results[7].data.startswith("<!doctype html>")
-    assert results[9].data.startswith(b"PK")
-    assert [request.url.host for request in requests] == ["localhost"] * 10
+    assert isinstance(results[6].data, ReusePublicListResponse)
+    assert isinstance(results[7].data, ReusePublicDependencyListResponse)
+    assert isinstance(results[8].data, PublicImpactSnapshot)
+    assert isinstance(results[9].data, PublicStatusResponse)
+    assert isinstance(results[10].data, PublicIncidentListResponse)
+    assert isinstance(results[11].data, ReusePublicDeclarationResponse)
+    assert results[13].data.startswith("<!doctype html>")
+    assert results[15].data.startswith(b"PK")
+    assert [request.url.host for request in requests] == ["localhost"] * 16
 
 
 def test_redirects_and_unsafe_path_values_fail_before_followup() -> None:

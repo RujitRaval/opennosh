@@ -68,6 +68,11 @@ from opennosh_api.models.tables import (
     Workout,
     WorkoutSet,
 )
+from opennosh_api.public_operations.models import (
+    PublicComponentObservation,
+    PublicIncident,
+    PublicIncidentEvent,
+)
 from opennosh_api.publication.models import (
     AcceptedEvent,
     DurableAcknowledgement,
@@ -138,6 +143,9 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     ReuseDeclarationEvent,
     ReuseDependency,
     ImpactSnapshot,
+    PublicComponentObservation,
+    PublicIncident,
+    PublicIncidentEvent,
     PublicationIntent,
     PublicationStep,
     DurableAcknowledgement,
@@ -224,6 +232,9 @@ __all__ = [
     "LogEntry",
     "REGISTERED_MODELS",
     "PublicationIntent",
+    "PublicComponentObservation",
+    "PublicIncident",
+    "PublicIncidentEvent",
     "PublicationReceiptRecord",
     "PublicationStep",
     "ReuseDeclaration",

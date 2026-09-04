@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/public-status.schema.json",
+  "title": "OpenNosh fixed public status component manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "components"],
+  "properties": {
+    "$schema": {"const": "../schemas/public-status.schema.json"},
+    "schema_version": {"const": "1.0"},
+    "components": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component_id", "display_name", "freshness_window_seconds"],
+        "properties": {
+          "component_id": {
+            "enum": [
+              "api",
+              "contributions",
+              "downloads",
+              "evidence-processing",
+              "publication",
+              "reuse-registry",
+              "search",
+              "tracker"
+            ]
+          },
+          "display_name": {"type": "string", "minLength": 1, "maxLength": 80},
+          "freshness_window_seconds": {"type": "integer", "minimum": 30, "maximum": 3600}
+        }
+      }
+    }
+  }
+}

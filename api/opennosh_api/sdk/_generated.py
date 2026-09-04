@@ -42,6 +42,12 @@ PUBLIC_OPERATION_POLICIES: Final[dict[str, dict[str, Any]]] = {
         "media_type": "application/json",
         "path_parameters": {},
     },
+    "/api/v1/public/incidents": {
+        "accepted_media_types": ["application/json"],
+        "max_response_bytes": 524288,
+        "media_type": "application/json",
+        "path_parameters": {},
+    },
     "/api/v1/public/missions": {
         "accepted_media_types": ["application/json"],
         "max_response_bytes": 2097152,
@@ -143,5 +149,11 @@ PUBLIC_OPERATION_POLICIES: Final[dict[str, dict[str, Any]]] = {
         "path_parameters": {
             "declaration_id": {"format": "uuid", "title": "Declaration Id", "type": "string"}
         },
+    },
+    "/api/v1/public/status": {
+        "accepted_media_types": ["application/json"],
+        "max_response_bytes": 524288,
+        "media_type": "application/json",
+        "path_parameters": {},
     },
 }

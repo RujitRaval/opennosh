@@ -43,6 +43,8 @@ from opennosh_api.public.artifacts import (
 from opennosh_api.public.router import router as public_artifact_router
 from opennosh_api.public_commons.manifests import ManifestKeyRing, PublicCommonsSnapshotService
 from opennosh_api.public_commons.router import router as public_commons_router
+from opennosh_api.public_operations.manifest import load_public_status_manifest
+from opennosh_api.public_operations.router import router as public_operations_router
 from opennosh_api.publication.receipts import PublicationReceiptKeyRing
 from opennosh_api.recipes.router import router as recipes_router
 from opennosh_api.reuse.router import (
@@ -233,6 +235,9 @@ def create_app(
         checkpoint_path=resolved_settings.public_commons_checkpoint_path,
         projection_path=resolved_settings.public_commons_projection_path,
     )
+    application.state.public_status_manifest = load_public_status_manifest(
+        resolved_settings.public_status_manifest_path
+    )
     application.add_middleware(RequestIdMiddleware)
     application.add_middleware(FoodLogNoStoreMiddleware)
     install_problem_handlers(application)
@@ -248,6 +253,7 @@ def create_app(
     application.include_router(reuse_router)
     application.include_router(public_reuse_router)
     application.include_router(public_impact_router)
+    application.include_router(public_operations_router)
     application.include_router(auth_router)
     application.include_router(foods_router)
     application.include_router(food_export_router)
