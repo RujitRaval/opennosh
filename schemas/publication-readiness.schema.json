@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opennosh.org/schemas/publication-readiness.schema.json",
+  "title": "OpenNosh publication readiness report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "observed_at", "runtime", "queue", "publication_intents", "federation_scopes", "living_commons", "activation_candidate", "failures", "readiness_sha256"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["ready", "blocked"]},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "runtime": {
+      "type": "object",
+      "required": ["claims_enabled", "continuous_claims_enabled", "claim_concurrency", "publication_replicas", "reuse_registry_mutations_enabled", "reuse_verification_enabled", "reuse_public_enabled", "impact_aggregation_enabled", "impact_public_enabled", "public_status_enabled", "deployed_commit"],
+      "properties": {
+        "claims_enabled": {"type": "boolean"},
+        "continuous_claims_enabled": {"type": "boolean"},
+        "claim_concurrency": {"type": "integer", "minimum": 1},
+        "publication_replicas": {"type": "integer", "minimum": 1},
+        "reuse_registry_mutations_enabled": {"type": "boolean"},
+        "reuse_verification_enabled": {"type": "boolean"},
+        "reuse_public_enabled": {"type": "boolean"},
+        "impact_aggregation_enabled": {"type": "boolean"},
+        "impact_public_enabled": {"type": "boolean"},
+        "public_status_enabled": {"type": "boolean"},
+        "deployed_commit": {"anyOf": [{"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"}, {"type": "null"}]}
+      },
+      "additionalProperties": true
+    },
+    "queue": {"type": "object"},
+    "publication_intents": {"type": "object"},
+    "federation_scopes": {"type": "object"},
+    "activation_candidate": {"type": "object"},
+    "failures": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "living_commons": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migration_heads", "expected_migration_head", "all_capabilities_disabled", "impact_metric_manifest_sha256", "public_status_manifest_sha256", "public_status_component_ids"],
+      "properties": {
+        "migration_heads": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "expected_migration_head": {"const": "20260904_0036"},
+        "all_capabilities_disabled": {"type": "boolean"},
+        "impact_metric_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "public_status_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "public_status_component_ids": {"const": ["api", "contributions", "downloads", "evidence-processing", "publication", "reuse-registry", "search", "tracker"]}
+      }
+    },
+    "readiness_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

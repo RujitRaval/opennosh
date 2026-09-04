@@ -12,6 +12,9 @@ export const publicFeatureIds = [
   "public-packs",
   "api-reference",
   "commons-missions",
+  "public-reuse",
+  "public-impact",
+  "public-status",
 ] as const;
 
 export type PublicFeatureId = (typeof publicFeatureIds)[number];
@@ -69,6 +72,9 @@ const childDefinitions: readonly ChildDefinition[] = [
     feature: "public-packs",
     target: "packs",
   },
+  { id: "reuse", hub: "commons", feature: "public-reuse", target: "reuse" },
+  { id: "impact", hub: "commons", feature: "public-impact", target: "impact" },
+  { id: "status", hub: "commons", feature: "public-status", target: "status" },
   {
     id: "api",
     hub: "build",
@@ -110,6 +116,12 @@ export function buildPublicNavigation(
         href:
           child.target === "notices"
             ? routes.publicNotices(language)
+            : child.target === "reuse"
+              ? routes.publicReuse(language)
+              : child.target === "impact"
+                ? routes.publicImpact(language)
+                : child.target === "status"
+                  ? routes.publicStatus(language)
             : child.target === "start"
               ? routes.contributionStart(language)
             : `${routes.publicHub(id, language)}#${child.target}`,
@@ -153,6 +165,11 @@ export function resolvePublicHub(
   language: InterfaceLanguage,
 ): PublicHubId | undefined {
   if (pathname === routes.publicNotices(language)) return "build";
+  if (
+    pathname === routes.publicReuse(language)
+    || pathname === routes.publicImpact(language)
+    || pathname === routes.publicStatus(language)
+  ) return "commons";
   return publicHubIds.find((hub) => {
     const hubPath = routes.publicHub(hub, language);
     return pathname === hubPath || pathname.startsWith(`${hubPath}/`);

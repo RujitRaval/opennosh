@@ -71,7 +71,7 @@ jobs:
       - name: Test and inspect npm artifact
         working-directory: packages/npm
         run: |
-          npm ci --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
           npm test
           npm pack --pack-destination ../../dist
 
@@ -157,7 +157,7 @@ jobs:
       - name: Test npm package
         working-directory: packages/npm
         run: |
-          npm ci --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
           npm test
           npm pack --dry-run
 

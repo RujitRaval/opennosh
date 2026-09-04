@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.94.0.0] - 2026-09-04
+
+### Added
+
+- Add localized, fail-closed public web surfaces for the reuse registry, verified dependency edges,
+  privacy-thresholded impact, fixed component status, and public incidents.
+- Extend the production publication-readiness report with the exact T34.8 migration head, six
+  disabled capability flags, impact-policy and public-status manifest digests, a JSON Schema, and
+  an independent digest validator.
+
+### Security
+
+- Keep contributor URLs inert, reject malformed or private operational text in the web adapter,
+  and withhold an entire surface whenever its paired public proof fails validation.
+- Keep all six T34.8 capabilities and both production-claims modes disabled, with one publication
+  replica and claim concurrency one.
+
 ## [0.93.0.0] - 2026-09-04
 
 ### Added

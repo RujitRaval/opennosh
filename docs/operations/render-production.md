@@ -926,6 +926,36 @@ Rollback disables the five switches without deleting mission facts or changing t
 enabled publication-claims mode. Retain all definitions, lifecycle events, bindings, checkpoints,
 accepted events, signed releases, and receipts for a later deterministic rebuild.
 
+## T34.8 disabled deployment readiness
+
+The reuse, impact, and public-status pages are deployed but intentionally absent from public
+navigation until their API capability is approved. Keep these six variables false on both API and
+publication services:
+
+```text
+REUSE_REGISTRY_MUTATIONS_ENABLED=false
+REUSE_VERIFICATION_ENABLED=false
+REUSE_PUBLIC_ENABLED=false
+IMPACT_AGGREGATION_ENABLED=false
+IMPACT_PUBLIC_ENABLED=false
+PUBLIC_STATUS_ENABLED=false
+```
+
+Also keep `PUBLICATION_CLAIMS_ENABLED=false`,
+`PUBLICATION_CONTINUOUS_CLAIMS_ENABLED=false`, one publication replica, and
+`PUBLICATION_CLAIM_CONCURRENCY=1`. After the exact main commit is deployed and both web and worker
+have remained healthy for five minutes, run this in the publication service shell:
+
+```bash
+python deploy/render_runtime.py publication-readiness > /tmp/publication-readiness.json
+PYTHONPATH=api:. python scripts/check_publication_readiness.py /tmp/publication-readiness.json
+```
+
+The report is acceptable only when the schema validator and recomputed digest pass, the deployed
+commit is exact, `living_commons.expected_migration_head` equals `20260904_0036`,
+`living_commons.all_capabilities_disabled` is true, and every runtime flag above remains false.
+This verification does not authorize activation.
+
 ## Pre-cutover verification
 
 Using Render's temporary hostname, verify all of the following:

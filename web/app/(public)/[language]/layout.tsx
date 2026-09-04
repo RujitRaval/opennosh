@@ -19,6 +19,7 @@ import "./tokens.css";
 import "./public.css";
 import "./contribution.css";
 import "./truth-signals.css";
+import "./living-commons.css";
 
 export async function generateMetadata({
   params,

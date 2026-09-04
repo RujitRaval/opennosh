@@ -38,7 +38,7 @@ const POLICY = Object.freeze({
   downloadPack: operationPolicy("/api/v1/public/releases/{release_version}/packs/{pack_id}/{pack_version}/download", { timeoutMs: DOWNLOAD_TIMEOUT_MS, binary: true }),
 });
 
-export const PACKAGE_VERSION = "0.93.0";
+export const PACKAGE_VERSION = "0.94.0";
 
 export class OpenNoshProblem extends Error {
   constructor(status, code, detail, requestReference = null, recoveryActions = [], retryAfterSeconds = null) {
