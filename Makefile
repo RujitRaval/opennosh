@@ -34,7 +34,7 @@ package-check:
 	uv build --out-dir dist
 	python3 scripts/check_python_distribution.py dist
 	uv run python scripts/check_installed_python_distribution.py dist/opennosh-$$(cat VERSION)-py3-none-any.whl
-	npm --prefix packages/npm ci --ignore-scripts
+	npm --prefix packages/npm ci --ignore-scripts --no-audit --no-fund
 	npm --prefix packages/npm test
 	cd packages/npm && npm pack --pack-destination ../../dist
 	NPM_PACKAGE_VERSION=$$(cut -d. -f1-3 VERSION); uv run python scripts/check_developer_starters.py --npm-tarball "dist/opennosh-$${NPM_PACKAGE_VERSION}.tgz" --wheel "dist/opennosh-$$(cat VERSION)-py3-none-any.whl"

@@ -325,7 +325,7 @@ jobs:
       - name: Test npm bootstrap package
         working-directory: packages/npm
         run: |
-          npm ci --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
           npm test
           npm pack --dry-run
 
@@ -379,7 +379,7 @@ jobs:
       - name: Test minimum supported Node runtime
         working-directory: packages/npm
         run: |
-          npm ci --ignore-scripts
+          npm ci --ignore-scripts --no-audit --no-fund
           npm test
           npm pack --dry-run
 
