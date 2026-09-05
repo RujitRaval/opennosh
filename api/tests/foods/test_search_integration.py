@@ -99,6 +99,56 @@ async def _seed_ranked_foods(database_url: str) -> None:
         await engine.dispose()
 
 
+async def _seed_readiness_food(database_url: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("TRUNCATE food_search_snapshots, foods_reference, foods_community CASCADE")
+            )
+            await connection.execute(
+                text("DELETE FROM auth_rate_limits WHERE scope = 'food-search-ip'")
+            )
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO foods_community (
+                        pack_id, pack_version, slug, name, name_local, locale, category,
+                        provenance, source_uri, source_license, nutrients_json,
+                        portions_json, contributed_by
+                    ) VALUES
+                    (
+                        'gujarati-home-cooking', '1.0.0', 'gujarati-plain-thepla',
+                        'Plain thepla', NULL, 'gu-IN', 'bread',
+                        'published_recipe_calculation', NULL, 'contributor-original',
+                        CAST(:nutrients AS jsonb),
+                        '[{"name":"1 thepla","grams":"44"}]'::jsonb, 'RujitRaval'
+                    ),
+                    (
+                        'common-fruits', '1.0.0', 'common-apple', 'Apple', NULL,
+                        'en-US', 'fruit', 'government_database', NULL, 'public-domain',
+                        CAST(:nutrients AS jsonb), '[]'::jsonb, 'readiness'
+                    ),
+                    (
+                        'indian-staples-north', '1.0.0', 'north-indian-rice-white-cooked',
+                        'Rice, white, cooked', NULL, 'en-IN', 'rice',
+                        'government_database', NULL, 'public-domain',
+                        CAST(:nutrients AS jsonb), '[]'::jsonb, 'readiness'
+                    ),
+                    (
+                        'indian-staples-north', '1.0.0', 'north-indian-chicken-breast',
+                        'Chicken breast, cooked', NULL, 'en-IN', 'poultry',
+                        'government_database', NULL, 'public-domain',
+                        CAST(:nutrients AS jsonb), '[]'::jsonb, 'readiness'
+                    )
+                    """
+                ),
+                {"nutrients": _NUTRIENTS},
+            )
+    finally:
+        await engine.dispose()
+
+
 def _client(database_url: str, **settings: Any) -> TestClient:
     return TestClient(
         create_app(
@@ -183,6 +233,117 @@ def test_search_ranking_pagination_filters_and_attribution() -> None:
         "release_digest": None,
     }
     assert usda_only.json()["items"][0]["attribution"]["license"] == "CC0"
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_search_readiness_proves_the_canonical_approved_record() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_seed_readiness_food(INTEGRATION_DATABASE_URL))
+
+    with _client(INTEGRATION_DATABASE_URL) as client:
+        response = client.get("/api/v1/foods/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "schema_version": "1.0",
+        "status": "ready",
+        "query": "thepla",
+        "expected_id": "community:gujarati-plain-thepla",
+        "latency_ms": response.json()["latency_ms"],
+        "result": {
+            "id": "community:gujarati-plain-thepla",
+            "source": "community",
+            "source_id": "gujarati-plain-thepla",
+            "name": "Plain thepla",
+            "name_local": None,
+            "category": "bread",
+            "attribution": {
+                "source": "community",
+                "license": "CC0-1.0",
+                "source_uri": None,
+                "source_license": "contributor-original",
+                "contributed_by": "RujitRaval",
+                "pack_id": "gujarati-home-cooking",
+                "pack_version": "1.0.0",
+                "provenance": "published_recipe_calculation",
+                "release_version": None,
+                "release_digest": None,
+            },
+            "equivalence_group_id": None,
+            "variant_id": None,
+            "conflict": False,
+            "variant_count": 1,
+        },
+    }
+    assert response.json()["latency_ms"] < 1_500
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_search_readiness_fails_closed_when_approved_metadata_drifted() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_seed_readiness_food(INTEGRATION_DATABASE_URL))
+    asyncio.run(
+        _execute_search_sql(
+            INTEGRATION_DATABASE_URL,
+            """
+            UPDATE foods_community
+            SET provenance = 'own_measurement'
+            WHERE pack_id = 'gujarati-home-cooking'
+              AND slug = 'gujarati-plain-thepla'
+            """,
+        )
+    )
+
+    with _client(INTEGRATION_DATABASE_URL) as client:
+        response = client.get("/api/v1/foods/readiness")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Food search readiness failed."
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    (FoodSearchProjectionBusyError, FoodSearchTimeoutError),
+)
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_search_readiness_reports_transient_search_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+
+    async def failing_search(*_args: Any, **_kwargs: Any) -> None:
+        raise error_type
+
+    monkeypatch.setattr(foods_router_module, "search_foods", failing_search)
+    with _client(INTEGRATION_DATABASE_URL) as client:
+        response = client.get("/api/v1/foods/readiness")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Food search readiness failed."
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_representative_common_and_regional_queries_succeed() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_seed_readiness_food(INTEGRATION_DATABASE_URL))
+
+    with _client(INTEGRATION_DATABASE_URL) as client:
+        responses = {
+            query: client.get("/api/v1/foods/search", params={"q": query})
+            for query in ("rice", "apple", "chicken breast", "thepla")
+        }
+
+    assert all(response.status_code == 200 for response in responses.values())
+    assert all(response.json()["items"] for response in responses.values())
+    assert all(len(response.json()["items"]) <= 20 for response in responses.values())
+    assert {
+        response.json()["items"][0]["source"] for response in responses.values()
+    } == {"community"}
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -779,7 +940,6 @@ async def _explain_representative_search(
                     "selected_pack_ids": [],
                 },
             )
-            await connection.execute(text("ANALYZE food_search_snapshot_items"))
             parameters = {
                 "query": "needle quinoa",
                 "slug_query": "needle quinoa",
@@ -841,10 +1001,54 @@ def test_representative_search_meets_the_explain_plan_budget() -> None:
     )
 
     assert execution_ms < SEARCH_PLAN_MAX_EXECUTION_MS
-    assert "pk_food_search_snapshot_items" in index_names
+    assert index_names & {
+        "pk_food_search_snapshot_items",
+        "ix_food_search_snapshot_items_equivalence",
+        "ix_food_search_snapshot_items_pack",
+    }
     assert forced_index_names & {
         "ix_food_search_snapshot_items_search_tsv",
         "ix_food_search_snapshot_items_source_id_trgm",
         "ix_food_search_snapshot_items_name_trgm",
         "ix_food_search_snapshot_items_name_local_trgm",
     }
+
+
+async def _search_gin_reloptions(database_url: str) -> dict[str, list[str]]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        """
+                        SELECT relname, reloptions
+                        FROM pg_class
+                        WHERE relname = ANY(CAST(:index_names AS text[]))
+                        ORDER BY relname
+                        """
+                    ),
+                    {
+                        "index_names": [
+                            "ix_food_search_snapshot_items_search_tsv",
+                            "ix_food_search_snapshot_items_source_id_trgm",
+                            "ix_food_search_snapshot_items_name_trgm",
+                            "ix_food_search_snapshot_items_name_local_trgm",
+                        ]
+                    },
+                )
+            ).mappings()
+            return {str(row["relname"]): list(row["reloptions"] or []) for row in rows}
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_search_gin_indexes_bypass_the_refresh_pending_list() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+
+    reloptions = asyncio.run(_search_gin_reloptions(INTEGRATION_DATABASE_URL))
+
+    assert len(reloptions) == 4
+    assert all("fastupdate=off" in options for options in reloptions.values())

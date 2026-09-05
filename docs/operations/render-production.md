@@ -46,12 +46,34 @@ durable HTTPS artifact origin are provisioned. `PUBLIC_ARTIFACT_READS_ENABLED=fa
 web dark-launch default. Never enable a filesystem path or a development verification key in
 production.
 
-The web service enables `OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search`, so `/en/explore` searches
+The API service uses `/api/v1/foods/readiness` as its independent Render readiness check. That
+endpoint performs a real `thepla` search and requires the approved, source-qualified
+`community:gujarati-plain-thepla` record with its CC0 license and pack metadata. It is intentionally
+separate from `/healthz`, which remains a cheap database-connectivity probe. A deploy is not
+search-ready when the canonical query times out, returns malformed data, or loses the approved
+record. The web service enables `OPENNOSH_PUBLIC_NAV_FEATURES=explorer-search`, so `/en/explore` searches
 the live PostgreSQL starter catalogue and shows each result's pack, source, contributor, and license.
 This operational search is not a signed Commons release. Keep `PUBLIC_ARTIFACT_READS_ENABLED=false`
 until the separately verified immutable-artifact activation below is complete. Strength entry is
 also held closed with `OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED=false` until the attributed exercise
 catalogue has been loaded and checked.
+
+### Food-search refresh safety
+
+Migration `20260905_0037` disables `fastupdate` on the four retained-snapshot GIN indexes and cleans
+any existing pending lists. Snapshot refresh is a bulk write followed immediately by
+latency-sensitive reads; allowing GIN to defer those entries made searches scan an unsorted pending
+list until GIN cleanup or autovacuum moved it into the main index. On the production Basic-256mb
+database, that first-read interval exceeded the 500 ms search statement budget; later statistics
+also let the planner avoid the expensive path. The search SQL now filters and ranks in one scan
+instead of joining the retained projection to itself.
+
+Do not compensate for a recurrence by increasing `FOOD_SEARCH_STATEMENT_TIMEOUT_MS`. Confirm the
+index `reloptions`, migration head, query plan, snapshot age, and readiness endpoint first. The
+migration changes index write behavior but not rows or the API contract, so the prior application
+can run during a rolling deploy. Its downgrade re-enables GIN pending lists and can reintroduce the
+latency cliff; prefer a reviewed forward fix. If rollback is unavoidable, leave the additive schema
+in place and roll back only application processes while investigating.
 
 ### T32 bounded artifact read-plane activation
 
@@ -952,7 +974,7 @@ PYTHONPATH=api:. python scripts/check_publication_readiness.py /tmp/publication-
 ```
 
 The report is acceptable only when the schema validator and recomputed digest pass, the deployed
-commit is exact, `living_commons.expected_migration_head` equals `20260904_0036`,
+commit is exact, `living_commons.expected_migration_head` equals `20260905_0037`,
 `living_commons.all_capabilities_disabled` is true, and every runtime flag above remains false.
 This verification does not authorize activation.
 
@@ -966,6 +988,7 @@ GET /en                      -> 200 public Commons
 GET /tracker                 -> 200 Tracker
 GET /healthz                 -> 200 web-process liveness, independent of PostgreSQL
 GET /api/v1/healthz          -> 200 and healthy database state
+GET /api/v1/foods/readiness  -> 200, canonical approved search record and metadata verified
 GET /en/explore              -> 200
 GET /en/contribute           -> 200
 ```
@@ -993,9 +1016,21 @@ Run a single post-cutover verification pass:
 
 ```bash
 curl -fsS https://opennosh.org/api/v1/healthz
+curl -fsS https://opennosh.org/api/v1/foods/readiness
 curl -fsSI https://opennosh.org/
 curl -fsSI https://www.opennosh.org/
 ```
+
+Run the strict canary from the exact deployed source checkout before declaring search live:
+
+```bash
+PYTHONPATH=api:. python scripts/check_food_search_readiness.py https://opennosh.org
+```
+
+The canary fails closed on a non-200 response, schema drift, an oversized payload, latency above
+1.5 seconds, or missing source, license, pack, and provenance metadata for the approved Thepla
+record. During a search incident, keep `/healthz` available for process/database diagnosis while
+using the readiness failure to stop new API deploys from being considered healthy.
 
 Then repeat the browser smoke against `https://opennosh.org`, capture a screenshot, check console
 errors, and confirm the response uses secure `__Host-opennosh-session` and

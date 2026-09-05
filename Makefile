@@ -12,7 +12,7 @@ install:
 	npm --prefix web ci
 
 lint:
-	uv run ruff check api benchmarks deploy/render_runtime.py scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_developer_starters.py scripts/check_developer_trials.py scripts/check_changed_coverage.py scripts/check_impact_metrics.py scripts/check_public_status.py scripts/check_publication_readiness.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_developer_trials.py tests/test_render_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
+	uv run ruff check api benchmarks deploy/render_runtime.py scripts/build_federation_failure_drill_report.py scripts/build_public_fonts.py scripts/check_benchmark_contract.py scripts/check_database_capacity.py scripts/check_developer_compatibility.py scripts/check_developer_starters.py scripts/check_developer_trials.py scripts/check_changed_coverage.py scripts/check_food_search_readiness.py scripts/check_impact_metrics.py scripts/check_public_status.py scripts/check_publication_readiness.py scripts/check_trust_gates.py scripts/configure_trust_branch_protection.py tests/test_benchmark*.py tests/test_database_capacity_deployment.py tests/test_developer_compatibility.py tests/test_developer_trials.py tests/test_food_search_readiness_check.py tests/test_render_deployment.py tests/test_trust_gates.py api/tests/test_benchmark*.py
 	sh -n deploy/render_web_start.sh
 	npm --prefix web run lint
 

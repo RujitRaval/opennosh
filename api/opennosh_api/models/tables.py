@@ -216,24 +216,28 @@ class FoodSearchSnapshotItem(Base):
                 "coalesce(category, ''::character varying)::text)"
             ),
             postgresql_using="gin",
+            postgresql_with={"fastupdate": "off"},
         ),
         Index(
             "ix_food_search_snapshot_items_source_id_trgm",
             "source_id",
             postgresql_using="gin",
             postgresql_ops={"source_id": "gin_trgm_ops"},
+            postgresql_with={"fastupdate": "off"},
         ),
         Index(
             "ix_food_search_snapshot_items_name_trgm",
             "name",
             postgresql_using="gin",
             postgresql_ops={"name": "gin_trgm_ops"},
+            postgresql_with={"fastupdate": "off"},
         ),
         Index(
             "ix_food_search_snapshot_items_name_local_trgm",
             "name_local",
             postgresql_using="gin",
             postgresql_ops={"name_local": "gin_trgm_ops"},
+            postgresql_with={"fastupdate": "off"},
         ),
     )
 

@@ -38,7 +38,7 @@
       "required": ["migration_heads", "expected_migration_head", "all_capabilities_disabled", "impact_metric_manifest_sha256", "public_status_manifest_sha256", "public_status_component_ids"],
       "properties": {
         "migration_heads": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-        "expected_migration_head": {"const": "20260904_0036"},
+        "expected_migration_head": {"const": "20260905_0037"},
         "all_capabilities_disabled": {"type": "boolean"},
         "impact_metric_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "public_status_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
