@@ -183,6 +183,21 @@ def test_food_search_indexes_are_declared_in_model_metadata() -> None:
         "ix_foods_community_name_local_trgm",
     }.issubset(community_indexes)
 
+    snapshot_indexes = {
+        index.name: index
+        for index in Base.metadata.tables["food_search_snapshot_items"].indexes
+        if index.name is not None
+    }
+    for index_name in (
+        "ix_food_search_snapshot_items_search_tsv",
+        "ix_food_search_snapshot_items_source_id_trgm",
+        "ix_food_search_snapshot_items_name_trgm",
+        "ix_food_search_snapshot_items_name_local_trgm",
+    ):
+        assert snapshot_indexes[index_name].dialect_options["postgresql"]["with"] == {
+            "fastupdate": "off"
+        }
+
 
 def test_exercise_search_indexes_are_declared_in_model_metadata() -> None:
     exercise_indexes = {index.name for index in Base.metadata.tables["exercises"].indexes}

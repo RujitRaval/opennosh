@@ -27,6 +27,7 @@ services:
     dockerCommand: python deploy/render_runtime.py api
     preDeployCommand: python deploy/render_runtime.py predeploy
     autoDeployTrigger: checksPass
+    healthCheckPath: /api/v1/foods/readiness
     disk:
       name: opennosh-public-artifact-state
       mountPath: /var/lib/opennosh/public-artifacts

@@ -2,6 +2,23 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.95.0.0] - 2026-09-04
+
+### Added
+
+- Add a real food-search readiness check that validates the approved Thepla record, metadata,
+  response bounds, and latency before an API deploy is considered healthy.
+
+### Changed
+
+- Make retained food-search refreshes immediately queryable by keeping GIN entries out of pending
+  lists and simplifying ranking to one indexed scan.
+
+### Fixed
+
+- Restore reliable common and regional food searches under the existing 500 ms database statement
+  budget without weakening timeout protection.
+
 ## [0.94.0.0] - 2026-09-04
 
 ### Added

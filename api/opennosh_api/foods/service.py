@@ -103,20 +103,7 @@ to_tsvector(
 """.strip()
 
 FOOD_SEARCH_SQL = f"""
-WITH candidate_ids AS (
-    SELECT food.snapshot_id, food.source, food.source_id
-    FROM food_search_snapshot_items AS food
-    WHERE food.snapshot_id = CAST(:snapshot_id AS uuid)
-      AND (
-          food.source_id = CAST(:slug_query AS text)
-          OR {_SNAPSHOT_SEARCH_VECTOR} @@
-             plainto_tsquery('simple'::regconfig, CAST(:query AS text))
-          OR food.source_id % CAST(:query AS text)
-          OR food.name % CAST(:query AS text)
-          OR food.name_local % CAST(:query AS text)
-      )
-),
-ranked_matches AS (
+WITH ranked_matches AS (
     SELECT
         food.source,
         food.source_id,
@@ -160,14 +147,18 @@ ranked_matches AS (
         ) AS match_score,
         lower(food.name) AS normalized_name
     FROM food_search_snapshot_items AS food
-    JOIN candidate_ids AS candidate
-      ON candidate.snapshot_id = food.snapshot_id
-     AND candidate.source = food.source
-     AND candidate.source_id = food.source_id
     WHERE food.snapshot_id = CAST(:snapshot_id AS uuid)
       AND (
           CAST(:source_filter AS text) IS NULL
           OR food.source = CAST(:source_filter AS text)
+      )
+      AND (
+          food.source_id = CAST(:slug_query AS text)
+          OR {_SNAPSHOT_SEARCH_VECTOR} @@
+             plainto_tsquery('simple'::regconfig, CAST(:query AS text))
+          OR food.source_id % CAST(:query AS text)
+          OR food.name % CAST(:query AS text)
+          OR food.name_local % CAST(:query AS text)
       )
 )
 SELECT *

@@ -247,7 +247,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
         "key": "PUBLIC_ARTIFACT_CACHE_DIRECTORY",
         "value": "/var/lib/opennosh/public-artifacts/cache",
     }
-    assert "healthCheckPath" not in api
+    assert api["healthCheckPath"] == "/api/v1/foods/readiness"
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
 

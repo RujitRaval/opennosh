@@ -1,3 +1,5 @@
+import logging
+from time import perf_counter
 from typing import Annotated
 from urllib.parse import urlencode
 
@@ -28,6 +30,7 @@ from opennosh_api.foods.schemas import (
     CustomFoodResponse,
     FoodCapabilities,
     FoodDetail,
+    FoodSearchReadiness,
     FoodSearchResponse,
     FoodSource,
     OpenFoodFactsExport,
@@ -61,6 +64,14 @@ from opennosh_api.settings import Settings
 
 router = APIRouter(prefix="/api/v1/foods", tags=["foods"])
 export_router = APIRouter(prefix="/api/v1/export", tags=["exports"])
+logger = logging.getLogger(__name__)
+
+_READINESS_QUERY = "thepla"
+_READINESS_EXPECTED_ID = "community:gujarati-plain-thepla"
+_READINESS_EXPECTED_PACK = "gujarati-home-cooking"
+_READINESS_EXPECTED_LICENSE = "CC0-1.0"
+_READINESS_EXPECTED_SOURCE_LICENSE = "contributor-original"
+_READINESS_EXPECTED_PROVENANCE = "published_recipe_calculation"
 
 
 @router.get("/capabilities", response_model=FoodCapabilities)
@@ -70,6 +81,72 @@ async def capabilities(
     return FoodCapabilities(
         barcode_lookup_enabled=settings.open_food_facts_enabled,
         federation_search_enabled=settings.federation_search_enabled,
+    )
+
+
+@router.get(
+    "/readiness",
+    response_model=FoodSearchReadiness,
+    responses={status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Search is unavailable."}},
+)
+async def readiness(
+    request: Request,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> FoodSearchReadiness:
+    started = perf_counter()
+    try:
+        result = await search_foods(
+            database,
+            query=_READINESS_QUERY,
+            locale="en",
+            source=FoodSource.COMMUNITY,
+            limit=10,
+            cursor=None,
+            key_ring=SearchCursorKeyRing.from_secret(
+                settings.food_search_cursor_signing_keys
+            ),
+            cursor_lifetime_seconds=settings.food_search_cursor_lifetime_seconds,
+            snapshot_refresh_seconds=settings.food_search_snapshot_refresh_seconds,
+            snapshot_retention_seconds=settings.food_search_snapshot_retention_seconds,
+            snapshot_build_timeout_ms=settings.food_search_snapshot_build_timeout_ms,
+            statement_timeout_ms=settings.food_search_statement_timeout_ms,
+            federation_enabled=False,
+        )
+    except (FoodSearchProjectionBusyError, FoodSearchTimeoutError) as error:
+        logger.warning(
+            "food_search_readiness_failed request_id=%s error=%s",
+            request.state.request_id,
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Food search readiness failed.",
+        ) from error
+
+    expected = next((item for item in result.items if item.id == _READINESS_EXPECTED_ID), None)
+    if (
+        expected is None
+        or expected.source is not FoodSource.COMMUNITY
+        or expected.attribution.license != _READINESS_EXPECTED_LICENSE
+        or expected.attribution.source_license != _READINESS_EXPECTED_SOURCE_LICENSE
+        or expected.attribution.pack_id != _READINESS_EXPECTED_PACK
+        or expected.attribution.provenance != _READINESS_EXPECTED_PROVENANCE
+    ):
+        logger.warning(
+            "food_search_readiness_failed request_id=%s error=expected_record_missing",
+            request.state.request_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Food search readiness failed.",
+        )
+    latency_ms = (perf_counter() - started) * 1_000
+    return FoodSearchReadiness(
+        query=_READINESS_QUERY,
+        expected_id=_READINESS_EXPECTED_ID,
+        latency_ms=latency_ms,
+        result=expected,
     )
 
 
@@ -166,11 +243,22 @@ async def search(
             recovery_actions=(restart,),
         ) from error
     except FoodSearchProjectionBusyError as error:
+        logger.warning(
+            "food_search_projection_busy request_id=%s query_length=%d",
+            request.state.request_id,
+            len(normalized_query),
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Food search is being prepared. Try again shortly.",
         ) from error
     except FoodSearchTimeoutError as error:
+        logger.warning(
+            "food_search_timeout request_id=%s query_length=%d source=%s",
+            request.state.request_id,
+            len(normalized_query),
+            source.value if source is not None else "all",
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Food search timed out. Try a more specific query.",

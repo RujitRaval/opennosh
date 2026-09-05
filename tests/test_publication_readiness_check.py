@@ -32,8 +32,8 @@ def _report() -> dict[str, object]:
         "publication_intents": {},
         "federation_scopes": {},
         "living_commons": {
-            "migration_heads": ["20260904_0036"],
-            "expected_migration_head": "20260904_0036",
+            "migration_heads": ["20260905_0037"],
+            "expected_migration_head": "20260905_0037",
             "all_capabilities_disabled": True,
             "impact_metric_manifest_sha256": "b" * 64,
             "public_status_manifest_sha256": "c" * 64,

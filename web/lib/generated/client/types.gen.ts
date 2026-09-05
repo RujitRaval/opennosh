@@ -1695,6 +1695,33 @@ export type FoodSearchItem = {
 };
 
 /**
+ * FoodSearchReadiness
+ */
+export type FoodSearchReadiness = {
+    /**
+     * Expected Id
+     */
+    expected_id: string;
+    /**
+     * Latency Ms
+     */
+    latency_ms: number;
+    /**
+     * Query
+     */
+    query: string;
+    result: FoodSearchItem;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Status
+     */
+    status?: 'ready';
+};
+
+/**
  * FoodSearchReleaseSet
  */
 export type FoodSearchReleaseSet = {
@@ -7258,6 +7285,71 @@ export type CustomFoodCreateApiV1FoodsCustomPostResponses = {
 };
 
 export type CustomFoodCreateApiV1FoodsCustomPostResponse = CustomFoodCreateApiV1FoodsCustomPostResponses[keyof CustomFoodCreateApiV1FoodsCustomPostResponses];
+
+export type ReadinessApiV1FoodsReadinessGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/foods/readiness';
+};
+
+export type ReadinessApiV1FoodsReadinessGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * Search is unavailable.
+     */
+    503: unknown;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type ReadinessApiV1FoodsReadinessGetError = ReadinessApiV1FoodsReadinessGetErrors[keyof ReadinessApiV1FoodsReadinessGetErrors];
+
+export type ReadinessApiV1FoodsReadinessGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: FoodSearchReadiness;
+};
+
+export type ReadinessApiV1FoodsReadinessGetResponse = ReadinessApiV1FoodsReadinessGetResponses[keyof ReadinessApiV1FoodsReadinessGetResponses];
 
 export type SearchApiV1FoodsSearchGetData = {
     body?: never;

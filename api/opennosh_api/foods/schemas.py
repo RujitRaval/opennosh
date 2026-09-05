@@ -62,6 +62,15 @@ class FoodSearchResponse(BaseModel):
     release_set: FoodSearchReleaseSet | None = None
 
 
+class FoodSearchReadiness(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
+    status: Literal["ready"] = "ready"
+    query: str
+    expected_id: str
+    latency_ms: float = Field(ge=0)
+    result: FoodSearchItem
+
+
 class FoodSearchResponseV1(BaseModel):
     """Retained OpenAPI 1.x search envelope for N-1 SDK compatibility."""
 
