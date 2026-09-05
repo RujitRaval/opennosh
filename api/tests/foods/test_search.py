@@ -5,8 +5,10 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+import opennosh_api.foods.router as food_router
 import opennosh_api.foods.service as food_service
 import pytest
+from fastapi import HTTPException, Request
 from opennosh_api.foods.cursors import (
     CursorSigningKey,
     SearchCursorError,
@@ -14,7 +16,12 @@ from opennosh_api.foods.cursors import (
     SearchCursorPayload,
     search_fingerprint,
 )
-from opennosh_api.foods.schemas import FoodSource
+from opennosh_api.foods.schemas import (
+    FoodAttribution,
+    FoodSearchItem,
+    FoodSearchResponse,
+    FoodSource,
+)
 from opennosh_api.foods.service import (
     FoodSearchTimeoutError,
     SearchSnapshot,
@@ -59,6 +66,49 @@ class _FailingDatabase:
 
     async def rollback(self) -> None:
         self.rolled_back = True
+
+
+def _request(path: str, *, query_string: bytes = b"") -> Request:
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode(),
+            "query_string": query_string,
+            "headers": (),
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+        }
+    )
+    request.state.request_id = "food-search-test-request"
+    return request
+
+
+def _readiness_search_response(*, provenance: str) -> FoodSearchResponse:
+    return FoodSearchResponse(
+        items=[
+            FoodSearchItem(
+                id="community:gujarati-plain-thepla",
+                source=FoodSource.COMMUNITY,
+                source_id="gujarati-plain-thepla",
+                name="Plain thepla",
+                attribution=FoodAttribution(
+                    source=FoodSource.COMMUNITY,
+                    license="CC0-1.0",
+                    source_license="contributor-original",
+                    pack_id="gujarati-home-cooking",
+                    provenance=provenance,
+                ),
+            )
+        ],
+        limit=10,
+        has_more=False,
+        snapshot_id=UUID("018f7d40-7b60-7000-8000-000000000001"),
+        snapshot_expires_at=datetime(2100, 1, 1, tzinfo=UTC),
+    )
 
 
 @pytest.mark.parametrize(
@@ -119,6 +169,75 @@ def test_openapi_publishes_the_enforced_query_bounds() -> None:
     assert "offset" not in parameter_names
     assert "pack" in parameter_names
     assert cursor_schema["maxLength"] == 2_048
+
+
+def test_readiness_directly_returns_the_approved_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = _readiness_search_response(provenance="published_recipe_calculation")
+
+    async def ready_search(*_args: Any, **_kwargs: Any) -> FoodSearchResponse:
+        return expected
+
+    monkeypatch.setattr(food_router, "search_foods", ready_search)
+    response = asyncio.run(
+        food_router.readiness(
+            _request("/api/v1/foods/readiness"),
+            object(),
+            Settings(app_environment="test", _env_file=None),
+        )
+    )
+
+    assert response.status == "ready"
+    assert response.result.id == "community:gujarati-plain-thepla"
+    assert response.latency_ms >= 0
+
+
+def test_readiness_directly_rejects_metadata_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drifted = _readiness_search_response(provenance="own_measurement")
+
+    async def drifted_search(*_args: Any, **_kwargs: Any) -> FoodSearchResponse:
+        return drifted
+
+    monkeypatch.setattr(food_router, "search_foods", drifted_search)
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(
+            food_router.readiness(
+                _request("/api/v1/foods/readiness"),
+                object(),
+                Settings(app_environment="test", _env_file=None),
+            )
+        )
+
+    assert raised.value.status_code == 503
+    assert raised.value.detail == "Food search readiness failed."
+
+
+def test_search_directly_logs_and_maps_a_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def allow_rate_limit(*_args: Any, **_kwargs: Any) -> None:
+        return None
+
+    async def timeout_search(*_args: Any, **_kwargs: Any) -> FoodSearchResponse:
+        raise FoodSearchTimeoutError
+
+    monkeypatch.setattr(food_router, "enforce_rate_limit", allow_rate_limit)
+    monkeypatch.setattr(food_router, "search_foods", timeout_search)
+    with pytest.raises(HTTPException) as raised:
+        asyncio.run(
+            food_router.search(
+                _request("/api/v1/foods/search", query_string=b"q=apple"),
+                object(),
+                Settings(app_environment="test", _env_file=None),
+                q="apple",
+            )
+        )
+
+    assert raised.value.status_code == 503
+    assert raised.value.detail == "Food search timed out. Try a more specific query."
 
 
 async def _snapshot(*_args: Any, **_kwargs: Any) -> SearchSnapshot:
