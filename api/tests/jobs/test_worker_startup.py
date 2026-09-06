@@ -583,6 +583,60 @@ async def test_refresh_only_worker_never_constructs_the_queue_driver(
 
 
 @pytest.mark.asyncio
+async def test_code_attestation_worker_runs_without_database_or_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=False,
+        publication_claims_enabled=False,
+        publication_preactivation_smoke_enabled=False,
+        governance_code_attestation_enabled=True,
+        governance_code_attestation_interval_seconds=30.0,
+    )
+    shutdown = asyncio.Event()
+    lifecycle: list[str] = []
+
+    class Clients:
+        service = object()
+
+        async def aclose(self) -> None:
+            lifecycle.append("close")
+
+    clients = Clients()
+
+    async def run_attestation(
+        service: object,
+        supplied_shutdown: asyncio.Event,
+        *,
+        interval_seconds: float,
+    ) -> None:
+        assert service is clients.service
+        assert supplied_shutdown is shutdown
+        assert interval_seconds == 30.0
+        lifecycle.append("attest")
+
+    async def forbidden_queue_driver(**_arguments: object) -> None:
+        raise AssertionError("attestation-only mode constructed the publication queue")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_code_attestation_loop",
+        run_attestation,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        forbidden_queue_driver,
+    )
+
+    await _run_publication_worker(
+        settings=cast(Any, settings),
+        code_attestation_clients=cast(Any, clients),
+        shutdown_requested=shutdown,
+    )
+
+    assert lifecycle == ["attest", "close"]
+
+
+@pytest.mark.asyncio
 async def test_preactivation_smoke_runs_before_refresh_without_claim_queue(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

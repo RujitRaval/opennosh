@@ -15,6 +15,7 @@ from opennosh_api.public.signing import (
     load_production_signing_key,
     public_key_text,
 )
+from opennosh_api.publication.code_attestation import GitHubCodeAttestationService
 from opennosh_api.publication.forge.github import (
     GitHubAppInstallationTokenProvider,
     GitHubForgeClient,
@@ -48,6 +49,49 @@ class PublicationCredentialIdentity:
     receipt_key_id: str
     receipt_public_key: str
     artifact_bucket: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionCodeAttestationClients:
+    """Two-identity GitHub clients for non-governed PR classification."""
+
+    forge_tokens: GitHubAppInstallationTokenProvider
+    attester_tokens: GitHubAppInstallationTokenProvider
+    service: GitHubCodeAttestationService
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> ProductionCodeAttestationClients:
+        forge, attester = validate_governance_check_credentials(settings)
+        assert settings.github_forge_private_key is not None
+        assert settings.github_attester_private_key is not None
+        forge_tokens = GitHubAppInstallationTokenProvider(
+            app_id=forge.app_id,
+            installation_id=forge.installation_id,
+            repository_id=forge.repository_id,
+            private_key_pem=settings.github_forge_private_key.get_secret_value(),
+        )
+        attester_tokens = GitHubAppInstallationTokenProvider(
+            app_id=attester.app_id,
+            installation_id=attester.installation_id,
+            repository_id=attester.repository_id,
+            private_key_pem=settings.github_attester_private_key.get_secret_value(),
+        )
+        return cls(
+            forge_tokens=forge_tokens,
+            attester_tokens=attester_tokens,
+            service=GitHubCodeAttestationService(
+                forge_tokens,
+                attester_tokens,
+                attester_app_id=attester.app_id,
+            ),
+        )
+
+    async def aclose(self) -> None:
+        await asyncio.gather(
+            self.service.aclose(),
+            self.forge_tokens.aclose(),
+            self.attester_tokens.aclose(),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,57 +180,20 @@ def validate_publication_claim_credentials(
     """Validate claims-time identities without retaining or returning private material."""
 
     required = {
-        "GITHUB_FORGE_REPOSITORY_ID": settings.github_forge_repository_id,
-        "GITHUB_FORGE_APP_ID": settings.github_forge_app_id,
-        "GITHUB_FORGE_INSTALLATION_ID": settings.github_forge_installation_id,
-        "GITHUB_FORGE_PRIVATE_KEY": settings.github_forge_private_key,
-        "GITHUB_ATTESTER_APP_ID": settings.github_attester_app_id,
-        "GITHUB_ATTESTER_INSTALLATION_ID": settings.github_attester_installation_id,
-        "GITHUB_ATTESTER_PRIVATE_KEY": settings.github_attester_private_key,
         "ONLINE_RECEIPT_SIGNING_KEY_ID": settings.online_receipt_signing_key_id,
         "ONLINE_RECEIPT_SIGNING_KEY": settings.online_receipt_signing_key,
         "PUBLICATION_ARTIFACT_BUCKET": settings.publication_artifact_bucket,
     }
     missing = sorted(name for name, value in required.items() if value is None)
     if missing:
-        raise ValueError(
-            "Publication claims configuration is incomplete: " + ",".join(missing)
-        )
-    assert settings.github_forge_repository_id is not None
-    assert settings.github_forge_app_id is not None
-    assert settings.github_forge_installation_id is not None
-    assert settings.github_forge_private_key is not None
-    assert settings.github_attester_app_id is not None
-    assert settings.github_attester_installation_id is not None
-    assert settings.github_attester_private_key is not None
+        raise ValueError("Publication claims configuration is incomplete: " + ",".join(missing))
     assert settings.online_receipt_signing_key_id is not None
     assert settings.online_receipt_signing_key is not None
     assert settings.publication_artifact_bucket is not None
     assert settings.online_manifest_signing_key_id is not None
     assert settings.online_manifest_signing_key is not None
 
-    forge = GitHubAppIdentity(
-        app_id=settings.github_forge_app_id,
-        installation_id=settings.github_forge_installation_id,
-        repository_id=settings.github_forge_repository_id,
-        public_key_fingerprint=_rsa_public_key_fingerprint(
-            settings.github_forge_private_key.get_secret_value()
-        ),
-    )
-    attester = GitHubAppIdentity(
-        app_id=settings.github_attester_app_id,
-        installation_id=settings.github_attester_installation_id,
-        repository_id=settings.github_forge_repository_id,
-        public_key_fingerprint=_rsa_public_key_fingerprint(
-            settings.github_attester_private_key.get_secret_value()
-        ),
-    )
-    if (
-        forge.app_id == attester.app_id
-        or forge.installation_id == attester.installation_id
-        or forge.public_key_fingerprint == attester.public_key_fingerprint
-    ):
-        raise ValueError("Forge and governance-attester identities must be independent")
+    forge, attester = validate_governance_check_credentials(settings)
 
     manifest_key = load_production_signing_key(
         settings.online_manifest_signing_key,
@@ -238,6 +245,55 @@ def validate_publication_claim_credentials(
         receipt_public_key=receipt_public,
         artifact_bucket=settings.publication_artifact_bucket,
     )
+
+
+def validate_governance_check_credentials(
+    settings: Settings,
+) -> tuple[GitHubAppIdentity, GitHubAppIdentity]:
+    """Validate the two disjoint GitHub identities without requiring publication secrets."""
+
+    required = {
+        "GITHUB_FORGE_REPOSITORY_ID": settings.github_forge_repository_id,
+        "GITHUB_FORGE_APP_ID": settings.github_forge_app_id,
+        "GITHUB_FORGE_INSTALLATION_ID": settings.github_forge_installation_id,
+        "GITHUB_FORGE_PRIVATE_KEY": settings.github_forge_private_key,
+        "GITHUB_ATTESTER_APP_ID": settings.github_attester_app_id,
+        "GITHUB_ATTESTER_INSTALLATION_ID": settings.github_attester_installation_id,
+        "GITHUB_ATTESTER_PRIVATE_KEY": settings.github_attester_private_key,
+    }
+    missing = sorted(name for name, value in required.items() if value is None)
+    if missing:
+        raise ValueError("Governance check configuration is incomplete: " + ",".join(missing))
+    assert settings.github_forge_repository_id is not None
+    assert settings.github_forge_app_id is not None
+    assert settings.github_forge_installation_id is not None
+    assert settings.github_forge_private_key is not None
+    assert settings.github_attester_app_id is not None
+    assert settings.github_attester_installation_id is not None
+    assert settings.github_attester_private_key is not None
+    forge = GitHubAppIdentity(
+        app_id=settings.github_forge_app_id,
+        installation_id=settings.github_forge_installation_id,
+        repository_id=settings.github_forge_repository_id,
+        public_key_fingerprint=_rsa_public_key_fingerprint(
+            settings.github_forge_private_key.get_secret_value()
+        ),
+    )
+    attester = GitHubAppIdentity(
+        app_id=settings.github_attester_app_id,
+        installation_id=settings.github_attester_installation_id,
+        repository_id=settings.github_forge_repository_id,
+        public_key_fingerprint=_rsa_public_key_fingerprint(
+            settings.github_attester_private_key.get_secret_value()
+        ),
+    )
+    if (
+        forge.app_id == attester.app_id
+        or forge.installation_id == attester.installation_id
+        or forge.public_key_fingerprint == attester.public_key_fingerprint
+    ):
+        raise ValueError("Forge and governance-attester identities must be independent")
+    return forge, attester
 
 
 def _rsa_public_key_fingerprint(private_key_pem: str) -> str:

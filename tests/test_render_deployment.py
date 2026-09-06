@@ -77,6 +77,21 @@ def _claims_environment() -> dict[str, str]:
     }
 
 
+def _code_attestation_environment() -> dict[str, str]:
+    return {
+        "APP_ENVIRONMENT": "production",
+        "GOVERNANCE_CODE_ATTESTATION_ENABLED": "true",
+        "GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS": "30",
+        "GITHUB_FORGE_REPOSITORY_ID": "123",
+        "GITHUB_FORGE_APP_ID": "456",
+        "GITHUB_FORGE_INSTALLATION_ID": "789",
+        "GITHUB_FORGE_PRIVATE_KEY": "forge-private",
+        "GITHUB_ATTESTER_APP_ID": "654",
+        "GITHUB_ATTESTER_INSTALLATION_ID": "987",
+        "GITHUB_ATTESTER_PRIVATE_KEY": "attester-private",
+    }
+
+
 class FakeTransaction:
     async def __aenter__(self) -> None:
         return None
@@ -251,7 +266,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
 
-def test_render_blueprint_links_claim_bootstrap_and_refresh_credentials_to_worker() -> None:
+def test_render_blueprint_links_release_control_and_refresh_credentials_to_worker() -> None:
     services = _blueprint()["services"]
     assert isinstance(services, list)
     publication = _resource(services, "opennosh-publication")
@@ -260,11 +275,15 @@ def test_render_blueprint_links_claim_bootstrap_and_refresh_credentials_to_worke
     variables = {entry["key"]: entry for entry in entries if "key" in entry}
 
     assert groups == {
+        "opennosh-governance-attester",
         "opennosh-online-manifest-signer",
+        "opennosh-publication-forge",
         "opennosh-r2-writer",
     }
     assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
+    assert variables["GOVERNANCE_CODE_ATTESTATION_ENABLED"]["value"] == "true"
+    assert variables["GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS"]["value"] == "30"
     assert variables["FEDERATION_INGESTION_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_PROJECTION_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_SEARCH_ENABLED"]["value"] == "false"
@@ -530,6 +549,61 @@ def test_render_refresh_environment_has_no_database_or_sibling_credentials() -> 
         "TRUSTED_WEB_PROXY_TOKEN",
     ):
         assert excluded not in environment
+
+
+def test_render_code_attestation_environment_has_no_database_or_signing_authority() -> None:
+    source = _code_attestation_environment() | {
+        "RENDER_DATABASE_URL": _database_url(),
+        "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+        "ONLINE_MANIFEST_SIGNING_KEY": "manifest-secret",
+        "ONLINE_RECEIPT_SIGNING_KEY": "receipt-secret",
+        "R2_SECRET_ACCESS_KEY": "r2-secret",
+    }
+
+    environment = publication_environment(source)
+
+    assert environment["PROCESS_ROLE"] == "publication"
+    assert environment["GOVERNANCE_CODE_ATTESTATION_ENABLED"] == "true"
+    assert environment["GITHUB_FORGE_PRIVATE_KEY"] == "forge-private"
+    assert environment["GITHUB_ATTESTER_PRIVATE_KEY"] == "attester-private"
+    for excluded in (
+        "RENDER_DATABASE_URL",
+        "PUBLICATION_DATABASE_PASSWORD",
+        "PUBLICATION_DATABASE_URL",
+        "ONLINE_MANIFEST_SIGNING_KEY",
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "R2_SECRET_ACCESS_KEY",
+    ):
+        assert excluded not in environment
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "GITHUB_FORGE_REPOSITORY_ID",
+        "GITHUB_FORGE_APP_ID",
+        "GITHUB_FORGE_INSTALLATION_ID",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_APP_ID",
+        "GITHUB_ATTESTER_INSTALLATION_ID",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+    ],
+)
+def test_render_code_attestation_fails_closed_without_each_identity(key: str) -> None:
+    source = _code_attestation_environment()
+    source.pop(key)
+
+    with pytest.raises(ValueError, match=key):
+        publication_environment(source)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "not-a-number"])
+def test_render_code_attestation_interval_must_be_positive(value: str) -> None:
+    source = _code_attestation_environment()
+    source["GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS"] = value
+
+    with pytest.raises(ValueError, match="ATTESTATION_INTERVAL_SECONDS"):
+        publication_environment(source)
 
 
 def test_render_readiness_uses_publication_role_without_enabling_claims(

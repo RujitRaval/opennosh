@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.95.1.0] - 2026-09-05
+
+### Fixed
+
+- Let ordinary code pull requests satisfy the source-pinned governance check without an
+  administrator bypass, then carry that trust to the exact squash-merged commit so Render can
+  deploy automatically after every required check passes.
+
+### Security
+
+- Keep every `packs/` change on the database-backed steward authorization path, including renamed
+  files, while refusing to attest direct pushes, bypassed merges, unstable heads, spoofed checks,
+  or ambiguous pull-request associations.
+- Run the release-control reconciler with separate repository-read and checks-only GitHub App
+  identities in the publication worker; API and web services receive neither credential.
+
 ## [0.95.0.0] - 2026-09-04
 
 ### Added

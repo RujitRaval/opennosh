@@ -90,6 +90,8 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "PUBLICATION_CONTINUOUS_CLAIMS_ENABLED",
     "PUBLICATION_CLAIM_CONCURRENCY",
     "PUBLICATION_PREACTIVATION_SMOKE_ENABLED",
+    "GOVERNANCE_CODE_ATTESTATION_ENABLED",
+    "GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS",
     "FEDERATION_INGESTION_ENABLED",
     "FEDERATION_PROJECTION_ENABLED",
     "FEDERATION_SEARCH_ENABLED",
@@ -355,8 +357,11 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
     smoke_enabled = (
         environment.get("PUBLICATION_PREACTIVATION_SMOKE_ENABLED", "false").casefold() == "true"
     )
+    code_attestation_enabled = (
+        environment.get("GOVERNANCE_CODE_ATTESTATION_ENABLED", "false").casefold() == "true"
+    )
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
-    if not claims_enabled and not refresh_enabled:
+    if not claims_enabled and not refresh_enabled and not code_attestation_enabled:
         raise ValueError("Publication worker requires an enabled runtime mode")
     if claims_enabled and not refresh_enabled:
         raise ValueError("Publication claims require latest refresh to remain enabled")
@@ -370,6 +375,14 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("PUBLICATION_CLAIM_CONCURRENCY must be a positive integer") from error
     if claim_concurrency < 1:
         raise ValueError("PUBLICATION_CLAIM_CONCURRENCY must be a positive integer")
+    try:
+        attestation_interval = float(
+            environment.get("GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS", "30")
+        )
+    except ValueError as error:
+        raise ValueError("GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS must be positive") from error
+    if attestation_interval <= 0:
+        raise ValueError("GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS must be positive")
     environment["PROCESS_ROLE"] = "publication"
     if claims_enabled or smoke_enabled:
         if not refresh_enabled:
@@ -390,7 +403,7 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
                 raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID") from error
             if str(parsed_activation_id) != activation_id:
                 raise ValueError("PUBLICATION_ACTIVATION_IDS must be one canonical UUID")
-    if claims_enabled or smoke_enabled:
+    if claims_enabled or smoke_enabled or code_attestation_enabled:
         for key in (
             "GITHUB_FORGE_REPOSITORY_ID",
             "GITHUB_FORGE_APP_ID",
@@ -399,11 +412,46 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
             "GITHUB_ATTESTER_APP_ID",
             "GITHUB_ATTESTER_INSTALLATION_ID",
             "GITHUB_ATTESTER_PRIVATE_KEY",
+        ):
+            _required(source, key)
+    if claims_enabled or smoke_enabled:
+        for key in (
             "ONLINE_RECEIPT_SIGNING_KEY_ID",
             "ONLINE_RECEIPT_SIGNING_KEY",
             "PUBLICATION_ARTIFACT_BUCKET",
         ):
             _required(source, key)
+    if not (claims_enabled or smoke_enabled):
+        for key in (
+            "ONLINE_RECEIPT_SIGNING_KEY_ID",
+            "ONLINE_RECEIPT_SIGNING_KEY",
+            "PUBLICATION_ARTIFACT_BUCKET",
+        ):
+            environment.pop(key, None)
+    if not refresh_enabled:
+        for key in (
+            "PUBLIC_ARTIFACT_BASE_URL",
+            "PUBLIC_COMMONS_VERIFYING_KEYS",
+            "PUBLICATION_RECEIPT_VERIFYING_KEYS",
+            "ONLINE_MANIFEST_SIGNING_KEY_ID",
+            "ONLINE_MANIFEST_SIGNING_KEY",
+            "R2_ACCOUNT_ID",
+            "R2_BUCKET",
+            "R2_ACCESS_KEY_ID",
+            "R2_SECRET_ACCESS_KEY",
+        ):
+            environment.pop(key, None)
+    if not (claims_enabled or smoke_enabled or code_attestation_enabled):
+        for key in (
+            "GITHUB_FORGE_REPOSITORY_ID",
+            "GITHUB_FORGE_APP_ID",
+            "GITHUB_FORGE_INSTALLATION_ID",
+            "GITHUB_FORGE_PRIVATE_KEY",
+            "GITHUB_ATTESTER_APP_ID",
+            "GITHUB_ATTESTER_INSTALLATION_ID",
+            "GITHUB_ATTESTER_PRIVATE_KEY",
+        ):
+            environment.pop(key, None)
     if claims_enabled:
         owner_url = _required(source, "RENDER_DATABASE_URL")
         publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")

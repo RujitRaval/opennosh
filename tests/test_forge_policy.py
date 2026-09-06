@@ -51,6 +51,30 @@ class ForgePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exact bounded permissions"):
             validate_policy(policy)
 
+    def test_ordinary_code_route_cannot_authorize_managed_data(self) -> None:
+        policy = copy.deepcopy(self.policy)
+        policy["governance_attestation_routes"]["ordinary_code_changes"][
+            "managed_path_conclusion"
+        ] = "success"
+        with self.assertRaisesRegex(ValueError, "disjoint and fail closed"):
+            validate_policy(policy)
+
+    def test_governed_branch_cannot_enter_the_ordinary_code_route(self) -> None:
+        policy = copy.deepcopy(self.policy)
+        policy["governance_attestation_routes"]["ordinary_code_changes"][
+            "excluded_branch_prefix"
+        ] = ""
+        with self.assertRaisesRegex(ValueError, "disjoint and fail closed"):
+            validate_policy(policy)
+
+    def test_untrusted_main_commit_cannot_receive_propagated_attestation(self) -> None:
+        policy = copy.deepcopy(self.policy)
+        policy["governance_attestation_routes"]["merge_commit_propagation"][
+            "untrusted_result"
+        ] = "success"
+        with self.assertRaisesRegex(ValueError, "disjoint and fail closed"):
+            validate_policy(policy)
+
 
 if __name__ == "__main__":
     unittest.main()

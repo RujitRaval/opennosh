@@ -10,7 +10,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import ProcessRole
 from opennosh_api.public.signing import public_key_text
-from opennosh_api.publication.credentials import ProductionPublicationClients
+from opennosh_api.publication.credentials import (
+    ProductionCodeAttestationClients,
+    ProductionPublicationClients,
+)
 from opennosh_api.publication.runtime import run_zero_claim_preactivation_smoke
 from opennosh_api.publication.state import PublicationStepName
 from opennosh_api.settings import Settings
@@ -201,6 +204,60 @@ def test_production_publication_worker_requires_one_runtime_mode() -> None:
         )
 
 
+def test_code_attestation_mode_requires_only_independent_github_identities() -> None:
+    settings = Settings(
+        app_environment="production",
+        process_role=ProcessRole.PUBLICATION,
+        governance_code_attestation_enabled=True,
+        github_forge_repository_id=1,
+        github_forge_app_id=2,
+        github_forge_installation_id=3,
+        github_forge_private_key=_pem(FORGE_KEY),
+        github_attester_app_id=4,
+        github_attester_installation_id=5,
+        github_attester_private_key=_pem(ATTESTER_KEY),
+        _env_file=None,
+    )
+
+    assert settings.governance_code_attestation_enabled is True
+    assert settings.latest_refresh_enabled is False
+    assert settings.publication_claims_enabled is False
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "github_forge_repository_id",
+        "github_forge_app_id",
+        "github_forge_installation_id",
+        "github_forge_private_key",
+        "github_attester_app_id",
+        "github_attester_installation_id",
+        "github_attester_private_key",
+    ],
+)
+def test_code_attestation_mode_fails_closed_without_each_identity_field(
+    missing: str,
+) -> None:
+    values: dict[str, object] = {
+        "app_environment": "production",
+        "process_role": ProcessRole.PUBLICATION,
+        "governance_code_attestation_enabled": True,
+        "github_forge_repository_id": 1,
+        "github_forge_app_id": 2,
+        "github_forge_installation_id": 3,
+        "github_forge_private_key": _pem(FORGE_KEY),
+        "github_attester_app_id": 4,
+        "github_attester_installation_id": 5,
+        "github_attester_private_key": _pem(ATTESTER_KEY),
+        "_env_file": None,
+    }
+    values[missing] = None
+
+    with pytest.raises(ValidationError, match=missing.upper()):
+        Settings(**values)  # type: ignore[arg-type]
+
+
 @pytest.mark.parametrize(
     "activation_ids",
     [
@@ -375,5 +432,24 @@ async def test_claim_clients_construct_with_redacted_independent_identities() ->
         assert _pem(ATTESTER_KEY) not in rendered
         assert settings.online_receipt_signing_key is not None
         assert settings.online_receipt_signing_key.get_secret_value() not in rendered
+    finally:
+        await clients.aclose()
+
+
+@pytest.mark.asyncio
+async def test_code_attestation_clients_construct_with_independent_identities() -> None:
+    settings = _refresh_settings(
+        latest_refresh_enabled=False,
+        governance_code_attestation_enabled=True,
+    )
+
+    clients = ProductionCodeAttestationClients.from_settings(settings)
+    try:
+        rendered = repr(clients)
+        assert clients.forge_tokens._app_id == 2
+        assert clients.attester_tokens._app_id == 4
+        assert clients.service._attester_app_id == 4
+        assert _pem(FORGE_KEY) not in rendered
+        assert _pem(ATTESTER_KEY) not in rendered
     finally:
         await clients.aclose()

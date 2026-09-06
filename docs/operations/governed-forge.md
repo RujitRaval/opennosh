@@ -33,6 +33,25 @@ outbox contains the exact
 six protected GitHub status-check names declared in the versioned policy. Every ruleset entry pins
 its expected source so another writer cannot satisfy protection with a look-alike check name.
 
+The same required check also covers ordinary code pull requests without inventing a governance
+bypass. A bounded reconciler lists open pull requests targeting `main` with the forge App's read
+identity, reads every changed path, then reloads the pull request and binds its result to the exact
+unchanged head commit. An ordinary branch receives a successful attestation only when no path starts
+with `packs/`. If it changes `packs/`, the attester emits `action_required` and directs the author to
+the governed contribution workflow. Branches beginning `opennosh/contribution/` are never classified
+by this reconciler; their only success path remains the database merge authorization described
+above. Existing checks count only when the name, exact head, conclusion, and attester App ID all
+match. The forge token performs reads and the checks-only attester token performs the sole write.
+Malformed or unbounded GitHub responses stop reconciliation rather than broadening authorization.
+After GitHub creates the squash commit, the reconciler copies success to that exact `main` SHA only
+when GitHub associates it with exactly one merged pull request and the pull request's exact head
+already has a success from the expected attester App. A direct push, administrator-bypassed merge,
+missing source check, ambiguous association, or unrelated commit receives no propagated check.
+
+This route split is versioned in `governance_attestation_routes` inside
+`config/forge-policy.v1.json`. It lets ordinary repository work satisfy branch protection without an
+administrator override while preserving database-backed authorization for governed data.
+
 `config/forge-policy.v1.json` is the desired production ruleset. CI validates it, but a feature PR
 does not mutate live repository administration. After this change lands on `main`, an administrator
 must create both GitHub Apps, install their disjoint bounded permissions, replace

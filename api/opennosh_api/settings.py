@@ -134,6 +134,8 @@ class Settings(BaseSettings):
     publication_continuous_claims_enabled: bool = False
     publication_claim_concurrency: PositiveInt = 1
     publication_preactivation_smoke_enabled: bool = False
+    governance_code_attestation_enabled: bool = False
+    governance_code_attestation_interval_seconds: PositiveFloat = 30.0
     federation_ingestion_enabled: bool = False
     federation_projection_enabled: bool = False
     federation_search_enabled: bool = False
@@ -469,7 +471,11 @@ class Settings(BaseSettings):
         elif self.publication_continuous_claims_enabled:
             raise ValueError("Continuous publication claims require claims to be enabled")
         if self.app_environment == "production" and self.process_role is ProcessRole.PUBLICATION:
-            if not self.publication_claims_enabled and not self.latest_refresh_enabled:
+            if (
+                not self.publication_claims_enabled
+                and not self.latest_refresh_enabled
+                and not self.governance_code_attestation_enabled
+            ):
                 raise ValueError("Production publication workers require an enabled runtime mode")
             if self.publication_preactivation_smoke_enabled and self.publication_claims_enabled:
                 raise ValueError("Publication preactivation smoke requires claims disabled")
@@ -482,10 +488,18 @@ class Settings(BaseSettings):
                     validate_publication_claim_credentials,
                 )
 
-                validate_publication_claim_credentials(self)
+                if self.publication_claims_enabled or self.publication_preactivation_smoke_enabled:
+                    validate_publication_claim_credentials(self)
+            if self.governance_code_attestation_enabled:
+                from opennosh_api.publication.credentials import (
+                    validate_governance_check_credentials,
+                )
+
+                validate_governance_check_credentials(self)
         elif self.app_environment == "production" and (
             self.publication_claims_enabled
             or self.publication_preactivation_smoke_enabled
+            or self.governance_code_attestation_enabled
             or self.latest_refresh_enabled
             or has_publication_secrets
         ):
