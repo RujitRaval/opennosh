@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.95.1.1] - 2026-09-06
+
+### Fixed
+
+- Keep the public food-search field and submit label visibly readable on desktop and mobile by
+  binding both controls to the approved light and dark color tokens.
+
 ## [0.95.1.0] - 2026-09-05
 
 ### Fixed
