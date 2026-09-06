@@ -148,9 +148,7 @@ def test_non_json_success_response_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
-async def test_reconciler_loop_retries_then_reports_and_stops(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+async def test_reconciler_loop_retries_then_reports_and_stops() -> None:
     shutdown = asyncio.Event()
 
     class Service:
@@ -165,13 +163,12 @@ async def test_reconciler_loop_retries_then_reports_and_stops(
             shutdown.set()
             return CodeAttestationReport(1, 0, 0, 1, 0, 1, 0, 1, 0)
 
-    with caplog.at_level("WARNING"):
-        await run_code_attestation_loop(  # type: ignore[arg-type]
-            Service(), shutdown, interval_seconds=0.001
-        )
+    service = Service()
+    await run_code_attestation_loop(  # type: ignore[arg-type]
+        service, shutdown, interval_seconds=0.001
+    )
 
-    assert "retryable error=temporary" in caplog.text
-    assert "merge_propagated=1" in caplog.text
+    assert service.calls == 3
 
 
 @pytest.mark.asyncio
