@@ -177,6 +177,7 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
     assert api["type"] == "pserv"
     assert publication["type"] == "worker"
     assert web["type"] == "web"
+    assert "healthCheckPath" not in api
     assert api["plan"] == publication["plan"] == web["plan"] == "starter"
     assert api["region"] == publication["region"] == web["region"] == "ohio"
     assert publication["autoDeployTrigger"] == "checksPass"
@@ -262,7 +263,7 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
         "key": "PUBLIC_ARTIFACT_CACHE_DIRECTORY",
         "value": "/var/lib/opennosh/public-artifacts/cache",
     }
-    assert api["healthCheckPath"] == "/api/v1/foods/readiness"
+    assert "healthCheckPath" not in api
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
 
