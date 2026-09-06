@@ -707,7 +707,7 @@ html[data-motion-decorations="off"] .ribbon-track { animation: none !important; 
   min-height: 4rem;
   padding: 0.8rem 1rem;
   color: var(--commons-ink);
-  background: var(--commons-rice);
+  background: var(--rice-paper);
   border: 0;
   font: inherit;
   font-size: 1.1rem;
@@ -716,7 +716,7 @@ html[data-motion-decorations="off"] .ribbon-track { animation: none !important; 
 .public-search-form button {
   min-height: 4rem;
   padding: 0.8rem 1.35rem;
-  color: var(--commons-rice);
+  color: var(--rice-paper);
   background: var(--commons-ink);
   border: 0;
   cursor: pointer;
