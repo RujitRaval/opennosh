@@ -10,6 +10,8 @@ from typing import Any, Self
 
 _PACK_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,158}[a-z0-9])?$")
 CANONICAL_FORGE_TARGET = "github:RujitRaval/opennosh"
+GOVERNED_BRANCH_PREFIX = "opennosh/contribution/"
+GOVERNED_PATH_PREFIX = "packs/"
 
 PROTECTED_STATUS_CHECKS = (
     "API checks",

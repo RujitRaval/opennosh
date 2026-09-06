@@ -39,6 +39,36 @@ wrapper derives the bounded web-role URL and removes the owner URL, migration pa
 generated secrets from the application process environment. The API service is private; browsers
 reach it only through the authenticated Next.js proxy.
 
+### Release-control attestation and automatic deploys
+
+Render's three application services use `autoDeployTrigger: checksPass`. A merge performed while a
+required source-pinned check is missing is intentionally not deployable under that trigger, even if
+an administrator temporarily relaxes branch protection. The durable release path is therefore:
+
+1. `opennosh-publication` runs the ordinary-code attestation reconciler with
+   `GOVERNANCE_CODE_ATTESTATION_ENABLED=true` and a 30-second interval;
+2. the existing `opennosh-publication-forge` group supplies the repository-scoped read identity;
+3. the existing `opennosh-governance-attester` group supplies the independent checks-only writer;
+4. an ordinary PR receives the required check only for its exact stable head and only when it does
+   not change `packs/`; and
+5. after all source-pinned checks pass, the protected squash merge is associated back to its exact
+   attested PR head; the attester propagates success to that exact `main` SHA; and
+6. Render sees all required checks on the merged SHA and deploys it automatically.
+
+The reconciler does not need a database, R2 credentials, or signing keys. The Render wrapper strips
+those authorities when attestation is the worker's only mode. In the combined production worker,
+each enabled mode retains only its declared credentials. Never move either GitHub private key to the
+API or web service, never grant checks-write to the forge App, and never grant contents or
+pull-request access to the attester App.
+
+After first activation, prove the control loop with a no-op documentation PR that does not touch
+`packs/`: observe the attester App's required success, merge without a branch-protection bypass,
+then verify Render creates successful API, web, and publication deployments for that merge commit.
+Treat any manual deploy as a failed release-control proof. Separately open a draft test PR that
+touches a disposable `packs/` path and confirm it receives `action_required`; close it without
+merging. Governed `opennosh/contribution/` branches must remain pending until their database-backed
+authorization reaches the attester.
+
 The initial hosted release intentionally leaves the signed Commons artifact paths and public
 artifact origin unset. Public snapshot consumers therefore use their explicit unavailable/quiet
 states, while food pages stay on the PostgreSQL read path until an offline-signed release and

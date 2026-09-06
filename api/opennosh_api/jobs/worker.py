@@ -35,6 +35,8 @@ from opennosh_api.public.refresh import (
 from opennosh_api.public.signing import load_production_signing_key
 from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.adapters import PublicationAdapterRegistry
+from opennosh_api.publication.code_attestation import run_code_attestation_loop
+from opennosh_api.publication.credentials import ProductionCodeAttestationClients
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
 from opennosh_api.publication.receipts import PublicationReceiptKeyRing
@@ -533,10 +535,16 @@ async def _run_publication_worker(
     *,
     settings: Settings | None = None,
     refresh_service: LatestPointerRefreshService | None = None,
+    code_attestation_clients: ProductionCodeAttestationClients | None = None,
     shutdown_requested: asyncio.Event | None = None,
 ) -> None:
     configured = settings or get_settings()
-    if not configured.latest_refresh_enabled and not configured.publication_claims_enabled:
+    code_attestation_enabled = getattr(configured, "governance_code_attestation_enabled", False)
+    if (
+        not configured.latest_refresh_enabled
+        and not configured.publication_claims_enabled
+        and not code_attestation_enabled
+    ):
         raise RuntimeError("Publication worker requires an enabled runtime mode")
     if getattr(configured, "publication_preactivation_smoke_enabled", False):
         steps = await run_zero_claim_preactivation_smoke(
@@ -557,6 +565,7 @@ async def _run_publication_worker(
 
     driver = None
     service = None
+    attestation_clients = None
     if configured.latest_refresh_enabled:
         service = refresh_service or create_latest_pointer_refresh_service(configured)
     try:
@@ -565,30 +574,50 @@ async def _run_publication_worker(
                 settings=configured,
                 adapters=adapters,
             )
+        if code_attestation_enabled:
+            attestation_clients = (
+                code_attestation_clients
+                or ProductionCodeAttestationClients.from_settings(configured)
+            )
     except BaseException:
         if service is not None:
             await service.aclose()
+        if attestation_clients is not None:
+            await attestation_clients.aclose()
         raise
 
-    async with asyncio.TaskGroup() as tasks:
-        if driver is not None:
-            tasks.create_task(
-                supervise_publication_claims(
-                    driver,
-                    shutdown,
-                    drain_timeout_seconds=PUBLICATION_DRAIN_TIMEOUT_SECONDS,
-                ),
-                name="opennosh-publication-claims",
-            )
-        if service is not None:
-            tasks.create_task(
-                run_latest_pointer_refresh_loop(
-                    service,
-                    shutdown,
-                    interval_seconds=configured.latest_refresh_interval_seconds,
-                ),
-                name="opennosh-latest-pointer-refresh",
-            )
+    try:
+        async with asyncio.TaskGroup() as tasks:
+            if driver is not None:
+                tasks.create_task(
+                    supervise_publication_claims(
+                        driver,
+                        shutdown,
+                        drain_timeout_seconds=PUBLICATION_DRAIN_TIMEOUT_SECONDS,
+                    ),
+                    name="opennosh-publication-claims",
+                )
+            if service is not None:
+                tasks.create_task(
+                    run_latest_pointer_refresh_loop(
+                        service,
+                        shutdown,
+                        interval_seconds=configured.latest_refresh_interval_seconds,
+                    ),
+                    name="opennosh-latest-pointer-refresh",
+                )
+            if attestation_clients is not None:
+                tasks.create_task(
+                    run_code_attestation_loop(
+                        attestation_clients.service,
+                        shutdown,
+                        interval_seconds=configured.governance_code_attestation_interval_seconds,
+                    ),
+                    name="opennosh-governance-code-attestation",
+                )
+    finally:
+        if attestation_clients is not None:
+            await attestation_clients.aclose()
 
 
 def run_publication_worker(

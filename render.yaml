@@ -132,6 +132,10 @@ services:
         value: "1"
       - key: PUBLICATION_PREACTIVATION_SMOKE_ENABLED
         value: "false"
+      - key: GOVERNANCE_CODE_ATTESTATION_ENABLED
+        value: "true"
+      - key: GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS
+        value: "30"
       - key: FEDERATION_INGESTION_ENABLED
         value: "false"
       - key: FEDERATION_PROJECTION_ENABLED
@@ -178,6 +182,8 @@ services:
         value: "2"
       - fromGroup: opennosh-online-manifest-signer
       - fromGroup: opennosh-r2-writer
+      - fromGroup: opennosh-publication-forge
+      - fromGroup: opennosh-governance-attester
 
   - type: web
     name: opennosh-web

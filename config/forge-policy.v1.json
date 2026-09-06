@@ -19,6 +19,24 @@
     "pull_requests": "none",
     "administration": "none"
   },
+  "governance_attestation_routes": {
+    "governed_contributions": {
+      "branch_prefix": "opennosh/contribution/",
+      "authorization_source": "database_merge_authorization",
+      "managed_path_prefix": "packs/"
+    },
+    "ordinary_code_changes": {
+      "excluded_branch_prefix": "opennosh/contribution/",
+      "success_condition": "exact_head_excludes_managed_path",
+      "managed_path_prefix": "packs/",
+      "managed_path_conclusion": "action_required"
+    },
+    "merge_commit_propagation": {
+      "source_condition": "associated_pull_request_exact_head_attester_success",
+      "target": "exact_main_merge_commit",
+      "untrusted_result": "no_check"
+    }
+  },
   "governance_checks": [
     "authorization",
     "evidence",

@@ -68,6 +68,26 @@ def validate_policy(policy: dict[str, Any]) -> None:
         "administration": "none",
     }:
         raise ValueError("Governance attester must remain checks-only")
+    routes = policy.get("governance_attestation_routes")
+    if routes != {
+        "governed_contributions": {
+            "branch_prefix": "opennosh/contribution/",
+            "authorization_source": "database_merge_authorization",
+            "managed_path_prefix": "packs/",
+        },
+        "ordinary_code_changes": {
+            "excluded_branch_prefix": "opennosh/contribution/",
+            "success_condition": "exact_head_excludes_managed_path",
+            "managed_path_prefix": "packs/",
+            "managed_path_conclusion": "action_required",
+        },
+        "merge_commit_propagation": {
+            "source_condition": "associated_pull_request_exact_head_attester_success",
+            "target": "exact_main_merge_commit",
+            "untrusted_result": "no_check",
+        },
+    }:
+        raise ValueError("Governance attestation routes must remain disjoint and fail closed")
     if set(policy.get("governance_checks", [])) != EXPECTED_GOVERNANCE_CHECKS:
         raise ValueError("Forge policy must cover every governance trust check")
     sources = policy.get("governance_check_sources")

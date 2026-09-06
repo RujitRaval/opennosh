@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from opennosh_api.governance.contracts import (
     CANONICAL_FORGE_TARGET,
+    GOVERNED_BRANCH_PREFIX,
     PROTECTED_STATUS_CHECKS,
     ApprovedChangeSet,
     ApprovedFileChange,
@@ -860,7 +861,7 @@ def _branch_name(idempotency_key: str) -> str:
         character not in "0123456789abcdef" for character in idempotency_key
     ):
         raise ValueError("Forge idempotency key must be SHA-256")
-    return f"opennosh/contribution/{idempotency_key[:24]}"
+    return f"{GOVERNED_BRANCH_PREFIX}{idempotency_key[:24]}"
 
 
 def _pull_number(value: object) -> int:
