@@ -76,8 +76,10 @@ durable HTTPS artifact origin are provisioned. `PUBLIC_ARTIFACT_READS_ENABLED=fa
 web dark-launch default. Never enable a filesystem path or a development verification key in
 production.
 
-The API service uses `/api/v1/foods/readiness` as its independent Render readiness check. That
-endpoint performs a real `thepla` search and requires the approved, source-qualified
+Render private services do not support a Blueprint `healthCheckPath`, so use
+`/api/v1/foods/readiness` as the API's independent external release-readiness canary after Render
+reports the exact target commit Live. That endpoint performs a real `thepla` search and requires
+the approved, source-qualified
 `community:gujarati-plain-thepla` record with its CC0 license and pack metadata. It is intentionally
 separate from `/healthz`, which remains a cheap database-connectivity probe. A deploy is not
 search-ready when the canonical query times out, returns malformed data, or loses the approved
