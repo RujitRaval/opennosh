@@ -10,7 +10,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opennosh_api.capacity import ProcessRole
 from opennosh_api.public.signing import public_key_text
-from opennosh_api.publication.credentials import ProductionPublicationClients
+from opennosh_api.publication.credentials import (
+    ProductionCodeAttestationClients,
+    ProductionPublicationClients,
+)
 from opennosh_api.publication.runtime import run_zero_claim_preactivation_smoke
 from opennosh_api.publication.state import PublicationStepName
 from opennosh_api.settings import Settings
@@ -429,5 +432,24 @@ async def test_claim_clients_construct_with_redacted_independent_identities() ->
         assert _pem(ATTESTER_KEY) not in rendered
         assert settings.online_receipt_signing_key is not None
         assert settings.online_receipt_signing_key.get_secret_value() not in rendered
+    finally:
+        await clients.aclose()
+
+
+@pytest.mark.asyncio
+async def test_code_attestation_clients_construct_with_independent_identities() -> None:
+    settings = _refresh_settings(
+        latest_refresh_enabled=False,
+        governance_code_attestation_enabled=True,
+    )
+
+    clients = ProductionCodeAttestationClients.from_settings(settings)
+    try:
+        rendered = repr(clients)
+        assert clients.forge_tokens._app_id == 2
+        assert clients.attester_tokens._app_id == 4
+        assert clients.service._attester_app_id == 4
+        assert _pem(FORGE_KEY) not in rendered
+        assert _pem(ATTESTER_KEY) not in rendered
     finally:
         await clients.aclose()

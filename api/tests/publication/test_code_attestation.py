@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -8,9 +9,14 @@ import httpx
 import pytest
 from opennosh_api.publication.code_attestation import (
     ATTESTATION_CHECK,
+    CodeAttestationReport,
     GitHubCodeAttestationService,
+    run_code_attestation_loop,
 )
-from opennosh_api.publication.forge.contracts import ForgeTerminalError
+from opennosh_api.publication.forge.contracts import (
+    ForgeRetryableError,
+    ForgeTerminalError,
+)
 
 HEAD = "a" * 40
 NEW_HEAD = "b" * 40
@@ -49,6 +55,131 @@ def _service(
         ),
         client,
     )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"repository": "missing-separator"}, "repository"),
+        ({"attester_app_id": 0}, "App ID"),
+        ({"base_branch": "bad branch"}, "base branch"),
+        ({"managed_path_prefix": "/packs/"}, "path prefix"),
+    ],
+)
+def test_constructor_rejects_invalid_security_boundaries(
+    overrides: dict[str, object], message: str
+) -> None:
+    arguments: dict[str, object] = {
+        "attester_app_id": 654,
+        "repository": "RujitRaval/opennosh",
+        "base_branch": "main",
+        "managed_path_prefix": "packs/",
+    }
+    arguments.update(overrides)
+
+    with pytest.raises(ValueError, match=message):
+        GitHubCodeAttestationService(  # type: ignore[arg-type]
+            _token("read-token"),
+            _token("write-token"),
+            **arguments,
+        )
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        None,
+        {**_pull(), "state": "closed"},
+        {**_pull(), "number": 0},
+        {**_pull(), "head": {"sha": "bad", "ref": "branch"}},
+        {**_pull(), "head": {"sha": HEAD, "ref": ""}},
+        {**_pull(), "base": {"ref": "develop"}},
+    ],
+)
+def test_malformed_pull_request_candidates_fail_closed(candidate: object) -> None:
+    service, _client = _service(lambda _request: httpx.Response(500))
+    with pytest.raises(ForgeTerminalError):
+        service._candidate(candidate)
+
+
+@pytest.mark.parametrize("value", [None, {"filename": "../packs/rice.json"}])
+def test_malformed_changed_paths_fail_closed(value: object) -> None:
+    with pytest.raises(ForgeTerminalError, match="file_invalid"):
+        GitHubCodeAttestationService._changed_paths(value)
+
+
+@pytest.mark.asyncio
+async def test_http_failures_and_invalid_tokens_fail_closed() -> None:
+    def unavailable(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline", request=request)
+
+    service, client = _service(unavailable)
+    try:
+        with pytest.raises(ForgeRetryableError):
+            await service._read("/unavailable")
+        with pytest.raises(ForgeRetryableError):
+            await service._write("/unavailable", {})
+        with pytest.raises(ForgeTerminalError, match="token_invalid"):
+            await service._token(_token("invalid token"))
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (429, ForgeRetryableError),
+        (403, ForgeTerminalError),
+        (418, ForgeTerminalError),
+    ],
+)
+def test_response_statuses_are_classified(
+    status: int, expected: type[Exception]
+) -> None:
+    with pytest.raises(expected):
+        GitHubCodeAttestationService._decode(httpx.Response(status), expected=200)
+
+
+def test_non_json_success_response_fails_closed() -> None:
+    with pytest.raises(ForgeTerminalError, match="response_invalid"):
+        GitHubCodeAttestationService._decode(
+            httpx.Response(200, content=b"not-json"), expected=200
+        )
+
+
+@pytest.mark.asyncio
+async def test_reconciler_loop_retries_then_reports_and_stops(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    shutdown = asyncio.Event()
+
+    class Service:
+        calls = 0
+
+        async def reconcile_once(self) -> CodeAttestationReport:
+            self.calls += 1
+            if self.calls == 1:
+                return CodeAttestationReport(0, 0, 0, 0, 0, 0, 0, 0, 0)
+            if self.calls == 2:
+                raise ForgeRetryableError("temporary")
+            shutdown.set()
+            return CodeAttestationReport(1, 0, 0, 1, 0, 1, 0, 1, 0)
+
+    with caplog.at_level("WARNING"):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            Service(), shutdown, interval_seconds=0.001
+        )
+
+    assert "retryable error=temporary" in caplog.text
+    assert "merge_propagated=1" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_reconciler_loop_rejects_nonpositive_interval() -> None:
+    with pytest.raises(ValueError, match="interval must be positive"):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            object(), asyncio.Event(), interval_seconds=0
+        )
 
 
 @pytest.mark.asyncio
