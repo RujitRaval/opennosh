@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.96.0.1] - 2026-09-07
+
+### Fixed
+
+- Format governance-attestation outage and recovery webhooks for direct Slack Incoming Webhook
+  delivery while preserving the bounded machine-readable alert contract.
+
 ## [0.96.0.0] - 2026-09-07
 
 ### Added
