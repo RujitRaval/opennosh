@@ -27,8 +27,8 @@ import {
   contributionStageHref, contributionStageList, contributionStageRegistry,
   isContributionStage,
 } from "@/lib/contributions/stage-registry";
-import { routes, type InterfaceLanguage } from "@/lib/routes";
-import { fallbackLanguage, formatMessage, pseudoLanguage } from "@/lib/i18n/catalog";
+import { formattingLocale, routes, type InterfaceLanguage } from "@/lib/routes";
+import { formatMessage } from "@/lib/i18n/catalog";
 
 type Props = { language: InterfaceLanguage; routeDraftId: string; requestedStage: string };
 
@@ -61,7 +61,7 @@ function Field({ name, label, hint, children }: { name: keyof ContributionFields
 
 function Receipt({ receipt, language }: { receipt: ContributionReceipt; language: InterfaceLanguage }) {
   const copy = contributionCatalog(language);
-  const due = new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, { dateStyle: "long", timeStyle: "short" }).format(new Date(receipt.acknowledgementDueAt));
+  const due = new Intl.DateTimeFormat(formattingLocale(language), { dateStyle: "long", timeStyle: "short" }).format(new Date(receipt.acknowledgementDueAt));
   return <section className="contribution-receipt" aria-labelledby="receipt-title">
     <div className="receipt-mark" aria-hidden="true"><i /><i /></div>
     <p className="mono">{copy.receiptLabel}</p>

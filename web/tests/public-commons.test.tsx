@@ -171,6 +171,16 @@ describe("public truth signal states", () => {
     );
   });
 
+  it("does not throw when Next renders an unsupported route segment before the layout rejects it", () => {
+    expect(() => render(
+      <PublicHomeView
+        language={"favicon.ico" as "en"}
+        snapshot={publicCommonsFixture("live")}
+      />,
+    )).not.toThrow();
+    expect(screen.getAllByText("18,429")).toHaveLength(2);
+  });
+
   it("never changes a verified count on a timer", () => {
     vi.useFakeTimers();
     render(<PublicHomeView language="en" snapshot={publicCommonsFixture("live")} />);

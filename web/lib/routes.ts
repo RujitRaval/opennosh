@@ -4,8 +4,15 @@ export const pseudoLanguage = "en-XA" as const;
 export type ShippedLanguage = (typeof supportedLanguages)[number];
 export type InterfaceLanguage = ShippedLanguage | typeof pseudoLanguage;
 
-export const defaultLanguage: InterfaceLanguage = "en";
+export const defaultLanguage: ShippedLanguage = "en";
 export const interfaceLanguageCookie = "opennosh_interface_language";
+
+export function formattingLocale(language: string): ShippedLanguage {
+  if (language === pseudoLanguage) return defaultLanguage;
+  return supportedLanguages.includes(language as ShippedLanguage)
+    ? (language as ShippedLanguage)
+    : defaultLanguage;
+}
 
 export function isPseudoLanguageEnabled(): boolean {
   return process.env.NODE_ENV !== "production"
