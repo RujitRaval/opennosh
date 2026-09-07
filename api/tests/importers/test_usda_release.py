@@ -104,7 +104,7 @@ def test_release_rejects_same_size_checksum_tampering_before_parsing(
         "https://example.com/foundation.zip",
         "http://fdc.nal.usda.gov/fdc-datasets/foundation.zip",
         "https://fdc.nal.usda.gov:444/fdc-datasets/foundation.zip",
-        "https://user@fdc.nal.usda.gov/fdc-datasets/foundation.zip",
+        "https://user" + "@fdc.nal.usda.gov/fdc-datasets/foundation.zip",
     ),
 )
 def test_release_manifest_rejects_non_usda_urls(

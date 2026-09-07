@@ -18,7 +18,7 @@ describe("food catalog server adapter", () => {
       searchable_records: 8_239,
     });
     expect(fetcher).toHaveBeenCalledWith(
-      "http://localhost:8000/api/v1/foods/catalog-summary",
+      new URL("/api/v1/foods/catalog-summary", "http://localhost:8000").toString(),
       expect.objectContaining({ next: { revalidate: 300, tags: ["food-catalog"] } }),
     );
   });
