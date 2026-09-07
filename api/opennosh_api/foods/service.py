@@ -33,6 +33,7 @@ from opennosh_api.foods.schemas import (
     CustomFoodCreate,
     CustomFoodResponse,
     FoodAttribution,
+    FoodCatalogSummary,
     FoodDetail,
     FoodSearchItem,
     FoodSearchReleaseSet,
@@ -51,6 +52,31 @@ SEARCH_PLAN_MAX_EXECUTION_MS = 100.0
 _LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 _PACK_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEARCH_PACK_FILTER_MAX = 20
+
+
+async def get_food_catalog_summary(database: AsyncSession) -> FoodCatalogSummary:
+    row = (
+        (
+            await database.execute(
+                text(
+                    """
+                    SELECT
+                        (SELECT COUNT(*) FROM foods_community) AS community_records,
+                        (SELECT COUNT(*) FROM foods_reference) AS usda_reference_records
+                    """
+                )
+            )
+        )
+        .mappings()
+        .one()
+    )
+    community_records = int(row["community_records"])
+    usda_reference_records = int(row["usda_reference_records"])
+    return FoodCatalogSummary(
+        community_records=community_records,
+        usda_reference_records=usda_reference_records,
+        searchable_records=community_records + usda_reference_records,
+    )
 
 
 class RankingTier(IntEnum):

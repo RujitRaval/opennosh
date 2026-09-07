@@ -773,6 +773,7 @@ async def import_usda(
     *,
     batch_size: int = 500,
     progress: ProgressCallback | None = None,
+    allowed_data_types: Iterable[USDADataType] = DEFAULT_DATA_TYPES,
 ) -> USDAImportReport:
     """Upsert valid USDA records; the caller controls the surrounding transaction."""
     if batch_size <= 0:
@@ -793,7 +794,7 @@ async def import_usda(
             progress(report)
 
     for path in paths:
-        for outcome in iter_usda(path):
+        for outcome in iter_usda(path, allowed_data_types=allowed_data_types):
             report.rows_seen += 1
             if outcome.issue is not None:
                 report.add_issue(outcome.issue)

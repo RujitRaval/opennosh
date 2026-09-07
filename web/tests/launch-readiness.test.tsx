@@ -111,22 +111,46 @@ describe("T31 launch readiness", () => {
 
   it("shows real public result provenance, empty results, and failures", async () => {
     mocks.searchFoods.mockResolvedValueOnce({
-      items: [{
-        id: "community:rajma",
-        source: "community",
-        source_id: "rajma",
-        name: "Rajma masala",
-        name_local: "राजमा मसाला",
-        category: "Punjabi home-style preparation",
-        attribution: { license: "CC0-1.0", pack_id: "indian-staples-north" },
-      }],
+      items: [
+        {
+          id: "community:rajma",
+          source: "community",
+          source_id: "rajma",
+          name: "Rajma masala",
+          name_local: "राजमा मसाला",
+          category: "Punjabi home-style preparation",
+          attribution: { license: "CC0-1.0", pack_id: "indian-staples-north" },
+        },
+        {
+          id: "usda:175194",
+          source: "usda",
+          source_id: "175194",
+          name: "Beans, kidney, cooked",
+          name_local: null,
+          category: "Legumes and Legume Products",
+          attribution: { license: "CC0" },
+        },
+      ],
     });
-    const { unmount } = render(<PublicFoodSearch language="en" />);
+    const { unmount } = render(
+      <PublicFoodSearch
+        language="en"
+        verifiedCommunityCount={166}
+        usdaReferenceCount={8_073}
+      />,
+    );
+    expect(screen.getByText("166")).toBeVisible();
+    expect(screen.getByText("8,073")).toBeVisible();
+    expect(screen.getByText("Signed community records")).toBeVisible();
+    expect(screen.getByText("USDA reference foods")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Food name"), { target: { value: "rajma" } });
     fireEvent.click(screen.getByRole("button", { name: "Search records" }));
     const link = await screen.findByRole("link", { name: /Rajma masala/ });
     expect(link).toHaveAttribute("href", "/en/explore/foods/community/rajma");
     expect(link).toHaveTextContent("CC0-1.0 · indian-staples-north");
+    expect(await screen.findByRole("link", { name: /Beans, kidney, cooked/ }))
+      .toHaveTextContent("CC0 · USDA FoodData Central");
+    expect(mocks.searchFoods).toHaveBeenCalledWith("rajma", "en");
 
     mocks.searchFoods.mockRejectedValueOnce(new Error("Replacement search is resting."));
     fireEvent.change(screen.getByLabelText("Food name"), { target: { value: "tofu" } });
@@ -139,7 +163,7 @@ describe("T31 launch readiness", () => {
     const empty = render(<PublicFoodSearch language="en" />);
     fireEvent.change(screen.getByLabelText("Food name"), { target: { value: "missing" } });
     fireEvent.submit(screen.getByRole("search"));
-    expect(await screen.findByText(/No matching starter record yet/)).toBeVisible();
+    expect(await screen.findByText(/No matching food record yet/)).toBeVisible();
     empty.unmount();
 
     mocks.searchFoods.mockRejectedValueOnce(new Error("Search is resting."));

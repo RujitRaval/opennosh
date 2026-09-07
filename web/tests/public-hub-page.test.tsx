@@ -1,14 +1,32 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import PublicHubPage, {
   dynamic, generateMetadata,
   generateStaticParams,
 } from "@/app/(public)/[language]/[hub]/page";
 
+const mocks = vi.hoisted(() => ({
+  getFoodCatalogSummary: vi.fn(),
+  getPublicCommonsSnapshot: vi.fn(),
+}));
+
+vi.mock("@/lib/food-catalog", () => ({
+  getFoodCatalogSummary: mocks.getFoodCatalogSummary,
+}));
+vi.mock("@/lib/public-commons", () => ({
+  getPublicCommonsSnapshot: mocks.getPublicCommonsSnapshot,
+}));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.getFoodCatalogSummary.mockResolvedValue(null);
+  mocks.getPublicCommonsSnapshot.mockResolvedValue(null);
 });
 
 describe("public hub pages", () => {
@@ -54,6 +72,48 @@ describe("public hub pages", () => {
       "/en/explore#search",
     );
     expect(screen.queryByText(/will not advertise unfinished work/)).not.toBeInTheDocument();
+  });
+
+  it("keeps signed community proof separate from USDA reference counts", async () => {
+    vi.stubEnv("OPENNOSH_PUBLIC_NAV_FEATURES", "explorer-search");
+    mocks.getFoodCatalogSummary.mockResolvedValue({
+      schema_version: "1.0",
+      community_records: 166,
+      usda_reference_records: 8_073,
+      searchable_records: 8_239,
+    });
+    mocks.getPublicCommonsSnapshot.mockResolvedValue({
+      state: "live",
+      release: { release_id: "fixture" },
+      verified_record_count: 166,
+    });
+
+    render(
+      await PublicHubPage({
+        params: Promise.resolve({ language: "en", hub: "explore" }),
+      }),
+    );
+
+    expect(screen.getByText("Signed community records")).toBeVisible();
+    expect(screen.getByText("166")).toBeVisible();
+    expect(screen.getByText("USDA reference foods")).toBeVisible();
+    expect(screen.getByText("8,073")).toBeVisible();
+
+    cleanup();
+    mocks.getPublicCommonsSnapshot.mockResolvedValue({
+      state: "illustrative",
+      release: { release_id: "fixture" },
+      verified_record_count: 166,
+    });
+    render(
+      await PublicHubPage({
+        params: Promise.resolve({ language: "en", hub: "explore" }),
+      }),
+    );
+
+    expect(screen.queryByText("Signed community records")).not.toBeInTheDocument();
+    expect(screen.getByText("USDA reference foods")).toBeVisible();
+    expect(screen.getByText("8,073")).toBeVisible();
   });
 
   it("provides localized metadata from the same hub registry", async () => {

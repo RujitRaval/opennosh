@@ -5,10 +5,18 @@ import { useState, type FormEvent } from "react";
 
 import { api } from "@/lib/api";
 import { getCatalog } from "@/lib/i18n/catalog";
-import { routes, type InterfaceLanguage } from "@/lib/routes";
+import { formattingLocale, routes, type InterfaceLanguage } from "@/lib/routes";
 import type { FoodSearchItem } from "@/lib/types";
 
-export function PublicFoodSearch({ language }: { language: InterfaceLanguage }) {
+export function PublicFoodSearch({
+  language,
+  verifiedCommunityCount,
+  usdaReferenceCount,
+}: {
+  language: InterfaceLanguage;
+  verifiedCommunityCount?: number | null;
+  usdaReferenceCount?: number | null;
+}) {
   const copy = getCatalog(language).search;
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<FoodSearchItem[]>([]);
@@ -23,7 +31,7 @@ export function PublicFoodSearch({ language }: { language: InterfaceLanguage }) 
     setItems([]);
     setSearched(false);
     try {
-      const result = await api.searchFoods(query, language, "community");
+      const result = await api.searchFoods(query, language);
       setItems(result.items);
       setSearched(true);
     } catch (caught) {
@@ -39,11 +47,28 @@ export function PublicFoodSearch({ language }: { language: InterfaceLanguage }) 
         <p className="mono">{copy.liveLabel}</p>
         <h2 id="public-search-title">{copy.title}</h2>
         <p>{copy.description}</p>
+        {verifiedCommunityCount !== null && verifiedCommunityCount !== undefined
+          || usdaReferenceCount !== null && usdaReferenceCount !== undefined ? (
+          <dl className="public-search-counts" aria-label={copy.catalogCounts}>
+            {verifiedCommunityCount !== null && verifiedCommunityCount !== undefined ? (
+              <div>
+                <dt>{copy.signedCommunityRecords}</dt>
+                <dd>{verifiedCommunityCount.toLocaleString(formattingLocale(language))}</dd>
+              </div>
+            ) : null}
+            {usdaReferenceCount !== null && usdaReferenceCount !== undefined ? (
+              <div>
+                <dt>{copy.usdaReferenceFoods}</dt>
+                <dd>{usdaReferenceCount.toLocaleString(formattingLocale(language))}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
       </div>
       <form className="public-search-form" role="search" onSubmit={(event) => void submit(event)}>
         <label htmlFor="public-food-query">{copy.foodName}</label>
         <div>
-          <input id="public-food-query" name="q" type="search" required minLength={2} maxLength={120} placeholder={copy.placeholder} value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input id="public-food-query" name="q" type="search" required minLength={2} maxLength={100} placeholder={copy.placeholder} value={query} onChange={(event) => setQuery(event.target.value)} />
           <button type="submit" disabled={busy}>{busy ? copy.searching : copy.submit}</button>
         </div>
       </form>
@@ -63,7 +88,10 @@ export function PublicFoodSearch({ language }: { language: InterfaceLanguage }) 
                   </span>
                   <span className="public-record-proof">
                     <small>{item.category ?? copy.categoryFallback}</small>
-                    <small>{item.attribution.license} · {item.attribution.pack_id ?? copy.packFallback}</small>
+                    <small>
+                      {item.attribution.license} · {item.attribution.pack_id
+                        ?? (item.source === "usda" ? copy.usdaSource : copy.communitySource)}
+                    </small>
                   </span>
                   <i aria-hidden="true">→</i>
                 </Link>

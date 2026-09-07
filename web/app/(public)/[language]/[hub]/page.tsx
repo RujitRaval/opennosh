@@ -17,6 +17,8 @@ import {
   buildPublicNavigation,
   parsePublicFeatureFlags,
 } from "@/lib/public-navigation";
+import { getFoodCatalogSummary } from "@/lib/food-catalog";
+import { getPublicCommonsSnapshot } from "@/lib/public-commons";
 import {
   isPublicHub,
   isSupportedLanguage,
@@ -83,6 +85,15 @@ export default async function PublicHubPage({
   const action = currentHub.nextAction;
   const actionClassName = "hub-primary-action";
   const copy = getCatalog(language);
+  const [catalogSummary, commonsSnapshot] = hub === "explore"
+    ? await Promise.all([getFoodCatalogSummary(), getPublicCommonsSnapshot()])
+    : [null, null];
+  const verifiedCommunityCount = commonsSnapshot?.release
+    && commonsSnapshot.verified_record_count !== null
+    && commonsSnapshot.state !== "illustrative"
+    && commonsSnapshot.state !== "unavailable"
+    ? commonsSnapshot.verified_record_count
+    : null;
 
   return (
     <>
@@ -112,7 +123,13 @@ export default async function PublicHubPage({
       </section>
 
       {hub === "explore" && currentHub.children.some((child) => child.id === "search")
-        ? <PublicFoodSearch language={language} />
+        ? (
+          <PublicFoodSearch
+            language={language}
+            verifiedCommunityCount={verifiedCommunityCount}
+            usdaReferenceCount={catalogSummary?.usda_reference_records}
+          />
+        )
         : null}
 
       {hub === "commons" && currentHub.children.some((child) => child.id === "missions") ? (

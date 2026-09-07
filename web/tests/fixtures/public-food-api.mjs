@@ -159,6 +159,16 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify(commonsFixtures[commonsState]));
     return;
   }
+  if (url.pathname === "/api/v1/foods/catalog-summary") {
+    response.setHeader("Cache-Control", "public, max-age=0, s-maxage=300");
+    response.end(JSON.stringify({
+      schema_version: "1.0",
+      community_records: 166,
+      usda_reference_records: 8073,
+      searchable_records: 8239,
+    }));
+    return;
+  }
   if (url.pathname === "/api/v1/public/missions") {
     response.setHeader("Cache-Control", "no-store");
     if (missionState === "error") {

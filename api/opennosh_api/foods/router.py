@@ -3,7 +3,7 @@ from time import perf_counter
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.auth.client_address import client_address
@@ -29,6 +29,7 @@ from opennosh_api.foods.schemas import (
     CustomFoodCreate,
     CustomFoodResponse,
     FoodCapabilities,
+    FoodCatalogSummary,
     FoodDetail,
     FoodSearchReadiness,
     FoodSearchResponse,
@@ -44,6 +45,7 @@ from opennosh_api.foods.service import (
     FoodSearchProjectionBusyError,
     FoodSearchTimeoutError,
     create_custom_food,
+    get_food_catalog_summary,
     get_food_detail,
     normalize_locale,
     normalize_pack_ids,
@@ -82,6 +84,15 @@ async def capabilities(
         barcode_lookup_enabled=settings.open_food_facts_enabled,
         federation_search_enabled=settings.federation_search_enabled,
     )
+
+
+@router.get("/catalog-summary", response_model=FoodCatalogSummary)
+async def catalog_summary(
+    response: Response,
+    database: Annotated[AsyncSession, Depends(get_database_session)],
+) -> FoodCatalogSummary:
+    response.headers["Cache-Control"] = "public, max-age=0, s-maxage=300"
+    return await get_food_catalog_summary(database)
 
 
 @router.get(

@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test package-check contracts-generate contracts-check developer-compatibility-check impact-metrics-check public-status-check publication-readiness-check benchmark-contract-check database-capacity-check forge-policy-check trust-gates-check trust-branch-protection-check trust-branch-protection-apply design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e web-e2e-ui web-e2e-vertical acceptance-config acceptance-up acceptance-down acceptance-ps acceptance-logs acceptance-copy-fixture build compose-config db-upgrade db-downgrade usda-import wger-import foodpack-validate
+.PHONY: install lint typecheck test package-check contracts-generate contracts-check developer-compatibility-check impact-metrics-check public-status-check publication-readiness-check benchmark-contract-check database-capacity-check forge-policy-check trust-gates-check trust-branch-protection-check trust-branch-protection-apply design-system-check font-performance-check benchmark-corpus benchmark-run benchmark-extraction motion-performance-check visual-regression-check web-e2e web-e2e-ui web-e2e-vertical acceptance-config acceptance-up acceptance-down acceptance-ps acceptance-logs acceptance-copy-fixture build compose-config db-upgrade db-downgrade usda-import usda-release-verify wger-import foodpack-validate
 
 ACCEPTANCE_PATH_HASH ?= $(shell pwd | cksum | cut -d " " -f 1)
 ACCEPTANCE_PROJECT ?= opennosh-acceptance-$(ACCEPTANCE_PATH_HASH)
@@ -147,6 +147,9 @@ db-downgrade:
 
 usda-import:
 	PYTHONPATH=api uv run python -m opennosh_api.importers.usda $(USDA_PATHS)
+
+usda-release-verify:
+	PYTHONPATH=api uv run opennosh-usda-release --dry-run $(if $(USDA_SOURCE_DIRECTORY),--source-directory $(USDA_SOURCE_DIRECTORY),)
 
 wger-import:
 	PYTHONPATH=api uv run opennosh exercises import-wger $(WGER_PATHS)

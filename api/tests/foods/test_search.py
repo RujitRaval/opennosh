@@ -25,6 +25,7 @@ from opennosh_api.foods.schemas import (
 from opennosh_api.foods.service import (
     FoodSearchTimeoutError,
     SearchSnapshot,
+    get_food_catalog_summary,
     get_food_detail,
     normalize_locale,
     normalize_pack_ids,
@@ -50,6 +51,19 @@ class _RecordingDatabase:
 
     async def rollback(self) -> None:
         self.rolled_back = True
+
+
+class _CatalogMappings:
+    def mappings(self) -> _CatalogMappings:
+        return self
+
+    def one(self) -> dict[str, int]:
+        return {"community_records": 166, "usda_reference_records": 8_073}
+
+
+class _CatalogDatabase:
+    async def execute(self, *_args: Any, **_kwargs: Any) -> _CatalogMappings:
+        return _CatalogMappings()
 
 
 class _FailingDatabase:
@@ -169,6 +183,20 @@ def test_openapi_publishes_the_enforced_query_bounds() -> None:
     assert "offset" not in parameter_names
     assert "pack" in parameter_names
     assert cursor_schema["maxLength"] == 2_048
+
+
+def test_catalog_summary_keeps_community_and_usda_counts_separate() -> None:
+    summary = asyncio.run(get_food_catalog_summary(_CatalogDatabase()))  # type: ignore[arg-type]
+
+    assert summary.community_records == 166
+    assert summary.usda_reference_records == 8_073
+    assert summary.searchable_records == 8_239
+
+    schema = create_app(Settings(app_environment="test", _env_file=None)).openapi()
+    response_schema = schema["paths"]["/api/v1/foods/catalog-summary"]["get"]["responses"][
+        "200"
+    ]["content"]["application/json"]["schema"]
+    assert response_schema["$ref"] == "#/components/schemas/FoodCatalogSummary"
 
 
 def test_readiness_directly_returns_the_approved_record(

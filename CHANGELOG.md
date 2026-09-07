@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.97.0.0] - 2026-09-07
+
+### Added
+
+- Add a checksum-pinned USDA FoodData Central release workflow that validates 8,188 Foundation and
+  SR Legacy source rows, imports 8,073 supported reference foods atomically through the bounded
+  administration role, and safely invalidates retained unfiltered search projections.
+- Publish database-backed community, USDA reference, and searchable catalog counts through the
+  public food API while keeping the signed Commons record count independently verified.
+
+### Changed
+
+- Search signed community records and USDA reference foods together in the public Explore catalog,
+  with source-specific attribution and separate truthful count labels on desktop and mobile.
+
 ## [0.96.0.1] - 2026-09-07
 
 ### Fixed

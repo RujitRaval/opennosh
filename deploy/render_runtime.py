@@ -344,6 +344,28 @@ def predeploy_environment(source: Mapping[str, str]) -> dict[str, str]:
     return environment
 
 
+def administration_environment(source: Mapping[str, str]) -> dict[str, str]:
+    """Build an operator-job environment containing only administration authority."""
+
+    environment = {
+        key: value
+        for key in (
+            *PROCESS_RUNTIME_ENVIRONMENT_KEYS,
+            "APP_ENVIRONMENT",
+            "DATABASE_CAPACITY_MANIFEST_PATH",
+        )
+        if (value := source.get(key)) is not None
+    }
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    migration_password = _required(source, "MIGRATION_DATABASE_PASSWORD")
+    environment["ADMINISTRATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        MIGRATION_ROLE,
+        migration_password,
+    )
+    return environment
+
+
 def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
     """Build a mode-bounded worker environment without retaining sibling credentials."""
 
@@ -648,6 +670,22 @@ def run_api(source: Mapping[str, str]) -> None:
     os.execvpe("opennosh-web", ["opennosh-web"], api_environment(source))
 
 
+def run_usda_reference_release(
+    source: Mapping[str, str],
+    *,
+    manifest_path: str | None = None,
+    dry_run: bool = False,
+) -> None:
+    """Apply one checksum-pinned USDA release with the bounded migration role."""
+
+    command = ["opennosh-usda-release"]
+    if manifest_path is not None:
+        command.extend(("--manifest", manifest_path))
+    if dry_run:
+        command.append("--dry-run")
+    subprocess.run(command, check=True, env=administration_environment(source))
+
+
 def run_publication(source: Mapping[str, str]) -> None:
     os.execvpe(
         "opennosh-publication-worker",
@@ -745,9 +783,12 @@ def main() -> int:
             "publication-readiness",
             "natural-publication-readiness",
             "natural-publication-proof",
+            "usda-reference-release",
         ),
     )
     parser.add_argument("--request-file")
+    parser.add_argument("--manifest")
+    parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
         run_predeploy(os.environ)
@@ -761,6 +802,12 @@ def main() -> int:
         run_natural_publication_proof(os.environ, request_file=arguments.request_file)
     elif arguments.mode == "natural-publication-readiness":
         run_natural_publication_readiness(os.environ)
+    elif arguments.mode == "usda-reference-release":
+        run_usda_reference_release(
+            os.environ,
+            manifest_path=arguments.manifest,
+            dry_run=arguments.dry_run,
+        )
     else:
         run_publication(os.environ)
     return 0
