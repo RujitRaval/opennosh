@@ -105,7 +105,7 @@ export default async function PublicHubPage({
             <span>{action.label}</span><span aria-hidden="true">{"\u2197"}</span>
           </a>
         ) : (
-          <Link className={actionClassName} href={action.href}>
+          <Link className={actionClassName} href={action.href} prefetch={false}>
             <span>{action.label}</span><span aria-hidden="true">{"\u2193"}</span>
           </Link>
         )}
@@ -151,7 +151,7 @@ export default async function PublicHubPage({
         {currentHub.children.length > 0 ? (
           <div className="hub-content-ledger">
             {currentHub.children.map((child, index) => (
-              <Link id={`hub-link-${child.id}`} key={child.id} href={child.href}>
+              <Link id={`hub-link-${child.id}`} key={child.id} href={child.href} prefetch={false}>
                 <span className="mono">{String(index + 1).padStart(2, "0")}</span>
                 <strong>{child.label}</strong>
                 <small>{child.description}</small>

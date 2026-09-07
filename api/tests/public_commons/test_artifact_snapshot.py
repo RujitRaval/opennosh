@@ -13,11 +13,17 @@ from opennosh_api.public.artifacts import (
     PublicReleaseMetadata,
     ResolvedRelease,
 )
+from opennosh_api.public_commons.accepted_activity import (
+    ActivityProjectionUnavailable,
+    CanonicalAcceptedActivityProjection,
+)
 from opennosh_api.public_commons.artifact_snapshot import (
     ArtifactBackedPublicCommonsSnapshotService,
 )
 from opennosh_api.public_commons.manifests import SignedEnvelope
 from opennosh_api.public_commons.schemas import (
+    AcceptedActivityEvent,
+    AcceptedEventType,
     CommonsSnapshotReason,
     CommonsSnapshotState,
 )
@@ -54,6 +60,7 @@ def _release(
             state=state,
             stale_age_seconds=stale_age_seconds,
         ),
+        publication_receipt_published_at=datetime(2026, 9, 4, 12, 5, tzinfo=UTC),
     )
 
 
@@ -73,6 +80,21 @@ class FakeArtifactService:
         if self.release is None:
             raise ArtifactUnavailableError("latest_release_unavailable")
         return self.release
+
+
+class FakeActivitySource:
+    def __init__(self, projection: CanonicalAcceptedActivityProjection) -> None:
+        self.projection = projection
+        self.calls: list[tuple[ResolvedRelease, datetime]] = []
+
+    async def project(
+        self,
+        *,
+        release: ResolvedRelease,
+        checked_at: datetime,
+    ) -> CanonicalAcceptedActivityProjection:
+        self.calls.append((release, checked_at))
+        return self.projection
 
 
 @pytest.mark.asyncio
@@ -100,6 +122,107 @@ async def test_verified_artifact_release_exposes_proof_without_inventing_activit
     assert first.snapshot.reasons == (CommonsSnapshotReason.ACTIVITY_PROJECTION_LAG,)
     assert service.metrics.rebuilds == 1
     assert service.metrics.source_artifact_reads == 1
+
+
+@pytest.mark.asyncio
+async def test_verified_accepted_event_projection_drives_live_snapshot() -> None:
+    release = _release()
+    event = AcceptedActivityEvent(
+        event_id="accepted-1",
+        event_type=AcceptedEventType.FOOD,
+        food_or_pack_id="dhokla-gujarati",
+        food_locale="en-IN",
+        accepted_at=datetime(2026, 9, 4, 12, 4, tzinfo=UTC),
+        source_commit="a" * 40,
+        href="/en/explore/foods/community/dhokla-gujarati",
+        summary="Accepted Dhokla as a verified food record.",
+    )
+    activity = FakeActivitySource(
+        CanonicalAcceptedActivityProjection(
+            accepted_count=1,
+            events=(event,),
+            most_recent_verified_record=None,
+            event_checkpoint="c" * 64,
+        )
+    )
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        FakeArtifactService(release),
+        stale_after_seconds=300,
+        activity_source=activity,
+    )
+
+    resolution = await service.refresh_response(now=NOW)
+
+    assert resolution.snapshot.state is CommonsSnapshotState.LIVE
+    assert resolution.snapshot.activity.accepted_count == 1
+    assert resolution.snapshot.activity.events == (event,)
+    assert resolution.snapshot.reasons == ()
+    assert resolution.snapshot.release is not None
+    assert resolution.snapshot.release.published_at == release.publication_receipt_published_at
+    assert activity.calls == [(release, BUCKET)]
+
+
+@pytest.mark.asyncio
+async def test_verified_empty_accepted_event_projection_drives_quiet_snapshot() -> None:
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        FakeArtifactService(_release()),
+        stale_after_seconds=300,
+        activity_source=FakeActivitySource(
+            CanonicalAcceptedActivityProjection(
+                accepted_count=0,
+                events=(),
+                most_recent_verified_record=None,
+                event_checkpoint="d" * 64,
+            )
+        ),
+    )
+
+    resolution = await service.refresh_response(now=NOW)
+
+    assert resolution.snapshot.state is CommonsSnapshotState.QUIET
+    assert resolution.snapshot.freshness.activity == "verified"
+    assert resolution.snapshot.reasons == ()
+
+
+@pytest.mark.asyncio
+async def test_activity_projection_failure_remains_truthfully_partial(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class FailedActivitySource:
+        async def project(self, **_arguments: object) -> CanonicalAcceptedActivityProjection:
+            raise RuntimeError("database details stay private")
+
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        FakeArtifactService(_release()),
+        stale_after_seconds=300,
+    )
+    service.configure_activity_source(FailedActivitySource())
+
+    resolution = await service.refresh_response(now=NOW)
+
+    assert resolution.snapshot.state is CommonsSnapshotState.PARTIAL
+    assert "error=RuntimeError" in caplog.text
+    assert "database details stay private" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_activity_projection_logs_stable_safe_failure_code(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class FailedActivitySource:
+        async def project(self, **_arguments: object) -> CanonicalAcceptedActivityProjection:
+            raise ActivityProjectionUnavailable("accepted_event_release_boundary_incomplete")
+
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        FakeArtifactService(_release()),
+        stale_after_seconds=300,
+        activity_source=FailedActivitySource(),
+    )
+
+    resolution = await service.refresh_response(now=NOW)
+
+    assert resolution.snapshot.state is CommonsSnapshotState.PARTIAL
+    assert "error=accepted_event_release_boundary_incomplete" in caplog.text
 
 
 @pytest.mark.asyncio

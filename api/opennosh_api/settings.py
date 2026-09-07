@@ -136,6 +136,8 @@ class Settings(BaseSettings):
     publication_preactivation_smoke_enabled: bool = False
     governance_code_attestation_enabled: bool = False
     governance_code_attestation_interval_seconds: PositiveFloat = 30.0
+    governance_code_attestation_alert_webhook_url: SecretStr | None = None
+    governance_code_attestation_alert_bearer_token: SecretStr | None = None
     federation_ingestion_enabled: bool = False
     federation_projection_enabled: bool = False
     federation_search_enabled: bool = False
@@ -257,6 +259,32 @@ class Settings(BaseSettings):
         ):
             raise ValueError("Public artifact origin must be a safe HTTPS URL")
         return normalized
+
+    @field_validator("governance_code_attestation_alert_webhook_url")
+    @classmethod
+    def validate_code_attestation_alert_webhook_url(
+        cls, value: SecretStr | None
+    ) -> SecretStr | None:
+        if value is None:
+            return None
+        endpoint = value.get_secret_value()
+        parsed = urlsplit(endpoint)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Code attestation alert webhook must be a safe HTTPS URL") from error
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.query
+            or parsed.fragment
+            or any(character.isspace() or character in "<>\"'\\" for character in endpoint)
+        ):
+            raise ValueError("Code attestation alert webhook must be a safe HTTPS URL")
+        return value
 
     @field_validator("r2_bucket")
     @classmethod
@@ -406,6 +434,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rate_limit_retention(self) -> Self:
+        if (
+            self.governance_code_attestation_alert_bearer_token is not None
+            and self.governance_code_attestation_alert_webhook_url is None
+        ):
+            raise ValueError("Code attestation alert token requires a webhook URL")
+        if (
+            self.governance_code_attestation_alert_webhook_url is not None
+            and not self.governance_code_attestation_enabled
+        ):
+            raise ValueError("Code attestation alert webhook requires attestation to be enabled")
         if self.governance_mutations_enabled and not self.governance_steward_ui_enabled:
             raise ValueError("Governance mutations require the steward UI read surface")
         if self.mission_mutations_enabled and not self.mission_public_enabled:
@@ -438,6 +476,8 @@ class Settings(BaseSettings):
             self.github_attester_app_id,
             self.github_attester_installation_id,
             self.github_attester_private_key,
+            self.governance_code_attestation_alert_webhook_url,
+            self.governance_code_attestation_alert_bearer_token,
             self.publication_artifact_bucket,
             self.r2_account_id,
             self.r2_bucket,

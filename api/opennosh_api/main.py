@@ -41,6 +41,7 @@ from opennosh_api.public.artifacts import (
     PublicArtifactReadService,
 )
 from opennosh_api.public.router import router as public_artifact_router
+from opennosh_api.public_commons.accepted_activity import CanonicalAcceptedActivitySource
 from opennosh_api.public_commons.artifact_snapshot import (
     ArtifactBackedPublicCommonsSnapshotService,
 )
@@ -145,7 +146,8 @@ def create_app(
             engine,
             timeout_seconds=resolved_settings.database_healthcheck_timeout_seconds,
         )
-        app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        app.state.session_factory = session_factory
         app.state.database_pool_metrics = database_pool_metrics
         app.state.database_capacity_manifest = capacity_manifest
         app.state.open_food_facts_client = open_food_facts_client
@@ -153,6 +155,16 @@ def create_app(
         public_commons_service: PublicCommonsSnapshotService = (
             app.state.public_commons_snapshot_service
         )
+        if isinstance(public_commons_service, ArtifactBackedPublicCommonsSnapshotService):
+            public_commons_service.configure_activity_source(
+                CanonicalAcceptedActivitySource(
+                    session_factory,
+                    receipt_keys=PublicationReceiptKeyRing.from_json(
+                        resolved_settings.publication_receipt_verifying_keys.get_secret_value()
+                    ),
+                    artifact_reader=app.state.public_artifact_read_service,
+                )
+            )
         if getattr(public_commons_service, "materialization_enabled", False):
             await refresh_public_commons_once(public_commons_service, resolved_settings)
             materializer_task = asyncio.create_task(

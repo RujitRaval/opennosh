@@ -89,7 +89,7 @@ export function PublicHeader({
     <header
       className={`public-header${usesDarkHeader ? " public-header-dark" : ""}${usesTomatoHeader ? " public-header-tomato" : ""}`}
     >
-      <Link className="public-brand" href={routes.publicHome(language)} aria-label={catalog.common.opennoshHome}>
+      <Link className="public-brand" href={routes.publicHome(language)} aria-label={catalog.common.opennoshHome} prefetch={false}>
         <BrandLogo
           surface={usesDarkHeader ? "commons-ink" : usesTomatoHeader ? "signal-tomato" : "rice-paper"}
           priority
@@ -103,6 +103,7 @@ export function PublicHeader({
           <Link
             key={hub.id}
             href={routes.publicHub(hub.id, language)}
+            prefetch={false}
             aria-current={hub.id === activeHub ? "page" : undefined}
           >
             {hub.label}
@@ -125,7 +126,7 @@ export function PublicHeader({
         <CrossRootLink className="tracker-link" href={routes.tracker.home}>
           {copy.tracker} <span aria-hidden="true">{"\u2197"}</span>
         </CrossRootLink>
-        <Link className="mobile-context-action" href={contextAction.href}>
+        <Link className="mobile-context-action" href={contextAction.href} prefetch={false}>
           {usesTomatoHeader
             ? contextAction.compactLabel
             : formatMessage(copy.nextAction, { action: contextAction.compactLabel })}
@@ -151,6 +152,7 @@ export function PublicHeader({
                 id={`mobile-${hub.id}`}
                 className="mobile-hub-link"
                 href={routes.publicHub(hub.id, language)}
+                prefetch={false}
                 aria-current={hub.id === activeHub ? "page" : undefined}
                 onClick={() => closeMenu()}
               >
@@ -160,7 +162,7 @@ export function PublicHeader({
               {hub.children.length > 0 ? (
                 <div className="mobile-child-links">
                   {hub.children.map((child) => (
-                    <Link key={child.id} href={child.href} onClick={() => closeMenu()}>
+                    <Link key={child.id} href={child.href} prefetch={false} onClick={() => closeMenu()}>
                       {child.label}
                     </Link>
                   ))}

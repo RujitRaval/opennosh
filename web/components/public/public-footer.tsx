@@ -18,11 +18,11 @@ export function PublicFooter({
   const copy = getCatalog(language);
   return (
     <footer className="public-footer">
-      <Link href={routes.publicHome(language)} aria-label={copy.common.opennoshHome}>
+      <Link href={routes.publicHome(language)} aria-label={copy.common.opennoshHome} prefetch={false}>
         <BrandLogo surface="signal-tomato" className="footer-brand" decorative />
       </Link>
       <nav aria-label={copy.shell.footerNavigation}>
-        <Link href={routes.publicNotices(language)}>{copy.shell.licenses}</Link>
+        <Link href={routes.publicNotices(language)} prefetch={false}>{copy.shell.licenses}</Link>
         <a href="https://github.com/RujitRaval/opennosh">{copy.shell.source}</a>
         <CrossRootLink href={routes.tracker.home}>{copy.shell.privateTracker}</CrossRootLink>
       </nav>

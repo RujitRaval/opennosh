@@ -4,14 +4,17 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 import pytest
 from opennosh_api.publication.code_attestation import (
     ATTESTATION_CHECK,
+    CodeAttestationAvailabilityAlert,
     CodeAttestationReport,
     GitHubCodeAttestationService,
+    WebhookCodeAttestationAlertDestination,
     run_code_attestation_loop,
 )
 from opennosh_api.publication.forge.contracts import (
@@ -224,6 +227,112 @@ async def test_reconciler_loop_escalates_sustained_outage_at_bounded_intervals(
         and "outage_alerted=true" in record.getMessage()
         for record in caplog.records
     )
+
+
+@pytest.mark.asyncio
+async def test_reconciler_loop_delivers_bounded_outage_and_recovery_alerts() -> None:
+    shutdown = asyncio.Event()
+    alerts: list[CodeAttestationAvailabilityAlert] = []
+
+    class Service:
+        calls = 0
+
+        async def reconcile_once(self) -> CodeAttestationReport:
+            self.calls += 1
+            if self.calls <= 6:
+                raise ForgeRetryableError("temporary")
+            shutdown.set()
+            return CodeAttestationReport(0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    class Destination:
+        async def send(self, alert: CodeAttestationAvailabilityAlert) -> None:
+            alerts.append(alert)
+
+    await run_code_attestation_loop(  # type: ignore[arg-type]
+        Service(),
+        shutdown,
+        interval_seconds=0.001,
+        outage_failure_threshold=3,
+        alert_destination=Destination(),
+    )
+
+    assert [(alert.state, alert.error_code, alert.failed_attempts) for alert in alerts] == [
+        ("outage", "temporary", 3),
+        ("outage", "temporary", 6),
+        ("recovered", "temporary", 6),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_webhook_alert_destination_sends_only_redacted_contract() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(204)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    destination = WebhookCodeAttestationAlertDestination(
+        "https://alerts.example.test/opennosh",
+        bearer_token="secret-token",
+        client=client,
+    )
+    occurred_at = datetime(2026, 9, 5, 12, 30, tzinfo=UTC)
+    try:
+        await destination.send(
+            CodeAttestationAvailabilityAlert(
+                state="outage",
+                error_code="github_code_attestation_unavailable",
+                failed_attempts=3,
+                occurred_at=occurred_at,
+            )
+        )
+    finally:
+        await client.aclose()
+
+    assert len(requests) == 1
+    assert requests[0].headers["Authorization"] == "Bearer secret-token"
+    assert json.loads(requests[0].content) == {
+        "schema": "opennosh.governance-code-attestation.availability.v1",
+        "component": "governance-code-attestation",
+        "state": "outage",
+        "error_code": "github_code_attestation_unavailable",
+        "failed_attempts": 3,
+        "occurred_at": "2026-09-05T12:30:00+00:00",
+    }
+
+
+@pytest.mark.asyncio
+async def test_external_alert_delivery_failure_does_not_stop_reconciliation(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    shutdown = asyncio.Event()
+
+    class Service:
+        calls = 0
+
+        async def reconcile_once(self) -> CodeAttestationReport:
+            self.calls += 1
+            if self.calls == 1:
+                raise ForgeRetryableError("temporary")
+            shutdown.set()
+            return CodeAttestationReport(0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    class FailedDestination:
+        async def send(self, _alert: CodeAttestationAvailabilityAlert) -> None:
+            raise RuntimeError("destination secret detail")
+
+    with caplog.at_level(logging.ERROR):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            Service(),
+            shutdown,
+            interval_seconds=0.001,
+            outage_failure_threshold=1,
+            alert_destination=FailedDestination(),
+        )
+
+    assert "error_type=RuntimeError" in caplog.text
+    assert "destination secret detail" not in caplog.text
 
 
 @pytest.mark.asyncio

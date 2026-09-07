@@ -65,11 +65,16 @@ The worker treats one or two retryable GitHub failures as a transient condition 
 searchable `state=retrying` warning with the consecutive-failure count. Three consecutive failures
 emit `state=outage` at error level, and every third failure repeats that bounded outage signal until
 GitHub recovers. The first successful reconciliation then emits `state=recovered`, the failed-attempt
-count, and whether an outage alert fired. Alert on `Governance code attestation availability
-state=outage` for `opennosh-publication`; close the incident only after the matching
-`state=recovered` line and a successful exact-main attestation check. This preserves automatic retry
-without turning a single provider hiccup into an incident or allowing a sustained outage to remain
-silent.
+count, and whether an outage alert fired. Configure
+`GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL` with an operator-owned HTTPS endpoint and, when the
+receiver requires it, `GOVERNANCE_CODE_ATTESTATION_ALERT_BEARER_TOKEN`. The worker posts the bounded,
+redacted `opennosh.governance-code-attestation.availability.v1` contract for every `state=outage`
+threshold and for the first matching recovery. The payload contains only component, state, stable
+error code, failure count, and UTC occurrence time; alert delivery failure is logged by exception
+type and never stops reconciliation. Route `outage` to the incident destination and close it only
+after the matching `recovered` delivery and a successful exact-main attestation check. This
+preserves automatic retry without turning a single provider hiccup into an incident, exporting full
+application logs, or allowing a sustained outage to remain silent.
 
 After first activation, prove the control loop with a no-op documentation PR that does not touch
 `packs/`: observe the attester App's required success, merge without a branch-protection bypass,
@@ -81,14 +86,17 @@ authorization reaches the attester.
 
 Before a durable HTTPS artifact origin is provisioned, public snapshot consumers remain explicitly
 unavailable. Once `PUBLIC_ARTIFACT_BASE_URL` and the approved verification keys are configured, the
-API background materializer must project the already verified release and exact manifest record
-count into `/api/v1/public/commons-snapshot`. The artifact manifest does not yet carry the accepted
-activity projection, so the truthful transitional state is `partial` with
-`activity_projection_lag`, never a fabricated `quiet` or `live` claim. A later origin failure may
-serve only checkpoint-backed `stale` proof. `PUBLIC_ARTIFACT_READS_ENABLED=false` remains the
-explicit web food-detail dark-launch default and publication claims remain disabled until their
-separate readiness ceremony passes. Never enable a filesystem path or a development verification
-key in production.
+API background materializer projects the verified release, manifest record count, and canonical
+accepted-event window into `/api/v1/public/commons-snapshot`. The activity projection runs in one
+repeatable-read transaction, anchors its cutoff to the verified publication receipt, requires that
+receipt's accepted event to exist, rejects any newer accepted release, re-verifies each displayed
+receipt and exact public food artifact, and binds every identity row in the 24-hour window into the
+snapshot checkpoint. A complete zero-row window is truthfully `quiet`; a complete nonzero window is
+`live`; any missing or inconsistent database, receipt, pack, or artifact proof stays `partial` with
+`activity_projection_lag`. A later origin failure may serve only checkpoint-backed `stale` proof.
+`PUBLIC_ARTIFACT_READS_ENABLED=false` remains the explicit web food-detail dark-launch default and
+publication claims remain disabled until their separate readiness ceremony passes. Never enable a
+filesystem path or a development verification key in production.
 
 Render private services do not support a Blueprint `healthCheckPath`, so use
 `/api/v1/foods/readiness` as the API's independent external release-readiness canary after Render

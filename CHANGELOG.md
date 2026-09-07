@@ -2,6 +2,26 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.96.0.0] - 2026-09-07
+
+### Added
+
+- Project the canonical, receipt-bound accepted-event ledger into Public Commons so a complete
+  24-hour window reports truthful `quiet` or `live` activity while incomplete proof stays partial.
+- Deliver bounded governance-attestation outage and recovery signals to an operator-owned,
+  redacted HTTPS webhook without exporting application logs or stopping reconciliation.
+
+### Changed
+
+- Move all GitHub Actions artifact uploads to the immutable `upload-artifact` v7 Node.js 24
+  runtime.
+
+### Fixed
+
+- Stop speculative public-route CSS preloads and fold shared error styles into the active base
+  stylesheet, eliminating unused CSS preload warnings while preserving the two critical font
+  preloads.
+
 ## [0.95.2.1] - 2026-09-07
 
 ### Fixed

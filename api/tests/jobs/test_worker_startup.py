@@ -609,10 +609,12 @@ async def test_code_attestation_worker_runs_without_database_or_refresh(
         supplied_shutdown: asyncio.Event,
         *,
         interval_seconds: float,
+        alert_destination: object | None,
     ) -> None:
         assert service is clients.service
         assert supplied_shutdown is shutdown
         assert interval_seconds == 30.0
+        assert alert_destination is None
         lifecycle.append("attest")
 
     async def forbidden_queue_driver(**_arguments: object) -> None:

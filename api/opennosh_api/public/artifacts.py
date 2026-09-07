@@ -229,6 +229,7 @@ class ResolvedRelease:
     manifest_bytes: bytes
     publication_receipt_digest: str
     metadata: PublicReleaseMetadata
+    publication_receipt_published_at: datetime | None = None
 
 
 class ArtifactStore(Protocol):
@@ -609,6 +610,7 @@ class PublicArtifactReadService:
             manifest_bytes=manifest_bytes,
             publication_receipt_digest=receipt_digest,
             metadata=metadata,
+            publication_receipt_published_at=bound.published_at,
         )
         if self._max_cached_releases > 0:
             self._release_cache[cache_key] = release

@@ -54,7 +54,7 @@ export function PublicHomeView({
         </div>
         <div className="hero-bottom">
           <p>{copy.heroLead}<br />{copy.heroLeadSecond}</p>
-          <Link className="circle-link" href={routes.publicHub("explore", language)}>
+          <Link className="circle-link" href={routes.publicHub("explore", language)} prefetch={false}>
             <span>{copy.start}</span><span aria-hidden="true">↘</span>
           </Link>
         </div>

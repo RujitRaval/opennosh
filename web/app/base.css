@@ -19,3 +19,24 @@ svg {
   display: block;
   max-width: 100%;
 }
+
+.route-error-main {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+  padding: clamp(2rem, 8vw, 7rem);
+}
+
+.route-error-panel {
+  max-width: 42rem;
+}
+
+.route-error-eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.route-error-reference {
+  overflow-wrap: anywhere;
+}

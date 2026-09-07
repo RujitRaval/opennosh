@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
 from opennosh_api.public.artifacts import (
     ArtifactUnavailableError,
     ResolvedRelease,
+)
+from opennosh_api.public_commons.accepted_activity import (
+    ActivityProjectionUnavailable,
+    CanonicalAcceptedActivityProjection,
 )
 from opennosh_api.public_commons.manifests import (
     PublicCommonsResolution,
@@ -24,6 +29,8 @@ from opennosh_api.public_commons.schemas import (
     PublicReleaseProof,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class PublicReleaseResolver(Protocol):
     async def resolve_release(
@@ -34,13 +41,22 @@ class PublicReleaseResolver(Protocol):
     ) -> ResolvedRelease: ...
 
 
+class AcceptedActivitySource(Protocol):
+    async def project(
+        self,
+        *,
+        release: ResolvedRelease,
+        checked_at: datetime,
+    ) -> CanonicalAcceptedActivityProjection: ...
+
+
 class ArtifactBackedPublicCommonsSnapshotService:
     """Project the canonical verified artifact release into the homepage contract.
 
     The public read manifest proves the immutable release and its record inventory,
-    but it does not yet carry the accepted-event projection. The snapshot therefore
-    exposes release proof while reporting activity as partial instead of inventing a
-    quiet or live claim.
+    and combines it with a separately verified projection of the append-only accepted-event
+    ledger. The request path remains an in-memory read; source reconciliation happens only
+    in the background materializer.
     """
 
     def __init__(
@@ -48,10 +64,12 @@ class ArtifactBackedPublicCommonsSnapshotService:
         artifact_service: PublicReleaseResolver,
         *,
         stale_after_seconds: int,
+        activity_source: AcceptedActivitySource | None = None,
     ) -> None:
         if stale_after_seconds <= 0:
             raise ValueError("Public commons stale threshold must be positive")
         self._artifact_service = artifact_service
+        self._activity_source = activity_source
         self._stale_after_seconds = stale_after_seconds
         self._cached_bucket: datetime | None = None
         self._cached_resolution: PublicCommonsResolution | None = None
@@ -65,6 +83,9 @@ class ArtifactBackedPublicCommonsSnapshotService:
     @property
     def materialization_enabled(self) -> bool:
         return True
+
+    def configure_activity_source(self, source: AcceptedActivitySource) -> None:
+        self._activity_source = source
 
     @property
     def metrics(self) -> PublicCommonsSnapshotMetrics:
@@ -148,8 +169,25 @@ class ArtifactBackedPublicCommonsSnapshotService:
             cache_status = "stale"
         else:
             cache_status = "rebuilt"
+        activity: CanonicalAcceptedActivityProjection | None = None
+        if release.metadata.state != "stale" and self._activity_source is not None:
+            try:
+                activity = await self._activity_source.project(
+                    release=release,
+                    checked_at=checked_at,
+                )
+            except Exception as error:
+                error_code = (
+                    error.code
+                    if isinstance(error, ActivityProjectionUnavailable)
+                    else type(error).__name__
+                )
+                logger.warning(
+                    "Public Commons accepted-event projection state=partial error=%s",
+                    error_code,
+                )
         return self._resolution(
-            self._snapshot_from_release(release, checked_at),
+            self._snapshot_from_release(release, checked_at, activity=activity),
             cache_status=cache_status,
         )
 
@@ -157,19 +195,31 @@ class ArtifactBackedPublicCommonsSnapshotService:
     def _snapshot_from_release(
         release: ResolvedRelease,
         checked_at: datetime,
+        *,
+        activity: CanonicalAcceptedActivityProjection | None,
     ) -> PublicCommonsSnapshot:
         is_stale = release.metadata.state == "stale"
-        state = CommonsSnapshotState.STALE if is_stale else CommonsSnapshotState.PARTIAL
-        reasons = (
-            (CommonsSnapshotReason.LATEST_RELEASE_UNAVAILABLE,)
-            if is_stale
-            else (CommonsSnapshotReason.ACTIVITY_PROJECTION_LAG,)
-        )
+        reasons: tuple[CommonsSnapshotReason, ...]
+        if is_stale:
+            state = CommonsSnapshotState.STALE
+            reasons = (CommonsSnapshotReason.LATEST_RELEASE_UNAVAILABLE,)
+        elif activity is None:
+            state = CommonsSnapshotState.PARTIAL
+            reasons = (CommonsSnapshotReason.ACTIVITY_PROJECTION_LAG,)
+        elif activity.accepted_count:
+            state = CommonsSnapshotState.LIVE
+            reasons = ()
+        else:
+            state = CommonsSnapshotState.QUIET
+            reasons = ()
         manifest_digest = hashlib.sha256(release.manifest_bytes).hexdigest()
+        activity_checkpoint = (
+            "unavailable" if activity is None else activity.event_checkpoint
+        )
         snapshot_id = hashlib.sha256(
             canonical_json(
                 {
-                    "activity_projection": "unavailable",
+                    "activity_projection": activity_checkpoint,
                     "as_of_bucket": checked_at.isoformat(),
                     "manifest_digest": manifest_digest,
                     "publication_receipt_digest": release.publication_receipt_digest,
@@ -181,6 +231,9 @@ class ArtifactBackedPublicCommonsSnapshotService:
         stale_since = (
             checked_at - timedelta(seconds=release.metadata.stale_age_seconds) if is_stale else None
         )
+        published_at = (
+            release.publication_receipt_published_at or release.manifest.published_at
+        )
         return PublicCommonsSnapshot(
             snapshot_id=snapshot_id,
             as_of=checked_at,
@@ -189,17 +242,27 @@ class ArtifactBackedPublicCommonsSnapshotService:
                 version=release.manifest.release_version,
                 manifest_digest=manifest_digest,
                 publication_receipt_digest=release.publication_receipt_digest,
-                published_at=release.manifest.published_at,
+                published_at=published_at,
             ),
             verified_record_count=len(release.manifest.foods),
             activity=CommonsActivityWindow(
                 starts_at=checked_at - timedelta(hours=24),
                 ends_at=checked_at,
-                accepted_count=0,
+                accepted_count=0 if activity is None else activity.accepted_count,
+                events=() if activity is None else activity.events,
+                most_recent_verified_record=(
+                    None if activity is None else activity.most_recent_verified_record
+                ),
             ),
             freshness=CommonsComponentFreshness(
                 release="stale" if is_stale else "verified",
-                activity="stale" if is_stale else "partial",
+                activity=(
+                    "stale"
+                    if is_stale
+                    else "partial"
+                    if activity is None
+                    else "verified"
+                ),
                 checked_at=checked_at,
                 stale_since=stale_since,
             ),

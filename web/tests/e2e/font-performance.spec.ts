@@ -17,6 +17,18 @@ test("public routes preload only the critical Latin faces within transfer budget
     links.map((link) => new URL((link as HTMLLinkElement).href).pathname).sort(),
   );
   expect(preloads).toEqual([...criticalFontHrefs].sort());
+  await page.waitForTimeout(1_000);
+  const unusedStylesheetPreloads = await page.evaluate(() => {
+    const activeStylesheets = new Set(
+      [...document.styleSheets]
+        .map((stylesheet) => stylesheet.href)
+        .filter((href): href is string => href !== null),
+    );
+    return [...document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="style"]')]
+      .map((link) => link.href)
+      .filter((href) => !activeStylesheets.has(href));
+  });
+  expect(unusedStylesheetPreloads).toEqual([]);
 
   const resources = await page.evaluate(() =>
     performance
