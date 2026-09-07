@@ -69,10 +69,12 @@ count, and whether an outage alert fired. Configure
 `GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL` with an operator-owned HTTPS endpoint and, when the
 receiver requires it, `GOVERNANCE_CODE_ATTESTATION_ALERT_BEARER_TOKEN`. The worker posts the bounded,
 redacted `opennosh.governance-code-attestation.availability.v1` contract for every `state=outage`
-threshold and for the first matching recovery. The payload contains only component, state, stable
-error code, failure count, and UTC occurrence time; alert delivery failure is logged by exception
-type and never stops reconciliation. Route `outage` to the incident destination and close it only
-after the matching `recovered` delivery and a successful exact-main attestation check. This
+threshold and for the first matching recovery. Slack Incoming Webhooks are supported directly:
+use the Slack webhook URL and leave the bearer-token setting empty. The payload contains an
+operator-readable `text` fallback plus only component, state, stable error code, failure count, and
+UTC occurrence time; alert delivery failure is logged by exception type and never stops
+reconciliation. Route `outage` to the incident destination and close it only after the matching
+`recovered` delivery and a successful exact-main attestation check. This
 preserves automatic retry without turning a single provider hiccup into an incident, exporting full
 application logs, or allowing a sustained outage to remain silent.
 

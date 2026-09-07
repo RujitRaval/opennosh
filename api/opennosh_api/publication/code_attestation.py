@@ -61,10 +61,23 @@ class WebhookCodeAttestationAlertDestination:
         headers = {"User-Agent": "OpenNosh publication alert/1"}
         if self._bearer_token:
             headers["Authorization"] = f"Bearer {self._bearer_token}"
+        if alert.state == "outage":
+            text = (
+                "OpenNosh governance code attestation is unavailable after "
+                f"{alert.failed_attempts} consecutive attempts "
+                f"(error: `{alert.error_code}`)."
+            )
+        else:
+            text = (
+                "OpenNosh governance code attestation recovered after "
+                f"{alert.failed_attempts} failed attempts "
+                f"(previous error: `{alert.error_code}`)."
+            )
         response = await self._client.post(
             self._endpoint,
             headers=headers,
             json={
+                "text": text,
                 "schema": "opennosh.governance-code-attestation.availability.v1",
                 "component": "governance-code-attestation",
                 "state": alert.state,

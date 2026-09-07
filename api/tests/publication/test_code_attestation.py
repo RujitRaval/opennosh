@@ -293,6 +293,10 @@ async def test_webhook_alert_destination_sends_only_redacted_contract() -> None:
     assert len(requests) == 1
     assert requests[0].headers["Authorization"] == "Bearer secret-token"
     assert json.loads(requests[0].content) == {
+        "text": (
+            "OpenNosh governance code attestation is unavailable after 3 consecutive "
+            "attempts (error: `github_code_attestation_unavailable`)."
+        ),
         "schema": "opennosh.governance-code-attestation.availability.v1",
         "component": "governance-code-attestation",
         "state": "outage",
@@ -300,6 +304,36 @@ async def test_webhook_alert_destination_sends_only_redacted_contract() -> None:
         "failed_attempts": 3,
         "occurred_at": "2026-09-05T12:30:00+00:00",
     }
+
+
+@pytest.mark.asyncio
+async def test_webhook_alert_destination_formats_recovery_for_slack() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, text="ok")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        destination = WebhookCodeAttestationAlertDestination(
+            "https://hooks.slack.com/services/example/test/value",
+            client=client,
+        )
+        await destination.send(
+            CodeAttestationAvailabilityAlert(
+                state="recovered",
+                error_code="github_code_attestation_unavailable",
+                failed_attempts=6,
+                occurred_at=datetime(2026, 9, 5, 12, 45, tzinfo=UTC),
+            )
+        )
+
+    assert len(requests) == 1
+    assert "Authorization" not in requests[0].headers
+    assert json.loads(requests[0].content)["text"] == (
+        "OpenNosh governance code attestation recovered after 6 failed attempts "
+        "(previous error: `github_code_attestation_unavailable`)."
+    )
 
 
 @pytest.mark.asyncio
