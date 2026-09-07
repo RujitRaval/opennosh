@@ -195,7 +195,7 @@ def test_food_search_indexes_are_declared_in_model_metadata() -> None:
         "ix_food_search_snapshot_items_name_local_trgm",
     ):
         assert snapshot_indexes[index_name].dialect_options["postgresql"]["with"] == {
-            "fastupdate": "off"
+            "fastupdate": "on"
         }
 
 

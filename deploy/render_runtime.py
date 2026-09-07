@@ -573,6 +573,11 @@ async def grant_web_runtime_privileges(migration_url: str) -> None:
                 f"GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO {WEB_ROLE}"
             )
             await connection.execute(
+                "GRANT EXECUTE ON FUNCTION "
+                "public.opennosh_flush_food_search_gin_pending_lists() "
+                f"TO {WEB_ROLE}"
+            )
+            await connection.execute(
                 "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES "
                 f"TO {WEB_ROLE}"

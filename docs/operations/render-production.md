@@ -116,20 +116,24 @@ catalogue has been loaded and checked.
 
 ### Food-search refresh safety
 
-Migration `20260905_0037` disables `fastupdate` on the four retained-snapshot GIN indexes and cleans
-any existing pending lists. Snapshot refresh is a bulk write followed immediately by
-latency-sensitive reads; allowing GIN to defer those entries made searches scan an unsorted pending
-list until GIN cleanup or autovacuum moved it into the main index. On the production Basic-256mb
-database, that first-read interval exceeded the 500 ms search statement budget; later statistics
-also let the planner avoid the expensive path. The search SQL now filters and ranks in one scan
-instead of joining the retained projection to itself.
+Migration `20260907_0038` re-enables `fastupdate` on the four retained-snapshot GIN indexes and adds
+one fixed, `SECURITY DEFINER` flush function that can clean only those reviewed indexes. The web role
+can execute that function but cannot alter indexes or select another relation. Snapshot refresh now
+buffers the bulk index writes, flushes every pending list before commit, and only then exposes the
+new snapshot to latency-sensitive reads. On the production Basic-256mb database, the 8,239-row
+snapshot insert fell from 47.7 seconds to 7.4 seconds; a flushed readiness search completed in 303
+ms without changing either the 30-second snapshot-build budget or the 500 ms database-statement
+budget. The search SQL continues to filter and rank in one scan instead of joining the retained
+projection to itself.
 
 Do not compensate for a recurrence by increasing `FOOD_SEARCH_STATEMENT_TIMEOUT_MS`. Confirm the
-index `reloptions`, migration head, query plan, snapshot age, and readiness endpoint first. The
-migration changes index write behavior but not rows or the API contract, so the prior application
-can run during a rolling deploy. Its downgrade re-enables GIN pending lists and can reintroduce the
-latency cliff; prefer a reviewed forward fix. If rollback is unavoidable, leave the additive schema
-in place and roll back only application processes while investigating.
+index `reloptions`, migration head, bounded flush-function ownership and grants, query plan, snapshot
+age, and readiness endpoint first. The migration changes index write behavior but not catalog rows
+or the API contract, so the prior application can run during a rolling deploy. Its downgrade removes
+the bounded flush function and restores synchronous index updates, which can reintroduce the build
+timeout at the activated USDA catalog size; prefer a reviewed forward fix. If rollback is
+unavoidable, leave the additive schema in place and roll back only application processes while
+investigating.
 
 ### T32 bounded artifact read-plane activation
 
@@ -1030,7 +1034,7 @@ PYTHONPATH=api:. python scripts/check_publication_readiness.py /tmp/publication-
 ```
 
 The report is acceptable only when the schema validator and recomputed digest pass, the deployed
-commit is exact, `living_commons.expected_migration_head` equals `20260905_0037`,
+commit is exact, `living_commons.expected_migration_head` equals `20260907_0038`,
 `living_commons.all_capabilities_disabled` is true, and every runtime flag above remains false.
 This verification does not authorize activation.
 

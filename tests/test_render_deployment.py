@@ -1071,6 +1071,10 @@ async def test_render_runtime_grants_are_applied_and_connection_is_closed(
 
     assert any("ALL TABLES" in statement for statement in connection.executed)
     assert any("DEFAULT PRIVILEGES" in statement for statement in connection.executed)
+    assert any(
+        "opennosh_flush_food_search_gin_pending_lists" in statement
+        for statement in connection.executed
+    )
     assert connection.closed is True
 
 
