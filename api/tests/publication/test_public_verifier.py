@@ -190,7 +190,13 @@ def fixture() -> tuple[FakeReader, MemoryArtifactStore, str, str]:
         state="verified",
         stale_age_seconds=0,
     )
-    release = ResolvedRelease(manifest, manifest_envelope, manifest_bytes, metadata)
+    release = ResolvedRelease(
+        manifest=manifest,
+        manifest_envelope=manifest_envelope,
+        manifest_bytes=manifest_bytes,
+        publication_receipt_digest=receipt_digest,
+        metadata=metadata,
+    )
     food = PublicFoodRecordResponse(
         record=record,
         release=metadata,

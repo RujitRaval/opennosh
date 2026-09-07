@@ -26,6 +26,7 @@ ATTESTATION_CHECK = "OpenNosh governance attestation"
 MAX_OPEN_PULL_REQUESTS = 100
 MAX_FILES_PER_PULL_REQUEST = 999
 MAX_RECENT_MAIN_COMMITS = 10
+ATTESTATION_OUTAGE_FAILURE_THRESHOLD = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -428,15 +429,47 @@ async def run_code_attestation_loop(
     shutdown: asyncio.Event,
     *,
     interval_seconds: float,
+    outage_failure_threshold: int = ATTESTATION_OUTAGE_FAILURE_THRESHOLD,
 ) -> None:
     if interval_seconds <= 0:
         raise ValueError("Governance code attestation interval must be positive")
+    if outage_failure_threshold <= 0:
+        raise ValueError("Governance code attestation outage threshold must be positive")
+    consecutive_failures = 0
+    last_error_code: str | None = None
     while not shutdown.is_set():
         try:
             report = await service.reconcile_once()
         except ForgeRetryableError as error:
-            logger.warning("Governance code attestation retryable error=%s", error.code)
+            consecutive_failures += 1
+            last_error_code = error.code
+            if consecutive_failures % outage_failure_threshold == 0:
+                logger.error(
+                    "Governance code attestation availability state=outage error=%s "
+                    "consecutive_failures=%d alert_every_failures=%d",
+                    error.code,
+                    consecutive_failures,
+                    outage_failure_threshold,
+                )
+            else:
+                logger.warning(
+                    "Governance code attestation availability state=retrying error=%s "
+                    "consecutive_failures=%d alert_after_failures=%d",
+                    error.code,
+                    consecutive_failures,
+                    outage_failure_threshold,
+                )
         else:
+            if consecutive_failures:
+                logger.warning(
+                    "Governance code attestation availability state=recovered "
+                    "previous_error=%s failed_attempts=%d outage_alerted=%s",
+                    last_error_code,
+                    consecutive_failures,
+                    str(consecutive_failures >= outage_failure_threshold).lower(),
+                )
+                consecutive_failures = 0
+                last_error_code = None
             if report.passed or report.blocked or report.merge_propagated:
                 logger.warning(
                     "Governance code attestation reconciled candidates=%d passed=%d "

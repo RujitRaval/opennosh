@@ -41,6 +41,9 @@ from opennosh_api.public.artifacts import (
     PublicArtifactReadService,
 )
 from opennosh_api.public.router import router as public_artifact_router
+from opennosh_api.public_commons.artifact_snapshot import (
+    ArtifactBackedPublicCommonsSnapshotService,
+)
 from opennosh_api.public_commons.manifests import ManifestKeyRing, PublicCommonsSnapshotService
 from opennosh_api.public_commons.router import router as public_commons_router
 from opennosh_api.public_operations.manifest import load_public_status_manifest
@@ -218,7 +221,7 @@ def create_app(
         if resolved_settings.public_artifact_cache_directory is not None
         else None
     )
-    application.state.public_artifact_read_service = PublicArtifactReadService(
+    public_artifact_read_service = PublicArtifactReadService(
         store=artifact_store,
         cache_store=artifact_cache,
         manifest_keys=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
@@ -227,13 +230,21 @@ def create_app(
         ),
         checkpoint_path=resolved_settings.public_artifact_checkpoint_path,
     )
-    application.state.public_commons_snapshot_service = PublicCommonsSnapshotService(
-        latest_pointer_path=resolved_settings.public_commons_latest_pointer_path,
-        release_directory=resolved_settings.public_commons_release_directory,
-        key_ring=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
-        stale_after_seconds=resolved_settings.public_commons_stale_after_seconds,
-        checkpoint_path=resolved_settings.public_commons_checkpoint_path,
-        projection_path=resolved_settings.public_commons_projection_path,
+    application.state.public_artifact_read_service = public_artifact_read_service
+    application.state.public_commons_snapshot_service = (
+        ArtifactBackedPublicCommonsSnapshotService(
+            public_artifact_read_service,
+            stale_after_seconds=resolved_settings.public_commons_stale_after_seconds,
+        )
+        if artifact_store is not None
+        else PublicCommonsSnapshotService(
+            latest_pointer_path=resolved_settings.public_commons_latest_pointer_path,
+            release_directory=resolved_settings.public_commons_release_directory,
+            key_ring=ManifestKeyRing.from_config(resolved_settings.public_commons_verifying_keys),
+            stale_after_seconds=resolved_settings.public_commons_stale_after_seconds,
+            checkpoint_path=resolved_settings.public_commons_checkpoint_path,
+            projection_path=resolved_settings.public_commons_projection_path,
+        )
     )
     application.state.public_status_manifest = load_public_status_manifest(
         resolved_settings.public_status_manifest_path

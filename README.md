@@ -313,13 +313,15 @@ GET /api/v1/public/commons-snapshot
 ```
 
 That single immutable response drives the hero count, accepted-activity ledger, freshness message,
-and repeated footer proof. The API does not require PostgreSQL for this endpoint. A background
-materializer verifies the signed latest pointer and rebuilds a bounded projection from the
-content-addressed release manifest named by that pointer. Requests read only that materialized
-projection; they never scan the manifest. The response contains the rolling 24-hour count and at
-most four accepted events. Invalid or missing first releases omit the record count. A later
-verification failure retains the durable last verified projection across process restarts and
-labels it stale.
+and repeated footer proof. The API does not require PostgreSQL for this endpoint. When the canonical
+public artifact reader is configured, the background materializer reuses its signed-pointer,
+content-digest, signed-manifest, signed-receipt, anti-rollback, and durable-cache verification. It
+exposes the verified release and exact manifest record count while marking activity `partial`
+until that artifact schema carries an accepted-event projection. It never converts missing activity
+proof into a quiet claim. Standalone filesystem deployments retain the original bounded projection
+materializer described below. Requests read only the materialized result in either mode. Invalid or
+missing first releases omit the record count; later verification failure retains only the last
+verified release proof and labels it stale.
 
 Commons mission activity has a separate disabled-by-default endpoint at
 `GET /api/v1/public/missions/activity`. It publishes only country or macroregion cohorts backed by

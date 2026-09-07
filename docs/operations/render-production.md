@@ -61,6 +61,16 @@ each enabled mode retains only its declared credentials. Never move either GitHu
 API or web service, never grant checks-write to the forge App, and never grant contents or
 pull-request access to the attester App.
 
+The worker treats one or two retryable GitHub failures as a transient condition and emits a
+searchable `state=retrying` warning with the consecutive-failure count. Three consecutive failures
+emit `state=outage` at error level, and every third failure repeats that bounded outage signal until
+GitHub recovers. The first successful reconciliation then emits `state=recovered`, the failed-attempt
+count, and whether an outage alert fired. Alert on `Governance code attestation availability
+state=outage` for `opennosh-publication`; close the incident only after the matching
+`state=recovered` line and a successful exact-main attestation check. This preserves automatic retry
+without turning a single provider hiccup into an incident or allowing a sustained outage to remain
+silent.
+
 After first activation, prove the control loop with a no-op documentation PR that does not touch
 `packs/`: observe the attester App's required success, merge without a branch-protection bypass,
 then verify Render creates successful API, web, and publication deployments for that merge commit.
@@ -69,12 +79,16 @@ touches a disposable `packs/` path and confirm it receives `action_required`; cl
 merging. Governed `opennosh/contribution/` branches must remain pending until their database-backed
 authorization reaches the attester.
 
-The initial hosted release intentionally leaves the signed Commons artifact paths and public
-artifact origin unset. Public snapshot consumers therefore use their explicit unavailable/quiet
-states, while food pages stay on the PostgreSQL read path until an offline-signed release and
-durable HTTPS artifact origin are provisioned. `PUBLIC_ARTIFACT_READS_ENABLED=false` is the explicit
-web dark-launch default. Never enable a filesystem path or a development verification key in
-production.
+Before a durable HTTPS artifact origin is provisioned, public snapshot consumers remain explicitly
+unavailable. Once `PUBLIC_ARTIFACT_BASE_URL` and the approved verification keys are configured, the
+API background materializer must project the already verified release and exact manifest record
+count into `/api/v1/public/commons-snapshot`. The artifact manifest does not yet carry the accepted
+activity projection, so the truthful transitional state is `partial` with
+`activity_projection_lag`, never a fabricated `quiet` or `live` claim. A later origin failure may
+serve only checkpoint-backed `stale` proof. `PUBLIC_ARTIFACT_READS_ENABLED=false` remains the
+explicit web food-detail dark-launch default and publication claims remain disabled until their
+separate readiness ceremony passes. Never enable a filesystem path or a development verification
+key in production.
 
 Render private services do not support a Blueprint `healthCheckPath`, so use
 `/api/v1/foods/readiness` as the API's independent external release-readiness canary after Render

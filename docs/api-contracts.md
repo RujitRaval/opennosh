@@ -192,6 +192,18 @@ The activity window includes the total accepted count and at most the four newes
 activity, freshness, and footer consumers map the generated transport type into the handwritten
 `web/lib/api/domain/public-commons.ts` model through the adapter boundary.
 
+Hosted deployments configured with `PUBLIC_ARTIFACT_BASE_URL` project this response from the same
+verified artifact reader that serves public foods, manifests, provenance, and packs. Its background
+materializer verifies the descriptor-based latest pointer, complete signed release manifest, and
+bound signed publication receipt before exposing release proof or `verified_record_count`. The
+current artifact manifest does not assert accepted-event completeness, so this mode returns
+`state=partial`, zero activity claims, and `activity_projection_lag`; it must not infer `quiet` from
+an absent activity field. A trusted checkpoint fallback retains the proof as `stale`. The request
+path reads only the in-memory materialization and never waits on the artifact origin.
+
+Standalone deployments configured with `PUBLIC_COMMONS_LATEST_POINTER_PATH` and
+`PUBLIC_COMMONS_RELEASE_DIRECTORY` use the filesystem projection contract below.
+
 The latest pointer and release manifest are JSON signed envelopes with exactly four top-level
 fields: `schema_version`, `key_id`, `payload`, and `signature`. The signature is an unpadded base64url Ed25519 signature over UTF-8 canonical JSON for
 `payload` using sorted keys and compact separators. Verifier configuration uses comma-separated
