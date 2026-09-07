@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.95.2.0] - 2026-09-07
+
+### Changed
+
+- Escalate sustained governance-attestation lookup failures into bounded outage signals and emit
+  explicit recovery evidence when GitHub becomes reachable again.
+
+### Fixed
+
+- Project the canonical verified signed release into the public Commons snapshot, including the
+  exact manifest food count, instead of incorrectly reporting that no release has been published.
+- Keep unavailable activity evidence visibly partial without fabricating a quiet or live state,
+  while preserving the disabled publication-claims controls.
+
 ## [0.95.1.1] - 2026-09-06
 
 ### Fixed
