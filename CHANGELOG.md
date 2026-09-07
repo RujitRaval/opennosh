@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.97.0.1] - 2026-09-07
+
+### Fixed
+
+- Identify the bounded USDA release process as the administration job role so production settings
+  validation does not incorrectly require web-only food-search cursor signing keys.
+
 ## [0.97.0.0] - 2026-09-07
 
 ### Added

@@ -363,6 +363,7 @@ def administration_environment(source: Mapping[str, str]) -> dict[str, str]:
         MIGRATION_ROLE,
         migration_password,
     )
+    environment["PROCESS_ROLE"] = "administration"
     return environment
 
 
