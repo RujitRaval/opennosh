@@ -224,6 +224,40 @@ def test_code_attestation_mode_requires_only_independent_github_identities() -> 
     assert settings.publication_claims_enabled is False
 
 
+def test_code_attestation_alert_webhook_requires_safe_https_url() -> None:
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(
+            governance_code_attestation_alert_webhook_url="http://alerts.example.test/hook",
+            _env_file=None,
+        )
+
+    with pytest.raises(ValidationError, match="safe HTTPS URL"):
+        Settings(
+            governance_code_attestation_alert_webhook_url=(
+                "https://alerts.example.test:99999/hook"
+            ),
+            _env_file=None,
+        )
+
+
+def test_code_attestation_alert_webhook_requires_attestation_mode() -> None:
+    with pytest.raises(ValidationError, match="requires attestation to be enabled"):
+        Settings(
+            governance_code_attestation_alert_webhook_url=(
+                "https://alerts.example.test/opennosh"
+            ),
+            _env_file=None,
+        )
+
+
+def test_code_attestation_alert_token_requires_webhook_url() -> None:
+    with pytest.raises(ValidationError, match="token requires a webhook URL"):
+        Settings(
+            governance_code_attestation_alert_bearer_token="secret-token",
+            _env_file=None,
+        )
+
+
 @pytest.mark.parametrize(
     "missing",
     [

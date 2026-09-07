@@ -20,7 +20,7 @@ export function PublicBreadcrumbs({
           return (
             <li key={`${item.label}-${index}`}>
               {item.href && !current ? (
-                <Link href={item.href}>{item.label}</Link>
+                <Link href={item.href} prefetch={false}>{item.label}</Link>
               ) : (
                 <span aria-current={current ? "page" : undefined}>{item.label}</span>
               )}

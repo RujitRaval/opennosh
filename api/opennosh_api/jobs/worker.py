@@ -35,7 +35,10 @@ from opennosh_api.public.refresh import (
 from opennosh_api.public.signing import load_production_signing_key
 from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.adapters import PublicationAdapterRegistry
-from opennosh_api.publication.code_attestation import run_code_attestation_loop
+from opennosh_api.publication.code_attestation import (
+    WebhookCodeAttestationAlertDestination,
+    run_code_attestation_loop,
+)
 from opennosh_api.publication.credentials import ProductionCodeAttestationClients
 from opennosh_api.publication.executor import PublicationEffectExecutor
 from opennosh_api.publication.orchestrator import PublicationOrchestrator
@@ -566,6 +569,7 @@ async def _run_publication_worker(
     driver = None
     service = None
     attestation_clients = None
+    attestation_alert_destination = None
     if configured.latest_refresh_enabled:
         service = refresh_service or create_latest_pointer_refresh_service(configured)
     try:
@@ -579,9 +583,24 @@ async def _run_publication_worker(
                 code_attestation_clients
                 or ProductionCodeAttestationClients.from_settings(configured)
             )
+            alert_url = getattr(
+                configured, "governance_code_attestation_alert_webhook_url", None
+            )
+            if alert_url is not None:
+                alert_token = getattr(
+                    configured, "governance_code_attestation_alert_bearer_token", None
+                )
+                attestation_alert_destination = WebhookCodeAttestationAlertDestination(
+                    alert_url.get_secret_value(),
+                    bearer_token=(
+                        alert_token.get_secret_value() if alert_token is not None else None
+                    ),
+                )
     except BaseException:
         if service is not None:
             await service.aclose()
+        if attestation_alert_destination is not None:
+            await attestation_alert_destination.aclose()
         if attestation_clients is not None:
             await attestation_clients.aclose()
         raise
@@ -612,10 +631,13 @@ async def _run_publication_worker(
                         attestation_clients.service,
                         shutdown,
                         interval_seconds=configured.governance_code_attestation_interval_seconds,
+                        alert_destination=attestation_alert_destination,
                     ),
                     name="opennosh-governance-code-attestation",
                 )
     finally:
+        if attestation_alert_destination is not None:
+            await attestation_alert_destination.aclose()
         if attestation_clients is not None:
             await attestation_clients.aclose()
 

@@ -81,8 +81,8 @@ function ActivityActions({ language }: { language: InterfaceLanguage }) {
   const copy = getCatalog(language).truth;
   return (
     <nav className="activity-actions" aria-label={copy.activityActions}>
-      <Link href={routes.publicHub("explore", language)}>{copy.searchRecords}</Link>
-      <Link href={routes.publicHub("contribute", language)}>{copy.contributeFood}</Link>
+      <Link href={routes.publicHub("explore", language)} prefetch={false}>{copy.searchRecords}</Link>
+      <Link href={routes.publicHub("contribute", language)} prefetch={false}>{copy.contributeFood}</Link>
     </nav>
   );
 }
@@ -101,7 +101,7 @@ function ActivityEvents({
         <li key={event.event_id}>
           <span className="activity-event-type mono">{copy.eventLabels[event.event_type]}</span>
           <div>
-            <strong><Link href={event.href}>{event.summary}</Link></strong>
+            <strong><Link href={event.href} prefetch={false}>{event.summary}</Link></strong>
             <p>{event.food_locale}</p>
           </div>
           <time className="mono" dateTime={event.accepted_at}>
@@ -165,7 +165,7 @@ export function AcceptedActivity({
             <strong>{copy.quietTitle}</strong>
             {recent ? (
               <span>
-                {copy.recentPrefix} <Link href={recent.href}>{recent.name}</Link>, {recent.food_locale}, {copy.recentOn} {formatDate(recent.verified_at, language)}.
+                {copy.recentPrefix} <Link href={recent.href} prefetch={false}>{recent.name}</Link>, {recent.food_locale}, {copy.recentOn} {formatDate(recent.verified_at, language)}.
               </span>
             ) : (
               <span>{copy.noRecent}</span>

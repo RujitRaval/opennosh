@@ -4,8 +4,9 @@ import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Literal, Protocol
 
 import httpx
 
@@ -27,6 +28,56 @@ MAX_OPEN_PULL_REQUESTS = 100
 MAX_FILES_PER_PULL_REQUEST = 999
 MAX_RECENT_MAIN_COMMITS = 10
 ATTESTATION_OUTAGE_FAILURE_THRESHOLD = 3
+
+
+@dataclass(frozen=True, slots=True)
+class CodeAttestationAvailabilityAlert:
+    state: Literal["outage", "recovered"]
+    error_code: str
+    failed_attempts: int
+    occurred_at: datetime
+
+
+class CodeAttestationAlertDestination(Protocol):
+    async def send(self, alert: CodeAttestationAvailabilityAlert) -> None: ...
+
+
+class WebhookCodeAttestationAlertDestination:
+    """Deliver a redacted operational signal to an operator-owned HTTPS endpoint."""
+
+    def __init__(
+        self,
+        endpoint: str,
+        *,
+        bearer_token: str | None = None,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._endpoint = endpoint
+        self._bearer_token = bearer_token
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=5.0)
+
+    async def send(self, alert: CodeAttestationAvailabilityAlert) -> None:
+        headers = {"User-Agent": "OpenNosh publication alert/1"}
+        if self._bearer_token:
+            headers["Authorization"] = f"Bearer {self._bearer_token}"
+        response = await self._client.post(
+            self._endpoint,
+            headers=headers,
+            json={
+                "schema": "opennosh.governance-code-attestation.availability.v1",
+                "component": "governance-code-attestation",
+                "state": alert.state,
+                "error_code": alert.error_code,
+                "failed_attempts": alert.failed_attempts,
+                "occurred_at": alert.occurred_at.isoformat(),
+            },
+        )
+        response.raise_for_status()
+
+    async def aclose(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
 
 
 @dataclass(frozen=True, slots=True)
@@ -430,6 +481,7 @@ async def run_code_attestation_loop(
     *,
     interval_seconds: float,
     outage_failure_threshold: int = ATTESTATION_OUTAGE_FAILURE_THRESHOLD,
+    alert_destination: CodeAttestationAlertDestination | None = None,
 ) -> None:
     if interval_seconds <= 0:
         raise ValueError("Governance code attestation interval must be positive")
@@ -451,6 +503,15 @@ async def run_code_attestation_loop(
                     consecutive_failures,
                     outage_failure_threshold,
                 )
+                await _deliver_availability_alert(
+                    alert_destination,
+                    CodeAttestationAvailabilityAlert(
+                        state="outage",
+                        error_code=error.code,
+                        failed_attempts=consecutive_failures,
+                        occurred_at=datetime.now(UTC),
+                    ),
+                )
             else:
                 logger.warning(
                     "Governance code attestation availability state=retrying error=%s "
@@ -461,13 +522,24 @@ async def run_code_attestation_loop(
                 )
         else:
             if consecutive_failures:
+                outage_alerted = consecutive_failures >= outage_failure_threshold
                 logger.warning(
                     "Governance code attestation availability state=recovered "
                     "previous_error=%s failed_attempts=%d outage_alerted=%s",
                     last_error_code,
                     consecutive_failures,
-                    str(consecutive_failures >= outage_failure_threshold).lower(),
+                    str(outage_alerted).lower(),
                 )
+                if outage_alerted:
+                    await _deliver_availability_alert(
+                        alert_destination,
+                        CodeAttestationAvailabilityAlert(
+                            state="recovered",
+                            error_code=last_error_code or "unknown",
+                            failed_attempts=consecutive_failures,
+                            occurred_at=datetime.now(UTC),
+                        ),
+                    )
                 consecutive_failures = 0
                 last_error_code = None
             if report.passed or report.blocked or report.merge_propagated:
@@ -488,3 +560,20 @@ async def run_code_attestation_loop(
             await asyncio.wait_for(shutdown.wait(), timeout=interval_seconds)
         except TimeoutError:
             pass
+
+
+async def _deliver_availability_alert(
+    destination: CodeAttestationAlertDestination | None,
+    alert: CodeAttestationAvailabilityAlert,
+) -> None:
+    if destination is None:
+        return
+    try:
+        await destination.send(alert)
+    except Exception as error:
+        logger.error(
+            "Governance code attestation external alert delivery failed "
+            "state=%s error_type=%s",
+            alert.state,
+            type(error).__name__,
+        )

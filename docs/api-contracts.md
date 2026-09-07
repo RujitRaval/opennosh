@@ -195,11 +195,14 @@ activity, freshness, and footer consumers map the generated transport type into 
 Hosted deployments configured with `PUBLIC_ARTIFACT_BASE_URL` project this response from the same
 verified artifact reader that serves public foods, manifests, provenance, and packs. Its background
 materializer verifies the descriptor-based latest pointer, complete signed release manifest, and
-bound signed publication receipt before exposing release proof or `verified_record_count`. The
-current artifact manifest does not assert accepted-event completeness, so this mode returns
-`state=partial`, zero activity claims, and `activity_projection_lag`; it must not infer `quiet` from
-an absent activity field. A trusted checkpoint fallback retains the proof as `stale`. The request
-path reads only the in-memory materialization and never waits on the artifact origin.
+bound signed publication receipt before exposing release proof or `verified_record_count`. A
+canonical repeatable-read projection then anchors the 24-hour accepted-event window to that receipt,
+rejects a newer unrepresented accepted release, re-verifies displayed receipt and artifact proofs,
+and binds every window identity row into its checkpoint. Complete zero and nonzero windows become
+`quiet` and `live`, respectively. Missing or inconsistent proof remains `state=partial` with
+`activity_projection_lag`; an absent activity row never implies quiet. A trusted checkpoint fallback
+retains the proof as `stale`. The request path reads only the in-memory materialization and never
+waits on the artifact origin.
 
 Standalone deployments configured with `PUBLIC_COMMONS_LATEST_POINTER_PATH` and
 `PUBLIC_COMMONS_RELEASE_DIRECTORY` use the filesystem projection contract below.
