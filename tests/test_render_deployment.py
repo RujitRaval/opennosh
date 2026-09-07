@@ -95,7 +95,12 @@ def test_usda_release_uses_only_the_bounded_administration_role(
 
     assert parsed.username == MIGRATION_ROLE
     assert parsed.password == "migration-secret"
-    assert set(environment) == {"APP_ENVIRONMENT", "ADMINISTRATION_DATABASE_URL"}
+    assert environment["PROCESS_ROLE"] == "administration"
+    assert set(environment) == {
+        "APP_ENVIRONMENT",
+        "ADMINISTRATION_DATABASE_URL",
+        "PROCESS_ROLE",
+    }
 
     captured: dict[str, object] = {}
 
