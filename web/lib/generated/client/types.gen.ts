@@ -1577,6 +1577,28 @@ export type FoodCapabilities = {
 };
 
 /**
+ * FoodCatalogSummary
+ */
+export type FoodCatalogSummary = {
+    /**
+     * Community Records
+     */
+    community_records: number;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1.0';
+    /**
+     * Searchable Records
+     */
+    searchable_records: number;
+    /**
+     * Usda Reference Records
+     */
+    usda_reference_records: number;
+};
+
+/**
  * FoodDetail
  */
 export type FoodDetail = {
@@ -7220,6 +7242,71 @@ export type CapabilitiesApiV1FoodsCapabilitiesGetResponses = {
 };
 
 export type CapabilitiesApiV1FoodsCapabilitiesGetResponse = CapabilitiesApiV1FoodsCapabilitiesGetResponses[keyof CapabilitiesApiV1FoodsCapabilitiesGetResponses];
+
+export type CatalogSummaryApiV1FoodsCatalogSummaryGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/foods/catalog-summary';
+};
+
+export type CatalogSummaryApiV1FoodsCatalogSummaryGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type CatalogSummaryApiV1FoodsCatalogSummaryGetError = CatalogSummaryApiV1FoodsCatalogSummaryGetErrors[keyof CatalogSummaryApiV1FoodsCatalogSummaryGetErrors];
+
+export type CatalogSummaryApiV1FoodsCatalogSummaryGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: FoodCatalogSummary;
+};
+
+export type CatalogSummaryApiV1FoodsCatalogSummaryGetResponse = CatalogSummaryApiV1FoodsCatalogSummaryGetResponses[keyof CatalogSummaryApiV1FoodsCatalogSummaryGetResponses];
 
 export type CustomFoodCreateApiV1FoodsCustomPostData = {
     body: CustomFoodCreate;

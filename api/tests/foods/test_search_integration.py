@@ -169,6 +169,7 @@ def test_search_ranking_pagination_filters_and_attribution() -> None:
     asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))
 
     with _client(INTEGRATION_DATABASE_URL) as client:
+        catalog_summary = client.get("/api/v1/foods/catalog-summary")
         first = client.get(
             "/api/v1/foods/search",
             params={"q": "apple", "locale": "en-IN", "limit": 2},
@@ -193,6 +194,14 @@ def test_search_ranking_pagination_filters_and_attribution() -> None:
         )
         without_locale = client.get("/api/v1/foods/search", params={"q": "apple"})
 
+    assert catalog_summary.status_code == 200
+    assert catalog_summary.json() == {
+        "schema_version": "1.0",
+        "community_records": 3,
+        "usda_reference_records": 1,
+        "searchable_records": 4,
+    }
+    assert catalog_summary.headers["cache-control"] == "public, max-age=0, s-maxage=300"
     assert first.status_code == 200
     assert first.json()["schema_version"] == "2.0"
     assert [item["id"] for item in first.json()["items"]] == [

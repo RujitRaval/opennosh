@@ -39,24 +39,39 @@ async function mockLaunchApi(page: Page) {
       return route.fulfill({ json: { items: [], target_kcal_floor: "1200.00", safety_copy: "Reference only." } });
     }
     if (path === "/api/v1/foods/search") {
+      expect(url.searchParams.get("source")).toBeNull();
       return route.fulfill({
         json: {
           schema_version: "2.0",
-          items: [{
-            id: "community:rajma-masala",
-            source: "community",
-            source_id: "rajma-masala",
-            name: "Rajma masala",
-            name_local: "राजमा मसाला",
-            category: "Punjabi home-style preparation",
-            attribution: {
+          items: [
+            {
+              id: "community:rajma-masala",
               source: "community",
-              license: "CC0-1.0",
-              pack_id: "indian-staples-north",
-              pack_version: "1.0.0",
-              contributed_by: "opennosh contributors",
+              source_id: "rajma-masala",
+              name: "Rajma masala",
+              name_local: "राजमा मसाला",
+              category: "Punjabi home-style preparation",
+              attribution: {
+                source: "community",
+                license: "CC0-1.0",
+                pack_id: "indian-staples-north",
+                pack_version: "1.0.0",
+                contributed_by: "opennosh contributors",
+              },
             },
-          }],
+            {
+              id: "usda:175200",
+              source: "usda",
+              source_id: "175200",
+              name: "Beans, kidney, red, mature seeds, cooked, boiled",
+              name_local: null,
+              category: "Legumes and Legume Products",
+              attribution: {
+                source: "usda",
+                license: "CC0",
+              },
+            },
+          ],
           limit: 12,
           has_more: false,
           next_cursor: null,
@@ -72,19 +87,34 @@ async function mockLaunchApi(page: Page) {
   });
 }
 
-test("public Explore searches real source-visible starter records", async ({ page }) => {
+test("public Explore searches community and USDA records with separate truthful counts", async ({ page, request }) => {
   await mockLaunchApi(page);
-  await page.goto("/en/explore");
+  const apiPort = process.env.E2E_API_PORT || "8001";
+  const setCommonsState = (state: string) => request.post(
+    `http://127.0.0.1:${apiPort}/__visual/commons-state?state=${state}`,
+  );
+  expect((await setCommonsState("live")).ok()).toBe(true);
+  try {
+    await page.goto("/en/explore");
 
-  await expect(page.getByRole("heading", { name: "Search starter food records." })).toBeVisible();
-  await page.getByLabel("Food name").fill("rajma");
-  await page.getByRole("button", { name: "Search records" }).click();
+    await expect(page.getByRole("heading", { name: "Search food records." })).toBeVisible();
+    const counts = page.getByRole("definition");
+    await expect(counts.filter({ hasText: "18,429" })).toBeVisible();
+    await expect(counts.filter({ hasText: "8,073" })).toBeVisible();
+    await page.getByLabel("Food name").fill("rajma");
+    await page.getByRole("button", { name: "Search records" }).click();
 
-  const result = page.getByRole("link", { name: /Rajma masala/ });
-  await expect(result).toBeVisible();
-  await expect(result).toContainText("CC0-1.0");
-  await expect(result).toContainText("indian-staples-north");
-  await expect(result).toHaveAttribute("href", "/en/explore/foods/community/rajma-masala");
+    const communityResult = page.getByRole("link", { name: /Rajma masala/ });
+    await expect(communityResult).toContainText("CC0-1.0");
+    await expect(communityResult).toContainText("indian-staples-north");
+    await expect(communityResult).toHaveAttribute("href", "/en/explore/foods/community/rajma-masala");
+    const usdaResult = page.getByRole("link", { name: /Beans, kidney/ });
+    await expect(usdaResult).toContainText("CC0");
+    await expect(usdaResult).toContainText("USDA FoodData Central");
+    await expect(usdaResult).toHaveAttribute("href", "/en/explore/foods/usda/175200");
+  } finally {
+    expect((await setCommonsState("unavailable")).ok()).toBe(true);
+  }
 });
 
 test("new accounts save recovery proof and resume after setup", async ({ page }) => {

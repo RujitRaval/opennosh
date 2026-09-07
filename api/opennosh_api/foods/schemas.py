@@ -93,6 +93,13 @@ class FoodCapabilities(BaseModel):
     federation_search_enabled: bool = False
 
 
+class FoodCatalogSummary(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
+    community_records: int = Field(ge=0)
+    usda_reference_records: int = Field(ge=0)
+    searchable_records: int = Field(ge=0)
+
+
 def _clean_custom_food_name(value: str) -> str:
     normalized = value.strip()
     if not normalized:

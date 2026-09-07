@@ -1068,6 +1068,34 @@ Records routes, and no critical console errors. Do not cut over DNS if any check
 
 ## Production verification
 
+### USDA reference catalog release
+
+After the matching application commit is deployed, open the `opennosh-api` Render shell and run:
+
+```bash
+python deploy/render_runtime.py usda-reference-release --dry-run
+python deploy/render_runtime.py usda-reference-release
+```
+
+The dry run downloads from the two pinned USDA URLs and must report `status=verified`,
+`rows_seen=8188`, `rows_accepted=8073`, and `rows_rejected=115`. The apply command repeats every
+check, imports in one transaction through `opennosh_migration`, requires exactly 8,073 rows in
+`foods_reference`, and marks unfiltered retained search projections stale without deleting them.
+Any checksum, row-count, duplicate-ID, database-count, or transaction error is a failed release.
+
+After apply, request search readiness once to build a current projection, then verify the public
+counts and a USDA result:
+
+```bash
+curl -fsS https://opennosh.org/api/v1/foods/readiness
+curl -fsS https://opennosh.org/api/v1/foods/catalog-summary
+curl -fsS 'https://opennosh.org/api/v1/foods/search?q=kidney%20beans&source=usda&limit=5'
+```
+
+The catalog summary must report 166 community rows, 8,073 USDA reference rows, and 8,239 searchable
+rows. The public explorer must show `166 Signed community records` separately from `8,073 USDA
+reference foods`; do not treat their sum as a verified Commons release count.
+
 Run a single post-cutover verification pass:
 
 ```bash

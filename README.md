@@ -5,7 +5,7 @@ Self-hosted nutrition and strength tracking built around food data the community
 Website: [opennosh.org](https://opennosh.org) — the public Commons and private Tracker are live on
 the production Render deployment.
 
-![Animated opennosh launch demo: open the Living Commons, search the 165-record starter collection for Rajma masala, create a private Tracker account, save the one-time recovery code, choose US units and targets, then open the daily log.](docs/assets/opennosh-launch-demo.gif)
+![Animated opennosh launch demo: open the Living Commons, search the 166-record starter collection for Rajma masala, create a private Tracker account, save the one-time recovery code, choose US units and targets, then open the daily log.](docs/assets/opennosh-launch-demo.gif)
 
 _Search real starter records, see source and license context, then create and set up a recoverable private Tracker account. The animation plays once;
 [view the final ready-to-log screen](docs/assets/opennosh-tracker-ready.png)._
@@ -87,14 +87,15 @@ no-op, and refuses to overwrite a newer pack version.
 
 ### Starter food packs
 
-opennosh ships four CC0 starter packs with 165 entries:
+opennosh publishes five signed CC0 community packs with 166 entries:
 
+- 1 common fruit;
 - 50 Gujarati home-cooking foods;
 - 60 North Indian staples;
 - 30 common vegetarian proteins; and
 - 25 generic supplements and powders.
 
-All 144 government-database entries link to an exact USDA FoodData Central record. The 21
+All 145 government-database entries link to an exact USDA FoodData Central record. The 21
 calculated entries disclose component weights, FDC IDs, and cooked yield. Every entry has visible
 credit and a named portion. See [the source, spot-check, checksum, and zero-warning validation
 evidence](docs/starter-pack-quality.md).
@@ -105,6 +106,7 @@ Search USDA reference foods and CC0 community foods without combining their sour
 
 ```text
 GET /api/v1/foods/capabilities
+GET /api/v1/foods/catalog-summary
 GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20
 GET /api/v1/foods/search?q=apple&locale=en-IN&source=community&limit=20&cursor=<next_cursor>
 GET /api/v1/foods/search?q=samosa&source=federation&pack=global-core
@@ -127,6 +129,10 @@ action opens the generic `/tracker` utility until a food-record handoff contract
 `/foods/capabilities` reports whether barcode lookup and verified federation search are enabled so
 clients can hide those workflows without probing either integration. It is public and does not
 make an Open Food Facts request.
+
+`/foods/catalog-summary` reports database-backed community, USDA reference, and combined searchable
+counts. The public explorer labels its signed community count separately, using the verified Commons
+release snapshot, so imported USDA rows are never presented as community-verified records.
 
 Every result uses a source-qualified ID such as `community:apple` or `usda:171688` and returns
 the source and license metadata needed for attribution. With `FEDERATION_SEARCH_ENABLED=true`, an
@@ -868,6 +874,21 @@ one. Malformed or incomplete source records are identified by FDC ID on standard
 valid records are still written, and the command exits nonzero when any rows were
 rejected. Error output retains a bounded sample and reports how many additional issues
 were omitted.
+
+The production reference release is pinned in
+`config/usda-reference-release.v1.json`. It combines USDA Foundation 2026-04-30 with SR Legacy
+2018-04: 8,188 source rows, 8,073 accepted reference foods, and 115 rejected rows that do not meet
+opennosh's nutrient and portion contract. Verify the exact files without a database write:
+
+```shell
+make usda-release-verify USDA_SOURCE_DIRECTORY=downloads
+```
+
+The release command checks the USDA host, filenames, byte sizes, SHA-256 digests, per-dataset row
+accounting, and duplicate FDC IDs before opening a database transaction. Applying the release uses
+the bounded administration role, refuses to remove unexpected existing rows, and invalidates only
+the unfiltered retained search projections so the next readiness request rebuilds search while old
+cursor snapshots remain usable.
 
 ---
 

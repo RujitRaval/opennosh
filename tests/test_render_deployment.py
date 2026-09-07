@@ -18,6 +18,7 @@ from deploy.render_runtime import (
     PUBLICATION_TABLE_PRIVILEGES,
     WEB_ROLE,
     _quoted,
+    administration_environment,
     api_environment,
     asyncpg_dsn,
     ensure_database_roles,
@@ -34,6 +35,7 @@ from deploy.render_runtime import (
     run_predeploy,
     run_publication,
     run_publication_readiness,
+    run_usda_reference_release,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +76,48 @@ def _claims_environment() -> dict[str, str]:
         "ONLINE_RECEIPT_SIGNING_KEY_ID": "receipt-online",
         "ONLINE_RECEIPT_SIGNING_KEY": "receipt-private",
         "PUBLICATION_ARTIFACT_BUCKET": "opennosh-public-commons",
+    }
+
+
+def test_usda_release_uses_only_the_bounded_administration_role(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = {
+        "APP_ENVIRONMENT": "production",
+        "RENDER_DATABASE_URL": _database_url(),
+        "MIGRATION_DATABASE_PASSWORD": "migration-secret",
+        "WEB_DATABASE_PASSWORD": "web-secret",
+        "PUBLICATION_DATABASE_PASSWORD": "publication-secret",
+        "FOOD_SEARCH_CURSOR_SECRET": "cursor-secret",
+    }
+    environment = administration_environment(source)
+    parsed = make_url(environment["ADMINISTRATION_DATABASE_URL"])
+
+    assert parsed.username == MIGRATION_ROLE
+    assert parsed.password == "migration-secret"
+    assert set(environment) == {"APP_ENVIRONMENT", "ADMINISTRATION_DATABASE_URL"}
+
+    captured: dict[str, object] = {}
+
+    def run(command: list[str], *, check: bool, env: dict[str, str]) -> None:
+        captured.update(command=command, check=check, env=env)
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+    run_usda_reference_release(
+        source,
+        manifest_path="/app/config/usda-reference-release.v1.json",
+        dry_run=True,
+    )
+
+    assert captured == {
+        "command": [
+            "opennosh-usda-release",
+            "--manifest",
+            "/app/config/usda-reference-release.v1.json",
+            "--dry-run",
+        ],
+        "check": True,
+        "env": environment,
     }
 
 

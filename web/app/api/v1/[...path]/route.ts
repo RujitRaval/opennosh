@@ -20,6 +20,7 @@ function isSdkAnonymousRead(path: string[]): boolean {
   const joined = path.join("/");
   if ([
     "foods/capabilities",
+    "foods/catalog-summary",
     "foods/search",
     "public/commons-snapshot",
     "public/missions",

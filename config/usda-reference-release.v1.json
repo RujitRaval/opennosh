@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "release_id": "usda-foundation-2026-04-30-and-sr-legacy-2018-04",
+  "expected_reference_records": 8073,
+  "expected_rejected_records": 115,
+  "datasets": [
+    {
+      "id": "foundation-2026-04-30",
+      "data_type": "Foundation",
+      "filename": "FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+      "size_bytes": 469303,
+      "rows_seen": 395,
+      "rows_accepted": 311,
+      "rows_rejected": 84
+    },
+    {
+      "id": "sr-legacy-2018-04",
+      "data_type": "SR Legacy",
+      "filename": "FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef",
+      "size_bytes": 13456312,
+      "rows_seen": 7793,
+      "rows_accepted": 7762,
+      "rows_rejected": 31
+    }
+  ]
+}

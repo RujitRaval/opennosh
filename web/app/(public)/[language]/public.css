@@ -686,6 +686,36 @@ html[data-motion-decorations="off"] .ribbon-track { animation: none !important; 
   font-size: clamp(1rem, 2vw, 1.2rem);
 }
 
+.public-search-counts {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+.public-search-counts > div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid currentColor;
+}
+
+.public-search-counts dt {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.public-search-counts dd {
+  margin: 0;
+  font-family: var(--public-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1;
+}
+
 .public-search-form {
   display: grid;
   gap: 0.55rem;
@@ -780,6 +810,11 @@ html[data-motion-decorations="off"] .ribbon-track { animation: none !important; 
 
   .public-search-heading > p:first-child {
     grid-row: auto;
+  }
+
+  .public-search-counts {
+    grid-column: 1;
+    grid-template-columns: 1fr;
   }
 
   .public-search-form > div {
