@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -133,22 +134,20 @@ async def test_http_failures_and_invalid_tokens_fail_closed() -> None:
         (418, ForgeTerminalError),
     ],
 )
-def test_response_statuses_are_classified(
-    status: int, expected: type[Exception]
-) -> None:
+def test_response_statuses_are_classified(status: int, expected: type[Exception]) -> None:
     with pytest.raises(expected):
         GitHubCodeAttestationService._decode(httpx.Response(status), expected=200)
 
 
 def test_non_json_success_response_fails_closed() -> None:
     with pytest.raises(ForgeTerminalError, match="response_invalid"):
-        GitHubCodeAttestationService._decode(
-            httpx.Response(200, content=b"not-json"), expected=200
-        )
+        GitHubCodeAttestationService._decode(httpx.Response(200, content=b"not-json"), expected=200)
 
 
 @pytest.mark.asyncio
-async def test_reconciler_loop_retries_then_reports_and_stops() -> None:
+async def test_reconciler_loop_retries_then_reports_recovery_and_stops(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     shutdown = asyncio.Event()
 
     class Service:
@@ -164,11 +163,67 @@ async def test_reconciler_loop_retries_then_reports_and_stops() -> None:
             return CodeAttestationReport(1, 0, 0, 1, 0, 1, 0, 1, 0)
 
     service = Service()
-    await run_code_attestation_loop(  # type: ignore[arg-type]
-        service, shutdown, interval_seconds=0.001
-    )
+    with caplog.at_level(logging.WARNING):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            service, shutdown, interval_seconds=0.001
+        )
 
     assert service.calls == 3
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(
+        "state=retrying" in message and "consecutive_failures=1" in message for message in messages
+    )
+    assert any(
+        "state=recovered" in message
+        and "failed_attempts=1" in message
+        and "outage_alerted=false" in message
+        for message in messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_reconciler_loop_escalates_sustained_outage_at_bounded_intervals(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    shutdown = asyncio.Event()
+
+    class Service:
+        calls = 0
+
+        async def reconcile_once(self) -> CodeAttestationReport:
+            self.calls += 1
+            if self.calls <= 6:
+                raise ForgeRetryableError("temporary")
+            shutdown.set()
+            return CodeAttestationReport(0, 0, 0, 0, 0, 0, 0, 0, 0)
+
+    service = Service()
+    with caplog.at_level(logging.WARNING):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            service,
+            shutdown,
+            interval_seconds=0.001,
+            outage_failure_threshold=3,
+        )
+
+    assert service.calls == 7
+    outage_records = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.ERROR and "state=outage" in record.getMessage()
+    ]
+    assert [record.getMessage() for record in outage_records] == [
+        "Governance code attestation availability state=outage error=temporary "
+        "consecutive_failures=3 alert_every_failures=3",
+        "Governance code attestation availability state=outage error=temporary "
+        "consecutive_failures=6 alert_every_failures=3",
+    ]
+    assert any(
+        "state=recovered" in record.getMessage()
+        and "failed_attempts=6" in record.getMessage()
+        and "outage_alerted=true" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 @pytest.mark.asyncio
@@ -176,6 +231,14 @@ async def test_reconciler_loop_rejects_nonpositive_interval() -> None:
     with pytest.raises(ValueError, match="interval must be positive"):
         await run_code_attestation_loop(  # type: ignore[arg-type]
             object(), asyncio.Event(), interval_seconds=0
+        )
+
+    with pytest.raises(ValueError, match="outage threshold must be positive"):
+        await run_code_attestation_loop(  # type: ignore[arg-type]
+            object(),
+            asyncio.Event(),
+            interval_seconds=1,
+            outage_failure_threshold=0,
         )
 
 

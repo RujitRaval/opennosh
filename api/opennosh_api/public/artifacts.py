@@ -227,6 +227,7 @@ class ResolvedRelease:
     manifest: PublicReadReleaseManifest
     manifest_envelope: SignedEnvelope
     manifest_bytes: bytes
+    publication_receipt_digest: str
     metadata: PublicReleaseMetadata
 
 
@@ -590,10 +591,11 @@ class PublicArtifactReadService:
             manifest_bytes,
             expected_digest=manifest_digest,
         )
+        receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
         await self._cache_verified(
             manifest.publication_receipt_key,
             receipt_bytes,
-            expected_digest=hashlib.sha256(receipt_bytes).hexdigest(),
+            expected_digest=receipt_digest,
         )
         metadata = PublicReleaseMetadata(
             release_version=manifest.release_version,
@@ -601,7 +603,13 @@ class PublicArtifactReadService:
             state="verified",
             stale_age_seconds=0,
         )
-        release = ResolvedRelease(manifest, envelope, manifest_bytes, metadata)
+        release = ResolvedRelease(
+            manifest=manifest,
+            manifest_envelope=envelope,
+            manifest_bytes=manifest_bytes,
+            publication_receipt_digest=receipt_digest,
+            metadata=metadata,
+        )
         if self._max_cached_releases > 0:
             self._release_cache[cache_key] = release
             self._release_cache.move_to_end(cache_key)
@@ -860,10 +868,11 @@ def _as_stale(
 ) -> ResolvedRelease:
     age = max(0, int((current - stale_since).total_seconds()))
     return ResolvedRelease(
-        release.manifest,
-        release.manifest_envelope,
-        release.manifest_bytes,
-        PublicReleaseMetadata(
+        manifest=release.manifest,
+        manifest_envelope=release.manifest_envelope,
+        manifest_bytes=release.manifest_bytes,
+        publication_receipt_digest=release.publication_receipt_digest,
+        metadata=PublicReleaseMetadata(
             release_version=release.manifest.release_version,
             published_at=release.manifest.published_at,
             state="stale",

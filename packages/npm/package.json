@@ -1,6 +1,6 @@
 {
   "name": "opennosh",
-  "version": "0.95.1",
+  "version": "0.95.2",
   "description": "Preview JavaScript SDK and bootstrap CLI for OpenNosh public nutrition data.",
   "license": "MIT",
   "type": "module",

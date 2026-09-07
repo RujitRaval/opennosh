@@ -28,11 +28,15 @@ from opennosh_api.public.artifacts import (
     activate_verified_release,
     artifact_descriptor,
 )
+from opennosh_api.public_commons.artifact_snapshot import (
+    ArtifactBackedPublicCommonsSnapshotService,
+)
 from opennosh_api.public_commons.manifests import (
     ManifestKeyRing,
     SignedEnvelope,
     canonical_json,
 )
+from opennosh_api.public_commons.schemas import CommonsSnapshotReason, CommonsSnapshotState
 from opennosh_api.publication.receipts import (
     Ed25519ReceiptSigner,
     PublicationReceiptKeyRing,
@@ -191,12 +195,31 @@ async def _published(
 
 @pytest.mark.asyncio
 async def test_receipt_may_follow_its_signed_release(tmp_path: Path) -> None:
-    service, _ = await _published(tmp_path, receipt_delay=timedelta(seconds=30))
+    service, store = await _published(tmp_path, receipt_delay=timedelta(seconds=30))
 
     release = await service.resolve_release(release_version=RELEASE)
 
     assert release.manifest.published_at == NOW
     assert release.manifest.release_version == RELEASE
+    receipt_bytes = store.objects[release.manifest.publication_receipt_key]
+    assert release.publication_receipt_digest == hashlib.sha256(receipt_bytes).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_verified_release_projects_into_public_commons_proof(tmp_path: Path) -> None:
+    reader, _ = await _published(tmp_path)
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        reader,
+        stale_after_seconds=300,
+    )
+
+    resolution = await service.refresh_response(now=NOW)
+
+    assert resolution.snapshot.state is CommonsSnapshotState.PARTIAL
+    assert resolution.snapshot.release is not None
+    assert resolution.snapshot.release.version == RELEASE
+    assert resolution.snapshot.verified_record_count == 1
+    assert resolution.snapshot.reasons == (CommonsSnapshotReason.ACTIVITY_PROJECTION_LAG,)
 
 
 @pytest.mark.asyncio
