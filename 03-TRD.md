@@ -200,6 +200,7 @@ GET    /contribution-drafts/{id}?requested_stage=
 PATCH  /contribution-drafts/{id}
 POST   /contribution-drafts/{id}/submit
 GET    /foods/capabilities
+GET    /foods/catalog-summary
 GET    /foods/search?q=&locale=&source=&limit=&cursor=
 GET    /foods/{source}/{id}
 GET    /foods/barcode/{barcode}        -- requires the enabled OFF integration
@@ -275,8 +276,10 @@ services:
 
 - Every boot validates the versioned global connection-capacity manifest and live PostgreSQL ceiling before running one migration job. Web and worker processes never run migrations on startup.
 - Compose and native USDA/community imports remain explicit operator actions after the schema is
-  current. The hosted Render predeploy idempotently loads the four bundled community starter packs
-  after migrations and runtime grants, before the replacement API instance starts.
+  current. The hosted Render predeploy idempotently loads the five bundled community starter packs
+  after migrations and runtime grants, before the replacement API instance starts. The pinned USDA
+  reference release is a separate post-deploy operator action through the bounded administration
+  role; it is never folded into application startup.
 - The publication role uses namespaced PgQueuer delivery only to wake the opennosh-owned durable
   ledger. T10 installs the deterministic planner, bounded executor, reducer, and wake-up handler,
   and T2 supplies the governed forge. Render now runs one publication process in refresh-only mode:
