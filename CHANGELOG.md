@@ -2,6 +2,14 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.97.0.2] - 2026-09-07
+
+### Fixed
+
+- Buffer retained-search GIN index writes and flush their fixed pending lists through a bounded
+  database function before publishing each snapshot, keeping the activated 8,239-record catalog
+  inside its existing build and query budgets on production-sized infrastructure.
+
 ## [0.97.0.1] - 2026-09-07
 
 ### Fixed

@@ -240,6 +240,8 @@ FROM foods_reference AS food
 WHERE CAST(:has_pack_filter AS boolean) IS FALSE
 """
 
+FOOD_SEARCH_GIN_FLUSH_SQL = "SELECT opennosh_flush_food_search_gin_pending_lists()"
+
 
 class FoodSearchTimeoutError(RuntimeError):
     """The database stopped a food search after its configured time budget."""
@@ -523,6 +525,7 @@ async def _fresh_snapshot(
             "selected_pack_ids": list(selected_pack_ids),
         },
     )
+    await database.execute(text(FOOD_SEARCH_GIN_FLUSH_SQL))
     if active_projection is not None:
         await append_federation_projection(
             database,

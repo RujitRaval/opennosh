@@ -13,6 +13,7 @@ from alembic import command
 from fastapi.testclient import TestClient
 from opennosh_api.foods.service import (
     _SNAPSHOT_SEARCH_VECTOR,
+    FOOD_SEARCH_GIN_FLUSH_SQL,
     FOOD_SEARCH_SNAPSHOT_INSERT_SQL,
     FOOD_SEARCH_SQL,
     SEARCH_PLAN_MAX_EXECUTION_MS,
@@ -949,6 +950,7 @@ async def _explain_representative_search(
                     "selected_pack_ids": [],
                 },
             )
+            await connection.execute(text(FOOD_SEARCH_GIN_FLUSH_SQL))
             parameters = {
                 "query": "needle quinoa",
                 "slug_query": "needle quinoa",
@@ -1053,11 +1055,11 @@ async def _search_gin_reloptions(database_url: str) -> dict[str, list[str]]:
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
-def test_search_gin_indexes_bypass_the_refresh_pending_list() -> None:
+def test_search_gin_indexes_buffer_refresh_writes_before_the_bounded_flush() -> None:
     assert INTEGRATION_DATABASE_URL is not None
     command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
 
     reloptions = asyncio.run(_search_gin_reloptions(INTEGRATION_DATABASE_URL))
 
     assert len(reloptions) == 4
-    assert all("fastupdate=off" in options for options in reloptions.values())
+    assert all("fastupdate=on" in options for options in reloptions.values())
