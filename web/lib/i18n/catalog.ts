@@ -1,4 +1,9 @@
-import { pseudoLanguage, type InterfaceLanguage, type ShippedLanguage } from "@/lib/routes";
+import {
+  formattingLocale,
+  pseudoLanguage,
+  type InterfaceLanguage,
+  type ShippedLanguage,
+} from "@/lib/routes";
 
 export { pseudoLanguage } from "@/lib/routes";
 
@@ -713,8 +718,7 @@ export function formatPlural(
   count: number,
   language: InterfaceLanguage,
 ): string {
-  const locale = language === pseudoLanguage ? fallbackLanguage : language;
-  const category = new Intl.PluralRules(locale).select(count);
+  const category = new Intl.PluralRules(formattingLocale(language)).select(count);
   return formatMessage(category === "one" ? message.one : message.other, { count });
 }
 

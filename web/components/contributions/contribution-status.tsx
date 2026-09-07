@@ -6,9 +6,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { governanceApi } from "@/lib/api/governance";
 import type { ContributionCapability } from "@/lib/contributions/domain";
-import { routes, type InterfaceLanguage } from "@/lib/routes";
+import { formattingLocale, routes, type InterfaceLanguage } from "@/lib/routes";
 import { contributionCatalog } from "@/lib/contributions/catalog";
-import { fallbackLanguage, pseudoLanguage } from "@/lib/i18n/catalog";
 
 export function ContributionStatus({ language, draftId }: { language: InterfaceLanguage; draftId: string }) {
   const copy = contributionCatalog(language);
@@ -32,7 +31,7 @@ export function ContributionStatus({ language, draftId }: { language: InterfaceL
 
   const received = capability.receipt;
   const acknowledgementDue = received
-    ? new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, { dateStyle: "long", timeStyle: "short" }).format(
+    ? new Intl.DateTimeFormat(formattingLocale(language), { dateStyle: "long", timeStyle: "short" }).format(
         new Date(received.acknowledgementDueAt),
       )
     : null;

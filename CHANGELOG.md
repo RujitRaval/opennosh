@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.95.2.1] - 2026-09-07
+
+### Fixed
+
+- Normalize interface locales at every number, date, and plural formatting boundary so unsupported
+  route segments cannot crash a parallel server render before the public layout returns 404.
+
 ## [0.95.2.0] - 2026-09-07
 
 ### Changed

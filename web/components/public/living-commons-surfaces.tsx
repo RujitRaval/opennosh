@@ -4,14 +4,10 @@ import type {
   PublicReuseSnapshot,
 } from "@/lib/api/domain/living-commons";
 import { formatMessage, formatPlural, getCatalog } from "@/lib/i18n/catalog";
-import { pseudoLanguage, type InterfaceLanguage } from "@/lib/routes";
-
-function locale(language: InterfaceLanguage) {
-  return language === pseudoLanguage ? "en" : language;
-}
+import { formattingLocale, type InterfaceLanguage } from "@/lib/routes";
 
 function formatDate(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(locale(language), {
+  return new Intl.DateTimeFormat(formattingLocale(language), {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
@@ -103,7 +99,7 @@ export function PublicImpactSurface({
       <section className="impact-proof" aria-labelledby="impact-totals-title">
         <div className="commons-section-heading"><p className="eyebrow">{copy.globalEyebrow}</p><h2 id="impact-totals-title">{copy.globalTitle}</h2></div>
         <dl className="impact-totals">
-          {impactKeys.map((key) => <div key={key}><dt>{copy.metrics[key]}</dt><dd>{snapshot.global[key].toLocaleString(locale(language))}</dd></div>)}
+          {impactKeys.map((key) => <div key={key}><dt>{copy.metrics[key]}</dt><dd>{snapshot.global[key].toLocaleString(formattingLocale(language))}</dd></div>)}
         </dl>
         <p className="mono proof-text">{formatMessage(copy.checkpoint, { checkpoint: snapshot.source_checkpoint_id ?? copy.none })} · {digest(snapshot.digest)} · {formatDate(snapshot.observed_at, language)}</p>
       </section>

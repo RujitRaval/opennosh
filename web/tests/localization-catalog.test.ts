@@ -9,7 +9,7 @@ import {
   resolveCatalogValue,
   validateCatalog,
 } from "@/lib/i18n/catalog";
-import { isSupportedLanguage, resolveInterfaceLanguage } from "@/lib/routes";
+import { formattingLocale, isSupportedLanguage, resolveInterfaceLanguage } from "@/lib/routes";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -68,6 +68,14 @@ describe("typed interface catalog contract", () => {
   it("never negotiates the test-only pseudo-locale from browser preferences", () => {
     expect(resolveInterfaceLanguage({ acceptLanguage: "en-XA,en;q=0.5" })).toBe("en");
     expect(resolveInterfaceLanguage({ savedLanguage: "en-XA" })).toBe("en");
+  });
+
+  it("uses a safe formatting locale before unsupported route segments are rejected", () => {
+    expect(formattingLocale("en")).toBe("en");
+    expect(formattingLocale("en-XA")).toBe("en");
+    expect(formattingLocale("favicon.ico")).toBe("en");
+    expect(() => formatPlural(enCatalog.truth.verifiedRecords, 166, "favicon.ico" as "en"))
+      .not.toThrow();
   });
 
   it("exposes the pseudo-locale only behind an explicit non-production test flag", () => {

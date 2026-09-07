@@ -4,11 +4,11 @@ import type {
   AcceptedActivityEvent,
   PublicCommonsSnapshot,
 } from "@/lib/api/domain/public-commons";
-import { routes, type InterfaceLanguage } from "@/lib/routes";
-import { fallbackLanguage, formatMessage, formatPlural, getCatalog, pseudoLanguage } from "@/lib/i18n/catalog";
+import { formattingLocale, routes, type InterfaceLanguage } from "@/lib/routes";
+import { formatMessage, formatPlural, getCatalog } from "@/lib/i18n/catalog";
 
 function formatDateTime(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, {
+  return new Intl.DateTimeFormat(formattingLocale(language), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -20,7 +20,7 @@ function formatDateTime(value: string, language: InterfaceLanguage) {
 }
 
 function formatDate(value: string, language: InterfaceLanguage) {
-  return new Intl.DateTimeFormat(language === pseudoLanguage ? fallbackLanguage : language, {
+  return new Intl.DateTimeFormat(formattingLocale(language), {
     dateStyle: "long",
     timeZone: "UTC",
   }).format(new Date(value));
@@ -46,7 +46,7 @@ export function HeroReleaseProof({
   if (!hasVerifiedRelease(snapshot) || !snapshot.release) return null;
   return (
     <aside className="hero-proof" aria-label={copy.verifiedRelease}>
-      <strong>{snapshot.verified_record_count?.toLocaleString(language)}</strong>
+      <strong>{snapshot.verified_record_count?.toLocaleString(formattingLocale(language))}</strong>
       <span>{formatPlural(copy.verifiedRecords, snapshot.verified_record_count ?? 0, language)}</span>
       <small className="mono">
         {formatMessage(copy.release, { version: snapshot.release.version })}
@@ -67,7 +67,7 @@ export function FooterReleaseProof({
   if (!snapshot || !hasVerifiedRelease(snapshot) || !snapshot.release) return null;
   return (
     <p className="footer-release-proof mono">
-      <strong>{snapshot.verified_record_count?.toLocaleString(language)}</strong>{" "}
+      <strong>{snapshot.verified_record_count?.toLocaleString(formattingLocale(language))}</strong>{" "}
       {formatPlural(copy.verifiedRecords, snapshot.verified_record_count ?? 0, language)}
       <span>
         {formatMessage(copy.release, { version: snapshot.release.version })}

@@ -165,12 +165,14 @@ test("deep public pages expose their full breadcrumb and owning hub", async ({ p
   }
 });
 
-test("unsupported interface languages fail visibly", async ({ page }) => {
-  const response = await page.goto("/zz/explore");
+for (const unsupportedPath of ["/zz/explore", "/favicon.ico"]) {
+  test(`unsupported interface language path ${unsupportedPath} fails visibly`, async ({ page }) => {
+    const response = await page.goto(unsupportedPath);
 
-  expect(response?.status()).toBe(404);
-  await expect(page.getByText("This page could not be found.")).toBeVisible();
-});
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText("This page could not be found.")).toBeVisible();
+  });
+}
 
 test("mobile menu exposes task hubs and utilities with deterministic focus", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile navigation is exercised in the mobile project.");
