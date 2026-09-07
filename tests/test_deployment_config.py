@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,32 @@ FOOD_SEARCH_ENV_DEFAULTS = {
 }
 
 PUBLIC_ROOT_ENABLED_DEFAULT = "true"
+
+
+def test_alembic_setup_preserves_application_loggers() -> None:
+    module = ast.parse((ROOT / "api/alembic/env.py").read_text(encoding="utf-8"))
+    file_config_calls = [
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "fileConfig"
+    ]
+
+    assert len(file_config_calls) == 1
+    disable_keyword = next(
+        (
+            keyword
+            for keyword in file_config_calls[0].keywords
+            if keyword.arg == "disable_existing_loggers"
+        ),
+        None,
+    )
+    assert disable_keyword is not None
+    assert isinstance(disable_keyword.value, ast.Constant)
+    assert disable_keyword.value.value is False
+
+
 def test_food_search_environment_is_wired_from_template_through_compose() -> None:
     environment = {
         key: value
