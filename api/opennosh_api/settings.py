@@ -125,6 +125,12 @@ class Settings(BaseSettings):
     public_commons_revalidation_allowed_hosts: str = "web,localhost,127.0.0.1,::1"
     public_commons_verifying_keys: str = "development:Laz0b4AQMs1TfE090-MRSPubDqxptaEJ-HZXEsZe_lw"
     public_commons_stale_after_seconds: PositiveInt = 300
+    public_commons_post_deploy_canary_enabled: bool = False
+    public_commons_post_deploy_canary_base_url: str = "https://opennosh.org"
+    public_commons_post_deploy_canary_timeout_seconds: PositiveFloat = Field(
+        default=300.0, le=600.0
+    )
+    public_commons_post_deploy_canary_poll_seconds: PositiveFloat = Field(default=5.0, le=30.0)
     public_artifact_directory: Path | None = None
     public_artifact_base_url: str | None = None
     public_artifact_checkpoint_path: Path | None = None
@@ -286,6 +292,28 @@ class Settings(BaseSettings):
             raise ValueError("Code attestation alert webhook must be a safe HTTPS URL")
         return value
 
+    @field_validator("public_commons_post_deploy_canary_base_url")
+    @classmethod
+    def validate_public_commons_post_deploy_canary_base_url(cls, value: str) -> str:
+        normalized = value.rstrip("/")
+        parsed = urlsplit(normalized)
+        try:
+            port = parsed.port
+        except ValueError as error:
+            raise ValueError("Commons canary origin must be a safe HTTPS URL") from error
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or (port is not None and not 1 <= port <= 65_535)
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("Commons canary origin must be a safe HTTPS URL")
+        return normalized
+
     @field_validator("r2_bucket")
     @classmethod
     def validate_r2_bucket(cls, value: str | None) -> str | None:
@@ -441,9 +469,17 @@ class Settings(BaseSettings):
             raise ValueError("Code attestation alert token requires a webhook URL")
         if (
             self.governance_code_attestation_alert_webhook_url is not None
-            and not self.governance_code_attestation_enabled
+            and not (
+                self.governance_code_attestation_enabled
+                or self.public_commons_post_deploy_canary_enabled
+            )
         ):
-            raise ValueError("Code attestation alert webhook requires attestation to be enabled")
+            raise ValueError("Operational alert webhook requires an alerting mode to be enabled")
+        if self.public_commons_post_deploy_canary_enabled:
+            if self.governance_code_attestation_alert_webhook_url is None:
+                raise ValueError("Commons post-deploy canary requires an alert webhook")
+            if not re.fullmatch(r"[0-9a-f]{40}", self.render_git_commit or ""):
+                raise ValueError("Commons post-deploy canary requires RENDER_GIT_COMMIT")
         if self.governance_mutations_enabled and not self.governance_steward_ui_enabled:
             raise ValueError("Governance mutations require the steward UI read surface")
         if self.mission_mutations_enabled and not self.mission_public_enabled:
@@ -515,6 +551,7 @@ class Settings(BaseSettings):
                 not self.publication_claims_enabled
                 and not self.latest_refresh_enabled
                 and not self.governance_code_attestation_enabled
+                and not self.public_commons_post_deploy_canary_enabled
             ):
                 raise ValueError("Production publication workers require an enabled runtime mode")
             if self.publication_preactivation_smoke_enabled and self.publication_claims_enabled:
@@ -540,6 +577,7 @@ class Settings(BaseSettings):
             self.publication_claims_enabled
             or self.publication_preactivation_smoke_enabled
             or self.governance_code_attestation_enabled
+            or self.public_commons_post_deploy_canary_enabled
             or self.latest_refresh_enabled
             or has_publication_secrets
         ):

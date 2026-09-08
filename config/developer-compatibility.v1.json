@@ -2,9 +2,9 @@
   "$schema": "../schemas/developer-compatibility.schema.json",
   "schema_version": "1.0",
   "status": "preview",
-  "release_version": "0.98.0.4",
+  "release_version": "0.99.0.0",
   "public_origin": "https://opennosh.org",
-  "compatibility_sha256": "a0ded808ff6b42cb4fe17e039bd6c661f86e73e8db5af5ccb749364dbe6ad3ca",
+  "compatibility_sha256": "8dd6ccd1640eb50146940f5fff72a9edf8900ff016f6c9cd791cd8050a4553fe",
   "openapi": {
     "current": "2.0.0",
     "supported": [
@@ -23,24 +23,24 @@
   "clients": {
     "javascript": {
       "package": "opennosh",
-      "current": "0.98.0",
-      "previous": "0.97.0",
+      "current": "0.99.0",
+      "previous": "0.98.0",
       "contract_major": 2,
       "status": "preview",
       "deprecation_date": null
     },
     "python": {
       "package": "opennosh",
-      "current": "0.98.0.4",
-      "previous": "0.97.0.3",
+      "current": "0.99.0.0",
+      "previous": "0.98.0.4",
       "contract_major": 2,
       "status": "preview",
       "deprecation_date": null
     },
     "cli": {
       "package": "opennosh",
-      "current": "0.98.0.4",
-      "previous": "0.97.0.3",
+      "current": "0.99.0.0",
+      "previous": "0.98.0.4",
       "contract_major": 2,
       "status": "preview",
       "deprecation_date": null
@@ -99,6 +99,13 @@
       "path": "/api/v1/foods/search",
       "media_type": "application/json",
       "max_response_bytes": 2097152
+    },
+    {
+      "operation_id": "build_version_api_v1_public_build_version_get",
+      "method": "GET",
+      "path": "/api/v1/public/build-version",
+      "media_type": "application/json",
+      "max_response_bytes": 4096
     },
     {
       "operation_id": "commons_snapshot_api_v1_public_commons_snapshot_get",

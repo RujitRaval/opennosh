@@ -28,6 +28,15 @@
       }
     },
     {
+      "operation_id": "build_version_api_v1_public_build_version_get",
+      "media_type": "application/json",
+      "body": {
+        "schema_version": "1",
+        "version": "0.99.0.0",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
       "operation_id": "commons_snapshot_api_v1_public_commons_snapshot_get",
       "media_type": "application/json",
       "body": {

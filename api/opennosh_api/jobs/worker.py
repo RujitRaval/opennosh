@@ -33,6 +33,10 @@ from opennosh_api.public.refresh import (
     run_latest_pointer_refresh_loop,
 )
 from opennosh_api.public.signing import load_production_signing_key
+from opennosh_api.public_commons.canary import (
+    WebhookCommonsCanaryAlertDestination,
+    run_post_deploy_commons_canary,
+)
 from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.adapters import PublicationAdapterRegistry
 from opennosh_api.publication.code_attestation import (
@@ -543,10 +547,14 @@ async def _run_publication_worker(
 ) -> None:
     configured = settings or get_settings()
     code_attestation_enabled = getattr(configured, "governance_code_attestation_enabled", False)
+    commons_canary_enabled = getattr(
+        configured, "public_commons_post_deploy_canary_enabled", False
+    )
     if (
         not configured.latest_refresh_enabled
         and not configured.publication_claims_enabled
         and not code_attestation_enabled
+        and not commons_canary_enabled
     ):
         raise RuntimeError("Publication worker requires an enabled runtime mode")
     if getattr(configured, "publication_preactivation_smoke_enabled", False):
@@ -570,6 +578,8 @@ async def _run_publication_worker(
     service = None
     attestation_clients = None
     attestation_alert_destination = None
+    commons_canary_alert_destination = None
+    commons_canary_expected_commit: str | None = None
     if configured.latest_refresh_enabled:
         service = refresh_service or create_latest_pointer_refresh_service(configured)
     try:
@@ -596,11 +606,31 @@ async def _run_publication_worker(
                         alert_token.get_secret_value() if alert_token is not None else None
                     ),
                 )
+        if commons_canary_enabled:
+            alert_url = getattr(
+                configured, "governance_code_attestation_alert_webhook_url", None
+            )
+            if alert_url is None:
+                raise RuntimeError("Commons post-deploy canary requires an alert webhook")
+            commons_canary_expected_commit = getattr(configured, "render_git_commit", None)
+            if commons_canary_expected_commit is None:
+                raise RuntimeError("Commons post-deploy canary requires RENDER_GIT_COMMIT")
+            alert_token = getattr(
+                configured, "governance_code_attestation_alert_bearer_token", None
+            )
+            commons_canary_alert_destination = WebhookCommonsCanaryAlertDestination(
+                alert_url.get_secret_value(),
+                bearer_token=(
+                    alert_token.get_secret_value() if alert_token is not None else None
+                ),
+            )
     except BaseException:
         if service is not None:
             await service.aclose()
         if attestation_alert_destination is not None:
             await attestation_alert_destination.aclose()
+        if commons_canary_alert_destination is not None:
+            await commons_canary_alert_destination.aclose()
         if attestation_clients is not None:
             await attestation_clients.aclose()
         raise
@@ -635,9 +665,26 @@ async def _run_publication_worker(
                     ),
                     name="opennosh-governance-code-attestation",
                 )
+            if commons_canary_alert_destination is not None:
+                assert commons_canary_expected_commit is not None
+                tasks.create_task(
+                    run_post_deploy_commons_canary(
+                        shutdown,
+                        base_url=configured.public_commons_post_deploy_canary_base_url,
+                        expected_commit=commons_canary_expected_commit,
+                        timeout_seconds=(
+                            configured.public_commons_post_deploy_canary_timeout_seconds
+                        ),
+                        poll_seconds=configured.public_commons_post_deploy_canary_poll_seconds,
+                        alert_destination=commons_canary_alert_destination,
+                    ),
+                    name="opennosh-public-commons-post-deploy-canary",
+                )
     finally:
         if attestation_alert_destination is not None:
             await attestation_alert_destination.aclose()
+        if commons_canary_alert_destination is not None:
+            await commons_canary_alert_destination.aclose()
         if attestation_clients is not None:
             await attestation_clients.aclose()
 

@@ -16,6 +16,14 @@ export const PUBLIC_OPERATION_POLICIES = Object.freeze({
     "maxResponseBytes": 2097152,
     "pathParameters": {}
   },
+  "/api/v1/public/build-version": {
+    "acceptedMediaTypes": [
+      "application/json"
+    ],
+    "mediaType": "application/json",
+    "maxResponseBytes": 4096,
+    "pathParameters": {}
+  },
   "/api/v1/public/commons-snapshot": {
     "acceptedMediaTypes": [
       "application/json"

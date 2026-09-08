@@ -17,6 +17,12 @@ PUBLIC_OPERATION_POLICIES: Final[dict[str, dict[str, Any]]] = {
         "media_type": "application/json",
         "path_parameters": {},
     },
+    "/api/v1/public/build-version": {
+        "accepted_media_types": ["application/json"],
+        "max_response_bytes": 4096,
+        "media_type": "application/json",
+        "path_parameters": {},
+    },
     "/api/v1/public/commons-snapshot": {
         "accepted_media_types": ["application/json"],
         "max_response_bytes": 24576,

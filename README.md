@@ -56,6 +56,11 @@ enabled. See
 [`docs/operations/render-production.md`](docs/operations/render-production.md) for provisioning,
 verification, rollback, and domain steps.
 
+Every successful publication-worker deploy also runs a commit-bound Commons canary. It waits for
+`GET /api/v1/public/build-version` to report the worker's exact `RENDER_GIT_COMMIT`, then requires
+the public Commons snapshot to be truthfully `quiet` or `live`. An `unavailable` response or a
+bounded readiness timeout posts a redacted message to the configured Slack alert receiver.
+
 For native development, install Python 3.11+, uv, Node.js 24 LTS (24.15+; Node 25 is unsupported), npm, and Docker, then run:
 
 ```bash
@@ -318,13 +323,23 @@ The public homepage resolves one server-side snapshot from:
 GET /api/v1/public/commons-snapshot
 ```
 
+Operators can bind a live response to the exact deployed release and source commit without relying
+on HTML or intermediary caches:
+
+```text
+GET /api/v1/public/build-version
+```
+
+The endpoint returns schema version `1`, the four-component opennosh release version, and Render's
+40-character Git commit when available. It always sends `Cache-Control: no-store`.
+
 That single immutable response drives the hero count, accepted-activity ledger, freshness message,
 and repeated footer proof. The API does not require PostgreSQL for this endpoint. When the canonical
 public artifact reader is configured, the background materializer reuses its signed-pointer,
 content-digest, signed-manifest, signed-receipt, anti-rollback, and durable-cache verification. It
-exposes the verified release and exact manifest record count while marking activity `partial`
-until that artifact schema carries an accepted-event projection. It never converts missing activity
-proof into a quiet claim. Standalone filesystem deployments retain the original bounded projection
+exposes the verified release and exact manifest record count while a canonical, receipt-bound
+accepted-event projection makes complete zero and nonzero windows truthfully `quiet` and `live`.
+It never converts missing activity proof into a quiet claim. Standalone filesystem deployments retain the original bounded projection
 materializer described below. Requests read only the materialized result in either mode. Invalid or
 missing first releases omit the record count; later verification failure retains only the last
 verified release proof and labels it stale.

@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.99.0.0] - 2026-09-08
+
+### Added
+
+- Expose a cache-disabled public build-version endpoint with the deployed Render commit so operators
+  can prove which release is serving production without relying on UI content or deployment timing.
+- Run a commit-bound Commons canary from the publication worker after every production deployment and
+  alert the existing Slack receiver whenever the deployed snapshot reports `unavailable`.
+
+### Changed
+
+- Attach the serving build commit to Commons responses so the canary cannot accept a healthy response
+  from an older instance during a rolling deployment.
+
 ## [0.98.0.4] - 2026-09-08
 
 ### Fixed

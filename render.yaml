@@ -141,6 +141,14 @@ services:
         value: "true"
       - key: GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS
         value: "30"
+      - key: PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED
+        value: "true"
+      - key: PUBLIC_COMMONS_POST_DEPLOY_CANARY_BASE_URL
+        value: https://opennosh.org
+      - key: PUBLIC_COMMONS_POST_DEPLOY_CANARY_TIMEOUT_SECONDS
+        value: "300"
+      - key: PUBLIC_COMMONS_POST_DEPLOY_CANARY_POLL_SECONDS
+        value: "5"
       - key: FEDERATION_INGESTION_ENABLED
         value: "false"
       - key: FEDERATION_PROJECTION_ENABLED

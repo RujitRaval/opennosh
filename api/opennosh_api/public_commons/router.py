@@ -25,6 +25,7 @@ def _etag_matches(if_none_match: str | None, etag: str) -> bool:
     responses={status.HTTP_304_NOT_MODIFIED: {"description": "Snapshot unchanged"}},
 )
 async def commons_snapshot(
+    request: Request,
     service: Annotated[PublicCommonsSnapshotService, Depends(get_snapshot_service)],
     if_none_match: Annotated[str | None, Header()] = None,
 ) -> Response:
@@ -39,6 +40,9 @@ async def commons_snapshot(
         "Vary": "Accept-Encoding",
         "X-OpenNosh-Snapshot-Bytes": str(resolution.response_bytes),
     }
+    deployed_commit = request.app.state.settings.render_git_commit
+    if deployed_commit is not None:
+        headers["X-OpenNosh-Build-Commit"] = deployed_commit
     if _etag_matches(if_none_match, resolution.etag):
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     return Response(
