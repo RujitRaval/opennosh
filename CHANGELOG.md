@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.97.0.3] - 2026-09-07
+
+### Fixed
+
+- Remove the two speculative public font preloads that Chromium reported as unused; route-local
+  font faces now load on demand under the existing swap and layout-shift budgets.
+
 ## [0.97.0.2] - 2026-09-07
 
 ### Fixed

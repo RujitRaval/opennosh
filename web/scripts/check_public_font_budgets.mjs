@@ -16,7 +16,6 @@ const manifestFile = process.env.OPENNOSH_FONT_BUILD_MANIFEST
   : path.join(webRoot, "assets/fonts/v2/font-build.v2.json");
 const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
 const publicLayout = readFileSync(path.join(webRoot, "app/(public)/[language]/layout.tsx"), "utf8");
-const publicFonts = readFileSync(path.join(webRoot, "app/(public)/[language]/fonts.ts"), "utf8");
 const publicFontCss = readFileSync(path.join(webRoot, "app/(public)/[language]/fonts.css"), "utf8");
 const trackerLayout = readFileSync(path.join(webRoot, "app/(tracker)/tracker/layout.tsx"), "utf8");
 const trackerCss = readFileSync(path.join(webRoot, "app/(tracker)/tracker/tracker.css"), "utf8");
@@ -89,11 +88,11 @@ if (totalBytes > manifest.budgets.totalBytes) {
 if (manifest.budgets.trackerBytes !== 0) {
   fail("Tracker Living Commons font budget must remain exactly zero bytes.");
 }
-if (!publicFonts.includes('asset.delivery === "critical"')) {
-  fail("The public preload list must be derived from the typed critical-delivery contract.");
+if (!publicLayout.includes('import "./fonts.css";')) {
+  fail("The public root must own the route-local font stylesheet.");
 }
-if (!publicLayout.includes('import "./fonts.css";') || !publicLayout.includes("preload(href")) {
-  fail("The public root must own both the font stylesheet and explicit critical preloads.");
+if (publicLayout.includes("preload(") || critical.length !== 0) {
+  fail("Public fonts must load on demand without speculative preload hints.");
 }
 for (const asset of runtimeAssets.filter((font) => font.delivery === "deferred")) {
   if (publicLayout.includes(asset.href)) fail(`${asset.href} must not be preloaded.`);
@@ -123,5 +122,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Living Commons font contract valid: ${criticalBytes}/${manifest.budgets.criticalBytes} critical bytes, ${totalBytes}/${manifest.budgets.totalBytes} total bytes, ${critical.length}/${manifest.budgets.criticalRequests} preloads, zero Tracker source references.`,
+  `Living Commons font contract valid: ${criticalBytes}/${manifest.budgets.criticalBytes} preload bytes, ${totalBytes}/${manifest.budgets.totalBytes} total bytes, ${critical.length}/${manifest.budgets.criticalRequests} preloads, zero Tracker source references.`,
 );
