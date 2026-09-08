@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.98.0.2] - 2026-09-08
+
+### Fixed
+
+- Refresh retained food-search planner statistics inside the bounded GIN finalizer so a newly built
+  production snapshot meets the existing 500 ms query budget before concurrent requests can use it.
+
 ## [0.98.0.1] - 2026-09-07
 
 ### Fixed

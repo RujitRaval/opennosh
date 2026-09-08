@@ -1072,6 +1072,10 @@ def test_representative_search_meets_the_explain_plan_budget() -> None:
         "pk_food_search_snapshot_items",
         "ix_food_search_snapshot_items_equivalence",
         "ix_food_search_snapshot_items_pack",
+        "ix_food_search_snapshot_items_search_tsv",
+        "ix_food_search_snapshot_items_source_id_trgm",
+        "ix_food_search_snapshot_items_name_trgm",
+        "ix_food_search_snapshot_items_name_local_trgm",
     }
     assert forced_index_names & {
         "ix_food_search_snapshot_items_search_tsv",
@@ -1110,6 +1114,25 @@ async def _search_gin_reloptions(database_url: str) -> dict[str, list[str]]:
         await engine.dispose()
 
 
+async def _search_gin_finalizer_definition(database_url: str) -> str:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            definition = await connection.scalar(
+                text(
+                    """
+                    SELECT pg_get_functiondef(
+                        'public.opennosh_flush_food_search_gin_pending_lists()'::regprocedure
+                    )
+                    """
+                )
+            )
+            assert isinstance(definition, str)
+            return definition
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
 def test_search_gin_indexes_buffer_refresh_writes_before_the_bounded_flush() -> None:
     assert INTEGRATION_DATABASE_URL is not None
@@ -1119,3 +1142,5 @@ def test_search_gin_indexes_buffer_refresh_writes_before_the_bounded_flush() -> 
 
     assert len(reloptions) == 4
     assert all("fastupdate=on" in options for options in reloptions.values())
+    definition = asyncio.run(_search_gin_finalizer_definition(INTEGRATION_DATABASE_URL))
+    assert "ANALYZE public.food_search_snapshot_items" in definition
