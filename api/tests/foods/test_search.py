@@ -82,6 +82,29 @@ class _FailingDatabase:
         self.rolled_back = True
 
 
+class _EmptySearchResult:
+    def mappings(self) -> list[dict[str, Any]]:
+        return []
+
+
+class _TimeoutOnceDatabase:
+    def __init__(self) -> None:
+        self.execute_calls = 0
+        self.rollback_calls = 0
+        self.error = DBAPIError("food search", {}, _DriverError("57014"))
+
+    async def execute(self, *_args: Any, **_kwargs: Any) -> Any:
+        self.execute_calls += 1
+        if self.execute_calls == 2:
+            raise self.error
+        if self.execute_calls == 4:
+            return _EmptySearchResult()
+        return object()
+
+    async def rollback(self) -> None:
+        self.rollback_calls += 1
+
+
 def _request(path: str, *, query_string: bytes = b"") -> Request:
     request = Request(
         {
@@ -193,9 +216,9 @@ def test_catalog_summary_keeps_community_and_usda_counts_separate() -> None:
     assert summary.searchable_records == 8_239
 
     schema = create_app(Settings(app_environment="test", _env_file=None)).openapi()
-    response_schema = schema["paths"]["/api/v1/foods/catalog-summary"]["get"]["responses"][
-        "200"
-    ]["content"]["application/json"]["schema"]
+    response_schema = schema["paths"]["/api/v1/foods/catalog-summary"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"]
     assert response_schema["$ref"] == "#/components/schemas/FoodCatalogSummary"
 
 
@@ -335,6 +358,34 @@ def test_database_timeout_is_translated_after_rolling_back(
         )
 
     assert database.rolled_back is True
+
+
+def test_transient_cold_query_timeout_is_retried_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(food_service, "_fresh_snapshot", _snapshot)
+    database = _TimeoutOnceDatabase()
+
+    response = asyncio.run(
+        search_foods(
+            database,  # type: ignore[arg-type]
+            query="apple",
+            locale=None,
+            source=None,
+            limit=20,
+            cursor=None,
+            key_ring=_key_ring(),
+            cursor_lifetime_seconds=900,
+            snapshot_refresh_seconds=300,
+            snapshot_retention_seconds=1_200,
+            snapshot_build_timeout_ms=30_000,
+            statement_timeout_ms=500,
+        )
+    )
+
+    assert response.items == []
+    assert database.execute_calls == 4
+    assert database.rollback_calls == 1
 
 
 def test_non_timeout_database_errors_are_not_hidden(

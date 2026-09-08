@@ -242,6 +242,7 @@ WHERE CAST(:has_pack_filter AS boolean) IS FALSE
 
 FOOD_SEARCH_GIN_FLUSH_SQL = "SELECT opennosh_flush_food_search_gin_pending_lists()"
 FOOD_SEARCH_PROJECTION_LOCK_KEY = "opennosh.food-search-projection"
+FOOD_SEARCH_QUERY_ATTEMPTS = 2
 
 
 class FoodSearchTimeoutError(RuntimeError):
@@ -401,9 +402,7 @@ async def _latest_snapshot(
                     "fresh_after": fresh_after,
                     "now": now,
                     "federation_checkpoint_id": (
-                        active_projection.checkpoint_id
-                        if active_projection is not None
-                        else None
+                        active_projection.checkpoint_id if active_projection is not None else None
                     ),
                     "release_set_digest": (
                         active_projection.release_set_digest
@@ -457,9 +456,7 @@ async def _fresh_snapshot(
     lock_acquired = bool(
         (
             await database.execute(
-                text(
-                    "SELECT pg_try_advisory_xact_lock(hashtext(:projection_lock_key))"
-                ),
+                text("SELECT pg_try_advisory_xact_lock(hashtext(:projection_lock_key))"),
                 {"projection_lock_key": FOOD_SEARCH_PROJECTION_LOCK_KEY},
             )
         ).scalar_one()
@@ -655,37 +652,41 @@ async def search_foods(
             raise FoodSearchProjectionBusyError from error
 
     after = payload.pos if payload is not None else (0, "0", "", "", "")
-    try:
-        await database.execute(
-            text("SELECT set_config('statement_timeout', :timeout, true)"),
-            {"timeout": f"{statement_timeout_ms}ms"},
-        )
-        rows = list(
-            (
-                await database.execute(
-                    text(FOOD_SEARCH_SQL),
-                    {
-                        "query": query,
-                        "slug_query": query.casefold(),
-                        "locale": locale,
-                        "source_filter": source.value if source is not None else None,
-                        "snapshot_id": snapshot.snapshot_id,
-                        "has_cursor": payload is not None,
-                        "after_rank": after[0],
-                        "after_score": float(after[1]),
-                        "after_name": after[2],
-                        "after_source": after[3],
-                        "after_source_id": after[4],
-                        "fetch_limit": limit + 1,
-                    },
-                )
-            ).mappings()
-        )
-    except DBAPIError as error:
-        if getattr(error.orig, "sqlstate", None) != "57014":
-            raise
-        await database.rollback()
-        raise FoodSearchTimeoutError from error
+    rows: list[RowMapping] = []
+    for attempt in range(FOOD_SEARCH_QUERY_ATTEMPTS):
+        try:
+            await database.execute(
+                text("SELECT set_config('statement_timeout', :timeout, true)"),
+                {"timeout": f"{statement_timeout_ms}ms"},
+            )
+            rows = list(
+                (
+                    await database.execute(
+                        text(FOOD_SEARCH_SQL),
+                        {
+                            "query": query,
+                            "slug_query": query.casefold(),
+                            "locale": locale,
+                            "source_filter": source.value if source is not None else None,
+                            "snapshot_id": snapshot.snapshot_id,
+                            "has_cursor": payload is not None,
+                            "after_rank": after[0],
+                            "after_score": float(after[1]),
+                            "after_name": after[2],
+                            "after_source": after[3],
+                            "after_source_id": after[4],
+                            "fetch_limit": limit + 1,
+                        },
+                    )
+                ).mappings()
+            )
+            break
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) != "57014":
+                raise
+            await database.rollback()
+            if attempt + 1 == FOOD_SEARCH_QUERY_ATTEMPTS:
+                raise FoodSearchTimeoutError from error
 
     has_more = len(rows) > limit
     visible_rows = rows[:limit]
@@ -788,8 +789,7 @@ async def get_food_detail(
         **item.model_dump(),
         nutrients=federation_row["nutrients_json"],
         portions=[
-            HouseholdPortion.model_validate(value)
-            for value in federation_row["portions_json"]
+            HouseholdPortion.model_validate(value) for value in federation_row["portions_json"]
         ],
     )
 
