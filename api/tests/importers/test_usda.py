@@ -96,6 +96,40 @@ def test_fndds_json_uses_wweia_category_and_human_portion_descriptions() -> None
     assert record.nutrients_json["nutrients"]["energy_kcal"] == "52.0"
 
 
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"foodPortions": [{"gramWeight": 1, "portionDescription": "x" * 81}]}, "portion name"),
+        ({"foodPortions": [{"gramWeight": 1}]}, "portion amount"),
+        (
+            {
+                "wweiaFoodCategory": {
+                    "wweiaFoodCategoryDescription": "x" * 256,
+                }
+            },
+            "food category",
+        ),
+    ],
+)
+def test_fndds_rejects_invalid_portion_and_category_boundaries(
+    tmp_path: Path, mutation: dict[str, object], message: str
+) -> None:
+    payload = json.loads((FIXTURES / "survey.json").read_text())
+    payload["SurveyFoods"][0].update(mutation)
+    source = tmp_path / "invalid-survey.json"
+    source.write_text(json.dumps(payload))
+
+    outcome = next(iter_usda(source, allowed_data_types=[USDADataType.FNDDS]))
+
+    assert outcome.issue is not None
+    assert message in outcome.issue.message
+
+
+def test_usda_parser_rejects_empty_data_type_allowlist() -> None:
+    with pytest.raises(ValueError, match="supported USDA data types"):
+        list(iter_usda(FIXTURES / "survey.json", allowed_data_types=[]))
+
+
 def test_empty_json_dataset_is_rejected(tmp_path: Path) -> None:
     source = tmp_path / "empty.json"
     source.write_text(json.dumps({"FoundationFoods": []}))

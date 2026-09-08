@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
+import opennosh_api.importers.usda_branded_assessment as assessment_module
 import pytest
 from opennosh_api.importers.usda_branded_assessment import (
     BrandedAssessmentManifest,
     assess_archive,
     canonical_gtin,
+    load_manifest,
+    main,
     verify_archive,
 )
 
@@ -117,6 +122,26 @@ def test_archive_verification_rejects_same_size_checksum_tampering(tmp_path: Pat
 
     with pytest.raises(ValueError, match="SHA-256"):
         verify_archive(archive, manifest)
+
+
+def test_archive_verification_rejects_filename_and_malformed_zip(tmp_path: Path) -> None:
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+    wrong_name = BrandedAssessmentManifest.model_validate({**payload, "filename": "other.zip"})
+    with pytest.raises(ValueError, match="filename"):
+        verify_archive(archive, wrong_name)
+
+    malformed = tmp_path / "malformed.zip"
+    malformed.write_bytes(b"not a zip")
+    malformed_manifest = BrandedAssessmentManifest.model_validate(
+        {
+            **payload,
+            "filename": malformed.name,
+            "sha256": hashlib.sha256(malformed.read_bytes()).hexdigest(),
+            "size_bytes": malformed.stat().st_size,
+        }
+    )
+    with pytest.raises(ValueError, match="valid ZIP"):
+        verify_archive(malformed, malformed_manifest)
 
 
 def test_archive_verification_rejects_member_and_expanded_size_drift(tmp_path: Path) -> None:
@@ -285,3 +310,74 @@ def test_assessment_rejects_maximum_row_overflow(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="row count exceeds"):
         assess_archive(archive, manifest, workspace=tmp_path)
+
+
+def test_assessment_flushes_large_streaming_batches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest = BrandedAssessmentManifest(
+        dataset_id="large-fixture",
+        filename="unused.zip",
+        sha256="0" * 64,
+        size_bytes=1,
+        json_member="unused.json",
+        uncompressed_size_bytes=1,
+        expected_rows=10_001,
+        maximum_rows=10_001,
+        maximum_activation_records=10_001,
+    )
+
+    @contextmanager
+    def fake_items(
+        _path: Path, _manifest: BrandedAssessmentManifest
+    ) -> Iterator[Iterator[dict[str, object]]]:
+        yield iter(
+            {
+                "fdcId": index,
+                "dataType": "Branded",
+                "gtinUpc": None,
+            }
+            for index in range(1, 10_002)
+        )
+
+    monkeypatch.setattr(assessment_module, "verify_archive", lambda *_args: None)
+    monkeypatch.setattr(assessment_module, "_items", fake_items)
+
+    report = assess_archive(tmp_path / "unused.zip", manifest, workspace=tmp_path)
+
+    assert report["rows_seen"] == 10_001
+    assert report["missing_gtin"] == 10_001
+    assert report["quarantined_records"] == 10_001
+
+
+def test_manifest_loading_and_cli_success_and_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    default_manifest = load_manifest()
+    assert default_manifest.dataset_id == "usda-branded-2026-04-30"
+
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(payload))
+    output_path = tmp_path / "report.json"
+
+    assert main([str(archive), "--manifest", str(manifest_path), "--output", str(output_path)]) == 0
+    assert json.loads(output_path.read_text())["activation_status"] == "eligible"
+    assert '"activation_status": "eligible"' in capsys.readouterr().out
+
+    assert main([str(tmp_path / "missing.zip"), "--manifest", str(manifest_path)]) == 2
+    assert "assessment failed" in capsys.readouterr().err
+
+
+def test_manifest_rejects_invalid_sha256() -> None:
+    with pytest.raises(ValueError, match="sha256"):
+        BrandedAssessmentManifest(
+            dataset_id="fixture",
+            filename="fixture.zip",
+            sha256="INVALID",
+            size_bytes=1,
+            json_member="fixture.json",
+            uncompressed_size_bytes=1,
+            maximum_rows=1,
+            maximum_activation_records=1,
+        )
