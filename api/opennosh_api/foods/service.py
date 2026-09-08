@@ -241,6 +241,7 @@ WHERE CAST(:has_pack_filter AS boolean) IS FALSE
 """
 
 FOOD_SEARCH_GIN_FLUSH_SQL = "SELECT opennosh_flush_food_search_gin_pending_lists()"
+FOOD_SEARCH_PROJECTION_LOCK_KEY = "opennosh.food-search-projection"
 
 
 class FoodSearchTimeoutError(RuntimeError):
@@ -457,8 +458,9 @@ async def _fresh_snapshot(
         (
             await database.execute(
                 text(
-                    "SELECT pg_try_advisory_xact_lock(hashtext('opennosh.food-search-projection'))"
-                )
+                    "SELECT pg_try_advisory_xact_lock(hashtext(:projection_lock_key))"
+                ),
+                {"projection_lock_key": FOOD_SEARCH_PROJECTION_LOCK_KEY},
             )
         ).scalar_one()
     )
@@ -472,7 +474,28 @@ async def _fresh_snapshot(
         )
         if retained is not None:
             return retained
-        raise FoodSearchProjectionBusyError
+        await database.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:projection_lock_key))"),
+            {"projection_lock_key": FOOD_SEARCH_PROJECTION_LOCK_KEY},
+        )
+        snapshot = await _latest_snapshot(
+            database,
+            now=now,
+            fresh_after=fresh_after,
+            active_projection=active_projection,
+            selected_pack_ids=selected_pack_ids,
+        )
+        if snapshot is not None:
+            return snapshot
+        retained = await _latest_snapshot(
+            database,
+            now=now,
+            fresh_after=None,
+            active_projection=active_projection,
+            selected_pack_ids=selected_pack_ids,
+        )
+        if retained is not None:
+            return retained
 
     snapshot = await _latest_snapshot(
         database,
