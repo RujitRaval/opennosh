@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { CrossRootLink } from "@/components/shell/cross-root-link";
 
@@ -17,6 +18,7 @@ export default async function PublicHome({
 }) {
   const { language } = await params;
 
+  await connection();
   const snapshot = await getPublicCommonsSnapshot();
 
   return <PublicHomeView language={language} snapshot={snapshot} />;

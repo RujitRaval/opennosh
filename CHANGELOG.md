@@ -2,6 +2,15 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.98.0.4] - 2026-09-08
+
+### Fixed
+
+- Resolve Public Commons on the first request after a web deployment instead of baking a temporary
+  build-time API failure into the localized homepage for five minutes.
+- Wire the API's authenticated Commons cache callback to the web service through Render's private
+  network so canonical projection rebuilds invalidate the tagged cache immediately.
+
 ## [0.98.0.3] - 2026-09-08
 
 ### Fixed

@@ -13,6 +13,13 @@ import {
 } from "@/lib/root-topology";
 import { proxy } from "@/proxy";
 
+const mocks = vi.hoisted(() => ({ connection: vi.fn(async () => undefined) }));
+
+vi.mock("next/server", async (importOriginal) => ({
+  ...await importOriginal<typeof import("next/server")>(),
+  connection: mocks.connection,
+}));
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -21,6 +28,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.stubGlobal("fetch", vi.fn(async () => json({ detail: "Not authenticated" }, 401)));
 });
 
@@ -86,6 +94,7 @@ describe("independent public and tracker roots", () => {
   it("renders the public commons with an explicit route into the private tracker", async () => {
     render(await PublicHome({ params: Promise.resolve({ language: "en" }) }));
 
+    expect(mocks.connection).toHaveBeenCalledOnce();
     expect(screen.getByRole("heading", { name: /Food databelongs toeveryone\./ })).toBeVisible();
     const trackerLinks = screen.getAllByRole("link", { name: /Private tracker/ });
     expect(trackerLinks).toHaveLength(2);

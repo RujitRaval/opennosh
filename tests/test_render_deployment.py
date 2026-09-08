@@ -316,6 +316,45 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     assert api["preDeployCommand"] == "python deploy/render_runtime.py predeploy"
 
 
+def test_render_blueprint_wires_authenticated_commons_revalidation() -> None:
+    services = _blueprint()["services"]
+    assert isinstance(services, list)
+    api = _resource(services, "opennosh-api")
+    web = _resource(services, "opennosh-web")
+    api_variables = {item["key"]: item for item in api["envVars"]}
+    web_variables = {item["key"]: item for item in web["envVars"]}
+
+    assert api_variables["PUBLIC_COMMONS_REVALIDATION_URL"] == {
+        "key": "PUBLIC_COMMONS_REVALIDATION_URL",
+        "value": "http://opennosh-web:3000/api/internal/public-commons/revalidate",
+    }
+    assert api_variables["PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS"] == {
+        "key": "PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS",
+        "value": "opennosh-web",
+    }
+    assert api_variables["PUBLIC_COMMONS_REVALIDATION_TOKEN"] == {
+        "key": "PUBLIC_COMMONS_REVALIDATION_TOKEN",
+        "generateValue": True,
+    }
+    assert web_variables["PUBLIC_COMMONS_REVALIDATION_TOKEN"] == {
+        "key": "PUBLIC_COMMONS_REVALIDATION_TOKEN",
+        "fromService": {
+            "type": "pserv",
+            "name": "opennosh-api",
+            "envVarKey": "PUBLIC_COMMONS_REVALIDATION_TOKEN",
+        },
+    }
+
+
+def test_public_home_defers_commons_resolution_until_request_time() -> None:
+    source = (ROOT / "web/app/(public)/[language]/page.tsx").read_text(encoding="utf-8")
+
+    assert 'import { connection } from "next/server";' in source
+    assert source.index("await connection();") < source.index(
+        "const snapshot = await getPublicCommonsSnapshot();"
+    )
+
+
 def test_render_blueprint_links_release_control_and_refresh_credentials_to_worker() -> None:
     services = _blueprint()["services"]
     assert isinstance(services, list)
