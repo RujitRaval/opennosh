@@ -5,7 +5,7 @@ import json
 import os
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import opennosh_api.foods.router as foods_router_module
 import pytest
@@ -17,6 +17,7 @@ from opennosh_api.foods.service import (
     FOOD_SEARCH_SNAPSHOT_INSERT_SQL,
     FOOD_SEARCH_SQL,
     SEARCH_PLAN_MAX_EXECUTION_MS,
+    SEARCH_RANKING_VERSION,
     FoodSearchProjectionBusyError,
     FoodSearchTimeoutError,
     _existing_snapshot,
@@ -351,9 +352,9 @@ def test_representative_common_and_regional_queries_succeed() -> None:
     assert all(response.status_code == 200 for response in responses.values())
     assert all(response.json()["items"] for response in responses.values())
     assert all(len(response.json()["items"]) <= 20 for response in responses.values())
-    assert {
-        response.json()["items"][0]["source"] for response in responses.values()
-    } == {"community"}
+    assert {response.json()["items"][0]["source"] for response in responses.values()} == {
+        "community"
+    }
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -765,21 +766,76 @@ async def _assert_lock_busy_snapshot_behavior(database_url: str, snapshot_id: st
                 text("SELECT pg_advisory_xact_lock(hashtext('opennosh.food-search-projection'))")
             )
             async with sessions() as cold_reader:
-                with pytest.raises(FoodSearchProjectionBusyError):
-                    await _fresh_snapshot(
+                waiting = asyncio.create_task(
+                    _fresh_snapshot(
                         cold_reader,
                         now=datetime.now(UTC),
                         refresh_seconds=300,
                         retention_seconds=1_200,
                     )
+                )
+                await asyncio.sleep(0.05)
+                assert waiting.done() is False
+                replacement_id = uuid4()
+                await blocker.execute(
+                    text(
+                        """
+                        INSERT INTO food_search_snapshots (
+                            id, ranking_version, created_at, expires_at,
+                            federation_checkpoint_id, release_set_digest, selected_pack_ids
+                        ) VALUES (
+                            CAST(:snapshot_id AS uuid), :ranking_version, now(),
+                            now() + INTERVAL '20 minutes', NULL, NULL, '[]'::jsonb
+                        )
+                        """
+                    ),
+                    {
+                        "snapshot_id": replacement_id,
+                        "ranking_version": SEARCH_RANKING_VERSION,
+                    },
+                )
+                await cold_lock_transaction.commit()
+                replacement = await asyncio.wait_for(waiting, timeout=1)
+                assert replacement.snapshot_id == replacement_id
                 await cold_reader.rollback()
-            await cold_lock_transaction.rollback()
+
+            await blocker.execute(text("DELETE FROM food_search_snapshots"))
+            await blocker.commit()
+            builder_lock_transaction = await blocker.begin()
+            await blocker.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext('opennosh.food-search-projection'))")
+            )
+            async with sessions() as cold_builder:
+                waiting_builder = asyncio.create_task(
+                    _fresh_snapshot(
+                        cold_builder,
+                        now=datetime.now(UTC),
+                        refresh_seconds=300,
+                        retention_seconds=1_200,
+                    )
+                )
+                await asyncio.sleep(0.05)
+                assert waiting_builder.done() is False
+                await builder_lock_transaction.rollback()
+                built = await asyncio.wait_for(waiting_builder, timeout=5)
+                assert built.snapshot_id is not None
+                assert (
+                    int(
+                        (
+                            await cold_builder.execute(
+                                text("SELECT COUNT(*) FROM food_search_snapshots")
+                            )
+                        ).scalar_one()
+                    )
+                    == 1
+                )
+                await cold_builder.rollback()
     finally:
         await engine.dispose()
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
-def test_lock_busy_search_uses_retained_snapshot_or_fails_fast_when_cold() -> None:
+def test_lock_busy_search_uses_retained_snapshot_or_joins_cold_singleflight() -> None:
     assert INTEGRATION_DATABASE_URL is not None
     command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
     asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))

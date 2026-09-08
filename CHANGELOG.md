@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.98.0.0] - 2026-09-07
+
+### Added
+
+- Add checksum-pinned USDA FNDDS 2021-2023 ingestion, accepting 5,424 of 5,432 source rows and
+  expanding the production reference release to 13,497 USDA foods.
+- Add a reproducible April 2026 USDA Branded Foods assessment with checksum-valid GTIN-14 plus
+  market-country identity, whole-group duplicate quarantine, product-content conflict detection,
+  and an explicit 250,000-record activation ceiling.
+
+### Fixed
+
+- Join truly cold concurrent food-search projection builds behind one bounded PostgreSQL advisory
+  lock while continuing to serve retained snapshots without waiting, preventing the losing request
+  from returning a guaranteed transient 503.
+
 ## [0.97.0.3] - 2026-09-07
 
 ### Fixed

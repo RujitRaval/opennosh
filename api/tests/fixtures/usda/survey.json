@@ -1,0 +1,34 @@
+{
+  "SurveyFoods": [
+    {
+      "fdcId": 2705384,
+      "dataType": "Survey (FNDDS)",
+      "description": "Milk, NFS",
+      "publicationDate": "10/31/2024",
+      "wweiaFoodCategory": {
+        "wweiaFoodCategoryDescription": "Milk, reduced fat",
+        "wweiaFoodCategoryCode": 3298316
+      },
+      "foodNutrients": [
+        {"nutrient": {"id": 1003, "unitName": "g"}, "amount": 3.33},
+        {"nutrient": {"id": 1004, "unitName": "g"}, "amount": 2.14},
+        {"nutrient": {"id": 1005, "unitName": "g"}, "amount": 4.83},
+        {"nutrient": {"id": 1008, "unitName": "kcal"}, "amount": 52.0}
+      ],
+      "foodPortions": [
+        {
+          "measureUnit": {"name": "undetermined", "abbreviation": "undetermined"},
+          "modifier": "90000",
+          "gramWeight": 0,
+          "portionDescription": "Quantity not specified"
+        },
+        {
+          "measureUnit": {"name": "undetermined", "abbreviation": "undetermined"},
+          "modifier": "30000",
+          "gramWeight": 30.5,
+          "portionDescription": "1 fl oz"
+        }
+      ]
+    }
+  ]
+}

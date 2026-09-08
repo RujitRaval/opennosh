@@ -120,11 +120,17 @@ Migration `20260907_0038` re-enables `fastupdate` on the four retained-snapshot 
 one fixed, `SECURITY DEFINER` flush function that can clean only those reviewed indexes. The web role
 can execute that function but cannot alter indexes or select another relation. Snapshot refresh now
 buffers the bulk index writes, flushes every pending list before commit, and only then exposes the
-new snapshot to latency-sensitive reads. On the production Basic-256mb database, the 8,239-row
-snapshot insert fell from 47.7 seconds to 7.4 seconds; a flushed readiness search completed in 303
-ms without changing either the 30-second snapshot-build budget or the 500 ms database-statement
+new snapshot to latency-sensitive reads. On the production Basic-256mb database, the
+pre-FNDDS 8,239-row snapshot insert fell from 47.7 seconds to 7.4 seconds; a flushed readiness
+search completed in 303 ms without changing either the 30-second snapshot-build budget or the
+500 ms database-statement
 budget. The search SQL continues to filter and rank in one scan instead of joining the retained
 projection to itself.
+
+Requests with a retained snapshot continue serving it without waiting for a refresh. When no
+snapshot exists, concurrent requests join the first builder behind the same bounded PostgreSQL
+advisory lock, recheck the newly committed snapshot, and avoid returning a guaranteed transient
+503 to the losing request.
 
 Do not compensate for a recurrence by increasing `FOOD_SEARCH_STATEMENT_TIMEOUT_MS`. Confirm the
 index `reloptions`, migration head, bounded flush-function ownership and grants, query plan, snapshot
@@ -1081,9 +1087,9 @@ python deploy/render_runtime.py usda-reference-release --dry-run
 python deploy/render_runtime.py usda-reference-release
 ```
 
-The dry run downloads from the two pinned USDA URLs and must report `status=verified`,
-`rows_seen=8188`, `rows_accepted=8073`, and `rows_rejected=115`. The apply command repeats every
-check, imports in one transaction through `opennosh_migration`, requires exactly 8,073 rows in
+The dry run downloads from the three pinned USDA URLs and must report `status=verified`,
+`rows_seen=13620`, `rows_accepted=13497`, and `rows_rejected=123`. The apply command repeats every
+check, imports in one transaction through `opennosh_migration`, requires exactly 13,497 rows in
 `foods_reference`, and marks unfiltered retained search projections stale without deleting them.
 Any checksum, row-count, duplicate-ID, database-count, or transaction error is a failed release.
 
@@ -1096,8 +1102,8 @@ curl -fsS https://opennosh.org/api/v1/foods/catalog-summary
 curl -fsS 'https://opennosh.org/api/v1/foods/search?q=kidney%20beans&source=usda&limit=5'
 ```
 
-The catalog summary must report 166 community rows, 8,073 USDA reference rows, and 8,239 searchable
-rows. The public explorer must show `166 Signed community records` separately from `8,073 USDA
+The catalog summary must report 166 community rows, 13,497 USDA reference rows, and 13,663 searchable
+rows. The public explorer must show `166 Signed community records` separately from `13,497 USDA
 reference foods`; do not treat their sum as a verified Commons release count.
 
 Run a single post-cutover verification pass:

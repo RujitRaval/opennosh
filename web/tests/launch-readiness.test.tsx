@@ -136,11 +136,11 @@ describe("T31 launch readiness", () => {
       <PublicFoodSearch
         language="en"
         verifiedCommunityCount={166}
-        usdaReferenceCount={8_073}
+        usdaReferenceCount={13_497}
       />,
     );
     expect(screen.getByText("166")).toBeVisible();
-    expect(screen.getByText("8,073")).toBeVisible();
+    expect(screen.getByText("13,497")).toBeVisible();
     expect(screen.getByText("Signed community records")).toBeVisible();
     expect(screen.getByText("USDA reference foods")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Food name"), { target: { value: "rajma" } });

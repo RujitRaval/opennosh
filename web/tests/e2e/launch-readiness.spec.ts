@@ -100,7 +100,7 @@ test("public Explore searches community and USDA records with separate truthful 
     await expect(page.getByRole("heading", { name: "Search food records." })).toBeVisible();
     const counts = page.getByRole("definition");
     await expect(counts.filter({ hasText: "18,429" })).toBeVisible();
-    await expect(counts.filter({ hasText: "8,073" })).toBeVisible();
+    await expect(counts.filter({ hasText: "13,497" })).toBeVisible();
     await page.getByLabel("Food name").fill("rajma");
     await page.getByRole("button", { name: "Search records" }).click();
 
