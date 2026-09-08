@@ -53,7 +53,16 @@ an administrator temporarily relaxes branch protection. The durable release path
    not change `packs/`; and
 5. after all source-pinned checks pass, the protected squash merge is associated back to its exact
    attested PR head; the attester propagates success to that exact `main` SHA; and
-6. Render sees all required checks on the merged SHA and deploys it automatically.
+6. the full quality workflow does not rerun on `main`, because branch protection already required
+   those source checks and the attester has bound them to the exact protected squash merge; and
+7. Render sees the propagated check on the merged SHA and deploys it automatically, without waiting
+   for a duplicate post-merge quality run.
+
+Render's `checksPass` trigger waits for every check it detects on the merged SHA. Do not add a
+`push: main` trigger back to `.github/workflows/quality.yml`: that reruns the full pull-request suite
+after merge, delays the automatic deploy by the slowest duplicate job, and makes a healthy deploy
+look missing. Do not start a manual deploy while merge-SHA checks are pending. A manual deploy does
+not cancel the eventual automatic deploy and can create overlapping production rollouts.
 
 The reconciler does not need a database, R2 credentials, or signing keys. The Render wrapper strips
 those authorities when attestation is the worker's only mode. In the combined production worker,

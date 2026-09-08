@@ -25,7 +25,7 @@ Key routing rules:
 
 - Platform: Render Blueprint
 - Production URL: https://opennosh.org
-- Deploy workflow: Render auto-deploy after GitHub checks pass on `main`
+- Deploy workflow: Render auto-deploy after the protected merge attestation passes on `main`
 - Deploy status command: `curl -fsS https://opennosh.org/api/v1/healthz`
 - Merge method: squash
 - Project type: web app and private API
@@ -34,6 +34,7 @@ Key routing rules:
 ### Custom deploy hooks
 
 - Pre-merge: `make test && make web-e2e && make build`
-- Deploy trigger: automatic after `main` checks pass
+- Deploy trigger: automatic after the exact protected merge receives its propagated attestation;
+  never use a manual deploy while that check is pending
 - Deploy status: Render Blueprint status, then poll the production health endpoint
 - Health check: `curl -fsS https://opennosh.org/api/v1/healthz`

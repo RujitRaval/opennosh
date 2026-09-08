@@ -4,8 +4,11 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, edited]
-  push:
-    branches: [main]
+
+# Every merge to main is a protected squash merge of an exact, fully checked PR
+# head. The checks-only governance attester binds that source head to the new main
+# SHA. Do not rerun this full workflow on push: Render's checksPass trigger waits
+# for every detected main check, which otherwise delays the same verified release.
 
 permissions:
   contents: read

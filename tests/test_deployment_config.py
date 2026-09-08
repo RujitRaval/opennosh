@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 
 FOOD_SEARCH_ENV_DEFAULTS = {
@@ -80,3 +82,17 @@ def test_compose_ci_asserts_the_current_alembic_head() -> None:
     assert "get_current_head()" in workflow
     assert "SELECT version_num FROM alembic_version" in workflow
     assert 'test "$actual_head" = "$expected_head"' in workflow
+
+
+def test_render_auto_deploy_is_not_delayed_by_duplicate_main_ci() -> None:
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/quality.yml").read_text(encoding="utf-8"),
+        Loader=yaml.BaseLoader,
+    )
+
+    triggers = workflow["on"]
+    assert "push" not in triggers
+    assert triggers["pull_request"] == {
+        "branches": ["main"],
+        "types": ["opened", "synchronize", "reopened", "edited"],
+    }
