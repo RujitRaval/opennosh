@@ -4,7 +4,7 @@
   "tiers": {
     "pull_request": {
       "workflow": ".github/workflows/quality.yml",
-      "triggers": ["pull_request", "push"],
+      "triggers": ["pull_request"],
       "required_jobs": ["classify", "repository", "api", "trust-protocol", "web", "visual", "vertical-acceptance", "compose"],
       "required_roles": ["visitor", "tracker"],
       "maximum_runtime_minutes": 25,

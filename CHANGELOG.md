@@ -2,6 +2,14 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.98.0.3] - 2026-09-08
+
+### Fixed
+
+- Remove the redundant full quality run on protected `main` squash merges so Render's
+  checks-passing trigger can deploy as soon as the exact merge attestation succeeds, while keeping
+  every source-pinned pull-request check and the fail-closed production gate.
+
 ## [0.98.0.2] - 2026-09-08
 
 ### Fixed
