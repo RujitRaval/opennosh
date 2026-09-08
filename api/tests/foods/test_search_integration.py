@@ -352,9 +352,9 @@ def test_representative_common_and_regional_queries_succeed() -> None:
     assert all(response.status_code == 200 for response in responses.values())
     assert all(response.json()["items"] for response in responses.values())
     assert all(len(response.json()["items"]) <= 20 for response in responses.values())
-    assert {
-        response.json()["items"][0]["source"] for response in responses.values()
-    } == {"community"}
+    assert {response.json()["items"][0]["source"] for response in responses.values()} == {
+        "community"
+    }
 
 
 @pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
@@ -798,6 +798,38 @@ async def _assert_lock_busy_snapshot_behavior(database_url: str, snapshot_id: st
                 replacement = await asyncio.wait_for(waiting, timeout=1)
                 assert replacement.snapshot_id == replacement_id
                 await cold_reader.rollback()
+
+            await blocker.execute(text("DELETE FROM food_search_snapshots"))
+            await blocker.commit()
+            builder_lock_transaction = await blocker.begin()
+            await blocker.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext('opennosh.food-search-projection'))")
+            )
+            async with sessions() as cold_builder:
+                waiting_builder = asyncio.create_task(
+                    _fresh_snapshot(
+                        cold_builder,
+                        now=datetime.now(UTC),
+                        refresh_seconds=300,
+                        retention_seconds=1_200,
+                    )
+                )
+                await asyncio.sleep(0.05)
+                assert waiting_builder.done() is False
+                await builder_lock_transaction.rollback()
+                built = await asyncio.wait_for(waiting_builder, timeout=5)
+                assert built.snapshot_id is not None
+                assert (
+                    int(
+                        (
+                            await cold_builder.execute(
+                                text("SELECT COUNT(*) FROM food_search_snapshots")
+                            )
+                        ).scalar_one()
+                    )
+                    == 1
+                )
+                await cold_builder.rollback()
     finally:
         await engine.dispose()
 

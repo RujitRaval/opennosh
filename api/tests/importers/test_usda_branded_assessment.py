@@ -108,6 +108,67 @@ def test_archive_verification_rejects_tampering(tmp_path: Path) -> None:
         verify_archive(archive, manifest)
 
 
+def test_archive_verification_rejects_same_size_checksum_tampering(tmp_path: Path) -> None:
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+    manifest = BrandedAssessmentManifest.model_validate(payload)
+    encoded = bytearray(archive.read_bytes())
+    encoded[0] ^= 1
+    archive.write_bytes(encoded)
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        verify_archive(archive, manifest)
+
+
+def test_archive_verification_rejects_member_and_expanded_size_drift(tmp_path: Path) -> None:
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+
+    wrong_member = BrandedAssessmentManifest.model_validate(
+        {**payload, "json_member": "other.json"}
+    )
+    with pytest.raises(ValueError, match="JSON member"):
+        verify_archive(archive, wrong_member)
+
+    wrong_size = BrandedAssessmentManifest.model_validate(
+        {**payload, "uncompressed_size_bytes": int(payload["uncompressed_size_bytes"]) + 1}
+    )
+    with pytest.raises(ValueError, match="expanded size"):
+        verify_archive(archive, wrong_size)
+
+
+def test_archive_verification_rejects_multiple_members_and_zip_bomb_ratio(
+    tmp_path: Path,
+) -> None:
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+    with ZipFile(archive, "a", compression=ZIP_DEFLATED) as writer:
+        writer.writestr("extra.json", "{}")
+    multiple_member_manifest = BrandedAssessmentManifest.model_validate(
+        {
+            **payload,
+            "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+            "size_bytes": archive.stat().st_size,
+        }
+    )
+    with pytest.raises(ValueError, match="exactly one file"):
+        verify_archive(archive, multiple_member_manifest)
+
+    compressed = tmp_path / "compressed.zip"
+    with ZipFile(compressed, "w", compression=ZIP_DEFLATED) as writer:
+        writer.writestr("branded.json", "A" * 100_000)
+    with ZipFile(compressed) as reader:
+        member = reader.getinfo("branded.json")
+    ratio_manifest = BrandedAssessmentManifest.model_validate(
+        {
+            **payload,
+            "filename": compressed.name,
+            "sha256": hashlib.sha256(compressed.read_bytes()).hexdigest(),
+            "size_bytes": compressed.stat().st_size,
+            "uncompressed_size_bytes": member.file_size,
+        }
+    )
+    with pytest.raises(ValueError, match="compression ratio"):
+        verify_archive(compressed, ratio_manifest)
+
+
 def test_assessment_treats_nutrition_changes_as_identity_conflicts(tmp_path: Path) -> None:
     archive, payload = _archive(
         tmp_path,
@@ -146,3 +207,81 @@ def test_assessment_quarantines_duplicate_fdc_id_rows(tmp_path: Path) -> None:
     assert report["quarantined_records"] == 1
     assert report["activation_status"] == "hold"
     assert report["activation_blockers"] == ["duplicate_fdc_ids"]
+
+
+def test_assessment_reports_eligible_archive_and_scale_limit(tmp_path: Path) -> None:
+    archive, payload = _archive(tmp_path, [_row(1, "036000291452")])
+    manifest = BrandedAssessmentManifest.model_validate(payload)
+
+    eligible = assess_archive(archive, manifest, workspace=tmp_path)
+
+    assert eligible["eligible_records_after_quarantine"] == 1
+    assert eligible["quarantined_records"] == 0
+    assert eligible["activation_status"] == "eligible"
+    assert eligible["activation_blockers"] == []
+
+    two_rows_path = tmp_path / "two-rows"
+    two_rows_path.mkdir()
+    two_rows_archive, two_rows_payload = _archive(
+        two_rows_path,
+        [_row(1, "036000291452"), _row(2, "96385074")],
+    )
+    limited = BrandedAssessmentManifest.model_validate(
+        {**two_rows_payload, "maximum_activation_records": 1}
+    )
+    held = assess_archive(two_rows_archive, limited, workspace=two_rows_path)
+
+    assert held["activation_status"] == "hold"
+    assert held["activation_blockers"] == ["search_projection_scale_limit"]
+
+
+def test_assessment_quarantines_missing_country_and_exact_duplicates(tmp_path: Path) -> None:
+    archive, payload = _archive(
+        tmp_path,
+        [
+            _row(1, "036000291452"),
+            _row(2, "036000291452"),
+            _row(3, "96385074", country=None),
+        ],
+    )
+    manifest = BrandedAssessmentManifest.model_validate(payload)
+
+    report = assess_archive(archive, manifest, workspace=tmp_path)
+
+    assert report["missing_market_country"] == 1
+    assert report["duplicate_identity_groups"] == 1
+    assert report["exact_duplicate_identity_groups"] == 1
+    assert report["conflicting_identity_groups"] == 0
+    assert report["eligible_records_after_quarantine"] == 0
+    assert report["quarantined_records"] == 3
+    assert report["activation_status"] == "eligible"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"dataType": "Foundation"}, "non-Branded"),
+        ({"fdcId": 0}, "invalid FDC ID"),
+    ],
+)
+def test_assessment_rejects_invalid_rows(
+    tmp_path: Path, mutation: dict[str, object], message: str
+) -> None:
+    row = _row(1, "036000291452")
+    row.update(mutation)
+    archive, payload = _archive(tmp_path, [row])
+    manifest = BrandedAssessmentManifest.model_validate(payload)
+
+    with pytest.raises(ValueError, match=message):
+        assess_archive(archive, manifest, workspace=tmp_path)
+
+
+def test_assessment_rejects_maximum_row_overflow(tmp_path: Path) -> None:
+    archive, payload = _archive(
+        tmp_path,
+        [_row(1, "036000291452"), _row(2, "96385074")],
+    )
+    manifest = BrandedAssessmentManifest.model_validate({**payload, "maximum_rows": 1})
+
+    with pytest.raises(ValueError, match="row count exceeds"):
+        assess_archive(archive, manifest, workspace=tmp_path)
