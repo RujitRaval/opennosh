@@ -91,6 +91,79 @@ async def test_probe_never_accepts_commons_from_another_rolling_build() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "expected_error"),
+    [
+        ("build_http", "build_version_unavailable"),
+        ("build_json", "build_version_invalid"),
+        ("commons_http", "commons_endpoint_unavailable"),
+        ("commons_json", "commons_response_invalid"),
+    ],
+)
+async def test_probe_reports_bounded_endpoint_failures(
+    failure: str,
+    expected_error: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("build-version"):
+            if failure == "build_http":
+                return httpx.Response(503)
+            if failure == "build_json":
+                return httpx.Response(200, content=b"{")
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": COMMIT}
+            )
+        if failure == "commons_http":
+            return httpx.Response(503)
+        return commons_response("not-a-state")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await probe_post_deploy_commons(
+            client,
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+        )
+
+    assert observation.status == "pending"
+    assert observation.error_code == expected_error
+
+
+@pytest.mark.asyncio
+async def test_canary_polls_until_the_exact_build_is_healthy() -> None:
+    build_requests = 0
+
+    class Destination:
+        async def send(self, _alert: CommonsCanaryAlert) -> None:
+            raise AssertionError("healthy canary must not alert")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal build_requests
+        if request.url.path.endswith("build-version"):
+            build_requests += 1
+            commit = "b" * 40 if build_requests == 1 else COMMIT
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": commit}
+            )
+        return commons_response("quiet")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await run_post_deploy_commons_canary(
+            asyncio.Event(),
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+            timeout_seconds=1,
+            poll_seconds=0.001,
+            alert_destination=Destination(),
+            client=client,
+        )
+
+    assert observation is not None
+    assert observation.status == "healthy"
+    assert observation.commons_state == "quiet"
+    assert build_requests == 2
+
+
+@pytest.mark.asyncio
 async def test_canary_alerts_once_when_commons_returns_unavailable() -> None:
     alerts: list[CommonsCanaryAlert] = []
 
@@ -151,6 +224,38 @@ async def test_canary_timeout_alerts_with_the_last_bounded_error() -> None:
     assert observation.status == "unavailable"
     assert alerts[0].error_code == "build_commit_mismatch"
     assert alerts[0].observed_commit == "b" * 40
+
+
+@pytest.mark.asyncio
+async def test_canary_logs_alert_delivery_failure_without_exposing_destination(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class Destination:
+        async def send(self, _alert: CommonsCanaryAlert) -> None:
+            raise RuntimeError("sensitive destination detail")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("build-version"):
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": COMMIT}
+            )
+        return commons_response("unavailable")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await run_post_deploy_commons_canary(
+            asyncio.Event(),
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+            timeout_seconds=1,
+            poll_seconds=0.001,
+            alert_destination=Destination(),
+            client=client,
+        )
+
+    assert observation is not None
+    assert observation.status == "unavailable"
+    assert "error_type=RuntimeError" in caplog.text
+    assert "sensitive destination detail" not in caplog.text
 
 
 @pytest.mark.asyncio
