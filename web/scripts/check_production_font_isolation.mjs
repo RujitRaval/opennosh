@@ -69,30 +69,65 @@ for (const trackerManifest of trackerRouteManifests) {
 }
 
 const publicHtmlFile = path.join(webRoot, ".next/server/app/en.html");
-if (!existsSync(publicHtmlFile)) {
-  console.error("Production build is missing the default localized public document.");
-  process.exit(1);
-}
-const publicHtml = readFileSync(publicHtmlFile, "utf8");
-const preloadTags = [...publicHtml.matchAll(/<link\b[^>]*>/g)]
-  .map((match) => match[0])
-  .filter((tag) => tag.includes('rel="preload"') && tag.includes('as="font"'));
-const publicFontPreloads = preloadTags.filter((tag) =>
-  allFontHrefs.some((href) => tag.includes(`href="${href}"`)),
-);
-if (publicFontPreloads.length !== criticalHrefs.length) {
-  console.error(`Default public route emitted ${publicFontPreloads.length} Living Commons font preloads; expected ${criticalHrefs.length}.`);
-  process.exit(1);
-}
-for (const href of criticalHrefs) {
-  if (!preloadTags.some((tag) => tag.includes(`href="${href}"`) && tag.includes('as="font"'))) {
-    console.error(`Default public route does not preload critical font ${href}.`);
+if (existsSync(publicHtmlFile)) {
+  const publicHtml = readFileSync(publicHtmlFile, "utf8");
+  const preloadTags = [...publicHtml.matchAll(/<link\b[^>]*>/g)]
+    .map((match) => match[0])
+    .filter((tag) => tag.includes('rel="preload"') && tag.includes('as="font"'));
+  const publicFontPreloads = preloadTags.filter((tag) =>
+    allFontHrefs.some((href) => tag.includes(`href="${href}"`)),
+  );
+  if (publicFontPreloads.length !== criticalHrefs.length) {
+    console.error(`Default public route emitted ${publicFontPreloads.length} Living Commons font preloads; expected ${criticalHrefs.length}.`);
     process.exit(1);
   }
-}
-for (const href of deferredHrefs) {
-  if (preloadTags.some((tag) => tag.includes(`href="${href}"`))) {
-    console.error(`Default public route preloads deferred font ${href}.`);
+  for (const href of criticalHrefs) {
+    if (!preloadTags.some((tag) => tag.includes(`href="${href}"`) && tag.includes('as="font"'))) {
+      console.error(`Default public route does not preload critical font ${href}.`);
+      process.exit(1);
+    }
+  }
+  for (const href of deferredHrefs) {
+    if (preloadTags.some((tag) => tag.includes(`href="${href}"`))) {
+      console.error(`Default public route preloads deferred font ${href}.`);
+      process.exit(1);
+    }
+  }
+} else {
+  const publicRouteManifest = path.join(
+    webRoot,
+    ".next/server/app/(public)/[language]/page_client-reference-manifest.js",
+  );
+  if (!existsSync(publicRouteManifest)) {
+    console.error("Production build is missing the dynamic localized public route manifest.");
+    process.exit(1);
+  }
+  const publicRouteSource = readFileSync(publicRouteManifest, "utf8");
+  let cssFiles;
+  try {
+    cssFiles = routeCssFiles(publicRouteSource, "[project]/app/(public)/[language]/");
+  } catch (error) {
+    console.error(`${path.relative(webRoot, publicRouteManifest)}: ${error.message}`);
+    process.exit(1);
+  }
+  const publicCssFiles = cssFiles.map((cssPath) => path.join(webRoot, ".next", cssPath));
+  for (const cssFile of publicCssFiles) {
+    if (!existsSync(cssFile)) {
+      console.error(`Production build is missing public stylesheet ${path.relative(webRoot, cssFile)}.`);
+      process.exit(1);
+    }
+  }
+  const publicCss = publicCssFiles
+    .map((cssFile) => readFileSync(cssFile, "utf8"))
+    .join("\n");
+  for (const href of allFontHrefs) {
+    if (!publicCss.includes(href)) {
+      console.error(`Dynamic public route CSS does not reference font ${href}.`);
+      process.exit(1);
+    }
+  }
+  if (criticalHrefs.length > 0) {
+    console.error("Dynamic public routes require a runtime preload assertion for critical fonts.");
     process.exit(1);
   }
 }

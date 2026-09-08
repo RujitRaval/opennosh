@@ -96,6 +96,12 @@ services:
         value: /var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json
       - key: PUBLIC_ARTIFACT_CACHE_DIRECTORY
         value: /var/lib/opennosh/public-artifacts/cache
+      - key: PUBLIC_COMMONS_REVALIDATION_URL
+        value: http://opennosh-web:3000/api/internal/public-commons/revalidate
+      - key: PUBLIC_COMMONS_REVALIDATION_ALLOWED_HOSTS
+        value: opennosh-web
+      - key: PUBLIC_COMMONS_REVALIDATION_TOKEN
+        generateValue: true
 
   - type: worker
     name: opennosh-publication
@@ -210,6 +216,11 @@ services:
           type: pserv
           name: opennosh-api
           envVarKey: TRUSTED_WEB_PROXY_TOKEN
+      - key: PUBLIC_COMMONS_REVALIDATION_TOKEN
+        fromService:
+          type: pserv
+          name: opennosh-api
+          envVarKey: PUBLIC_COMMONS_REVALIDATION_TOKEN
       - key: OPENNOSH_PUBLIC_ROOT_ENABLED
         value: "true"
       - key: OPENNOSH_PUBLIC_NAV_FEATURES
