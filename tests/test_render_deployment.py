@@ -373,6 +373,12 @@ def test_render_blueprint_links_release_control_and_refresh_credentials_to_worke
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
     assert variables["GOVERNANCE_CODE_ATTESTATION_ENABLED"]["value"] == "true"
     assert variables["GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS"]["value"] == "30"
+    assert variables["PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED"]["value"] == "true"
+    assert variables["PUBLIC_COMMONS_POST_DEPLOY_CANARY_BASE_URL"]["value"] == (
+        "https://opennosh.org"
+    )
+    assert variables["PUBLIC_COMMONS_POST_DEPLOY_CANARY_TIMEOUT_SECONDS"]["value"] == "300"
+    assert variables["PUBLIC_COMMONS_POST_DEPLOY_CANARY_POLL_SECONDS"]["value"] == "5"
     assert variables["FEDERATION_INGESTION_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_PROJECTION_ENABLED"]["value"] == "false"
     assert variables["FEDERATION_SEARCH_ENABLED"]["value"] == "false"
@@ -426,6 +432,9 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
             "ADMINISTRATION_DATABASE_URL": "postgresql+asyncpg://admin:secret@db/opennosh",
             "GITHUB_FORGE_PRIVATE_KEY": "forge-private",
             "GITHUB_ATTESTER_PRIVATE_KEY": "attester-private",
+            "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL": (
+                "https://hooks.slack.com/services/example/test/value"
+            ),
             "ONLINE_RECEIPT_SIGNING_KEY": "receipt-private",
             "ONLINE_MANIFEST_SIGNING_KEY": "manifest-private",
             "R2_SECRET_ACCESS_KEY": "r2-private",
@@ -445,6 +454,7 @@ def test_render_database_urls_encode_role_credentials_and_strip_owner_secrets() 
         "ADMINISTRATION_DATABASE_URL",
         "GITHUB_FORGE_PRIVATE_KEY",
         "GITHUB_ATTESTER_PRIVATE_KEY",
+        "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL",
         "ONLINE_RECEIPT_SIGNING_KEY",
         "ONLINE_MANIFEST_SIGNING_KEY",
         "R2_SECRET_ACCESS_KEY",
@@ -664,6 +674,29 @@ def test_render_code_attestation_environment_has_no_database_or_signing_authorit
         "R2_SECRET_ACCESS_KEY",
     ):
         assert excluded not in environment
+
+
+def test_render_post_deploy_canary_retains_only_its_bounded_alert_configuration() -> None:
+    source = _code_attestation_environment() | {
+        "PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED": "true",
+        "PUBLIC_COMMONS_POST_DEPLOY_CANARY_BASE_URL": "https://opennosh.org",
+        "PUBLIC_COMMONS_POST_DEPLOY_CANARY_TIMEOUT_SECONDS": "300",
+        "PUBLIC_COMMONS_POST_DEPLOY_CANARY_POLL_SECONDS": "5",
+        "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL": (
+            "https://hooks.slack.com/services/example/test/value"
+        ),
+        "RENDER_GIT_COMMIT": "a" * 40,
+        "UNRELATED_SECRET": "must-not-survive",
+    }
+
+    environment = publication_environment(source)
+
+    assert environment["PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED"] == "true"
+    assert environment["GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL"].startswith(
+        "https://hooks.slack.com/"
+    )
+    assert environment["RENDER_GIT_COMMIT"] == "a" * 40
+    assert "UNRELATED_SECRET" not in environment
 
 
 @pytest.mark.parametrize(

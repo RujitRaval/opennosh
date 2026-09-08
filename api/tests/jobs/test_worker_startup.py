@@ -25,6 +25,7 @@ from opennosh_api.publication.state import (
     PublicationState,
     PublicationStepName,
 )
+from pydantic import SecretStr
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -636,6 +637,61 @@ async def test_code_attestation_worker_runs_without_database_or_refresh(
     )
 
     assert lifecycle == ["attest", "close"]
+
+
+@pytest.mark.asyncio
+async def test_post_deploy_commons_canary_reuses_the_worker_alert_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=False,
+        publication_claims_enabled=False,
+        publication_preactivation_smoke_enabled=False,
+        governance_code_attestation_enabled=False,
+        public_commons_post_deploy_canary_enabled=True,
+        public_commons_post_deploy_canary_base_url="https://opennosh.org",
+        public_commons_post_deploy_canary_timeout_seconds=300.0,
+        public_commons_post_deploy_canary_poll_seconds=5.0,
+        governance_code_attestation_alert_webhook_url=SecretStr(
+            "https://hooks.slack.com/services/example/test/value"
+        ),
+        governance_code_attestation_alert_bearer_token=None,
+        render_git_commit="a" * 40,
+    )
+    lifecycle: list[str] = []
+
+    class Destination:
+        def __init__(self, endpoint: str, *, bearer_token: str | None = None) -> None:
+            assert endpoint.startswith("https://hooks.slack.com/")
+            assert bearer_token is None
+            lifecycle.append("destination")
+
+        async def aclose(self) -> None:
+            lifecycle.append("close")
+
+    async def run_canary(
+        shutdown: asyncio.Event,
+        **arguments: object,
+    ) -> None:
+        assert isinstance(shutdown, asyncio.Event)
+        assert arguments["base_url"] == "https://opennosh.org"
+        assert arguments["expected_commit"] == "a" * 40
+        assert arguments["timeout_seconds"] == 300.0
+        assert arguments["poll_seconds"] == 5.0
+        lifecycle.append("canary")
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.WebhookCommonsCanaryAlertDestination",
+        Destination,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_post_deploy_commons_canary",
+        run_canary,
+    )
+
+    await _run_publication_worker(settings=cast(Any, settings))
+
+    assert lifecycle == ["destination", "canary", "close"]
 
 
 @pytest.mark.asyncio

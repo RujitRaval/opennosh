@@ -87,6 +87,17 @@ reconciliation. Route `outage` to the incident destination and close it only aft
 preserves automatic retry without turning a single provider hiccup into an incident, exporting full
 application logs, or allowing a sustained outage to remain silent.
 
+The same publication-worker alert receiver also serves the one-shot post-deploy Commons canary.
+`render.yaml` enables `PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED` with the public
+`https://opennosh.org` origin, a five-second poll interval, and a five-minute bound. At worker
+startup, the canary first waits until `/api/v1/public/build-version` reports the worker's exact
+`RENDER_GIT_COMMIT`; only then does it accept `quiet` or `live` from
+`/api/v1/public/commons-snapshot`. A returned `unavailable` state alerts Slack immediately. A
+bounded timeout also alerts with a stable error code, covering an unreachable, malformed, or
+commit-mismatched public deployment without exporting response bodies or secrets. The worker's
+least-privilege launcher retains the alert URL only in the publication process and strips it from
+the API process.
+
 After first activation, prove the control loop with a no-op documentation PR that does not touch
 `packs/`: observe the attester App's required success, merge without a branch-protection bypass,
 then verify Render creates successful API, web, and publication deployments for that merge commit.
@@ -1064,6 +1075,7 @@ GET /en                      -> 200 public Commons
 GET /tracker                 -> 200 Tracker
 GET /healthz                 -> 200 web-process liveness, independent of PostgreSQL
 GET /api/v1/healthz          -> 200 and healthy database state
+GET /api/v1/public/build-version -> 200 with exact release version and Render commit
 GET /api/v1/foods/readiness  -> 200, canonical approved search record and metadata verified
 GET /en/explore              -> 200
 GET /en/contribute           -> 200

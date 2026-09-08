@@ -32,6 +32,7 @@ OPENAPI_N_MINUS_ONE_SHA256 = "d1aa430baf9987122c202ddecd0763cecec7a5dc2254d75cc8
 EXPECTED_OPERATION_POLICY = {
     "/api/v1/foods/capabilities": ("application/json", 2_097_152),
     "/api/v1/foods/search": ("application/json", 2_097_152),
+    "/api/v1/public/build-version": ("application/json", 4_096),
     "/api/v1/public/commons-snapshot": ("application/json", 24_576),
     "/api/v1/public/foods/{source}/{source_id}": ("application/json", 524_288),
     "/api/v1/public/missions": ("application/json", 2_097_152),

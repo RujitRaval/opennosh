@@ -192,6 +192,11 @@ The activity window includes the total accepted count and at most the four newes
 activity, freshness, and footer consumers map the generated transport type into the handwritten
 `web/lib/api/domain/public-commons.ts` model through the adapter boundary.
 
+`GET /api/v1/public/build-version` is the non-cacheable deployment identity contract. It returns
+schema version `1`, the four-component application version, and the full 40-character Render commit
+when one exists. Production canaries must compare the full commit before judging another public
+endpoint so a rolling deployment cannot accidentally verify an older build.
+
 Hosted deployments configured with `PUBLIC_ARTIFACT_BASE_URL` project this response from the same
 verified artifact reader that serves public foods, manifests, provenance, and packs. Its background
 materializer verifies the descriptor-based latest pointer, complete signed release manifest, and

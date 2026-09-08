@@ -92,6 +92,12 @@ PUBLICATION_ENVIRONMENT_KEYS = (
     "PUBLICATION_PREACTIVATION_SMOKE_ENABLED",
     "GOVERNANCE_CODE_ATTESTATION_ENABLED",
     "GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS",
+    "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL",
+    "GOVERNANCE_CODE_ATTESTATION_ALERT_BEARER_TOKEN",
+    "PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED",
+    "PUBLIC_COMMONS_POST_DEPLOY_CANARY_BASE_URL",
+    "PUBLIC_COMMONS_POST_DEPLOY_CANARY_TIMEOUT_SECONDS",
+    "PUBLIC_COMMONS_POST_DEPLOY_CANARY_POLL_SECONDS",
     "FEDERATION_INGESTION_ENABLED",
     "FEDERATION_PROJECTION_ENABLED",
     "FEDERATION_SEARCH_ENABLED",
@@ -147,6 +153,8 @@ PUBLICATION_PRIVATE_ENVIRONMENT_KEYS = (
     "GITHUB_ATTESTER_APP_ID",
     "GITHUB_ATTESTER_INSTALLATION_ID",
     "GITHUB_ATTESTER_PRIVATE_KEY",
+    "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL",
+    "GOVERNANCE_CODE_ATTESTATION_ALERT_BEARER_TOKEN",
     "PUBLICATION_ARTIFACT_BUCKET",
     "R2_ACCOUNT_ID",
     "R2_BUCKET",
@@ -383,8 +391,12 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
     code_attestation_enabled = (
         environment.get("GOVERNANCE_CODE_ATTESTATION_ENABLED", "false").casefold() == "true"
     )
+    commons_canary_enabled = (
+        environment.get("PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED", "false").casefold()
+        == "true"
+    )
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
-    if not claims_enabled and not refresh_enabled and not code_attestation_enabled:
+    if not any((claims_enabled, refresh_enabled, code_attestation_enabled, commons_canary_enabled)):
         raise ValueError("Publication worker requires an enabled runtime mode")
     if claims_enabled and not refresh_enabled:
         raise ValueError("Publication claims require latest refresh to remain enabled")
@@ -406,6 +418,9 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         raise ValueError("GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS must be positive") from error
     if attestation_interval <= 0:
         raise ValueError("GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS must be positive")
+    if commons_canary_enabled:
+        _required(source, "GOVERNANCE_CODE_ATTESTATION_ALERT_WEBHOOK_URL")
+        _required(source, "RENDER_GIT_COMMIT")
     environment["PROCESS_ROLE"] = "publication"
     if claims_enabled or smoke_enabled:
         if not refresh_enabled:

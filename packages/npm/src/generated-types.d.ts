@@ -315,6 +315,24 @@ export type BodyMetricWrite = {
 };
 
 /**
+ * BuildVersionResponse
+ */
+export type BuildVersionResponse = {
+    /**
+     * Commit
+     */
+    commit: string | null;
+    /**
+     * Schema Version
+     */
+    schema_version?: '1';
+    /**
+     * Version
+     */
+    version: string;
+};
+
+/**
  * CommonsActivityWindow
  */
 export type CommonsActivityWindow = {
@@ -9682,6 +9700,71 @@ export type TransitionApiV1MissionsMissionIdTransitionsPostResponses = {
 };
 
 export type TransitionApiV1MissionsMissionIdTransitionsPostResponse = TransitionApiV1MissionsMissionIdTransitionsPostResponses[keyof TransitionApiV1MissionsMissionIdTransitionsPostResponses];
+
+export type BuildVersionApiV1PublicBuildVersionGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/public/build-version';
+};
+
+export type BuildVersionApiV1PublicBuildVersionGetErrors = {
+    /**
+     * The request is invalid.
+     */
+    400: ProblemDetails;
+    /**
+     * Authentication is required.
+     */
+    401: ProblemDetails;
+    /**
+     * The current user is not authorized.
+     */
+    403: ProblemDetails;
+    /**
+     * The requested resource was not found.
+     */
+    404: ProblemDetails;
+    /**
+     * The request conflicts with the latest state.
+     */
+    409: ProblemDetails;
+    /**
+     * The request failed validation.
+     */
+    422: ProblemDetails;
+    /**
+     * The request rate limit was exceeded.
+     */
+    429: ProblemDetails;
+    /**
+     * The server could not complete the request.
+     */
+    500: ProblemDetails;
+    /**
+     * An upstream service returned an unusable response.
+     */
+    502: ProblemDetails;
+    /**
+     * The service is temporarily unavailable.
+     */
+    503: ProblemDetails;
+    /**
+     * An upstream service timed out.
+     */
+    504: ProblemDetails;
+};
+
+export type BuildVersionApiV1PublicBuildVersionGetError = BuildVersionApiV1PublicBuildVersionGetErrors[keyof BuildVersionApiV1PublicBuildVersionGetErrors];
+
+export type BuildVersionApiV1PublicBuildVersionGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: BuildVersionResponse;
+};
+
+export type BuildVersionApiV1PublicBuildVersionGetResponse = BuildVersionApiV1PublicBuildVersionGetResponses[keyof BuildVersionApiV1PublicBuildVersionGetResponses];
 
 export type CommonsSnapshotApiV1PublicCommonsSnapshotGetData = {
     body?: never;

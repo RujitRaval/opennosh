@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from opennosh_api.auth.router import router as auth_router
 from opennosh_api.body_metrics.router import router as body_metrics_router
+from opennosh_api.build_version import router as build_version_router
 from opennosh_api.capacity import ProcessRole, load_capacity_manifest
 from opennosh_api.contracts import common_problem_responses, install_openapi_contract
 from opennosh_api.contributions.router import router as contributions_router
@@ -265,6 +266,7 @@ def create_app(
     application.add_middleware(FoodLogNoStoreMiddleware)
     install_problem_handlers(application)
     application.include_router(health_router)
+    application.include_router(build_version_router)
     application.include_router(database_metrics_router)
     application.include_router(public_commons_router)
     application.include_router(missions_router)

@@ -72,6 +72,18 @@ def test_public_snapshot_has_stable_etag_and_supports_revalidation() -> None:
     assert second.content == b""
 
 
+def test_public_snapshot_identifies_the_exact_render_build() -> None:
+    commit = "a" * 40
+    app = create_app(Settings(render_git_commit=commit, _env_file=None))
+    app.state.public_commons_snapshot_service = UnavailableService()
+
+    with TestClient(app) as client:
+        response = client.get("/api/v1/public/commons-snapshot")
+
+    assert response.status_code == 200
+    assert response.headers["x-opennosh-build-commit"] == commit
+
+
 def test_etag_changes_when_snapshot_content_changes_within_the_same_bucket() -> None:
     app = create_app(Settings(_env_file=None))
     app.state.public_commons_snapshot_service = ChangingUnavailableService()

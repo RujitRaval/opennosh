@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+import asyncio
+import json
+from datetime import UTC, datetime
+
+import httpx
+import pytest
+from opennosh_api.public_commons.canary import (
+    CommonsCanaryAlert,
+    WebhookCommonsCanaryAlertDestination,
+    probe_post_deploy_commons,
+    run_post_deploy_commons_canary,
+)
+
+COMMIT = "a" * 40
+
+
+def response(payload: object, status_code: int = 200) -> httpx.Response:
+    return httpx.Response(status_code, json=payload)
+
+
+def commons_response(state: str, *, commit: str = COMMIT) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={"state": state},
+        headers={"X-OpenNosh-Build-Commit": commit},
+    )
+
+
+@pytest.mark.asyncio
+async def test_probe_waits_for_the_exact_deployed_commit() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return response({"schema_version": "1", "version": "1.2.3.4", "commit": "b" * 40})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await probe_post_deploy_commons(
+            client,
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+        )
+
+    assert observation.status == "pending"
+    assert observation.error_code == "build_commit_mismatch"
+    assert [request.url.path for request in requests] == ["/api/v1/public/build-version"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state", ["quiet", "live"])
+async def test_probe_accepts_truthful_commons_states(state: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("build-version"):
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": COMMIT}
+            )
+        return commons_response(state)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await probe_post_deploy_commons(
+            client,
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+        )
+
+    assert observation.status == "healthy"
+    assert observation.commons_state == state
+
+
+@pytest.mark.asyncio
+async def test_probe_never_accepts_commons_from_another_rolling_build() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("build-version"):
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": COMMIT}
+            )
+        return commons_response("quiet", commit="b" * 40)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await probe_post_deploy_commons(
+            client,
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+        )
+
+    assert observation.status == "pending"
+    assert observation.error_code == "commons_build_commit_mismatch"
+    assert observation.observed_commit == "b" * 40
+
+
+@pytest.mark.asyncio
+async def test_canary_alerts_once_when_commons_returns_unavailable() -> None:
+    alerts: list[CommonsCanaryAlert] = []
+
+    class Destination:
+        async def send(self, alert: CommonsCanaryAlert) -> None:
+            alerts.append(alert)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("build-version"):
+            return response(
+                {"schema_version": "1", "version": "1.2.3.4", "commit": COMMIT}
+            )
+        return commons_response("unavailable")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await run_post_deploy_commons_canary(
+            asyncio.Event(),
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+            timeout_seconds=30,
+            poll_seconds=1,
+            alert_destination=Destination(),
+            client=client,
+        )
+
+    assert observation is not None
+    assert observation.status == "unavailable"
+    assert len(alerts) == 1
+    assert alerts[0].error_code == "commons_state_unavailable"
+    assert alerts[0].expected_commit == COMMIT
+
+
+@pytest.mark.asyncio
+async def test_canary_timeout_alerts_with_the_last_bounded_error() -> None:
+    alerts: list[CommonsCanaryAlert] = []
+
+    class Destination:
+        async def send(self, alert: CommonsCanaryAlert) -> None:
+            alerts.append(alert)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return response({"schema_version": "1", "version": "1.2.3.4", "commit": "b" * 40})
+
+    ticks = iter((0.0, 2.0))
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        observation = await run_post_deploy_commons_canary(
+            asyncio.Event(),
+            base_url="https://opennosh.example",
+            expected_commit=COMMIT,
+            timeout_seconds=1,
+            poll_seconds=1,
+            alert_destination=Destination(),
+            client=client,
+            monotonic=lambda: next(ticks),
+        )
+
+    assert observation is not None
+    assert observation.status == "unavailable"
+    assert alerts[0].error_code == "build_commit_mismatch"
+    assert alerts[0].observed_commit == "b" * 40
+
+
+@pytest.mark.asyncio
+async def test_webhook_destination_formats_a_redacted_slack_payload() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, text="ok")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        destination = WebhookCommonsCanaryAlertDestination(
+            "https://hooks.slack.com/services/example/test/value",
+            client=client,
+        )
+        await destination.send(
+            CommonsCanaryAlert(
+                error_code="commons_state_unavailable",
+                expected_commit=COMMIT,
+                observed_commit=COMMIT,
+                build_version="1.2.3.4",
+                observed_at=datetime(2026, 9, 8, 12, 30, tzinfo=UTC),
+            )
+        )
+
+    payload = json.loads(requests[0].content)
+    assert payload == {
+        "text": (
+            "OpenNosh post-deploy Commons canary is unavailable for build "
+            "`aaaaaaaaaaaa` (error: `commons_state_unavailable`)."
+        ),
+        "schema": "opennosh.public-commons.post-deploy-canary.v1",
+        "component": "public-commons",
+        "state": "unavailable",
+        "error_code": "commons_state_unavailable",
+        "expected_commit": COMMIT,
+        "observed_commit": COMMIT,
+        "build_version": "1.2.3.4",
+        "occurred_at": "2026-09-08T12:30:00+00:00",
+    }
