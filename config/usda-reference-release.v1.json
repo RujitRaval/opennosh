@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "release_id": "usda-foundation-2026-04-30-and-sr-legacy-2018-04",
-  "expected_reference_records": 8073,
-  "expected_rejected_records": 115,
+  "release_id": "usda-foundation-2026-04-30-fndds-2024-10-31-and-sr-legacy-2018-04",
+  "expected_reference_records": 13497,
+  "expected_rejected_records": 123,
   "datasets": [
     {
       "id": "foundation-2026-04-30",
@@ -14,6 +14,17 @@
       "rows_seen": 395,
       "rows_accepted": 311,
       "rows_rejected": 84
+    },
+    {
+      "id": "fndds-2024-10-31",
+      "data_type": "Survey (FNDDS)",
+      "filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+      "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "size_bytes": 3835292,
+      "rows_seen": 5432,
+      "rows_accepted": 5424,
+      "rows_rejected": 8
     },
     {
       "id": "sr-legacy-2018-04",

@@ -164,8 +164,8 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify({
       schema_version: "1.0",
       community_records: 166,
-      usda_reference_records: 8073,
-      searchable_records: 8239,
+      usda_reference_records: 13497,
+      searchable_records: 13663,
     }));
     return;
   }

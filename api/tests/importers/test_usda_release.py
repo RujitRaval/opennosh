@@ -219,8 +219,10 @@ def test_release_manifest_rejects_inconsistent_release_totals(
 def test_default_release_manifest_loads_from_the_package() -> None:
     release = release_module.load_release_manifest()
 
-    assert release.release_id == "usda-foundation-2026-04-30-and-sr-legacy-2018-04"
-    assert release.expected_reference_records == 8_073
+    assert release.release_id == (
+        "usda-foundation-2026-04-30-fndds-2024-10-31-and-sr-legacy-2018-04"
+    )
+    assert release.expected_reference_records == 13_497
 
 
 class _DownloadResponse:

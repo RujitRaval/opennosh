@@ -35,12 +35,14 @@ USDA_LICENSE = "CC0"
 
 class USDADataType(StrEnum):
     FOUNDATION = "Foundation"
+    FNDDS = "Survey (FNDDS)"
     SR_LEGACY = "SR Legacy"
 
     @property
     def json_root(self) -> str:
         return {
             USDADataType.FOUNDATION: "FoundationFoods",
+            USDADataType.FNDDS: "SurveyFoods",
             USDADataType.SR_LEGACY: "SRLegacyFoods",
         }[self]
 
@@ -48,6 +50,7 @@ class USDADataType(StrEnum):
     def csv_value(self) -> str:
         return {
             USDADataType.FOUNDATION: "foundation_food",
+            USDADataType.FNDDS: "survey_fndds_food",
             USDADataType.SR_LEGACY: "sr_legacy_food",
         }[self]
 
@@ -109,7 +112,7 @@ _MAX_RETAINED_ISSUES = 1_000
 
 
 class USDAFormatError(ValueError):
-    """The bulk input is not a supported USDA Foundation or SR Legacy archive."""
+    """The bulk input is not a supported USDA Foundation, FNDDS, or SR Legacy archive."""
 
 
 class _LimitedReader(BufferedIOBase):
@@ -331,18 +334,20 @@ def _parse_nutrients(value: object) -> dict[str, Any]:
 
 
 def _portion_label(portion: Mapping[str, Any]) -> str:
-    amount = _decimal(
-        portion.get("amount", portion.get("value")),
-        label="portion amount",
-    )
-    if amount <= 0:
-        raise ValueError("portion amount must be greater than zero")
     measure = _mapping(portion.get("measureUnit", {}), label="portion measure unit")
     unit = str(measure.get("abbreviation") or measure.get("name") or "").strip()
     modifier = str(portion.get("modifier") or "").strip()
     description = str(portion.get("portionDescription") or "").strip()
     if unit.casefold() == "undetermined":
         unit = ""
+    raw_amount = portion.get("amount", portion.get("value"))
+    if raw_amount is None and description:
+        if len(description) > 80:
+            raise ValueError("portion name must not exceed 80 characters")
+        return description
+    amount = _decimal(raw_amount, label="portion amount")
+    if amount <= 0:
+        raise ValueError("portion amount must be greater than zero")
     detail = modifier or unit or description or "portion"
     if unit and modifier and modifier.casefold() not in unit.casefold():
         detail = f"{unit} {modifier}"
@@ -362,9 +367,11 @@ def _parse_portions(value: object) -> list[dict[str, Any]]:
         )
     for raw_portion in raw_portions:
         portion = _mapping(raw_portion, label="food portion")
+        grams = _decimal(portion.get("gramWeight"), label="portion gram weight")
+        if grams == 0:
+            continue
         label = _portion_label(portion)
         normalized = label.casefold()
-        grams = _decimal(portion.get("gramWeight"), label="portion gram weight")
         if normalized in names:
             if names[normalized] == grams:
                 continue
@@ -394,8 +401,11 @@ def _parse_item(item: Mapping[str, Any], expected_type: USDADataType) -> USDARef
     if category_value is not None:
         category = _mapping(category_value, label="foodCategory")
         food_category = str(category.get("description") or "").strip() or None
-        if food_category is not None and len(food_category) > 255:
-            raise ValueError("food category must not exceed 255 characters")
+    elif item.get("wweiaFoodCategory") is not None:
+        category = _mapping(item.get("wweiaFoodCategory"), label="wweiaFoodCategory")
+        food_category = str(category.get("wweiaFoodCategoryDescription") or "").strip() or None
+    if food_category is not None and len(food_category) > 255:
+        raise ValueError("food category must not exceed 255 characters")
     return USDAReferenceRecord(
         fdc_id=fdc_id,
         description=description,
@@ -726,11 +736,11 @@ def iter_usda(
     *,
     allowed_data_types: Iterable[USDADataType] = DEFAULT_DATA_TYPES,
 ) -> Iterator[USDAParseOutcome]:
-    """Stream validated Foundation and SR Legacy records from USDA JSON or relational CSV."""
+    """Stream validated Foundation, FNDDS, and SR Legacy records from USDA JSON or CSV."""
     resolved = Path(path)
     allowed = frozenset(allowed_data_types)
     if not allowed or not allowed <= DEFAULT_DATA_TYPES:
-        raise ValueError("allowed_data_types must contain Foundation and/or SR Legacy")
+        raise ValueError("allowed_data_types must contain supported USDA data types")
     json_source = _json_source(resolved)
     if json_source is not None:
         try:
@@ -810,7 +820,7 @@ async def import_usda(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Import USDA Foundation and SR Legacy bulk JSON/CSV into foods_reference."
+        description="Import USDA Foundation, FNDDS, and SR Legacy bulk data into foods_reference."
     )
     parser.add_argument("paths", nargs="+", type=Path, help="USDA JSON, ZIP, or CSV directory")
     parser.add_argument("--database-url", default=None)

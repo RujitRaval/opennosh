@@ -1,0 +1,26 @@
+{
+  "activation_blockers": [
+    "conflicting_gtin_country_identities",
+    "search_projection_scale_limit"
+  ],
+  "activation_status": "hold",
+  "conflicting_identity_groups": 19780,
+  "dataset_id": "usda-branded-2026-04-30",
+  "deduplication_key": "normalized marketCountry + checksum-valid GTIN-14",
+  "duplicate_action": "quarantine_entire_identity_group",
+  "duplicate_fdc_ids": 0,
+  "duplicate_identity_groups": 19780,
+  "duplicate_identity_records": 40074,
+  "eligible_records_after_quarantine": 403276,
+  "exact_duplicate_identity_groups": 0,
+  "invalid_gtin": 12108,
+  "invalid_identity_action": "quarantine",
+  "maximum_activation_records": 250000,
+  "missing_gtin": 0,
+  "missing_market_country": 0,
+  "quarantined_records": 52182,
+  "rows_seen": 455458,
+  "schema_version": "1.0",
+  "sha256": "57b0f122e61cf2840f03c11e9520275d0d2018dc036e16273fcd3cd370db2256",
+  "valid_identity_rows": 443350
+}

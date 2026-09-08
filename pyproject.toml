@@ -49,6 +49,7 @@ opennosh-acceptance-fixture = "opennosh_api.acceptance.entrypoint:main"
 opennosh-acceptance-publication-worker = "opennosh_api.acceptance.publication_worker:main"
 opennosh-mcp = "opennosh_api.mcp.entrypoint:main"
 opennosh-usda-release = "opennosh_api.importers.usda_release:main"
+opennosh-usda-branded-assessment = "opennosh_api.importers.usda_branded_assessment:main"
 
 [project.urls]
 Homepage = "https://opennosh.org"
@@ -93,6 +94,7 @@ packages = ["api/opennosh_api"]
 "schemas/developer-integration-trial.schema.json" = "opennosh_api/contracts/developer-integration-trial.schema.json"
 "config/developer-compatibility.v1.json" = "opennosh_api/contracts/developer-compatibility.v1.json"
 "config/usda-reference-release.v1.json" = "opennosh_api/usda-reference-release.v1.json"
+"config/usda-branded-assessment.v1.json" = "opennosh_api/usda-branded-assessment.v1.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -110,6 +112,7 @@ include = [
   "schemas/developer-integration-trial.schema.json",
   "config/developer-compatibility.v1.json",
   "config/usda-reference-release.v1.json",
+  "config/usda-branded-assessment.v1.json",
   "AUTHORS.md",
   "LICENSE",
   "LICENSES.md",

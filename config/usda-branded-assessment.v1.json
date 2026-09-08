@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "usda-branded-2026-04-30",
+  "filename": "FoodData_Central_branded_food_json_2026-04-30.zip",
+  "sha256": "57b0f122e61cf2840f03c11e9520275d0d2018dc036e16273fcd3cd370db2256",
+  "size_bytes": 204270542,
+  "json_member": "FoodData_Central_branded_food_json_2026-04-30.json",
+  "uncompressed_size_bytes": 3315545449,
+  "expected_rows": 455458,
+  "maximum_rows": 3000000,
+  "maximum_activation_records": 250000
+}

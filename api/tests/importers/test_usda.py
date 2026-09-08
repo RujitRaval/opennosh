@@ -79,6 +79,23 @@ def test_json_zip_uses_the_streaming_json_parser(tmp_path: Path) -> None:
     assert sum(outcome.issue is not None for outcome in outcomes) == 2
 
 
+def test_fndds_json_uses_wweia_category_and_human_portion_descriptions() -> None:
+    outcomes = list(
+        iter_usda(
+            FIXTURES / "survey.json",
+            allowed_data_types=[usda_importer.USDADataType.FNDDS],
+        )
+    )
+
+    assert len(outcomes) == 1
+    record = outcomes[0].record
+    assert record is not None
+    assert record.fdc_id == "2705384"
+    assert record.food_category == "Milk, reduced fat"
+    assert record.portions_json == [{"name": "1 fl oz", "grams": "30.5"}]
+    assert record.nutrients_json["nutrients"]["energy_kcal"] == "52.0"
+
+
 def test_empty_json_dataset_is_rejected(tmp_path: Path) -> None:
     source = tmp_path / "empty.json"
     source.write_text(json.dumps({"FoundationFoods": []}))

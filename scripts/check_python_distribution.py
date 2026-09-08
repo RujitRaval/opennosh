@@ -21,6 +21,10 @@ EXPECTED_CONSOLE_SCRIPTS = {
     "opennosh-scheduler": "opennosh_api.entrypoints.scheduler:main",
     "opennosh-migrate": "opennosh_api.entrypoints.migration:main",
     "opennosh-mcp": "opennosh_api.mcp.entrypoint:main",
+    "opennosh-usda-release": "opennosh_api.importers.usda_release:main",
+    "opennosh-usda-branded-assessment": (
+        "opennosh_api.importers.usda_branded_assessment:main"
+    ),
 }
 
 
@@ -48,6 +52,8 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
             "opennosh_api/public-status.schema.json",
             "opennosh_api/publication-readiness.schema.json",
             "opennosh_api/impact-metrics.v1.json",
+            "opennosh_api/usda-reference-release.v1.json",
+            "opennosh_api/usda-branded-assessment.v1.json",
             "opennosh_api/contracts/developer-compatibility.schema.json",
             "opennosh_api/contracts/developer-integration-trial.schema.json",
             "opennosh_api/contracts/developer-compatibility.v1.json",
@@ -93,6 +99,8 @@ def validate_distribution(root: Path, dist: Path) -> list[str]:
             "schemas/public-status.schema.json",
             "schemas/publication-readiness.schema.json",
             "config/impact-metrics.v1.json",
+            "config/usda-reference-release.v1.json",
+            "config/usda-branded-assessment.v1.json",
             "schemas/developer-compatibility.schema.json",
             "schemas/developer-integration-trial.schema.json",
             "config/developer-compatibility.v1.json",

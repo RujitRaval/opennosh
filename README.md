@@ -851,8 +851,8 @@ leave with all of their data. Configure the new guards with
 
 The offline importer accepts FoodData Central JSON files, official JSON ZIP archives,
 official relational CSV ZIP archives, or extracted CSV directories. It imports only
-Foundation and SR Legacy foods into `foods_reference`; branded, FNDDS, and experimental
-rows are ignored. Each accepted row retains its FDC ID, USDA source, CC0 license, source
+Foundation, FNDDS, and SR Legacy foods into `foods_reference`; branded and experimental
+rows are rejected. Each accepted row retains its FDC ID, USDA source, CC0 license, source
 publication timestamp, nutrients per 100 grams, and gram-based household portions.
 
 Download the bulk files from the [FoodData Central dataset page](https://fdc.nal.usda.gov/download-datasets/),
@@ -860,7 +860,7 @@ run migrations, then pass one or more archives:
 
 ```shell
 make db-upgrade
-make usda-import USDA_PATHS="downloads/foundation.zip downloads/sr-legacy.zip"
+make usda-import USDA_PATHS="downloads/foundation.zip downloads/fndds.zip downloads/sr-legacy.zip"
 ```
 
 The importer uses `DATABASE_URL` by default and writes 500 records per batch. Override
@@ -876,9 +876,10 @@ rejected. Error output retains a bounded sample and reports how many additional 
 were omitted.
 
 The production reference release is pinned in
-`config/usda-reference-release.v1.json`. It combines USDA Foundation 2026-04-30 with SR Legacy
-2018-04: 8,188 source rows, 8,073 accepted reference foods, and 115 rejected rows that do not meet
-opennosh's nutrient and portion contract. Verify the exact files without a database write:
+`config/usda-reference-release.v1.json`. It combines USDA Foundation 2026-04-30, FNDDS
+2021-2023 published 2024-10-31, and SR Legacy 2018-04: 13,620 source rows, 13,497 accepted
+reference foods, and 123 rejected rows that do not meet opennosh's nutrient and portion contract.
+Verify the exact files without a database write:
 
 ```shell
 make usda-release-verify USDA_SOURCE_DIRECTORY=downloads
@@ -889,6 +890,11 @@ accounting, and duplicate FDC IDs before opening a database transaction. Applyin
 the bounded administration role, refuses to remove unexpected existing rows, and invalidates only
 the unfiltered retained search projections so the next readiness request rebuilds search while old
 cursor snapshots remain usable.
+
+Branded Foods are assessed separately and never enter `foods_reference` through this release.
+`make usda-branded-assess USDA_BRANDED_ARCHIVE=/path/to/archive.zip` verifies the pinned April
+2026 archive and applies the GTIN, duplicate-quarantine, and scale gates documented in
+`docs/usda-branded-assessment.md`.
 
 ---
 

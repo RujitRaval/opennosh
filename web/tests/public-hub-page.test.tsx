@@ -79,8 +79,8 @@ describe("public hub pages", () => {
     mocks.getFoodCatalogSummary.mockResolvedValue({
       schema_version: "1.0",
       community_records: 166,
-      usda_reference_records: 8_073,
-      searchable_records: 8_239,
+      usda_reference_records: 13_497,
+      searchable_records: 13_663,
     });
     mocks.getPublicCommonsSnapshot.mockResolvedValue({
       state: "live",
@@ -97,7 +97,7 @@ describe("public hub pages", () => {
     expect(screen.getByText("Signed community records")).toBeVisible();
     expect(screen.getByText("166")).toBeVisible();
     expect(screen.getByText("USDA reference foods")).toBeVisible();
-    expect(screen.getByText("8,073")).toBeVisible();
+    expect(screen.getByText("13,497")).toBeVisible();
 
     cleanup();
     mocks.getPublicCommonsSnapshot.mockResolvedValue({
@@ -113,7 +113,7 @@ describe("public hub pages", () => {
 
     expect(screen.queryByText("Signed community records")).not.toBeInTheDocument();
     expect(screen.getByText("USDA reference foods")).toBeVisible();
-    expect(screen.getByText("8,073")).toBeVisible();
+    expect(screen.getByText("13,497")).toBeVisible();
   });
 
   it("provides localized metadata from the same hub registry", async () => {
