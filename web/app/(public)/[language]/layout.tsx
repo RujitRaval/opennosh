@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { preload } from "react-dom";
 
 import { PublicHeader } from "@/components/public/public-header";
 import { PublicPerformanceSignals } from "@/components/public/public-performance-signals";
@@ -13,7 +12,6 @@ import { isSupportedLanguage, pseudoLanguage, supportedLanguages } from "@/lib/r
 import { getCatalog } from "@/lib/i18n/catalog";
 
 import "../../base.css";
-import { criticalPublicFontPreloads } from "./fonts";
 import "./fonts.css";
 import "./tokens.css";
 import "./public.css";
@@ -52,14 +50,6 @@ export default async function PublicLayout({
     parsePublicFeatureFlags(process.env.OPENNOSH_PUBLIC_NAV_FEATURES),
   );
   const decorationsEnabled = process.env.NEXT_PUBLIC_OPENNOSH_MOTION_DECORATIONS !== "off";
-
-  for (const href of criticalPublicFontPreloads) {
-    preload(href, {
-      as: "font",
-      type: "font/woff2",
-      crossOrigin: "anonymous",
-    });
-  }
 
   return (
     <html

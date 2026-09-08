@@ -17,7 +17,6 @@ const baseCssFile = path.join(webRoot, "app/base.css");
 const tokenFile = path.join(webRoot, "app/(public)/[language]/tokens.css");
 const publicCssFile = path.join(webRoot, "app/(public)/[language]/public.css");
 const contributionCssFile = path.join(webRoot, "app/(public)/[language]/contribution.css");
-const publicFontSourceFile = path.join(webRoot, "app/(public)/[language]/fonts.ts");
 const publicFontCssFile = path.join(webRoot, "app/(public)/[language]/fonts.css");
 const publicLayoutFile = path.join(webRoot, "app/(public)/[language]/layout.tsx");
 const trackerLayoutFile = path.join(webRoot, "app/(tracker)/tracker/layout.tsx");
@@ -148,7 +147,6 @@ for (const surface of expectedBrandSurfaces) {
   }
 }
 
-const publicFontSource = read(publicFontSourceFile);
 const publicFontCss = read(publicFontCssFile);
 for (const asset of Object.values(publicFontAssets)) {
   const assetFile = path.join(webRoot, "public", asset.href);
@@ -162,9 +160,6 @@ for (const asset of Object.values(publicFontAssets)) {
   }
   if (!publicFontCss.includes(asset.href)) {
     fail(`${relative(assetFile)} is not wired through the route-local font sheet.`);
-  }
-  if (asset.delivery === "critical" && !publicFontSource.includes('asset.delivery === "critical"')) {
-    fail(`${relative(assetFile)} is not selected by the typed critical-preload contract.`);
   }
 }
 

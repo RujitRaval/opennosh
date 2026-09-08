@@ -36,9 +36,9 @@
     }
   },
   "budgets": {
-    "criticalBytes": 163840,
+    "criticalBytes": 0,
     "totalBytes": 225280,
-    "criticalRequests": 2,
+    "criticalRequests": 0,
     "totalRequests": 5,
     "fontCls": 0.02,
     "trackerBytes": 0
@@ -63,7 +63,7 @@
         "postScript": "opennoshDisplay"
       },
       "output": "../../../public/fonts/v2/opennosh-display-latin-variable.woff2",
-      "delivery": "critical",
+      "delivery": "deferred",
       "outputBytes": 61676,
       "outputSha256": "1adb41b88aaf62be29e2e835b356ade1385ff59d7e60f71f1a20ee4bdc4679fe"
     },
@@ -87,7 +87,7 @@
         "postScript": "opennoshSans"
       },
       "output": "../../../public/fonts/v2/opennosh-sans-latin-variable.woff2",
-      "delivery": "critical",
+      "delivery": "deferred",
       "outputBytes": 28016,
       "outputSha256": "9c2e5b4f05d07448244df778a775589557d971b0d39f32cfbc263c5e445439e0"
     },

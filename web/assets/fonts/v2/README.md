@@ -42,9 +42,11 @@ unless every output byte matches the committed files. FontTools 4.60.1 and
 
 ## Delivery contract
 
-- The default Latin route preloads Archivo and Source Sans 3 only.
+- Public routes load every face on demand from the route-local stylesheet and emit no font
+  preloads. This avoids Chromium's unused-preload warnings while `font-display: swap` keeps text
+  immediately usable.
 - IBM Plex Mono is declared in public CSS but is not preloaded.
-- Critical transfer must remain at or below 160 KiB across two requests.
+- Speculative preload transfer and request budgets are both zero.
 - Total transfer after all three mono weights must remain at or below 220 KiB across five requests.
 - Public faces use `font-display: swap` and metric-compatible local fallbacks.
 - Font-attributable CLS must remain at or below 0.02 on desktop and mobile slow-arrival tests.

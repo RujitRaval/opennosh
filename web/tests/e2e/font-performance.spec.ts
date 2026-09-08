@@ -5,18 +5,14 @@ import fontManifest from "../../assets/fonts/v2/font-build.v2.json";
 const hrefFor = (output: string) =>
   `/fonts/${fontManifest.assetVersion}/${output.split("/").at(-1)}`;
 const allFontHrefs = fontManifest.fonts.map((font) => hrefFor(font.output));
-const criticalFontHrefs = fontManifest.fonts
-  .filter((font) => font.delivery === "critical")
-  .map((font) => hrefFor(font.output));
-
-test("public routes preload only the critical Latin faces within transfer budgets", async ({ page }) => {
+test("public routes load Latin faces without speculative font preloads", async ({ page }) => {
   await page.goto("/en");
   await page.evaluate(async () => document.fonts.ready);
 
   const preloads = await page.locator('link[rel="preload"][as="font"]').evaluateAll((links) =>
     links.map((link) => new URL((link as HTMLLinkElement).href).pathname).sort(),
   );
-  expect(preloads).toEqual([...criticalFontHrefs].sort());
+  expect(preloads).toEqual([]);
   await page.waitForTimeout(1_000);
   const unusedStylesheetPreloads = await page.evaluate(() => {
     const activeStylesheets = new Set(
@@ -44,13 +40,9 @@ test("public routes preload only the critical Latin faces within transfer budget
   const requestedHrefs = [...new Set(resources.map((resource) => resource.href))];
   expect(requestedHrefs.length).toBeLessThanOrEqual(fontManifest.budgets.totalRequests);
   expect(requestedHrefs.every((href) => allFontHrefs.includes(href))).toBe(true);
-  expect(criticalFontHrefs.every((href) => requestedHrefs.includes(href))).toBe(true);
-
-  const criticalBytes = fontManifest.fonts
-    .filter((font) => font.delivery === "critical")
-    .reduce((total, font) => total + font.outputBytes, 0);
   const totalBytes = fontManifest.fonts.reduce((total, font) => total + font.outputBytes, 0);
-  expect(criticalBytes).toBeLessThanOrEqual(fontManifest.budgets.criticalBytes);
+  expect(fontManifest.budgets.criticalBytes).toBe(0);
+  expect(fontManifest.budgets.criticalRequests).toBe(0);
   expect(totalBytes).toBeLessThanOrEqual(fontManifest.budgets.totalBytes);
 });
 
