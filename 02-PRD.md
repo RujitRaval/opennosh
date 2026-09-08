@@ -31,7 +31,7 @@ The application is deliberately unremarkable — log food, log lifts, log weight
 ## 4. MVP scope
 
 ### 4.1 Food data
-- Seed import of USDA FoodData Central (Foundation + SR Legacy) from bulk download
+- Seed import of USDA FoodData Central (Foundation + FNDDS + SR Legacy) from bulk download
 - Food pack loader — reads community packs from a directory, validates against schema, imports
 - Food search across reference + community tables, with generic foods ranked above branded duplicates
 - Opt-in barcode lookup backed by Open Food Facts, shipped in v1 with ODbL data isolated from the CC0 food-pack database

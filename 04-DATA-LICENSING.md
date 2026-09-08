@@ -88,7 +88,9 @@ You will not catch everything. Document the policy, act on reports, and move on.
 - Bulk downloads available as CSV and JSON; full download includes all data types.
 - API: free with a data.gov key, rate limited to ~1,000 requests/hour. **Use bulk download for the seed import, not the API.**
 - Data types: Foundation Foods (lab-analysed, highest quality), SR Legacy, FNDDS (survey), Branded Foods, Experimental.
-- **Recommendation:** seed with Foundation Foods + SR Legacy only. Branded Foods is large, US-skewed, and duplicates what OFF does better via barcode.
+- **Recommendation:** seed with Foundation Foods, FNDDS, and SR Legacy. Keep Branded Foods out of
+  the reference release until its conflicting GTIN-and-country identities have a reviewed
+  canonical-version policy and its projected catalog passes the 250,000-record scale gate.
 - Update cadence is quarterly. Build the importer as a re-runnable job, not a one-time script.
 
 ## Exercise catalogue boundary
