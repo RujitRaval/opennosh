@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.98.0.1] - 2026-09-07
+
+### Fixed
+
+- Retry one PostgreSQL-cancelled food query inside its existing 500 ms per-attempt budget, allowing
+  a cold retained or newly built snapshot to warm once instead of returning a transient 503.
+
 ## [0.98.0.0] - 2026-09-07
 
 ### Added
