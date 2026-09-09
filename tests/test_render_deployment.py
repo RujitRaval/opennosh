@@ -1468,3 +1468,26 @@ def test_render_commands_are_copied_into_their_production_images() -> None:
     assert "\nUSER opennosh\n" in api_dockerfile
     assert "\nUSER nextjs\n" in web_dockerfile
     assert 'export API_URL="http://${API_HOSTPORT}"' in web_start
+
+
+@pytest.mark.parametrize("command", [run_publication_readiness, run_natural_publication_readiness])
+def test_readiness_validates_configured_credentials_without_giving_them_to_worker(
+    monkeypatch: pytest.MonkeyPatch, command: object
+) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    captured = {}
+
+    def run(_command: list[str], **options: object) -> None:
+        captured.update(options)
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+    command(source)
+    environment = captured["env"]
+    for key in ("ONLINE_RECEIPT_SIGNING_KEY", "PUBLICATION_ARTIFACT_BUCKET",
+                "GITHUB_FORGE_PRIVATE_KEY", "GITHUB_ATTESTER_PRIVATE_KEY"):
+        assert environment[key] == source[key]
+        assert key not in publication_environment(source)
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert "RENDER_DATABASE_URL" not in environment

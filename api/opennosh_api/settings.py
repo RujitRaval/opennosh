@@ -113,6 +113,7 @@ class Settings(BaseSettings):
     )
     food_search_cursor_lifetime_seconds: PositiveInt = 900
     food_search_snapshot_refresh_seconds: PositiveInt = 300
+    food_search_snapshot_warm_enabled: bool = False
     food_search_snapshot_retention_seconds: PositiveInt = 1_200
     food_search_snapshot_build_timeout_ms: PositiveInt = 30_000
     public_commons_latest_pointer_path: Path | None = None

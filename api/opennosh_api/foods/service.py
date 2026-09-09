@@ -441,8 +441,9 @@ async def _fresh_snapshot(
     retention_seconds: int,
     active_projection: ActiveFederationProjection | None = None,
     selected_pack_ids: tuple[str, ...] = (),
+    prefer_retained: bool = False,
 ) -> SearchSnapshot:
-    fresh_after = now - timedelta(seconds=refresh_seconds)
+    fresh_after = None if prefer_retained else now - timedelta(seconds=refresh_seconds)
     snapshot = await _latest_snapshot(
         database,
         now=now,
@@ -582,6 +583,7 @@ async def search_foods(
     snapshot_retention_seconds: int,
     snapshot_build_timeout_ms: int,
     statement_timeout_ms: int,
+    prefer_retained_snapshot: bool = False,
     federation_enabled: bool = False,
     selected_pack_ids: tuple[str, ...] = (),
     now: datetime | None = None,
@@ -641,6 +643,11 @@ async def search_foods(
                     retention_seconds=snapshot_retention_seconds,
                     active_projection=active_projection,
                     selected_pack_ids=selected_pack_ids,
+                    prefer_retained=(
+                        prefer_retained_snapshot
+                        and not federation_requested
+                        and not selected_pack_ids
+                    ),
                 )
         except TimeoutError as error:
             await database.rollback()

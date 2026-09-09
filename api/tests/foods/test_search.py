@@ -53,6 +53,55 @@ class _RecordingDatabase:
         self.rolled_back = True
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source", "packs", "federation_enabled", "prefer_retained"),
+    [
+        (None, (), False, True),
+        (FoodSource.FEDERATION, (), True, False),
+        (None, ("one-pack",), True, False),
+        (None, ("one-pack",), False, False),
+    ],
+)
+async def test_background_warming_never_reuses_default_projection_for_another_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    source: FoodSource | None,
+    packs: tuple[str, ...],
+    federation_enabled: bool,
+    prefer_retained: bool,
+) -> None:
+    class ReachedProjection(Exception):
+        pass
+
+    async def projection(*args: Any, **kwargs: Any) -> None:
+        assert kwargs["prefer_retained"] is prefer_retained
+        raise ReachedProjection
+
+    async def federation(*args: Any, **kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr(food_service, "_fresh_snapshot", projection)
+    monkeypatch.setattr(food_service, "active_federation_projection", federation)
+    with pytest.raises(ReachedProjection):
+        await search_foods(
+            _RecordingDatabase(),
+            query="apple",
+            locale="en",
+            source=source,
+            limit=10,
+            cursor=None,
+            key_ring=None,
+            cursor_lifetime_seconds=1200,
+            snapshot_refresh_seconds=300,
+            snapshot_retention_seconds=1200,
+            snapshot_build_timeout_ms=30000,
+            statement_timeout_ms=500,
+            prefer_retained_snapshot=True,
+            federation_enabled=federation_enabled,
+            selected_pack_ids=packs,
+        )
+
+
 class _CatalogMappings:
     def mappings(self) -> _CatalogMappings:
         return self

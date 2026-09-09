@@ -71,7 +71,7 @@ class FakeReadinessConnection:
                 {"state": "quarantined", "count": 1},
             ]
         if "FROM alembic_version" in query:
-            return [{"version_num": "20260907_0038"}]
+            return [{"version_num": "20260908_0039"}]
         raise AssertionError(query)
 
 
@@ -129,7 +129,7 @@ async def test_readiness_report_is_deterministic_redacted_and_read_only(
     assert first["status"] == "ready"
     assert first["readiness_sha256"] == readiness_digest(first)
     validate_readiness_report(first)
-    assert first["living_commons"]["migration_heads"] == ["20260907_0038"]
+    assert first["living_commons"]["migration_heads"] == ["20260908_0039"]
     assert first["living_commons"]["all_capabilities_disabled"] is True
     assert first["queue"] == {
         "counts": {
@@ -544,3 +544,14 @@ async def test_collect_readiness_uses_default_contract_and_always_closes_connect
 
     assert closed is True
     assert observed and observed[0].tzinfo is UTC
+
+
+def test_readiness_migration_matches_repository_head() -> None:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    configuration = Config()
+    configuration.set_main_option("script_location", str(ROOT / "api/alembic"))
+    assert ScriptDirectory.from_config(configuration).get_heads() == [
+        readiness_module._LIVING_COMMONS_MIGRATION
+    ]

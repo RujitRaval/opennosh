@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -271,6 +271,50 @@ async def test_request_path_never_waits_for_the_artifact_origin() -> None:
 
     assert reader.calls == []
     assert resolution.snapshot.state is CommonsSnapshotState.UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_bucket_rollover_preserves_recent_verification_until_actual_refresh_deadline() -> (
+    None
+):
+    reader = FakeArtifactService(_release())
+    service = ArtifactBackedPublicCommonsSnapshotService(
+        reader,
+        stale_after_seconds=300,
+        activity_source=FakeActivitySource(
+            CanonicalAcceptedActivityProjection(
+                accepted_count=0,
+                events=(),
+                most_recent_verified_record=None,
+                event_checkpoint="d" * 64,
+            )
+        ),
+    )
+    verified_at = BUCKET + timedelta(minutes=4, seconds=59)
+    original = await service.refresh_response(now=verified_at)
+    rollover = await service.resolve_response(now=verified_at + timedelta(seconds=2))
+    assert rollover.snapshot == original.snapshot
+    assert rollover.etag == original.etag
+    assert rollover.snapshot.state is CommonsSnapshotState.QUIET
+    assert reader.calls == [BUCKET]
+    expired = await service.resolve_response(now=verified_at + timedelta(seconds=300))
+    assert expired.snapshot.state is CommonsSnapshotState.STALE
+
+
+@pytest.mark.asyncio
+async def test_same_bucket_refresh_renews_deadline_without_hiding_a_real_failure() -> None:
+    reader = FakeArtifactService(_release())
+    service = ArtifactBackedPublicCommonsSnapshotService(reader, stale_after_seconds=10)
+    await service.refresh_response(now=NOW)
+    await service.refresh_response(now=NOW + timedelta(seconds=8))
+    cached = await service.resolve_response(now=NOW + timedelta(seconds=12))
+    assert cached.snapshot.state is CommonsSnapshotState.PARTIAL
+    expired = await service.resolve_response(now=NOW + timedelta(seconds=18))
+    assert expired.snapshot.state is CommonsSnapshotState.STALE
+    reader.release = None
+    await service.refresh_response(now=NOW + timedelta(seconds=19))
+    failed = await service.resolve_response(now=NOW + timedelta(seconds=20))
+    assert failed.snapshot.state is CommonsSnapshotState.UNAVAILABLE
 
 
 def test_app_uses_artifact_backed_snapshot_when_canonical_artifacts_are_configured(

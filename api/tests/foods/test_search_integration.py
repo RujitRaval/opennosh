@@ -23,6 +23,7 @@ from opennosh_api.foods.service import (
     _existing_snapshot,
     _fresh_snapshot,
 )
+from opennosh_api.foods.warming import warm_food_search_once
 from opennosh_api.main import create_app
 from opennosh_api.settings import Settings
 from sqlalchemy import text
@@ -33,6 +34,91 @@ from api.tests.problem_assertions import problem_without_request_id
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_background_refresh_keeps_requests_on_retained_snapshot_and_publishes_new_data() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))
+
+    async def verify() -> None:
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        settings = Settings(_env_file=None)
+        try:
+            assert await warm_food_search_once(sessions, settings)
+            async with engine.begin() as connection:
+                original = await connection.scalar(text("SELECT id FROM food_search_snapshots"))
+                await connection.execute(
+                    text(
+                        "UPDATE food_search_snapshots SET created_at = now() - interval '6 minutes'"
+                    )
+                )
+                await connection.execute(
+                    text(
+                        "UPDATE foods_reference SET description = 'Updated apple' "
+                        "WHERE fdc_id = '100'"
+                    )
+                )
+            async with sessions() as database:
+                retained = await _fresh_snapshot(
+                    database,
+                    now=datetime.now(UTC),
+                    refresh_seconds=300,
+                    retention_seconds=1200,
+                    prefer_retained=True,
+                )
+                assert retained.snapshot_id == original
+            assert await warm_food_search_once(sessions, settings)
+            async with sessions() as database:
+                refreshed = await _fresh_snapshot(
+                    database,
+                    now=datetime.now(UTC),
+                    refresh_seconds=300,
+                    retention_seconds=1200,
+                    prefer_retained=True,
+                )
+                assert refreshed.snapshot_id != original
+                name = await database.scalar(
+                    text(
+                        "SELECT name FROM food_search_snapshot_items WHERE snapshot_id = :id "
+                        "AND source_id = '100'"
+                    ),
+                    {"id": refreshed.snapshot_id},
+                )
+                assert name == "Updated apple"
+        finally:
+            await engine.dispose()
+
+    asyncio.run(verify())
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_api_warms_before_serving_its_first_search() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_seed_readiness_food(INTEGRATION_DATABASE_URL))
+    with _client(INTEGRATION_DATABASE_URL, food_search_snapshot_warm_enabled=True) as client:
+
+        async def snapshot_count() -> int:
+            engine = create_async_engine(INTEGRATION_DATABASE_URL)
+            try:
+                async with engine.connect() as connection:
+                    return int(
+                        await connection.scalar(text("SELECT count(*) FROM food_search_snapshots"))
+                    )
+            finally:
+                await engine.dispose()
+
+        assert asyncio.run(snapshot_count()) == 1
+        result = client.get("/api/v1/foods/readiness")
+        assert result.status_code == 200
+        assert result.json()["expected_id"] == "community:gujarati-plain-thepla"
+        search = client.get("/api/v1/foods/search", params={"q": "rice"})
+        assert search.status_code == 200
+        assert search.json()["items"]
+
 
 _NUTRIENTS = """{
   "basis": "per_100g",

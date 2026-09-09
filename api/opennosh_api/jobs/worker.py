@@ -35,7 +35,7 @@ from opennosh_api.public.refresh import (
 from opennosh_api.public.signing import load_production_signing_key
 from opennosh_api.public_commons.canary import (
     WebhookCommonsCanaryAlertDestination,
-    run_post_deploy_commons_canary,
+    run_commons_canary_monitor,
 )
 from opennosh_api.public_commons.manifests import ManifestKeyRing
 from opennosh_api.publication.adapters import PublicationAdapterRegistry
@@ -668,7 +668,7 @@ async def _run_publication_worker(
             if commons_canary_alert_destination is not None:
                 assert commons_canary_expected_commit is not None
                 tasks.create_task(
-                    run_post_deploy_commons_canary(
+                    run_commons_canary_monitor(
                         shutdown,
                         base_url=configured.public_commons_post_deploy_canary_base_url,
                         expected_commit=commons_canary_expected_commit,
@@ -692,5 +692,11 @@ async def _run_publication_worker(
 def run_publication_worker(
     adapters: PublicationAdapterRegistry | None = None,
 ) -> int:
+    # Keep application health evidence visible without enabling verbose provider logs.
+    app_logger = logging.getLogger("opennosh_api.public_commons.canary")
+    app_logger.setLevel(logging.INFO)
+    if not app_logger.handlers:
+        app_logger.addHandler(logging.StreamHandler())
+    app_logger.propagate = False
     asyncio.run(_run_publication_worker(adapters))
     return 0

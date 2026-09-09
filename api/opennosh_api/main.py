@@ -27,6 +27,7 @@ from opennosh_api.exercises.router import router as exercises_router
 from opennosh_api.exports.router import router as exports_router
 from opennosh_api.foods.router import export_router as food_export_router
 from opennosh_api.foods.router import router as foods_router
+from opennosh_api.foods.warming import run_food_search_warmer, warm_food_search_once
 from opennosh_api.governance.router import router as governance_router
 from opennosh_api.health import router as health_router
 from opennosh_api.impact.router import router as public_impact_router
@@ -153,6 +154,7 @@ def create_app(
         app.state.database_capacity_manifest = capacity_manifest
         app.state.open_food_facts_client = open_food_facts_client
         materializer_task: asyncio.Task[None] | None = None
+        search_warmer_task: asyncio.Task[None] | None = None
         public_commons_service: PublicCommonsSnapshotService = (
             app.state.public_commons_snapshot_service
         )
@@ -173,9 +175,19 @@ def create_app(
                 name="public-commons-materializer",
             )
         try:
+            if resolved_settings.food_search_snapshot_warm_enabled:
+                await warm_food_search_once(session_factory, resolved_settings)
+                search_warmer_task = asyncio.create_task(
+                    run_food_search_warmer(session_factory, resolved_settings),
+                    name="food-search-snapshot-warmer",
+                )
             yield
         finally:
             try:
+                if search_warmer_task is not None:
+                    search_warmer_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await search_warmer_task
                 if materializer_task is not None:
                     materializer_task.cancel()
                     with suppress(asyncio.CancelledError):

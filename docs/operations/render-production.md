@@ -87,7 +87,7 @@ reconciliation. Route `outage` to the incident destination and close it only aft
 preserves automatic retry without turning a single provider hiccup into an incident, exporting full
 application logs, or allowing a sustained outage to remain silent.
 
-The same publication-worker alert receiver also serves the one-shot post-deploy Commons canary.
+The same publication-worker alert receiver also serves the post-deploy and periodic Commons canary.
 `render.yaml` enables `PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED` with the public
 `https://opennosh.org` origin, a five-second poll interval, and a five-minute bound. At worker
 startup, the canary first waits until `/api/v1/public/build-version` reports the worker's exact
@@ -97,6 +97,14 @@ bounded timeout also alerts with a stable error code, covering an unreachable, m
 commit-mismatched public deployment without exporting response bodies or secrets. The worker's
 least-privilege launcher retains the alert URL only in the publication process and strips it from
 the API process.
+
+After its startup check, the same task checks the deployed build and Commons every 60 seconds.
+Three consecutive failed observations send one outage alert. The first healthy observation sends
+one recovery alert; unchanged healthy or already-alerted outage observations do not send messages.
+Failed alert deliveries retry on subsequent observations. A delivered startup outage carries into
+the periodic state so recovery closes that incident without duplicate outage messages. Application
+INFO logs are explicitly enabled in the publication entry point, including healthy startup and
+periodic checks, while provider debug logging remains disabled. This adds no service or paid resource.
 
 After first activation, prove the control loop with a no-op documentation PR that does not touch
 `packs/`: observe the attester App's required success, merge without a branch-protection bypass,
@@ -135,6 +143,22 @@ also held closed with `OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED=false` until the 
 catalogue has been loaded and checked.
 
 ### Food-search refresh safety
+
+`FOOD_SEARCH_SNAPSHOT_WARM_ENABLED=true` on the API warms the default catalogue before startup
+completes and checks it in the background every 30 seconds. The existing five-minute refresh,
+20-minute cursor retention, advisory lock, GIN finalizer, and 30-second build deadline remain in
+force. While the warmer builds a replacement, ordinary requests use the last unexpired snapshot
+instead of rebuilding it themselves. This prevents the first visitor after idle time from paying
+the snapshot-build cost. Federation and explicit pack scopes keep their existing resolution path.
+Self-hosted deployments can opt into the same setting; false preserves on-demand refresh behavior.
+Background failures log only their exception type and retry. If all retained snapshots expire,
+the existing bounded foreground build remains the recovery path, and readiness stays authoritative.
+
+Commons freshness uses the actual time of the last completed background verification, independently
+of its five-minute activity bucket. Crossing a bucket boundary preserves the exact recently verified
+response and ETag until the configured 300-second freshness deadline. A real failed verification is
+visible immediately; expiry still produces stale state without making an origin request on the
+public request path.
 
 Migration `20260907_0038` re-enables `fastupdate` on the four retained-snapshot GIN indexes and adds
 one fixed, `SECURITY DEFINER` flush function that can clean only those reviewed indexes. The web role

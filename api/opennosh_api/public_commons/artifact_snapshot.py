@@ -72,6 +72,7 @@ class ArtifactBackedPublicCommonsSnapshotService:
         self._activity_source = activity_source
         self._stale_after_seconds = stale_after_seconds
         self._cached_bucket: datetime | None = None
+        self._refreshed_at: datetime | None = None
         self._cached_resolution: PublicCommonsResolution | None = None
         self._resolution_lock = asyncio.Lock()
         self._source_artifact_reads = 0
@@ -112,6 +113,7 @@ class ArtifactBackedPublicCommonsSnapshotService:
         checked_at = self._bucket(current)
         async with self._resolution_lock:
             resolution = await self._resolve_bucket(checked_at)
+            self._refreshed_at = current
             if (
                 self._cached_bucket == checked_at
                 and self._cached_resolution is not None
@@ -132,7 +134,12 @@ class ArtifactBackedPublicCommonsSnapshotService:
     async def resolve_response(self, *, now: datetime | None = None) -> PublicCommonsResolution:
         current = (now or datetime.now(UTC)).astimezone(UTC)
         checked_at = self._bucket(current)
-        if self._cached_bucket == checked_at and self._cached_resolution is not None:
+        if (
+            self._cached_resolution is not None
+            and self._refreshed_at is not None
+            and timedelta(0) <= current - self._refreshed_at
+            < timedelta(seconds=self._stale_after_seconds)
+        ):
             return self._as_memory(self._cached_resolution)
         if self._cached_resolution is None or self._cached_resolution.snapshot.release is None:
             return self._resolution(

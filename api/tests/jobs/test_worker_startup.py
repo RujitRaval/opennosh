@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -685,7 +686,7 @@ async def test_post_deploy_commons_canary_reuses_the_worker_alert_destination(
         Destination,
     )
     monkeypatch.setattr(
-        "opennosh_api.jobs.worker.run_post_deploy_commons_canary",
+        "opennosh_api.jobs.worker.run_commons_canary_monitor",
         run_canary,
     )
 
@@ -957,3 +958,26 @@ async def test_claim_concurrency_above_capacity_fails_before_pool_and_closes_pro
         await create_publication_role_driver(cast(Any, settings))
 
     assert lifecycle == ["providers:close"]
+
+
+def test_publication_entrypoint_emits_healthy_canary_logs_without_provider_noise(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import opennosh_api.jobs.worker as worker_module
+
+    canary_logger = logging.getLogger("opennosh_api.public_commons.canary")
+    monkeypatch.setattr(canary_logger, "handlers", [])
+    monkeypatch.setattr(canary_logger, "level", logging.NOTSET)
+    monkeypatch.setattr(canary_logger, "propagate", True)
+
+    async def run(*args: object) -> None:
+        canary_logger.info("Public Commons post-deploy canary state=healthy")
+
+    monkeypatch.setattr(worker_module, "_run_publication_worker", run)
+    provider_level = logging.getLogger("httpx").level
+    assert worker_module.run_publication_worker() == 0
+    assert worker_module.run_publication_worker() == 0
+    assert capsys.readouterr().err.count("state=healthy") == 2
+    assert len(canary_logger.handlers) == 1
+    assert logging.getLogger("httpx").level == provider_level
