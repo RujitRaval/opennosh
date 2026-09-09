@@ -167,7 +167,7 @@ WITH ranked_matches AS (
             similarity(food.name, CAST(:query AS text)),
             similarity(coalesce(food.name_local, ''), CAST(:query AS text)),
             ts_rank_cd(
-                {_SNAPSHOT_SEARCH_VECTOR},
+                food.search_vector,
                 plainto_tsquery('simple'::regconfig, CAST(:query AS text))
             )
         ) AS match_score,
@@ -180,7 +180,7 @@ WITH ranked_matches AS (
       )
       AND (
           food.source_id = CAST(:slug_query AS text)
-          OR {_SNAPSHOT_SEARCH_VECTOR} @@
+          OR food.search_vector @@
              plainto_tsquery('simple'::regconfig, CAST(:query AS text))
           OR food.source_id % CAST(:query AS text)
           OR food.name % CAST(:query AS text)

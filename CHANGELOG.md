@@ -2,6 +2,19 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.99.2.0] - 2026-09-09
+
+### Fixed
+
+- Provision 0.5 CPU / 1 GB database compute for concurrent catalogue searches, keeping the existing
+  storage size and service topology. This requires approval of the additional $13/month before rollout.
+- Store catalogue search vectors once per snapshot row so matching and ranking do not repeatedly
+  tokenize the same text during requests. Preserve the exact ranking and retained cursor results.
+- Set a bounded 1.5-second production search statement budget for the deployed catalogue and CPU
+  capacity, retaining the existing two-attempt limit and background refresh.
+- Preserve the old expression index during rolling deployment and bound migration lock acquisition
+  and statement execution; include the new index in the existing least-privilege finalizer.
+
 ## [0.99.1.0] - 2026-09-09
 
 ### Fixed

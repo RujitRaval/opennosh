@@ -207,7 +207,7 @@ def test_render_blueprint_preserves_the_bounded_launch_topology() -> None:
         "name": "opennosh-db",
         "databaseName": "opennosh",
         "user": "opennosh_admin",
-        "plan": "basic-256mb",
+        "plan": "0.5c-1g",
         "diskSizeGB": 5,
         "postgresMajorVersion": "16",
         "region": "ohio",

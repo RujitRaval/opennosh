@@ -1158,12 +1158,14 @@ def test_representative_search_meets_the_explain_plan_budget() -> None:
         "pk_food_search_snapshot_items",
         "ix_food_search_snapshot_items_equivalence",
         "ix_food_search_snapshot_items_pack",
+        "ix_food_search_snapshot_items_stored_tsv",
         "ix_food_search_snapshot_items_search_tsv",
         "ix_food_search_snapshot_items_source_id_trgm",
         "ix_food_search_snapshot_items_name_trgm",
         "ix_food_search_snapshot_items_name_local_trgm",
     }
     assert forced_index_names & {
+        "ix_food_search_snapshot_items_stored_tsv",
         "ix_food_search_snapshot_items_search_tsv",
         "ix_food_search_snapshot_items_source_id_trgm",
         "ix_food_search_snapshot_items_name_trgm",
@@ -1187,6 +1189,7 @@ async def _search_gin_reloptions(database_url: str) -> dict[str, list[str]]:
                     ),
                     {
                         "index_names": [
+                            "ix_food_search_snapshot_items_stored_tsv",
                             "ix_food_search_snapshot_items_search_tsv",
                             "ix_food_search_snapshot_items_source_id_trgm",
                             "ix_food_search_snapshot_items_name_trgm",
@@ -1226,7 +1229,87 @@ def test_search_gin_indexes_buffer_refresh_writes_before_the_bounded_flush() -> 
 
     reloptions = asyncio.run(_search_gin_reloptions(INTEGRATION_DATABASE_URL))
 
-    assert len(reloptions) == 4
+    assert len(reloptions) == 5
     assert all("fastupdate=on" in options for options in reloptions.values())
     definition = asyncio.run(_search_gin_finalizer_definition(INTEGRATION_DATABASE_URL))
     assert "ANALYZE public.food_search_snapshot_items" in definition
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_stored_vectors_preserve_legacy_results_and_cursor_pages_through_migration() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.upgrade(config, "head")
+    command.downgrade(config, "20260908_0039")
+    asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))
+    legacy_sql = FOOD_SEARCH_SQL.replace("food.search_vector", _SNAPSHOT_SEARCH_VECTOR)
+
+    async def inspect_pages(*, create: bool, sql: str) -> list[list[tuple[Any, ...]]]:
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+        pages: list[list[tuple[Any, ...]]] = []
+        try:
+            async with engine.begin() as connection:
+                if create:
+                    snapshot_id = await connection.scalar(
+                        text(
+                            "INSERT INTO food_search_snapshots "
+                            "(ranking_version,created_at,expires_at) "
+                            "VALUES (2,now(),now()+interval '20 minutes') RETURNING id"
+                        )
+                    )
+                    await connection.execute(
+                        text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
+                        {
+                            "snapshot_id": snapshot_id,
+                            "has_pack_filter": False,
+                            "selected_pack_ids": [],
+                        },
+                    )
+                else:
+                    snapshot_id = await connection.scalar(
+                        text("SELECT id FROM food_search_snapshots")
+                    )
+                for query in ("apple", "सेब", "orchard", "fruit", "appl"):
+                    for source in (None, "usda", "community"):
+                        for locale in (None, "en-in", "fr-fr"):
+                            args = {
+                                "query": query,
+                                "slug_query": query,
+                                "locale": locale,
+                                "source_filter": source,
+                                "snapshot_id": snapshot_id,
+                                "has_cursor": False,
+                                "after_rank": 0,
+                                "after_score": 0.0,
+                                "after_name": "",
+                                "after_source": "",
+                                "after_source_id": "",
+                                "fetch_limit": 2,
+                            }
+                            while True:
+                                rows = (await connection.execute(text(sql), args)).mappings().all()
+                                pages.append([tuple(row.values()) for row in rows])
+                                if len(rows) < 2:
+                                    break
+                                last = rows[-1]
+                                args.update(
+                                    has_cursor=True,
+                                    after_rank=last["ranking_tier"],
+                                    after_score=last["match_score"],
+                                    after_name=last["normalized_name"],
+                                    after_source=last["source"],
+                                    after_source_id=last["source_id"],
+                                )
+            return pages
+        finally:
+            await engine.dispose()
+
+    try:
+        before = asyncio.run(inspect_pages(create=True, sql=legacy_sql))
+        assert any(before)
+        command.upgrade(config, "head")
+        assert asyncio.run(inspect_pages(create=False, sql=FOOD_SEARCH_SQL)) == before
+        command.downgrade(config, "20260908_0039")
+        assert asyncio.run(inspect_pages(create=False, sql=legacy_sql)) == before
+    finally:
+        command.upgrade(config, "head")

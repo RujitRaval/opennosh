@@ -177,14 +177,37 @@ snapshot exists, concurrent requests join the first builder behind the same boun
 advisory lock, recheck the newly committed snapshot, and avoid returning a guaranteed transient
 503 to the losing request.
 
-Do not compensate for a recurrence by increasing `FOOD_SEARCH_STATEMENT_TIMEOUT_MS`. Confirm the
-index `reloptions`, migration head, bounded flush-function ownership and grants, explicit analyze
-timestamp, query plan, snapshot age, and readiness endpoint first. The migration changes index write behavior but not catalog rows
-or the API contract, so the prior application can run during a rolling deploy. Its downgrade removes
-the bounded flush function and restores synchronous index updates, which can reintroduce the build
-timeout at the activated USDA catalog size; prefer a reviewed forward fix. If rollback is
-unavoidable, leave the additive schema in place and roll back only application processes while
-investigating.
+The September 9 investigation found a second limit after snapshot warming was enabled: the current
+13,663-row catalogue on 0.1 CPU / 256 MB exhausted its 500 ms statement budget during three concurrent
+ordinary searches. Index flushes and fresh snapshots were already present. Even a 2-second statement
+budget still failed concurrent requests. Do not treat a timeout increase alone as a reliability fix.
+
+Migration `20260909_0040` stores the exact existing `simple` search vector on each snapshot row and
+adds a GIN index. Matching and ranking now reuse it instead of repeatedly tokenizing text. The old
+expression index remains for rolling deployments; both are included in the fixed least-privilege
+flush function. Tests compare complete ordered cursor pages before upgrade, after upgrade, and after
+downgrade, including source and locale filters, Unicode, null fields, and exact source identifiers.
+
+The proposed Blueprint uses `0.5c-1g` (0.5 CPU / 1 GB), with the existing 5 GB storage unchanged, and a
+bounded 1.5-second search statement budget with at most two attempts. Render listed compute at
+$19/month versus the current $6/month on September 9. This additional $13/month requires the owner's
+approval before applying the plan or merging the release. Upgrade the database capacity first, wait
+for it to be available, then merge the checked application release. A Blueprint sync alone must not
+race this migration against the old database capacity.
+
+A local PostgreSQL 16 experiment used 54,652 retained rows and Docker CPU quotas. At 0.1 CPU, adding
+the stored column reached the 30-second migration timeout and rolled back; optimized three-query
+latency still reached 3.50 seconds. At 0.5 CPU, migration completed in 6.21 seconds and the three
+concurrent optimized queries completed in 14–259 ms. These are synthetic capacity experiments, not
+production acceptance. Production must still pass repeated concurrent requests and Commons checks
+after deployment. The migration takes an exclusive table lock for its rewrite; its lock wait is
+bounded to 2 seconds and each statement to 30 seconds. Schedule the brief database resize and rewrite
+with this interruption in mind. If lock acquisition fails, allow the transaction to roll back and
+retry the reviewed deployment after traffic settles.
+
+Keep the additive schema when rolling back application processes. Dropping the new derived column
+is safe only after every application instance uses the old expression again. Snapshot identifiers,
+accepted catalogue records, ranking, and cursor semantics are preserved.
 
 ### T32 bounded artifact read-plane activation
 

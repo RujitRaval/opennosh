@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     ForeignKey,
@@ -22,7 +23,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, ExcludeConstraint
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from opennosh_api.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
@@ -185,9 +186,7 @@ class FoodSearchSnapshot(UUIDPrimaryKeyMixin, Base):
 class FoodSearchSnapshotItem(Base):
     __tablename__ = "food_search_snapshot_items"
     __table_args__ = (
-        CheckConstraint(
-            "source IN ('usda', 'community', 'federation')", name="source_allowed"
-        ),
+        CheckConstraint("source IN ('usda', 'community', 'federation')", name="source_allowed"),
         CheckConstraint("variant_count > 0", name="variant_count_positive"),
         CheckConstraint(
             "source <> 'federation' OR (source_record_id IS NOT NULL AND "
@@ -199,6 +198,12 @@ class FoodSearchSnapshotItem(Base):
         CheckConstraint(
             "release_digest IS NULL OR release_digest ~ '^[0-9a-f]{64}$'",
             name="release_digest_sha256",
+        ),
+        Index(
+            "ix_food_search_snapshot_items_stored_tsv",
+            "search_vector",
+            postgresql_using="gin",
+            postgresql_with={"fastupdate": "on"},
         ),
         Index("ix_food_search_snapshot_items_pack", "snapshot_id", "pack_id"),
         Index(
@@ -238,6 +243,16 @@ class FoodSearchSnapshotItem(Base):
             postgresql_using="gin",
             postgresql_ops={"name_local": "gin_trgm_ops"},
             postgresql_with={"fastupdate": "on"},
+        ),
+    )
+
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple'::regconfig, "
+            "(((((coalesce(source_id, '') || ' ') || coalesce(name, '')) || ' ') || "
+            "coalesce(name_local, '')) || ' ') || coalesce(category, ''))",
+            persisted=True,
         ),
     )
 
