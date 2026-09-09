@@ -715,10 +715,31 @@ def run_publication(source: Mapping[str, str]) -> None:
     )
 
 
+def publication_readiness_environment(source: Mapping[str, str]) -> dict[str, str]:
+    """Expose configured claim identities only to the read-only validation command."""
+
+    environment = publication_environment(source)
+    for key in (
+        "ONLINE_RECEIPT_SIGNING_KEY_ID",
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "PUBLICATION_ARTIFACT_BUCKET",
+        "GITHUB_FORGE_REPOSITORY_ID",
+        "GITHUB_FORGE_APP_ID",
+        "GITHUB_FORGE_INSTALLATION_ID",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_APP_ID",
+        "GITHUB_ATTESTER_INSTALLATION_ID",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+    ):
+        if value := source.get(key):
+            environment[key] = value
+    return environment
+
+
 def run_publication_readiness(source: Mapping[str, str]) -> None:
     """Run the read-only readiness CLI with the least-privilege publication role."""
 
-    environment = publication_environment(source)
+    environment = publication_readiness_environment(source)
     if environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true":
         raise ValueError("Production claims readiness requires claims disabled")
     owner_url = _required(source, "RENDER_DATABASE_URL")
@@ -769,7 +790,7 @@ def run_natural_publication_proof(
 def run_natural_publication_readiness(source: Mapping[str, str]) -> None:
     """Build the T34.4 disabled activation digest without enabling any feature."""
 
-    environment = publication_environment(source)
+    environment = publication_readiness_environment(source)
     if environment.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true":
         raise ValueError("Natural publication readiness requires claims disabled")
     owner_url = _required(source, "RENDER_DATABASE_URL")

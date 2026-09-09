@@ -33,6 +33,12 @@ An implementation issue being closed is not evidence that its production feature
 | T34.7 developer kit | #162 closed | Publish current packages and retain install evidence |
 | T34.8 reuse/impact/operations | #169 closed | Real reuse/monitor inputs and activation required |
 
+The initial live readiness run reported `claim_credentials_incomplete` and
+`living_commons_migration_not_current`. Investigation found two report defects: the disabled-worker
+wrapper stripped configured signing credentials before validation, and the report pinned migration
+0038 although production had advanced to 0039. The reliability release corrects both; activation
+still requires a fresh report from the deployed commit and the natural-proof inputs below.
+
 ## Reliability release acceptance
 
 The `0.99.1.0` reliability change fixes Commons freshness, enables default search snapshot warming,

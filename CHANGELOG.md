@@ -13,6 +13,9 @@ All notable changes to opennosh will be documented in this file.
 - Continue Commons checks between deployments, send one alert per sustained outage and matching
   recovery, retry failed notifications, and make healthy worker checks visible in production logs.
 
+- Validate configured publication identities in read-only launch checks and align the readiness
+  migration gate with the current database head.
+
 ## [0.99.0.0] - 2026-09-08
 
 ### Added
