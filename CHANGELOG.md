@@ -2,6 +2,17 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.99.1.0] - 2026-09-09
+
+### Fixed
+
+- Keep recently verified Commons snapshots fresh across activity-window boundaries instead of
+  briefly reporting a release outage every five minutes.
+- Warm the production food-search catalogue before serving requests and refresh it in the
+  background, allowing visitors to search retained results without waiting for a rebuild.
+- Continue Commons checks between deployments, send one alert per sustained outage and matching
+  recovery, retry failed notifications, and make healthy worker checks visible in production logs.
+
 ## [0.99.0.0] - 2026-09-08
 
 ### Added

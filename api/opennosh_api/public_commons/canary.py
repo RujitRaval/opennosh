@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal, Protocol
 
@@ -24,6 +24,7 @@ class CommonsCanaryObservation:
     build_version: str | None
     observed_commit: str | None
     commons_state: str | None
+    alert_delivered: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +34,8 @@ class CommonsCanaryAlert:
     observed_commit: str | None
     build_version: str | None
     observed_at: datetime
+    phase: Literal["post-deploy", "periodic"] = "post-deploy"
+    state: Literal["unavailable", "recovered"] = "unavailable"
 
 
 class CommonsCanaryAlertDestination(Protocol):
@@ -60,20 +63,16 @@ class WebhookCommonsCanaryAlertDestination:
             self._endpoint,
             headers={
                 "User-Agent": "OpenNosh Commons canary/1",
-                **(
-                    {"Authorization": f"Bearer {self._bearer_token}"}
-                    if self._bearer_token
-                    else {}
-                ),
+                **({"Authorization": f"Bearer {self._bearer_token}"} if self._bearer_token else {}),
             },
             json={
                 "text": (
-                    "OpenNosh post-deploy Commons canary is unavailable for "
+                    f"OpenNosh {alert.phase} Commons canary is {alert.state} for "
                     f"build `{short_commit}` (error: `{alert.error_code}`)."
                 ),
-                "schema": "opennosh.public-commons.post-deploy-canary.v1",
+                "schema": f"opennosh.public-commons.{alert.phase}-canary.v1",
                 "component": "public-commons",
-                "state": "unavailable",
+                "state": alert.state,
                 "error_code": alert.error_code,
                 "expected_commit": alert.expected_commit,
                 "observed_commit": alert.observed_commit,
@@ -106,9 +105,7 @@ async def probe_post_deploy_commons(
         )
         version_response.raise_for_status()
     except httpx.HTTPError:
-        return CommonsCanaryObservation(
-            "pending", "build_version_unavailable", None, None, None
-        )
+        return CommonsCanaryObservation("pending", "build_version_unavailable", None, None, None)
 
     try:
         build = BuildVersionResponse.model_validate(version_response.json())
@@ -159,9 +156,7 @@ async def probe_post_deploy_commons(
         )
 
     if state in {CommonsSnapshotState.LIVE, CommonsSnapshotState.QUIET}:
-        return CommonsCanaryObservation(
-            "healthy", None, build.version, build.commit, state.value
-        )
+        return CommonsCanaryObservation("healthy", None, build.version, build.commit, state.value)
     if state is CommonsSnapshotState.UNAVAILABLE:
         return CommonsCanaryObservation(
             "unavailable",
@@ -195,9 +190,7 @@ async def run_post_deploy_commons_canary(
     owns_client = client is None
     http_client = client or httpx.AsyncClient(timeout=5.0, follow_redirects=False)
     deadline = monotonic() + timeout_seconds
-    observation = CommonsCanaryObservation(
-        "pending", "canary_not_started", None, None, None
-    )
+    observation = CommonsCanaryObservation("pending", "canary_not_started", None, None, None)
     try:
         while not shutdown_requested.is_set():
             observation = await probe_post_deploy_commons(
@@ -215,7 +208,7 @@ async def run_post_deploy_commons_canary(
                 )
                 return observation
             if observation.status == "unavailable":
-                await _deliver_canary_alert(
+                delivered = await _deliver_canary_alert(
                     alert_destination,
                     CommonsCanaryAlert(
                         error_code=observation.error_code or "commons_state_unavailable",
@@ -230,10 +223,10 @@ async def run_post_deploy_commons_canary(
                     observation.error_code,
                     expected_commit,
                 )
-                return observation
+                return replace(observation, alert_delivered=delivered)
             remaining = deadline - monotonic()
             if remaining <= 0:
-                await _deliver_canary_alert(
+                delivered = await _deliver_canary_alert(
                     alert_destination,
                     CommonsCanaryAlert(
                         error_code=observation.error_code or "post_deploy_canary_timeout",
@@ -254,6 +247,7 @@ async def run_post_deploy_commons_canary(
                     observation.build_version,
                     observation.observed_commit,
                     observation.commons_state,
+                    delivered,
                 )
             try:
                 await asyncio.wait_for(
@@ -271,11 +265,80 @@ async def run_post_deploy_commons_canary(
 async def _deliver_canary_alert(
     destination: CommonsCanaryAlertDestination,
     alert: CommonsCanaryAlert,
-) -> None:
+) -> bool:
     try:
         await destination.send(alert)
+        return True
     except Exception as error:
         logger.error(
             "Public Commons post-deploy external alert delivery failed error_type=%s",
             type(error).__name__,
         )
+        return False
+
+
+async def run_commons_canary_monitor(
+    shutdown_requested: asyncio.Event,
+    *,
+    base_url: str,
+    expected_commit: str,
+    timeout_seconds: float,
+    poll_seconds: float,
+    alert_destination: CommonsCanaryAlertDestination,
+    interval_seconds: float = 60.0,
+    client: httpx.AsyncClient | None = None,
+) -> None:
+    """Check startup, then alert once per sustained outage and matching recovery."""
+    owns_client = client is None
+    http_client = client or httpx.AsyncClient(timeout=5.0, follow_redirects=False)
+    try:
+        startup = await run_post_deploy_commons_canary(
+            shutdown_requested,
+            base_url=base_url,
+            expected_commit=expected_commit,
+            timeout_seconds=timeout_seconds,
+            poll_seconds=poll_seconds,
+            alert_destination=alert_destination,
+            client=http_client,
+        )
+        failures = 0
+        outage_delivered = startup is not None and startup.alert_delivered
+        while not shutdown_requested.is_set():
+            try:
+                await asyncio.wait_for(shutdown_requested.wait(), timeout=interval_seconds)
+                break
+            except TimeoutError:
+                pass
+            observation = await probe_post_deploy_commons(
+                http_client,
+                base_url=base_url,
+                expected_commit=expected_commit,
+            )
+            healthy = observation.status == "healthy"
+            failures = 0 if healthy else failures + 1
+            logger.log(
+                logging.INFO if healthy else logging.WARNING,
+                "Public Commons periodic canary state=%s error=%s failures=%d commit=%s",
+                "healthy" if healthy else "retrying",
+                observation.error_code,
+                failures,
+                expected_commit,
+            )
+            if (healthy and outage_delivered) or (failures >= 3 and not outage_delivered):
+                delivered = await _deliver_canary_alert(
+                    alert_destination,
+                    CommonsCanaryAlert(
+                        error_code="none" if healthy else observation.error_code or "unknown",
+                        expected_commit=expected_commit,
+                        observed_commit=observation.observed_commit,
+                        build_version=observation.build_version,
+                        observed_at=datetime.now(UTC),
+                        phase="periodic",
+                        state="recovered" if healthy else "unavailable",
+                    ),
+                )
+                if delivered:
+                    outage_delivered = not healthy
+    finally:
+        if owns_client:
+            await http_client.aclose()
