@@ -1,0 +1,31 @@
+- slug: haldirams-orange-burfee
+  name: Haldiram's Orange Burfee
+  category: sweet
+  tags: [indian-sweet, milk, manufacturer-label]
+  contributed_by: RujitRaval
+  provenance: manufacturer_label
+  source_uri: https://haldirams.com/product/sweets/orange-burfee
+  source_license: reference-only
+  source_note: >-
+    Nutrition values transcribed from the back-of-pack label displayed on Haldiram's
+    official product page, observed 2026-09-10. The label lists values per 100 g and
+    a 25 g serving. Ingredients include ash gourd, sugar, milk solids (khoa), and
+    orange pulp (5.93%). Contains milk; the label also lists possible wheat, nut,
+    soy and sulphite cross-contact. This is an original factual transcription;
+    the manufacturer's page and image are cited, not relicensed or archived.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 296
+    protein_g: 3.38
+    fat_g: 1.3
+    carbohydrate_g: 66.91
+    sugars_g: 57.74
+    added_sugars_g: 54.05
+    fiber_g: 1.81
+    saturated_fat_g: 0.52
+    trans_fat_g: 0
+    cholesterol_mg: 0
+    sodium_mg: 26.08
+  portions:
+    - name: 1 serving (label)
+      grams: 25
