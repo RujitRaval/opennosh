@@ -198,6 +198,8 @@ async def _exercise(database: str) -> None:
                 )
 
         await asyncio.gather(attach(), attach())
+        # A later client retry must reuse the committed citation acknowledgement too.
+        await attach()
         async with sessions() as session, session.begin():
             bundle = await load_bundle(session, manifest.evidence_id)
             assert bundle.public_state is EvidencePublicState.REFERENCE_ONLY
