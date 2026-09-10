@@ -23,6 +23,7 @@ PUBLICATION_TABLE_PRIVILEGES = {
     "evidence_removal_tombstones": "SELECT",
     "federation_maintainers": "SELECT",
     "governance_decisions": "SELECT",
+    "governance_owner_authorizations": "SELECT",
     "governance_merge_authorizations": "SELECT, INSERT",
     "governance_publication_interventions": "SELECT",
     "governance_publication_pauses": "SELECT",
@@ -392,8 +393,7 @@ def publication_environment(source: Mapping[str, str]) -> dict[str, str]:
         environment.get("GOVERNANCE_CODE_ATTESTATION_ENABLED", "false").casefold() == "true"
     )
     commons_canary_enabled = (
-        environment.get("PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED", "false").casefold()
-        == "true"
+        environment.get("PUBLIC_COMMONS_POST_DEPLOY_CANARY_ENABLED", "false").casefold() == "true"
     )
     refresh_enabled = environment.get("LATEST_REFRESH_ENABLED", "false").casefold() == "true"
     if not any((claims_enabled, refresh_enabled, code_attestation_enabled, commons_canary_enabled)):
@@ -600,6 +600,15 @@ async def grant_web_runtime_privileges(migration_url: str) -> None:
             await connection.execute(
                 "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
                 f"GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO {WEB_ROLE}"
+            )
+            await connection.execute(
+                f"REVOKE INSERT, UPDATE, DELETE ON governance_owner_authorizations FROM {WEB_ROLE}"
+            )
+            await connection.execute(
+                f"REVOKE INSERT, UPDATE, DELETE ON evidence_citation_copies FROM {WEB_ROLE}"
+            )
+            await connection.execute(
+                f"GRANT EXECUTE ON FUNCTION preserve_reference_citation(uuid, bytea) TO {WEB_ROLE}"
             )
     finally:
         await connection.close()

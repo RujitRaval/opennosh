@@ -74,10 +74,11 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
   if (!reviewCase) return <main className="governance-shell"><p className="governance-alert" role="alert">{failure}</p><Link href={routes.governanceQueue}>Return to queue</Link></main>;
 
   const fields = reviewCase.submitted_fields;
-  const isSteward = reviewCase.viewer_role === "steward";
+  const isOwner = reviewCase.viewer_role === "owner";
+  const isSteward = reviewCase.viewer_role === "steward" || isOwner;
   const canClaim = isSteward && (reviewCase.state === "pending" || reviewCase.state === "reopened");
   const canDecide = isSteward && reviewCase.state === "in_review";
-  const canRespond = !isSteward && reviewCase.state === "changes_requested";
+  const canRespond = (!isSteward || isOwner) && reviewCase.state === "changes_requested";
   const canDispute = ["changes_requested", "approved", "rejected"].includes(reviewCase.state);
   const activeDispute = (reviewCase.disputes ?? []).find((dispute) => dispute.state === "open");
   const resolvedDispute = (reviewCase.disputes ?? []).slice().reverse().find((dispute) => dispute.state === "resolved");
@@ -92,6 +93,7 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
           <p className="governance-kicker">Exact review version {reviewCase.source_draft_version}</p>
           <h1>{String(fields.name ?? "Unnamed contribution")}</h1>
           <p>{truthFor(reviewCase)}</p>
+          {isOwner ? <p>You submitted this record and can approve it as the authorized pack owner. Both actions are attributed to your account. This is owner approval, not independent review.</p> : null}
         </div>
         <span className={`governance-state governance-state-${reviewCase.state}`}>{readable(reviewCase.state)}</span>
       </section>

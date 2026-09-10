@@ -60,6 +60,8 @@ EXPECTED_TABLE_OWNERS = {
     "governance_review_private_notes": (
         "opennosh_api.governance.models.GovernanceReviewPrivateNote"
     ),
+    "governance_owner_authorizations": "opennosh_api.governance.models.GovernanceOwnerAuthorization",
+    "evidence_citation_copies": "opennosh_api.evidence.models.EvidenceCitationCopy",
     "governance_role_assignments": ("opennosh_api.governance.models.GovernanceRoleAssignment"),
     "mission_contribution_bindings": (
         "opennosh_api.missions.models.MissionContributionBinding"
@@ -139,10 +141,12 @@ def test_registry_import_order_is_deterministic() -> None:
         "contribution_drafts",
         "contribution_draft_operations",
         "evidence_manifests",
+        "evidence_citation_copies",
         "evidence_durable_acknowledgements",
         "evidence_removal_tombstones",
         "evidence_upload_sessions",
         "governance_role_assignments",
+        "governance_owner_authorizations",
         "governance_recusals",
         "governance_review_cases",
         "governance_review_events",

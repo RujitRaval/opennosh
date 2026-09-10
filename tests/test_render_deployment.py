@@ -1142,6 +1142,12 @@ async def test_render_runtime_grants_are_applied_and_connection_is_closed(
     )
 
     assert any("ALL TABLES" in statement for statement in connection.executed)
+    for table in ("governance_owner_authorizations", "evidence_citation_copies"):
+        assert f"REVOKE INSERT, UPDATE, DELETE ON {table} FROM {WEB_ROLE}" in connection.executed
+    assert (
+        f"GRANT EXECUTE ON FUNCTION preserve_reference_citation(uuid, bytea) TO {WEB_ROLE}"
+        in connection.executed
+    )
     assert any("DEFAULT PRIVILEGES" in statement for statement in connection.executed)
     assert any(
         "opennosh_flush_food_search_gin_pending_lists" in statement
@@ -1170,8 +1176,7 @@ async def test_publication_runtime_grants_only_reviewed_objects(
 
     assert not any("ALL TABLES" in statement for statement in connection.executed)
     assert not any(
-        f"ON TABLE {table} TO {PUBLICATION_ROLE}" in statement
-        and "SELECT (" not in statement
+        f"ON TABLE {table} TO {PUBLICATION_ROLE}" in statement and "SELECT (" not in statement
         for table in ("contribution_drafts", "governance_review_cases")
         for statement in connection.executed
     )
@@ -1485,8 +1490,12 @@ def test_readiness_validates_configured_credentials_without_giving_them_to_worke
     monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
     command(source)
     environment = captured["env"]
-    for key in ("ONLINE_RECEIPT_SIGNING_KEY", "PUBLICATION_ARTIFACT_BUCKET",
-                "GITHUB_FORGE_PRIVATE_KEY", "GITHUB_ATTESTER_PRIVATE_KEY"):
+    for key in (
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "PUBLICATION_ARTIFACT_BUCKET",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+    ):
         assert environment[key] == source[key]
         assert key not in publication_environment(source)
     assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"

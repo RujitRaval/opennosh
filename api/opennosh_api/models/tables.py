@@ -45,7 +45,7 @@ INGREDIENT_SOURCE_TABLE_VALUES = ", ".join(
 )
 LOG_SOURCE_TABLE_VALUES = ", ".join(repr(value.value) for value in FoodSourceTable)
 PROVENANCE_VALUES = ", ".join(repr(value.value) for value in Provenance)
-SOURCE_LICENSE_VALUES = "'contributor-original', 'CC0-1.0', 'public-domain'"
+SOURCE_LICENSE_VALUES = "'contributor-original', 'CC0-1.0', 'public-domain', 'reference-only'"
 LOAD_UNIT_VALUES = ", ".join(repr(value.value) for value in LoadUnit)
 TARGET_DAY_TYPE_VALUES = ", ".join(repr(value.value) for value in TargetDayType)
 BODY_METRIC_TYPE_VALUES = ", ".join(repr(value.value) for value in BodyMetricType)

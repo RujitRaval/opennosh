@@ -115,9 +115,7 @@ def test_sanitized_media_normalizes_and_rejects_blank_source_descriptions() -> N
     )
     assert reparsed.source_description == "Package label"
     with pytest.raises(ValueError, match="Source description cannot be blank"):
-        SanitizedMediaManifest.model_validate(
-            {**media.model_dump(), "source_description": "   "}
-        )
+        SanitizedMediaManifest.model_validate({**media.model_dump(), "source_description": "   "})
 
 
 @pytest.mark.parametrize(
@@ -172,17 +170,20 @@ def test_dataset_requires_snapshot_and_signed_manifest_when_archival_is_permitte
         verify_durability(dataset, [signed])
 
     assert error.value.missing == (EvidenceAcknowledgementKind.DATASET_SNAPSHOT,)
-    assert verify_durability(
-        dataset,
-        [
-            _ack(
-                dataset,
-                EvidenceAcknowledgementKind.DATASET_SNAPSHOT,
-                dataset.canonical_record_digest,
-            ),
-            signed,
-        ],
-    ) is EvidencePublicState.SOURCE_VERIFIED
+    assert (
+        verify_durability(
+            dataset,
+            [
+                _ack(
+                    dataset,
+                    EvidenceAcknowledgementKind.DATASET_SNAPSHOT,
+                    dataset.canonical_record_digest,
+                ),
+                signed,
+            ],
+        )
+        is EvidencePublicState.SOURCE_VERIFIED
+    )
 
 
 def test_reference_only_document_is_honest_without_archived_bytes() -> None:
@@ -251,7 +252,6 @@ def test_public_document_requires_explicit_license() -> None:
         )
 
 
-
 def test_rights_restricted_document_cannot_claim_archived_storage() -> None:
     with pytest.raises(ValueError, match="cannot claim a stored copy"):
         PublicDocumentManifest(
@@ -306,3 +306,29 @@ def _ack(
         adapter_identity="fixture",
         adapter_version="1",
     )
+
+
+def test_citation_without_source_bytes_does_not_invent_an_observed_digest() -> None:
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from opennosh_api.evidence.contracts import DocumentRightsState, PublicDocumentManifest
+
+    citation = PublicDocumentManifest(
+        evidence_id=uuid4(),
+        canonical_uri="https://example.test/label",
+        publisher="Publisher",
+        license="reference-only",
+        title="Label",
+        observed_at=datetime.now(UTC),
+        rights_state=DocumentRightsState.REFERENCE_ONLY,
+    )
+    assert citation.observed_digest is None
+    with pytest.raises(ValueError, match="observed digest"):
+        PublicDocumentManifest.model_validate(
+            {
+                **citation.model_dump(),
+                "rights_state": "archive_permitted",
+                "storage_reference": "store:archive",
+            }
+        )

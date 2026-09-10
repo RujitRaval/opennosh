@@ -30,6 +30,10 @@ class GovernanceBinding:
     required_checks: tuple[str, ...]
     forge_target: str
     role_granted_at: datetime
+    approval_mode: str = "independent"
+    owner_authorization_id: UUID | None = None
+    owner_granted_at: datetime | None = None
+    owner_revoked_at: datetime | None = None
     role_revoked_at: datetime | None = None
     recused_at: datetime | None = None
     intervention_action: str | None = None
@@ -78,8 +82,26 @@ class GovernanceBinding:
 
     def authorize_at(self, when: datetime) -> None:
         _require_aware(when)
-        if self.contributor_actor_id == self.approving_actor_id:
+        same_actor = self.contributor_actor_id == self.approving_actor_id
+        if self.approval_mode not in {"independent", "owner"}:
+            raise GovernanceAuthorizationError("approval_mode_invalid")
+        if same_actor != (self.approval_mode == "owner"):
             raise GovernanceAuthorizationError("self_review_prohibited")
+        if same_actor:
+            authority_time = (
+                self.merge_authorized_at
+                if self.merge_authorized_at is not None and self.merge_authorized_at <= when
+                else when
+            )
+            if self.owner_authorization_id is None or self.owner_granted_at is None:
+                raise GovernanceAuthorizationError("owner_authorization_not_active")
+            _require_aware(self.owner_granted_at)
+            if self.owner_granted_at > min(authority_time, self.approved_at):
+                raise GovernanceAuthorizationError("owner_authorization_not_active")
+            if self.owner_revoked_at is not None:
+                _require_aware(self.owner_revoked_at)
+                if self.owner_revoked_at <= authority_time:
+                    raise GovernanceAuthorizationError("owner_authorization_revoked")
         if self.merge_authorized_at is not None and self.merge_authorized_at <= when:
             if self.role_granted_at > self.merge_authorized_at:
                 raise GovernanceAuthorizationError("steward_role_not_active")

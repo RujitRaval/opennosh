@@ -262,3 +262,16 @@ def test_key_ring_can_be_loaded_from_versioned_public_key_json() -> None:
     ring = PublicationReceiptKeyRing.from_json('{"publication-test-2026":"' + encoded + '"}')
 
     ring.verify(SIGNER.sign(_draft()))
+
+
+def test_owner_receipt_signs_explicit_owner_scope_without_changing_independent_receipts() -> None:
+    from dataclasses import replace
+
+    source = snapshot(current=7)
+    independent = receipt_draft_from_snapshot(source)
+    owner = receipt_draft_from_snapshot(replace(source, approval_mode="owner"))
+    assert independent.approving_actor_scope == f"pack:{source.pack_id}:steward"
+    assert owner.approving_actor_scope == f"pack:{source.pack_id}:owner"
+    assert owner.approving_actor_id == independent.approving_actor_id
+    assert owner.reviewed_decision_id == independent.reviewed_decision_id
+    assert SIGNER.sign(owner).signature != SIGNER.sign(independent).signature

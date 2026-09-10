@@ -9,6 +9,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from opennosh_api.contributions.models import ContributionDraft, ContributionDraftOperation
 from opennosh_api.evidence.models import (
+    EvidenceCitationCopy,
     EvidenceDurableAcknowledgement,
     EvidenceManifestRecord,
     EvidenceRemovalTombstone,
@@ -33,6 +34,7 @@ from opennosh_api.governance.models import (
     GovernanceDecision,
     GovernanceDispute,
     GovernanceMergeAuthorization,
+    GovernanceOwnerAuthorization,
     GovernancePublicationIntervention,
     GovernancePublicationPause,
     GovernanceRecusal,
@@ -107,10 +109,12 @@ REGISTERED_MODELS: Final[tuple[ModelClass, ...]] = (
     ContributionDraft,
     ContributionDraftOperation,
     EvidenceManifestRecord,
+    EvidenceCitationCopy,
     EvidenceDurableAcknowledgement,
     EvidenceRemovalTombstone,
     EvidenceUploadSession,
     GovernanceRoleAssignment,
+    GovernanceOwnerAuthorization,
     GovernanceRecusal,
     GovernanceReviewCase,
     GovernanceReviewEvent,

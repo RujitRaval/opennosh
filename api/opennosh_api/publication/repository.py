@@ -663,7 +663,9 @@ class PostgresPublicationRepository:
                    approving_actor_id, pack_id, record_id, approved_payload_digest,
                    expected_base_commit, required_checks_json, forge_target,
                    idempotency_key_hash, event_type, prior_receipt_digest,
-                   evidence_manifest_digests_json, evidence_acknowledgements_json
+                   evidence_manifest_digests_json, evidence_acknowledgements_json,
+                   (SELECT approval_mode FROM governance_decisions
+                    WHERE id = publication_intents.reviewed_decision_id) AS approval_mode
             FROM publication_intents
             WHERE id = $1
             """,
@@ -700,6 +702,7 @@ class PostgresPublicationRepository:
             source_draft_version=int(intent["source_draft_version"]),
             reviewed_decision_id=intent["reviewed_decision_id"],
             approving_actor_id=intent["approving_actor_id"],
+            approval_mode=str(intent["approval_mode"]),
             pack_id=str(intent["pack_id"]),
             record_id=str(intent["record_id"]),
             approved_payload_digest=str(intent["approved_payload_digest"]),

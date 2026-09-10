@@ -3,18 +3,23 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opennosh_api.contributions.models import ContributionDraft
 from opennosh_api.evidence.contracts import (
+    DocumentRightsState,
     EvidenceManifest,
+    EvidencePublicState,
+    PublicDocumentManifest,
     RedactionState,
     SanitizedMediaManifest,
+    canonical_manifest_bytes,
     manifest_digest,
 )
 from opennosh_api.evidence.models import EvidenceManifestRecord, EvidenceUploadSession
-from opennosh_api.evidence.repository import create_manifest
+from opennosh_api.evidence.policy import verify_durability
+from opennosh_api.evidence.repository import create_manifest, load_bundle
 from opennosh_api.evidence.uploads import (
     EvidenceUploadConflictError,
     EvidenceUploadNotFoundError,
@@ -62,8 +67,33 @@ async def create_manifest_and_enqueue(
         source_draft_version=source_draft_version,
         manifest=manifest,
     )
-    connection = await session.connection()
-    await queue.enqueue(connection, preservation_request(manifest, run_after=now))
+    if (
+        isinstance(manifest, PublicDocumentManifest)
+        and manifest.rights_state is DocumentRightsState.REFERENCE_ONLY
+    ):
+        # Only bounded citation metadata is copied. No source bytes are downloaded
+        # or scanned, and the evidence remains explicitly reference_only.
+        bundle = await load_bundle(session, manifest.evidence_id)
+        if bundle.acknowledgements:
+            if bundle.tombstone is not None:
+                raise RuntimeError("Tombstoned citation cannot be preserved")
+            verified = verify_durability(bundle.manifest, bundle.acknowledgements)
+            if (
+                verified is not EvidencePublicState.REFERENCE_ONLY
+                or bundle.public_state is not EvidencePublicState.REFERENCE_ONLY
+            ):
+                raise RuntimeError("Existing citation state is inconsistent")
+            return record
+        observed = await session.scalar(
+            text("SELECT preserve_reference_citation(:evidence_id, :payload)"),
+            {"evidence_id": manifest.evidence_id, "payload": canonical_manifest_bytes(manifest)},
+        )
+        if observed != manifest_digest(manifest):
+            raise RuntimeError("Citation readback digest mismatch")
+        await session.refresh(record)
+    else:
+        connection = await session.connection()
+        await queue.enqueue(connection, preservation_request(manifest, run_after=now))
     return record
 
 

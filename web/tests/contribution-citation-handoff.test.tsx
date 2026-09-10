@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => {
-  process.env.NEXT_PUBLIC_OPENNOSH_EVIDENCE_UPLOADS_ENABLED = "true";
+  process.env.NEXT_PUBLIC_OPENNOSH_EVIDENCE_UPLOADS_ENABLED = "false";
   return {
     session: vi.fn(),
     createContributionDraft: vi.fn(),
@@ -44,7 +44,6 @@ import type { ContributionFields } from "@/lib/contributions/domain";
 import {
   contributionDraftStorageKey,
   emptyContributionFields,
-  localContributionStorageKey,
   newLocalContributionDraft,
 } from "@/lib/contributions/local-draft";
 
@@ -110,77 +109,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("enabled private evidence handoff", () => {
-  it("moves a local draft to its server evidence stage when no attachment exists", async () => {
+describe("citation handoff", () => {
+  it("preserves only citation metadata and submits its exact version", async () => {
     vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
-    state.session.mockResolvedValue({ id: "user" });
-    state.createContributionDraft.mockResolvedValue(capability(1));
-    state.patchContributionDraft.mockResolvedValue(capability(2));
-    const { ApiError } = await import("@/lib/api");
-    state.contributionEvidence.mockRejectedValue(
-      new ApiError("Missing evidence", "not-found", "test-evidence", 404),
-    );
-    const draft = newLocalContributionDraft("local-evidence-handoff");
-    draft.fields = { ...completeFields };
-    draft.duplicateQuery = "Test food|en-US";
-    window.localStorage.setItem(localContributionStorageKey, JSON.stringify(draft));
-
-    render(<ContributionJourney language="en" routeDraftId="local" requestedStage="review" />);
-    fireEvent.click((await screen.findAllByRole("button", { name: /Hand to review/ }))[0]!);
-
-    await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/en/contribute/server-draft/evidence");
-    });
-    expect(state.submitContributionDraft).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(localContributionStorageKey)).toBeNull();
-  });
-
-  it("submits only after exact-version sanitized evidence is attached", async () => {
-    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
-    state.session.mockResolvedValue({ id: "user" });
-    state.contributionDraft.mockResolvedValue(capability());
-    state.contributionEvidence.mockResolvedValue({
-      evidence_id: "018f5316-4f4e-7d79-b9f6-88c11a68a498",
-      evidence_class: "sanitized_media",
-      source_draft_version: 3,
-      public_state: null,
-      preservation_pending: true,
-      preservation_failed: false,
-      preservation_failure_code: null,
-    });
-    state.submitContributionDraft.mockResolvedValue({
-      ...capability(4),
-      reviewState: "in_review",
-      receipt: {
-        submissionId: "submission-42",
-        submittedAt: "2026-09-01T18:05:00Z",
-        acknowledgementDueAt: "2026-09-03T18:05:00Z",
-        attribution: "Fixture contributor",
-        statusHref: "/en/contribute/server-draft/status",
-      },
-    });
+    const fields = {...completeFields, evidence_type: "public_document" as const, source_license: "reference-only" as const};
+    const remote = {...capability(), fields};
+    state.session.mockResolvedValue({id:"owner"});
+    state.contributionDraft.mockResolvedValue(remote);
+    const {ApiError} = await import("@/lib/api");
+    state.contributionEvidence.mockRejectedValue(new ApiError("Missing evidence", "not-found", "test", 404));
+    state.attachContributionEvidence.mockResolvedValue({source_draft_version:3, public_state:"reference_only"});
+    state.submitContributionDraft.mockResolvedValue({...remote, reviewState:"in_review", receipt:{
+      submissionId:"citation-submission", submittedAt:"2026-09-01T18:05:00Z",
+      acknowledgementDueAt:"2026-09-03T18:05:00Z", attribution:"Owner",
+      statusHref:"/en/contribute/server-draft/status",
+    }});
     const stored = newLocalContributionDraft("server-draft");
-    stored.fields = { ...completeFields };
-    stored.duplicateQuery = "Test food|en-US";
-    stored.serverDraftId = "server-draft";
-    stored.serverVersion = 3;
-    stored.serverFields = { ...completeFields };
-    window.localStorage.setItem(
-      contributionDraftStorageKey("server-draft"),
-      JSON.stringify(stored),
-    );
-
-    render(
-      <ContributionJourney language="en" routeDraftId="server-draft" requestedStage="review" />,
-    );
-    fireEvent.click((await screen.findAllByRole("button", { name: /Hand to review/ }))[0]!);
-
-    await waitFor(() => {
-      expect(state.submitContributionDraft).toHaveBeenCalledWith("server-draft", {
-        expected_draft_version: 3,
-        idempotency_key: expect.any(String),
-      });
+    Object.assign(stored, {fields, duplicateQuery:"Test food|en-US", serverDraftId:"server-draft", serverVersion:3, serverFields:fields});
+    window.localStorage.setItem(contributionDraftStorageKey("server-draft"), JSON.stringify(stored));
+    render(<ContributionJourney language="en" routeDraftId="server-draft" requestedStage="review" />);
+    fireEvent.change(await screen.findByLabelText("Source publisher"), {target:{value:"Manufacturer"}});
+    fireEvent.click(screen.getAllByRole("button", {name:/Hand to review/})[0]!);
+    await waitFor(() => expect(state.submitContributionDraft).toHaveBeenCalled());
+    expect(state.attachContributionEvidence).toHaveBeenCalledWith("server-draft", {
+      expected_draft_version:3,
+      manifest: expect.objectContaining({evidence_class:"public_document", rights_state:"reference_only",
+        publisher:"Manufacturer", storage_reference:null, observed_digest:null, license:"reference-only"}),
     });
-    expect(router.replace).toHaveBeenCalledWith("/en/contribute/server-draft/status");
   });
 });

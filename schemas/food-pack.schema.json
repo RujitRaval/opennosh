@@ -154,7 +154,7 @@
           ]
         },
         "source_license": {
-          "enum": ["contributor-original", "CC0-1.0", "public-domain"]
+          "enum": ["contributor-original", "CC0-1.0", "public-domain", "reference-only"]
         },
         "source_note": {"type": "string", "maxLength": 4000},
         "basis": {"enum": ["per_100g", "per_100ml"]},
@@ -171,6 +171,20 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {"source_license": {"const": "reference-only"}},
+            "required": ["source_license"]
+          },
+          "then": {
+            "required": ["source_uri", "source_note"],
+            "properties": {
+              "provenance": {"const": "manufacturer_label"},
+              "source_uri": {"type": "string", "minLength": 1},
+              "source_note": {"type": "string", "minLength": 1, "maxLength": 4000}
+            }
+          }
+        },
         {
           "if": {"properties": {"basis": {"const": "per_100ml"}}, "required": ["basis"]},
           "then": {"required": ["density_g_per_ml"]}

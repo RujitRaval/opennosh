@@ -46,7 +46,7 @@ export type ContributionFields = {
   pack_id: string;
   source_date: string;
   attribution: string;
-  source_license: "contributor-original" | "CC0-1.0" | "public-domain" | null;
+  source_license: "contributor-original" | "CC0-1.0" | "public-domain" | "reference-only" | null;
   review_acknowledged: boolean;
 };
 

@@ -118,7 +118,7 @@ class PublicDocumentManifest(_ManifestBase):
     license: str = Field(min_length=1, max_length=160)
     title: str = Field(min_length=1, max_length=1000)
     observed_at: datetime
-    observed_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    observed_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     rights_state: DocumentRightsState
     storage_reference: str | None = Field(default=None, max_length=2048)
 
@@ -136,9 +136,9 @@ class PublicDocumentManifest(_ManifestBase):
     def enforce_rights_boundary(self) -> PublicDocumentManifest:
         if (
             self.rights_state is DocumentRightsState.ARCHIVE_PERMITTED
-            and self.storage_reference is None
+            and (self.storage_reference is None or self.observed_digest is None)
         ):
-            raise ValueError("Archivable documents require a storage reference")
+            raise ValueError("Archivable documents require a storage reference and observed digest")
         if (
             self.rights_state is DocumentRightsState.REFERENCE_ONLY
             and self.storage_reference is not None
