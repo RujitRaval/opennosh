@@ -71,7 +71,7 @@ class FakeReadinessConnection:
                 {"state": "quarantined", "count": 1},
             ]
         if "FROM alembic_version" in query:
-            return [{"version_num": "20260908_0039"}]
+            return [{"version_num": "20260909_0040"}]
         raise AssertionError(query)
 
 
@@ -129,7 +129,7 @@ async def test_readiness_report_is_deterministic_redacted_and_read_only(
     assert first["status"] == "ready"
     assert first["readiness_sha256"] == readiness_digest(first)
     validate_readiness_report(first)
-    assert first["living_commons"]["migration_heads"] == ["20260908_0039"]
+    assert first["living_commons"]["migration_heads"] == ["20260909_0040"]
     assert first["living_commons"]["all_capabilities_disabled"] is True
     assert first["queue"] == {
         "counts": {

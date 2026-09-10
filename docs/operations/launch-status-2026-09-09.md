@@ -36,8 +36,10 @@ An implementation issue being closed is not evidence that its production feature
 The initial live readiness run reported `claim_credentials_incomplete` and
 `living_commons_migration_not_current`. Investigation found two report defects: the disabled-worker
 wrapper stripped configured signing credentials before validation, and the report pinned migration
-0038 although production had advanced to 0039. The reliability release corrects both; activation
-still requires a fresh report from the deployed commit and the natural-proof inputs below.
+0038 although production had advanced to 0039. The deployed reliability release corrects both. A fresh natural-publication readiness check on
+commit `50138b17…` returned `status=ready`, no failures, and digest
+`58d3ec5f4215d2acc192805e5f4e83ba6f52736a3f95960a5f0426fcd29b75df`.
+This establishes technical readiness; it does not replace the natural-proof inputs below.
 
 ## Reliability release acceptance
 
@@ -45,11 +47,17 @@ The `0.99.1.0` reliability change fixes Commons freshness, enables default searc
 and extends the existing worker canary into periodic outage/recovery monitoring. It does not enable
 publication claims, evidence, governance, federation, missions, reuse, impact, or public-status flags.
 
-- [ ] Protected PR merged and exact application commit deployed.
-- [ ] Commons remains verified across a five-minute activity bucket boundary.
-- [ ] Searches remain successful and bounded while a replacement snapshot is built.
-- [ ] Worker logs show healthy startup and periodic checks.
+- [x] PR #196 merged with all required checks passing; production reports `0.99.1.0`,
+  commit `50138b17b494ac90db65d328ed3f4a6170d919d7`.
+- [x] Commons retained 166 verified records across the 20:30 UTC activity bucket boundary.
+- [ ] Background snapshot replacement verified, but three concurrent ordinary searches still
+  exhaust the current 0.1 CPU database. PR #197 now uses a safe fuzzy-candidate bound and bounded query caching/serialization on the
+  existing database plan. The paid upgrade was declined; production acceptance remains pending.
+- [x] Worker logs show healthy startup at 20:25:55 UTC and successful checks every minute from
+  20:26:55 through 20:58:58 UTC, with `failures=0` and commit `50138b17…`.
 - [ ] Current npm/PyPI packages published through release-confidence and trusted publishing.
+  Run `34401060805` was cancelled after concurrent search failures; its publication stages did not
+  run. Publish a newly verified release after the search follow-up passes production acceptance.
 - [x] Local `main` reconciled without losing divergent work. Previous HEAD
   `9241b1d1d4d6cb04019b4f5f88058311126fde74` is retained on
   `codex/preserved-local-main-20260909`; its complete history was also verified in a Git bundle.

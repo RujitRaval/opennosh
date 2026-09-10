@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from opennosh_api.foods.service import (
     _SNAPSHOT_SEARCH_VECTOR,
     FOOD_SEARCH_GIN_FLUSH_SQL,
+    FOOD_SEARCH_NAME_CANDIDATE_BOUND,
     FOOD_SEARCH_SNAPSHOT_INSERT_SQL,
     FOOD_SEARCH_SQL,
     SEARCH_PLAN_MAX_EXECUTION_MS,
@@ -1230,3 +1231,165 @@ def test_search_gin_indexes_buffer_refresh_writes_before_the_bounded_flush() -> 
     assert all("fastupdate=on" in options for options in reloptions.values())
     definition = asyncio.run(_search_gin_finalizer_definition(INTEGRATION_DATABASE_URL))
     assert "ANALYZE public.food_search_snapshot_items" in definition
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_candidate_bound_preserves_legacy_results_and_cursor_pages_through_migration() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.upgrade(config, "head")
+    command.downgrade(config, "20260908_0039")
+    asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))
+    legacy_sql = FOOD_SEARCH_SQL.replace(FOOD_SEARCH_NAME_CANDIDATE_BOUND, "")
+
+    async def inspect_pages(*, create: bool, sql: str) -> list[list[tuple[Any, ...]]]:
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+        pages: list[list[tuple[Any, ...]]] = []
+        try:
+            async with engine.begin() as connection:
+                if create:
+                    snapshot_id = await connection.scalar(
+                        text(
+                            "INSERT INTO food_search_snapshots "
+                            "(ranking_version,created_at,expires_at) "
+                            "VALUES (2,now(),now()+interval '20 minutes') RETURNING id"
+                        )
+                    )
+                    await connection.execute(
+                        text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
+                        {
+                            "snapshot_id": snapshot_id,
+                            "has_pack_filter": False,
+                            "selected_pack_ids": [],
+                        },
+                    )
+                else:
+                    snapshot_id = await connection.scalar(
+                        text("SELECT id FROM food_search_snapshots")
+                    )
+                for threshold in ("0", "0.3", "0.5", "1"):
+                    await connection.execute(
+                        text("SELECT set_config('pg_trgm.similarity_threshold', :value, true)"),
+                        {"value": threshold},
+                    )
+                    for query in ("apple", "सेब", "orchard", "fruit", "appl"):
+                        for source in (None, "usda", "community"):
+                            for locale in (None, "en-in", "fr-fr"):
+                                args = {
+                                    "query": query,
+                                    "slug_query": query,
+                                    "locale": locale,
+                                    "source_filter": source,
+                                    "snapshot_id": snapshot_id,
+                                    "has_cursor": False,
+                                    "after_rank": 0,
+                                    "after_score": 0.0,
+                                    "after_name": "",
+                                    "after_source": "",
+                                    "after_source_id": "",
+                                    "fetch_limit": 2,
+                                }
+                                while True:
+                                    rows = (
+                                        (await connection.execute(text(sql), args)).mappings().all()
+                                    )
+                                    pages.append([tuple(row.values()) for row in rows])
+                                    if len(rows) < 2:
+                                        break
+                                    last = rows[-1]
+                                    args.update(
+                                        has_cursor=True,
+                                        after_rank=last["ranking_tier"],
+                                        after_score=last["match_score"],
+                                        after_name=last["normalized_name"],
+                                        after_source=last["source"],
+                                        after_source_id=last["source_id"],
+                                    )
+
+            return pages
+        finally:
+            await engine.dispose()
+
+    try:
+        before = asyncio.run(inspect_pages(create=True, sql=legacy_sql))
+        assert any(before)
+        command.upgrade(config, "head")
+        assert asyncio.run(inspect_pages(create=False, sql=FOOD_SEARCH_SQL)) == before
+        command.downgrade(config, "20260908_0039")
+        assert asyncio.run(inspect_pages(create=False, sql=legacy_sql)) == before
+    finally:
+        command.upgrade(config, "head")
+
+
+@pytest.mark.skipif(INTEGRATION_DATABASE_URL is None, reason="PostgreSQL is not configured")
+def test_online_candidate_index_repairs_an_interrupted_invalid_build() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    config = migration_config(INTEGRATION_DATABASE_URL)
+    command.upgrade(config, "head")
+    command.downgrade(config, "20260908_0039")
+    asyncio.run(_seed_ranked_foods(INTEGRATION_DATABASE_URL))
+
+    async def invalid_build() -> None:
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+        try:
+            async with engine.begin() as connection:
+                snapshot_id = await connection.scalar(
+                    text(
+                        "INSERT INTO food_search_snapshots(ranking_version,created_at,expires_at) "
+                        "VALUES(2,now(),now()+interval '20 minutes') RETURNING id"
+                    )
+                )
+                await connection.execute(
+                    text(FOOD_SEARCH_SNAPSHOT_INSERT_SQL),
+                    {"snapshot_id": snapshot_id, "has_pack_filter": False, "selected_pack_ids": []},
+                )
+            async with engine.connect() as connection:
+                connection = await connection.execution_options(isolation_level="AUTOCOMMIT")
+                # PostgreSQL retains an invalid concurrent index after this real build failure.
+                with pytest.raises(DBAPIError):
+                    await connection.execute(
+                        text(
+                            "CREATE UNIQUE INDEX CONCURRENTLY "
+                            "ix_food_search_snapshot_items_name_trigram_count "
+                            "ON food_search_snapshot_items ((1))"
+                        )
+                    )
+                assert (
+                    await connection.scalar(
+                        text(
+                            "SELECT indisvalid FROM pg_index WHERE indexrelid="
+                            "'ix_food_search_snapshot_items_name_trigram_count'::regclass"
+                        )
+                    )
+                    is False
+                )
+        finally:
+            await engine.dispose()
+
+    async def verify_repaired() -> None:
+        engine = create_async_engine(INTEGRATION_DATABASE_URL)
+        try:
+            async with engine.connect() as connection:
+                valid, definition = (
+                    await connection.execute(
+                        text(
+                            "SELECT indisvalid,pg_get_indexdef(indexrelid) FROM pg_index "
+                            "WHERE indexrelid="
+                            "'ix_food_search_snapshot_items_name_trigram_count'::regclass"
+                        )
+                    )
+                ).one()
+                assert valid is True
+                assert "cardinality(show_trgm" in definition
+                assert (
+                    await connection.scalar(text("SELECT count(*) FROM food_search_snapshots")) == 1
+                )
+        finally:
+            await engine.dispose()
+
+    try:
+        asyncio.run(invalid_build())
+        command.upgrade(config, "head")
+        asyncio.run(verify_repaired())
+    finally:
+        command.upgrade(config, "head")

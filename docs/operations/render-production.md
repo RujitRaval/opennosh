@@ -177,14 +177,44 @@ snapshot exists, concurrent requests join the first builder behind the same boun
 advisory lock, recheck the newly committed snapshot, and avoid returning a guaranteed transient
 503 to the losing request.
 
-Do not compensate for a recurrence by increasing `FOOD_SEARCH_STATEMENT_TIMEOUT_MS`. Confirm the
-index `reloptions`, migration head, bounded flush-function ownership and grants, explicit analyze
-timestamp, query plan, snapshot age, and readiness endpoint first. The migration changes index write behavior but not catalog rows
-or the API contract, so the prior application can run during a rolling deploy. Its downgrade removes
-the bounded flush function and restores synchronous index updates, which can reintroduce the build
-timeout at the activated USDA catalog size; prefer a reviewed forward fix. If rollback is
-unavoidable, leave the additive schema in place and roll back only application processes while
-investigating.
+The September 9 investigation found a second limit after snapshot warming was enabled: the current
+13,663-row catalogue on 0.1 CPU / 256 MB exhausted its 500 ms statement budget during three concurrent
+ordinary searches. Index flushes and fresh snapshots were already present. Even a 2-second statement
+budget still failed concurrent requests. Do not treat a timeout increase alone as a reliability fix.
+
+Migration `20260909_0040` adds a small B-tree expression index on the number of trigrams in each
+snapshot name. A name cannot satisfy the existing similarity threshold if its trigram count exceeds
+the query's count divided by that threshold. A conservative rounded bound lets PostgreSQL discard
+those impossible candidates before full matching and ranking. It preserves the existing matching
+operators, scores, source/locale filters, snapshot identities, and cursor order. Regression tests
+compare every page before upgrade, after upgrade, and after downgrade, including thresholds zero,
+0.3, 0.5 and one, Unicode, null fields and exact source identifiers.
+
+The API process serializes default-catalogue query cache misses and shares identical requests using
+a 128-entry, 60-second LRU cache. The key includes the retained snapshot, search fingerprint, cursor
+position and page size. Every request still validates its cursor and snapshot before cache access;
+rate limiting remains per request. Federation and selected-pack queries bypass this cache. Admission
+allows at most eight waiting queries, waits at most three seconds, and releases capacity on errors
+and cancellation. The production statement budget is 1.5 seconds with at most two attempts. This
+bounds work on the existing single API process; additional replicas would require a fresh capacity
+review.
+
+The database remains Basic-256mb (0.1 CPU / 256 MB), with 5 GB storage and existing service counts.
+No paid upgrade is part of this release. The previous proposal to use 0.5 CPU / 1 GB was declined;
+its stored-vector table rewrite has also been removed.
+
+Local PostgreSQL16 experiments at a 0.1 CPU quota used 54,652 retained rows. The candidate-count
+index removed 12,296 false candidates from the rice plan, reducing measured execution from about
+six seconds to 295 ms. Three simultaneous uncached queries completed around 1.8 seconds before
+serialization; final acceptance must measure the deployed queue/cache behavior and background
+refreshes. These are synthetic experiments, not production latency guarantees. The online index
+migration completed in 31.59 seconds at that quota without rewriting snapshot rows.
+
+The index is built concurrently with a 2-second lock wait and 120-second statement limit. Interrupted
+builds may leave an invalid index; retrying the migration removes only that invalid index and rebuilds
+it. Existing indexes and the least-privilege snapshot finalizer are unchanged. Application rollback
+can leave the additive index in place. Downgrade removes only this index, preserving all catalogue
+records, retained snapshots and cursor identities.
 
 ### T32 bounded artifact read-plane activation
 

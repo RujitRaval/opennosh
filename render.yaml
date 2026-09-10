@@ -92,6 +92,8 @@ services:
         value: "false"
       - key: GOVERNANCE_FRESH_AUTH_SECONDS
         value: "900"
+      - key: FOOD_SEARCH_STATEMENT_TIMEOUT_MS
+        value: "1500"
       - key: FOOD_SEARCH_SNAPSHOT_WARM_ENABLED
         value: "true"
       - key: PUBLIC_ARTIFACT_CHECKPOINT_PATH

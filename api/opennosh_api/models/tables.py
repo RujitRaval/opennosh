@@ -200,6 +200,10 @@ class FoodSearchSnapshotItem(Base):
             "release_digest IS NULL OR release_digest ~ '^[0-9a-f]{64}$'",
             name="release_digest_sha256",
         ),
+        Index(
+            "ix_food_search_snapshot_items_name_trigram_count",
+            text("cardinality(show_trgm(name))"),
+        ),
         Index("ix_food_search_snapshot_items_pack", "snapshot_id", "pack_id"),
         Index(
             "ix_food_search_snapshot_items_equivalence",

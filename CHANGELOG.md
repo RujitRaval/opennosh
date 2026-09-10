@@ -2,6 +2,19 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.99.2.0] - 2026-09-09
+
+### Fixed
+
+- Bound fuzzy-name candidates using an indexed trigram count, preserving exact matches, ranking,
+  and cursor pages while avoiding impossible similarity checks on long names.
+- Share repeated default-catalogue queries through a bounded in-process cache and serialize cache
+  misses, with bounded queue admission and cancellation-safe release.
+- Keep the existing Basic-256mb database plan and all storage/service allocations. Set a bounded
+  1.5-second production search statement budget with the existing two-attempt limit.
+- Build the additive expression index online, repair interrupted index builds on retry, and retain
+  all catalogue rows, snapshot identities, and existing indexes through deployment and rollback.
+
 ## [0.99.1.0] - 2026-09-09
 
 ### Fixed

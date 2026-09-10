@@ -25,6 +25,7 @@ from opennosh_api.evidence.storage import S3EvidenceUploadBroker
 from opennosh_api.exercises.router import export_router as exercise_export_router
 from opennosh_api.exercises.router import router as exercises_router
 from opennosh_api.exports.router import router as exports_router
+from opennosh_api.foods.query_runtime import FoodSearchQueryRuntime
 from opennosh_api.foods.router import export_router as food_export_router
 from opennosh_api.foods.router import router as foods_router
 from opennosh_api.foods.warming import run_food_search_warmer, warm_food_search_once
@@ -205,6 +206,7 @@ def create_app(
         responses=common_problem_responses(),
     )
     application.state.settings = resolved_settings
+    application.state.food_search_query_runtime = FoodSearchQueryRuntime()
     if resolved_settings.evidence_uploads_enabled:
         assert resolved_settings.evidence_quarantine_endpoint is not None
         assert resolved_settings.evidence_quarantine_region is not None
