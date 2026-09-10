@@ -2,6 +2,29 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.101.0.0] - 2026-09-10
+
+### Added
+
+- Add a bounded owner publication command that selects exactly one authorized, same-actor pack
+  contribution, runs the existing publication checks, and returns its attributed signed receipt.
+- Expose signed pack locale metadata to opted-in public artifact readers and display the release's
+  verification date without changing the default v1 response body.
+
+### Changed
+
+- Enable the existing owner governance interface, governance mutations, public decisions, and
+  verified public artifact reads on Render while leaving all persistent publication claims off.
+
+### Fixed
+
+- Keep latest-pointer refresh running across transient storage failures and report recovery without
+  exposing provider details in logs.
+- Preserve governance action errors after case refreshes and clear them only after a successful
+  retry.
+- Treat terminal one-shot activation settings as an idle claim mode instead of restarting the
+  publication worker.
+
 ## [0.100.0.0] - 2026-09-10
 
 ### Added

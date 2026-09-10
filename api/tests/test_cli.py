@@ -186,6 +186,104 @@ def test_natural_publication_readiness_reports_blocked_and_probe_failure(
     assert "private path" not in output.err
 
 
+def _owner_publication_arguments() -> argparse.Namespace:
+    return cli.build_parser().parse_args(
+        [
+            "commons",
+            "run-owner-publication",
+            "--actor-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--pack-id",
+            "indian-sweets",
+            "--timeout-seconds",
+            "600",
+            "--json",
+        ]
+    )
+
+
+def test_owner_publication_reports_signed_result(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def publish(*_args: object, **options: object) -> SimpleNamespace:
+        assert options["pack_id"] == "indian-sweets"
+        assert options["timeout_seconds"] == 600
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "schema_version": "1.0",
+                "publication_intent_id": "publication-1",
+                "state": "published",
+                "receipt_digest": "a" * 64,
+            }
+        )
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "run_owner_publication", publish)
+
+    assert cli.run_commons_command(_owner_publication_arguments()) == 0
+    output = capsys.readouterr()
+    assert '"state": "published"' in output.out
+    assert '"receipt_digest":' in output.out
+    assert output.err == ""
+
+
+def test_owner_publication_returns_nonzero_for_blocked_terminal_result(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def publish(*_args: object, **_options: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "schema_version": "1.0",
+                "publication_intent_id": "publication-1",
+                "state": "blocked",
+            }
+        )
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "run_owner_publication", publish)
+
+    assert cli.run_commons_command(_owner_publication_arguments()) == 2
+    assert '"state": "blocked"' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (
+            cli.OwnerPublicationSelectionError("private candidate detail"),
+            4,
+            "selection failed",
+        ),
+        (
+            cli.OwnerPublicationTimeoutError("private timeout detail"),
+            5,
+            "timed out",
+        ),
+        (RuntimeError("private provider detail"), 5, "provider operation failed"),
+    ],
+)
+def test_owner_publication_maps_redacted_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    exit_code: int,
+    message: str,
+) -> None:
+    async def reject(*_args: object, **_options: object) -> None:
+        raise error
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "run_owner_publication", reject)
+
+    assert cli.run_commons_command(_owner_publication_arguments()) == exit_code
+    output = capsys.readouterr()
+    assert message in output.err
+    assert "private" not in output.err
+    assert output.out == ""
+
+
 def test_exercise_import_command_parses_offline_paths() -> None:
     arguments = cli.build_parser().parse_args(
         ["exercises", "import-wger", "one.json", "two.json", "--batch-size", "25", "--json"]

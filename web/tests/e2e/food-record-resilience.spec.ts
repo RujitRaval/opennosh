@@ -50,7 +50,7 @@ test("the page does not infer same-food variants from fuzzy search", async ({ pa
 });
 
 test("a server-side primary-record failure exposes retry and recovers cleanly", async ({ page }) => {
-  await page.route("**/api/v1/public/foods/community/unavailable-food", (route) =>
+  await page.route("**/api/v1/public/foods/community/unavailable-food?**", (route) =>
     route.fulfill({ status: 200, json: publicDetail }),
   );
 
@@ -61,7 +61,7 @@ test("a server-side primary-record failure exposes retry and recovers cleanly", 
 });
 
 test("a stalled browser retry times out and remains safely retryable", async ({ page }) => {
-  await page.route("**/api/v1/public/foods/community/unavailable-food", () => new Promise(() => {}));
+  await page.route("**/api/v1/public/foods/community/unavailable-food?**", () => new Promise(() => {}));
 
   await page.goto("/en/explore/foods/community/unavailable-food?food_locale=hi-IN");
   await page.getByRole("link", { name: "Try again" }).click();
@@ -75,7 +75,7 @@ test("a stalled browser retry times out and remains safely retryable", async ({ 
 });
 
 test("a stale but verified release stays visible with explicit trust language", async ({ page }) => {
-  await page.route("**/api/v1/public/foods/community/unavailable-food", (route) =>
+  await page.route("**/api/v1/public/foods/community/unavailable-food?**", (route) =>
     route.fulfill({
       status: 200,
       json: {

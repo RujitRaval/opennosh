@@ -65,6 +65,20 @@ afterEach(() => {
 });
 
 describe("accountable governance browser surface", () => {
+  it("keeps a failed action visible after refreshing the case and clears it on a successful retry", async () => {
+    apiState.reviewCase.mockResolvedValue(reviewCase("pending"));
+    apiState.claim.mockRejectedValueOnce(new Error("Sign in again before reviewing."));
+    render(<GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Acknowledge this case" }));
+    await waitFor(() => expect(apiState.reviewCase).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign in again before reviewing.");
+    apiState.claim.mockResolvedValueOnce({});
+    apiState.reviewCase.mockResolvedValueOnce(reviewCase());
+    fireEvent.click(screen.getByRole("button", { name: "Acknowledge this case" }));
+    await screen.findByRole("button", { name: "Approve and enqueue publication" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders deterministic queue facts without a hidden score", async () => {
     apiState.queue.mockResolvedValue({ pack_id: "global-core", cases: [reviewCase("pending")] });
     render(<GovernanceQueue />);

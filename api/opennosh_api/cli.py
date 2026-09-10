@@ -73,6 +73,11 @@ from opennosh_api.publication.natural_proof import (
     load_natural_publication_proof_request,
 )
 from opennosh_api.publication.natural_readiness import collect_natural_publication_readiness
+from opennosh_api.publication.owner_workflow import (
+    OwnerPublicationSelectionError,
+    OwnerPublicationTimeoutError,
+    run_owner_publication,
+)
 from opennosh_api.publication.readiness import collect_production_claims_readiness
 from opennosh_api.sdk.cli import (
     add_packs_parser,
@@ -187,6 +192,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     natural_readiness.add_argument("--blueprint", type=Path, default=Path("render.yaml"))
     natural_readiness.add_argument("--json", action="store_true")
+    owner_publication = commons_commands.add_parser(
+        "run-owner-publication",
+        help="Publish one active contribution through a bounded owner workflow",
+    )
+    owner_publication.add_argument("--actor-id", type=UUID, required=True)
+    owner_publication.add_argument("--pack-id", required=True)
+    owner_publication.add_argument("--timeout-seconds", type=float, default=900)
+    owner_publication.add_argument("--json", action="store_true")
     add_public_parser(commands)
     add_packs_parser(commands)
     add_federation_parser(commands)
@@ -290,6 +303,8 @@ def run_commons_command(arguments: argparse.Namespace) -> int:
         return _run_natural_publication_proof(arguments)
     if arguments.commons_command == "natural-publication-readiness":
         return _run_natural_publication_readiness(arguments)
+    if arguments.commons_command == "run-owner-publication":
+        return _run_owner_publication(arguments)
     try:
         if arguments.commons_command == "build-starter-release":
             inventory = build_starter_release(
@@ -618,6 +633,40 @@ def _run_natural_publication_readiness(arguments: argparse.Namespace) -> int:
         return 5
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if report["status"] == "ready" else 2
+
+
+def _run_owner_publication(arguments: argparse.Namespace) -> int:
+    try:
+        report = asyncio.run(
+            run_owner_publication(
+                get_settings(),
+                actor_id=arguments.actor_id,
+                pack_id=arguments.pack_id,
+                timeout_seconds=arguments.timeout_seconds,
+            )
+        )
+    except OwnerPublicationSelectionError:
+        print(
+            "Owner publication selection failed: eligible record count is not one", file=sys.stderr
+        )
+        return 4
+    except OwnerPublicationTimeoutError:
+        print("Owner publication timed out before a terminal result", file=sys.stderr)
+        return 5
+    except (OSError, RuntimeError, ValueError, ValidationError, asyncpg.PostgresError):
+        print(
+            "Owner publication failed: configuration or provider operation failed", file=sys.stderr
+        )
+        return 5
+    payload = report.to_dict()
+    if arguments.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(
+            "Owner publication finished: "
+            f"{payload['publication_intent_id']} state={payload['state']}"
+        )
+    return 0 if payload["state"] == "published" else 2
 
 
 def main(argv: Sequence[str] | None = None) -> int:

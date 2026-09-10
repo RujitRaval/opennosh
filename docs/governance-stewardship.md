@@ -1,8 +1,9 @@
 # Accountable stewardship contract
 
-T34.3 adds the disabled review surface that connects an exact contribution version to a responsible
-pack steward, a public-safe reason trail, and the existing protected publication path. It does not
-activate evidence intake, grant a steward role, or change production publication claims.
+The review surface connects an exact contribution version to a responsible pack steward, a
+public-safe reason trail, and the existing protected publication path. The current Render Blueprint
+enables it for the owner pilot; role grants, evidence uploads, and persistent publication claims
+remain separate controls.
 
 ## Durable review model
 
@@ -46,15 +47,15 @@ contain evidence bytes, filenames, object keys, storage references, presigned UR
 revisions, credentials, account email, network identifiers, or private notes. Until an evidence
 provider is separately activated, the comparison surface explicitly shows metadata-only evidence.
 
-## Disabled deployment and readiness
+## Deployment and readiness
 
-The committed defaults are:
+The current Render Blueprint values are:
 
 ```text
-GOVERNANCE_STEWARD_UI_ENABLED=false
-GOVERNANCE_MUTATIONS_ENABLED=false
-GOVERNANCE_PUBLIC_DECISIONS_ENABLED=false
-OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=false
+GOVERNANCE_STEWARD_UI_ENABLED=true
+GOVERNANCE_MUTATIONS_ENABLED=true
+GOVERNANCE_PUBLIC_DECISIONS_ENABLED=true
+OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED=true
 EVIDENCE_UPLOADS_ENABLED=false
 EVIDENCE_SANITIZATION_ENABLED=false
 PUBLICATION_CLAIMS_ENABLED=false
@@ -65,7 +66,7 @@ Disabled governance API routes return the same generic `404` before request vali
 authorization, or database work. The server-rendered web gate returns the normal not-found page.
 Existing internal governance and publication protections remain active.
 
-A later activation report must bind the exact deployed commit, migration revision, all four surface
+For a new deployment or reactivation, the readiness report must bind the exact deployed commit, migration revision, all four surface
 flags, named pack IDs and steward actor IDs, role grant/revocation state, fresh-auth maximum age,
 CSRF and idempotency policy, database capacity, generated contract digest, browser canary result,
 and rollback owner. Canonicalize that non-secret JSON with sorted keys and compact separators,

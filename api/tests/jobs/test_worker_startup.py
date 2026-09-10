@@ -14,6 +14,7 @@ from opennosh_api.jobs.pgqueuer import encode_message
 from opennosh_api.jobs.worker import (
     PublicationActivationWakeup,
     PublicationActivationWakeupOutcome,
+    TerminalPublicationActivation,
     _run_publication_worker,
     create_publication_role_driver,
     ensure_publication_activation_wakeup,
@@ -582,6 +583,60 @@ async def test_refresh_only_worker_never_constructs_the_queue_driver(
     assert len(calls) == 1
     assert calls[0][0] is service
     assert calls[0][2] == 3600.0
+
+
+@pytest.mark.asyncio
+async def test_terminal_activation_keeps_refresh_worker_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = SimpleNamespace(
+        latest_refresh_enabled=True,
+        publication_claims_enabled=True,
+        publication_preactivation_smoke_enabled=False,
+        latest_refresh_interval_seconds=3600.0,
+        governance_code_attestation_enabled=False,
+        public_commons_post_deploy_canary_enabled=False,
+    )
+    service = cast(Any, object())
+    lifecycle: list[str] = []
+
+    async def terminal_driver(**_arguments: object) -> None:
+        raise TerminalPublicationActivation("secret terminal activation ID")
+
+    async def capture_refresh_loop(
+        supplied_service: object,
+        _shutdown: object,
+        *,
+        interval_seconds: float,
+    ) -> None:
+        assert supplied_service is service
+        assert interval_seconds == 3600.0
+        lifecycle.append("refresh")
+
+    def capture_error(message: str, *arguments: object) -> None:
+        assert not arguments
+        lifecycle.append(message)
+
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.create_publication_role_driver",
+        terminal_driver,
+    )
+    monkeypatch.setattr(
+        "opennosh_api.jobs.worker.run_latest_pointer_refresh_loop",
+        capture_refresh_loop,
+    )
+    monkeypatch.setattr("opennosh_api.jobs.worker.logger.error", capture_error)
+
+    await _run_publication_worker(
+        settings=cast(Any, settings),
+        refresh_service=service,
+    )
+
+    assert lifecycle == [
+        "Publication claims are idle because the configured activation is terminal",
+        "refresh",
+    ]
+    assert "secret" not in " ".join(lifecycle)
 
 
 @pytest.mark.asyncio

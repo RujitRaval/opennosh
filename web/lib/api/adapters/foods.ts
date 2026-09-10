@@ -136,7 +136,7 @@ export function publicFoodDetailResponse(
   value: unknown,
   foodLocale = "global",
 ): FoodRecordView {
-  const envelope = value as Partial<TransportPublicFood>;
+  const envelope = value as Partial<TransportPublicFood> & { record_locale?: unknown };
   if (
     envelope.schema_version !== "1.0" ||
     !envelope.record ||
@@ -148,6 +148,9 @@ export function publicFoodDetailResponse(
     typeof envelope.immutable_url !== "string" ||
     typeof envelope.provenance_url !== "string"
   ) {
+    throw new Error("Malformed public food artifact contract");
+  }
+  if (envelope.record_locale !== undefined && envelope.record_locale !== null && typeof envelope.record_locale !== "string") {
     throw new Error("Malformed public food artifact contract");
   }
   return toPublishedFoodRecordView(
@@ -163,6 +166,7 @@ export function publicFoodDetailResponse(
       provenance_url: envelope.provenance_url,
     },
     foodLocale,
+    envelope.record_locale ?? null,
   );
 }
 

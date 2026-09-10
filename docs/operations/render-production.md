@@ -21,6 +21,12 @@ count, preview policy, or database exposure requires a reviewed pull request and
 review. The disk intentionally trades zero-downtime API deploys and horizontal API scaling for the
 smallest independent durable checkpoint in this bounded release.
 
+The current [owner-pilot configuration](owner-pilot.md#authorize-the-actual-owner) enables the
+governance API, mutations, public decisions, web steward UI, and signed public artifact reads.
+Persistent publication claims and continuous claims remain false, activation IDs remain absent,
+and evidence uploads/sanitization remain false. The disabled T32/T34 ceremonies below describe
+the initial rollout and the controls for new deployments, rather than the current Blueprint values.
+
 ## Provisioning
 
 1. Merge the reviewed Blueprint change only after repository CI passes.
@@ -357,10 +363,14 @@ through authenticated R2 reads, bypassing the cacheable public origin. Seven sin
 operations have a 2.5-second absolute elapsed deadline, and the sole public-origin pointer read has
 an absolute 2-second deadline. SDK work runs on isolated daemon operations so a stuck SDK thread
 cannot hold process shutdown open. Their 19.5-second network budget fits
-inside Render's 30-second shutdown window. Any validation,
-signing, upload, or read-back failure terminates the worker so Render restarts it and exposes the
-failure. Contribution claims, forge access, governance attestation, and database access remain
-disabled until later T33 slices.
+inside Render's 30-second shutdown window. Any validation, signing, upload, or read-back failure
+is logged as `state=retrying` and retried on the hourly refresh cadence without restarting the
+worker. A later success is logged as `state=recovered`. Contribution claims, forge access,
+governance attestation, and database access remain disabled until later T33 slices.
+
+If an old one-shot activation ID is already terminal at startup, claims stay idle and the worker
+logs that state while continuing enabled refresh, attestation, and Commons monitoring. Clear the
+terminal activation ID and keep persistent claims disabled before using the owner command.
 
 #### 1. Create an independent online signing identity
 
@@ -607,6 +617,25 @@ and leaving refresh enabled. This stops new queue claims without deleting immuta
 rewinding `latest`. Before the first live contribution, capture the activation UUID, current
 pointer digest and ETag, deploy with exactly the three values above, then require one verified
 durable receipt and a newer, correctly bound public pointer before clearing the activation ID.
+
+For repeat owner-operated contributions, do not edit the long-running service
+environment. Keep both claim flags false and `PUBLICATION_ACTIVATION_IDS` absent,
+then run the exact actor-and-pack workflow from the publication service shell:
+
+```bash
+python deploy/render_runtime.py owner-publication \
+  --actor-id ACTUAL_ACCOUNT_UUID \
+  --pack-id PACK_ID
+```
+
+The wrapper derives the existing least-privilege publication database role,
+removes the database owner URL and role password from the child environment, and
+supplies the already configured publication credentials. The child selects one
+active intent whose draft owner, contributor, approver, active owner authorization,
+decision pack, and publication pack all match. It then uses the existing exact-ID
+PgQueuer filter and exits after the intent reaches a terminal state. Its JSON result
+contains the decision and authorization IDs plus the receipt digest and reference,
+so the operator can verify attribution without copying secret configuration.
 
 If the selected intent becomes terminal before merge authorization, keep claims disabled and leave
 that intent unchanged. A governed resubmission is allowed only for `blocked`, `failed`,

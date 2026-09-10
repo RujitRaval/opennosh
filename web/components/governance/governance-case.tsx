@@ -63,8 +63,8 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
       await action();
       await refresh();
     } catch (caught) {
-      setFailure(caught instanceof Error ? caught.message : "The review action failed safely.");
       await refresh().catch(() => undefined);
+      setFailure(caught instanceof Error ? caught.message : "The review action failed safely.");
     } finally {
       setBusy(false);
     }

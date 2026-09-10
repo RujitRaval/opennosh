@@ -2,7 +2,7 @@
   "contract_version": "2.0.0",
   "generator": "@hey-api/openapi-ts",
   "generator_version": "0.97.0",
-  "input_sha256": "002ec1c7b1a0eec95945bee54281c5df542e7e33394d2602ac0743c032adbb01",
+  "input_sha256": "cc59e5793313aefe7ebc8fdcc1e0b6cc7826f69aa44e453fa3ee307ca8660128",
   "operation_count": 108,
   "client_files": [
     "client.gen.ts",
@@ -22,5 +22,5 @@
     "sdk.gen.ts",
     "types.gen.ts"
   ],
-  "client_sha256": "8a0ff4b34da99c136010994930947a0f7b669f9cb56b694963dffcb973c8f01e"
+  "client_sha256": "8201277139d5752b617047021bdd99e99446f394fe661d95982a645b13ee6fab"
 }

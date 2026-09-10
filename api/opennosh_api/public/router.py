@@ -64,12 +64,15 @@ async def latest_food(
     source_id: Annotated[str, Path(pattern=_SOURCE_ID)],
     service: Annotated[PublicArtifactReadService, Depends(get_artifact_read_service)],
     version: Annotated[str | None, Query(pattern=_RELEASE)] = None,
+    include_record_locale: Annotated[bool, Query()] = False,
 ) -> Response:
     try:
         result = await service.food(source, source_id, release_version=version)
     except (ArtifactNotFoundError, ArtifactUnavailableError) as error:
         _raise_public_error(error)
-    payload = result.model_dump_json().encode()
+    payload = result.model_dump_json(
+        exclude=None if include_record_locale else {"record_locale"}
+    ).encode()
     return Response(
         content=payload,
         media_type="application/json",
@@ -86,12 +89,15 @@ async def exact_food(
     source: PublicFoodSource,
     source_id: Annotated[str, Path(pattern=_SOURCE_ID)],
     service: Annotated[PublicArtifactReadService, Depends(get_artifact_read_service)],
+    include_record_locale: Annotated[bool, Query()] = False,
 ) -> Response:
     try:
         result = await service.food(source, source_id, release_version=release_version)
     except (ArtifactNotFoundError, ArtifactUnavailableError) as error:
         _raise_public_error(error)
-    payload = result.model_dump_json().encode()
+    payload = result.model_dump_json(
+        exclude=None if include_record_locale else {"record_locale"}
+    ).encode()
     return Response(
         content=payload,
         media_type="application/json",

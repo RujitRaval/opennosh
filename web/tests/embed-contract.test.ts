@@ -71,7 +71,7 @@ describe("tracking-free embed contract", () => {
     expect(html).toContain(provenanceUrl);
     expect(html).not.toMatch(/analytics|beacon|localStorage|sessionStorage/i);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.internal/api/v1/public/foods/community/rajma-masala",
+      "https://api.internal/api/v1/public/foods/community/rajma-masala?include_record_locale=true",
       expect.objectContaining({
         cache: "no-store",
         headers: { Accept: "application/json, application/problem+json" },
@@ -102,7 +102,7 @@ describe("tracking-free embed contract", () => {
     expect(html).toContain("Stale, cryptographically verified");
     expect(html).toContain("Recipe analysis checked against two household preparations");
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "https://api.internal/api/v1/public/releases/0.86.0.0/foods/community/rajma-masala",
+      "https://api.internal/api/v1/public/releases/0.86.0.0/foods/community/rajma-masala?include_record_locale=true",
       expect.any(Object),
     );
   });

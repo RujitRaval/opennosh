@@ -522,7 +522,7 @@ async def test_refresh_loop_finishes_active_refresh_then_closes_on_shutdown() ->
 
 
 @pytest.mark.asyncio
-async def test_refresh_loop_runs_on_cadence_and_propagates_failure_after_closing() -> None:
+async def test_refresh_loop_retries_a_failed_cycle_and_reports_recovery(caplog) -> None:
     shutdown = asyncio.Event()
 
     class FailingService:
@@ -534,6 +534,8 @@ async def test_refresh_loop_runs_on_cadence_and_propagates_failure_after_closing
             self.calls += 1
             if self.calls == 2:
                 raise RuntimeError("simulated refresh failure")
+            if self.calls == 3:
+                shutdown.set()
             return LatestPointerRefreshResult(
                 refreshed=False,
                 release_version=RELEASE,
@@ -548,15 +550,19 @@ async def test_refresh_loop_runs_on_cadence_and_propagates_failure_after_closing
             self.closed = True
 
     service = FailingService()
-    with pytest.raises(RuntimeError, match="simulated refresh failure"):
+    with caplog.at_level("WARNING"):
         await run_latest_pointer_refresh_loop(
             cast(LatestPointerRefreshService, service),
             shutdown,
             interval_seconds=0.001,
         )
 
-    assert service.calls == 2
+    assert service.calls == 3
     assert service.closed is True
+    assert "state=retrying" in caplog.text
+    assert "error_type=RuntimeError" in caplog.text
+    assert "state=recovered failed_attempts=1" in caplog.text
+    assert "simulated refresh failure" not in caplog.text
 
 
 @pytest.mark.asyncio
