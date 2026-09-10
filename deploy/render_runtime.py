@@ -823,6 +823,60 @@ def run_natural_publication_readiness(source: Mapping[str, str]) -> None:
     )
 
 
+def run_owner_publication(
+    source: Mapping[str, str],
+    *,
+    actor_id: str,
+    pack_id: str,
+    timeout_seconds: float,
+) -> None:
+    """Run one exact owner publication without changing persistent Render flags."""
+
+    if (
+        source.get("PUBLICATION_CLAIMS_ENABLED", "false").casefold() == "true"
+        or source.get("PUBLICATION_CONTINUOUS_CLAIMS_ENABLED", "false").casefold() == "true"
+        or bool(source.get("PUBLICATION_ACTIVATION_IDS"))
+    ):
+        raise ValueError("Owner publication requires persistent claims disabled")
+    environment = publication_environment(source)
+    for key in (
+        "GITHUB_FORGE_REPOSITORY_ID",
+        "GITHUB_FORGE_APP_ID",
+        "GITHUB_FORGE_INSTALLATION_ID",
+        "GITHUB_FORGE_PRIVATE_KEY",
+        "GITHUB_ATTESTER_APP_ID",
+        "GITHUB_ATTESTER_INSTALLATION_ID",
+        "GITHUB_ATTESTER_PRIVATE_KEY",
+        "ONLINE_RECEIPT_SIGNING_KEY_ID",
+        "ONLINE_RECEIPT_SIGNING_KEY",
+        "PUBLICATION_ARTIFACT_BUCKET",
+    ):
+        environment[key] = _required(source, key)
+    owner_url = _required(source, "RENDER_DATABASE_URL")
+    publication_password = _required(source, "PUBLICATION_DATABASE_PASSWORD")
+    environment["PUBLICATION_DATABASE_URL"] = role_database_url(
+        owner_url,
+        PUBLICATION_ROLE,
+        publication_password,
+    )
+    subprocess.run(
+        [
+            "opennosh",
+            "commons",
+            "run-owner-publication",
+            "--actor-id",
+            actor_id,
+            "--pack-id",
+            pack_id,
+            "--timeout-seconds",
+            str(timeout_seconds),
+            "--json",
+        ],
+        check=True,
+        env=environment,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -834,12 +888,16 @@ def main() -> int:
             "publication-readiness",
             "natural-publication-readiness",
             "natural-publication-proof",
+            "owner-publication",
             "usda-reference-release",
         ),
     )
     parser.add_argument("--request-file")
     parser.add_argument("--manifest")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--actor-id")
+    parser.add_argument("--pack-id")
+    parser.add_argument("--timeout-seconds", type=float, default=900)
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
         run_predeploy(os.environ)
@@ -853,6 +911,15 @@ def main() -> int:
         run_natural_publication_proof(os.environ, request_file=arguments.request_file)
     elif arguments.mode == "natural-publication-readiness":
         run_natural_publication_readiness(os.environ)
+    elif arguments.mode == "owner-publication":
+        if arguments.actor_id is None or arguments.pack_id is None:
+            parser.error("owner-publication requires --actor-id and --pack-id")
+        run_owner_publication(
+            os.environ,
+            actor_id=arguments.actor_id,
+            pack_id=arguments.pack_id,
+            timeout_seconds=arguments.timeout_seconds,
+        )
     elif arguments.mode == "usda-reference-release":
         run_usda_reference_release(
             os.environ,

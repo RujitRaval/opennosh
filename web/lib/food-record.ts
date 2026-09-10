@@ -206,6 +206,7 @@ export function toPublishedFoodRecordView(
   },
   urls: { immutable_url: string; provenance_url: string },
   foodLocalePreference = "global",
+  recordLocale: string | null = null,
 ): FoodRecordView {
   const record = toFoodRecordView(detail, foodLocalePreference);
   const staleAge =
@@ -216,6 +217,7 @@ export function toPublishedFoodRecordView(
         : `${Math.ceil(release.stale_age_seconds / 3600)}h`;
   return {
     ...record,
+    recordLocale,
     immutableUrl: urls.immutable_url,
     provenanceUrl: urls.provenance_url,
     trust: {

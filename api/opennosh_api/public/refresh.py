@@ -290,24 +290,41 @@ async def run_latest_pointer_refresh_loop(
     *,
     interval_seconds: float,
 ) -> None:
-    """Run immediately, then on a bounded cadence; any failure exits for Render restart."""
+    """Run immediately, then on a bounded cadence without restarting on cycle failures."""
 
     if interval_seconds <= 0:
         raise ValueError("Latest pointer refresh interval must be positive")
+    consecutive_failures = 0
     try:
         while not shutdown_requested.is_set():
-            result = await service.refresh()
-            logger.info(
-                "Latest pointer refresh completed",
-                extra={
-                    "refreshed": result.refreshed,
-                    "release_version": result.release_version,
-                    "manifest_digest": result.manifest_digest,
-                    "pointer_digest": result.pointer_digest,
-                    "current_expires_at": result.current_expires_at.isoformat(),
-                    "signing_key_id": result.signing_key_id,
-                },
-            )
+            try:
+                result = await service.refresh()
+            except Exception as error:
+                consecutive_failures += 1
+                logger.warning(
+                    "Latest pointer refresh state=retrying error_type=%s "
+                    "consecutive_failures=%d",
+                    type(error).__name__,
+                    consecutive_failures,
+                )
+            else:
+                if consecutive_failures:
+                    logger.warning(
+                        "Latest pointer refresh state=recovered failed_attempts=%d",
+                        consecutive_failures,
+                    )
+                    consecutive_failures = 0
+                logger.info(
+                    "Latest pointer refresh completed",
+                    extra={
+                        "refreshed": result.refreshed,
+                        "release_version": result.release_version,
+                        "manifest_digest": result.manifest_digest,
+                        "pointer_digest": result.pointer_digest,
+                        "current_expires_at": result.current_expires_at.isoformat(),
+                        "signing_key_id": result.signing_key_id,
+                    },
+                )
             try:
                 await asyncio.wait_for(shutdown_requested.wait(), timeout=interval_seconds)
             except TimeoutError:

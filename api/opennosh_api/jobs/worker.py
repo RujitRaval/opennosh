@@ -78,6 +78,10 @@ class PublicationActivationWakeupOutcome(StrEnum):
     TERMINAL = "terminal"
 
 
+class TerminalPublicationActivation(RuntimeError):
+    """A configured one-shot activation has already reached a terminal state."""
+
+
 @dataclass(frozen=True, slots=True)
 class PublicationActivationWakeup:
     outcome: PublicationActivationWakeupOutcome
@@ -86,6 +90,21 @@ class PublicationActivationWakeup:
     active_jobs: int
     eligible: bool
     job_id: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationActivationStatus:
+    publication_id: UUID
+    state: PublicationState
+    pack_id: str
+    record_id: str
+    published_at: datetime | None
+    receipt_digest: str | None
+    receipt_reference: str | None
+
+    @property
+    def terminal(self) -> bool:
+        return self.state in _TERMINAL_PUBLICATION_STATES
 
 
 _TERMINAL_PUBLICATION_STATES = frozenset(
@@ -276,6 +295,37 @@ class PgQueuerRoleDriver:
         if self._run_task is not None:
             await self._run_task
 
+    async def publication_status(self, publication_id: UUID) -> PublicationActivationStatus:
+        """Read one activation through the driver's bounded publication pool."""
+
+        async with self._pool.acquire() as connection:
+            row = await connection.fetchrow(
+                """
+                SELECT p.state, p.pack_id, p.record_id, p.published_at,
+                       receipt.receipt_digest, receipt.artifact_reference
+                FROM publication_intents p
+                LEFT JOIN publication_receipts receipt
+                  ON receipt.publication_intent_id = p.id
+                WHERE p.id = $1
+                """,
+                publication_id,
+            )
+        if row is None:
+            raise LookupError(f"Unknown publication intent: {publication_id}")
+        return PublicationActivationStatus(
+            publication_id=publication_id,
+            state=PublicationState(str(row["state"])),
+            pack_id=str(row["pack_id"]),
+            record_id=str(row["record_id"]),
+            published_at=row["published_at"],
+            receipt_digest=(
+                str(row["receipt_digest"]) if row["receipt_digest"] is not None else None
+            ),
+            receipt_reference=(
+                str(row["artifact_reference"]) if row["artifact_reference"] is not None else None
+            ),
+        )
+
     async def close(self) -> None:
         self._queue.shutdown.set()
         if self._run_task is not None and not self._run_task.done():
@@ -439,7 +489,7 @@ async def create_publication_role_driver(
                 wakeup.eligible,
             )
             if wakeup.outcome is PublicationActivationWakeupOutcome.TERMINAL:
-                raise RuntimeError(
+                raise TerminalPublicationActivation(
                     f"Configured publication activation is already terminal: {wakeup.state.value}"
                 )
         return _assemble_publication_role_driver(
@@ -547,9 +597,7 @@ async def _run_publication_worker(
 ) -> None:
     configured = settings or get_settings()
     code_attestation_enabled = getattr(configured, "governance_code_attestation_enabled", False)
-    commons_canary_enabled = getattr(
-        configured, "public_commons_post_deploy_canary_enabled", False
-    )
+    commons_canary_enabled = getattr(configured, "public_commons_post_deploy_canary_enabled", False)
     if (
         not configured.latest_refresh_enabled
         and not configured.publication_claims_enabled
@@ -584,18 +632,21 @@ async def _run_publication_worker(
         service = refresh_service or create_latest_pointer_refresh_service(configured)
     try:
         if configured.publication_claims_enabled:
-            driver = await create_publication_role_driver(
-                settings=configured,
-                adapters=adapters,
-            )
+            try:
+                driver = await create_publication_role_driver(
+                    settings=configured,
+                    adapters=adapters,
+                )
+            except TerminalPublicationActivation:
+                logger.error(
+                    "Publication claims are idle because the configured activation is terminal"
+                )
         if code_attestation_enabled:
             attestation_clients = (
                 code_attestation_clients
                 or ProductionCodeAttestationClients.from_settings(configured)
             )
-            alert_url = getattr(
-                configured, "governance_code_attestation_alert_webhook_url", None
-            )
+            alert_url = getattr(configured, "governance_code_attestation_alert_webhook_url", None)
             if alert_url is not None:
                 alert_token = getattr(
                     configured, "governance_code_attestation_alert_bearer_token", None
@@ -607,9 +658,7 @@ async def _run_publication_worker(
                     ),
                 )
         if commons_canary_enabled:
-            alert_url = getattr(
-                configured, "governance_code_attestation_alert_webhook_url", None
-            )
+            alert_url = getattr(configured, "governance_code_attestation_alert_webhook_url", None)
             if alert_url is None:
                 raise RuntimeError("Commons post-deploy canary requires an alert webhook")
             commons_canary_expected_commit = getattr(configured, "render_git_commit", None)
@@ -620,9 +669,7 @@ async def _run_publication_worker(
             )
             commons_canary_alert_destination = WebhookCommonsCanaryAlertDestination(
                 alert_url.get_secret_value(),
-                bearer_token=(
-                    alert_token.get_secret_value() if alert_token is not None else None
-                ),
+                bearer_token=(alert_token.get_secret_value() if alert_token is not None else None),
             )
     except BaseException:
         if service is not None:

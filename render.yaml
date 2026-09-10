@@ -57,11 +57,11 @@ services:
       - key: EVIDENCE_SANITIZATION_ENABLED
         value: "false"
       - key: GOVERNANCE_STEWARD_UI_ENABLED
-        value: "false"
+        value: "true"
       - key: GOVERNANCE_MUTATIONS_ENABLED
-        value: "false"
+        value: "true"
       - key: GOVERNANCE_PUBLIC_DECISIONS_ENABLED
-        value: "false"
+        value: "true"
       - key: FEDERATION_SEARCH_ENABLED
         value: "false"
       - key: FEDERATION_INSTALLATION_ENABLED
@@ -240,9 +240,9 @@ services:
       - key: OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED
         value: "false"
       - key: OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED
-        value: "false"
+        value: "true"
       - key: PUBLIC_ARTIFACT_READS_ENABLED
-        value: "false"
+        value: "true"
       - key: OPENNOSH_EMBED_DISCOVERY_ENABLED
         value: "false"
       - key: OPENNOSH_EMBED_FRAME_ANCESTORS

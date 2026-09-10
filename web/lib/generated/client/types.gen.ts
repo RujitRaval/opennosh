@@ -3059,6 +3059,10 @@ export type PublicFoodRecordResponse = {
      */
     provenance_url: string;
     record: PublicFoodRecord;
+    /**
+     * Record Locale
+     */
+    record_locale?: string | null;
     release: PublicReleaseMetadata;
     /**
      * Schema Version
@@ -9866,6 +9870,10 @@ export type LatestFoodApiV1PublicFoodsSourceSourceIdGetData = {
          * Version
          */
         version?: string | null;
+        /**
+         * Include Record Locale
+         */
+        include_record_locale?: boolean;
     };
     url: '/api/v1/public/foods/{source}/{source_id}';
 };
@@ -10209,7 +10217,12 @@ export type ExactFoodApiV1PublicReleasesReleaseVersionFoodsSourceSourceIdGetData
          */
         source_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Include Record Locale
+         */
+        include_record_locale?: boolean;
+    };
     url: '/api/v1/public/releases/{release_version}/foods/{source}/{source_id}';
 };
 

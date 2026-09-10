@@ -312,9 +312,10 @@ export const api = {
     version?: string,
   ) =>
     request<unknown>(
-      `/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}${
-        version ? `?${new URLSearchParams({ version })}` : ""
-      }`,
+      `/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}?${new URLSearchParams({
+        include_record_locale: "true",
+        ...(version ? { version } : {}),
+      })}`,
       { signal },
     ).then((value) => publicFoodDetailResponse(value, foodLocale)),
   lookupBarcode: (barcode: string) =>

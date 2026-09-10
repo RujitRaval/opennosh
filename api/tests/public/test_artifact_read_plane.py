@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import subprocess
 import sys
 import textwrap
+import zipfile
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
@@ -17,6 +19,7 @@ from opennosh_api.database import get_database_session
 from opennosh_api.foods.schemas import FoodSource
 from opennosh_api.main import create_app
 from opennosh_api.public.artifacts import (
+    MAX_YAML_FILE_BYTES,
     ArtifactUnavailableError,
     LocalArtifactStore,
     MemoryArtifactStore,
@@ -25,6 +28,7 @@ from opennosh_api.public.artifacts import (
     PublicPackArtifact,
     PublicReadLatestPointer,
     PublicReadReleaseManifest,
+    _locale_from_pack_archive,
     activate_verified_release,
     artifact_descriptor,
 )
@@ -85,7 +89,29 @@ RECORD = canonical_json(
     }
 )
 PROVENANCE = b"<!doctype html><title>Rajma provenance</title><p>Verified evidence.</p>"
-PACK = b"PK\x03\x04signed-pack-fixture"
+
+
+def _pack_archive() -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "pack.yaml",
+            "id: north-india-home-foods\nversion: 2.4.0\nlocale: en-IN\nlicense: CC0-1.0\n",
+        )
+        archive.writestr("foods/rajma-masala.yaml", "foods: []\n")
+    return buffer.getvalue()
+
+
+PACK = _pack_archive()
+
+
+def _manifest_archive(*manifests: bytes, compression: int = zipfile.ZIP_DEFLATED) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=compression) as archive:
+        for index, payload in enumerate(manifests):
+            name = "pack.yaml" if index == 0 else f"nested-{index}/../pack.yaml"
+            archive.writestr(name, payload)
+    return buffer.getvalue()
 
 
 def _sign(payload: dict[str, object]) -> bytes:
@@ -240,6 +266,7 @@ async def test_exact_release_survives_without_fastapi_or_postgresql(tmp_path: Pa
     manifest, _ = await service.signed_manifest(RELEASE)
 
     assert food.record.name == "Rajma masala"
+    assert food.record_locale == "en-IN"
     assert (
         hashlib.sha256(canonical_json(food.record.model_dump(mode="json"))).hexdigest()
         == hashlib.sha256(RECORD).hexdigest()
@@ -249,6 +276,79 @@ async def test_exact_release_survives_without_fastapi_or_postgresql(tmp_path: Pa
     assert provenance == PROVENANCE
     assert pack == PACK
     assert hashlib.sha256(manifest).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_food_reads_share_one_verified_pack_locale_read(tmp_path: Path) -> None:
+    service, store = await _published(tmp_path)
+    release = await service.resolve_release(release_version=RELEASE)
+    pack_key = release.manifest.packs[0].download.object_key
+    original_read = store.read
+    pack_reads = 0
+
+    async def counted_read(object_key: str, *, max_bytes: int) -> bytes | None:
+        nonlocal pack_reads
+        if object_key == pack_key:
+            pack_reads += 1
+            await asyncio.sleep(0)
+        return await original_read(object_key, max_bytes=max_bytes)
+
+    store.read = counted_read  # type: ignore[method-assign]
+
+    results = await asyncio.gather(
+        *(
+            service.food(FoodSource.COMMUNITY, "rajma-masala", release_version=RELEASE)
+            for _ in range(8)
+        )
+    )
+
+    assert {result.record_locale for result in results} == {"en-IN"}
+    assert pack_reads == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"id: different-pack\nversion: 2.4.0\nlocale: en-IN\n",
+        b"id: north-india-home-foods\nversion: 9.9.9\nlocale: en-IN\n",
+        b"id: north-india-home-foods\nversion: 2.4.0\nlocale: invalid locale\n",
+    ],
+)
+def test_pack_locale_rejects_manifest_identity_or_locale_mismatch(payload: bytes) -> None:
+    with pytest.raises(ArtifactUnavailableError, match="food_record_locale_unavailable"):
+        _locale_from_pack_archive(
+            _manifest_archive(payload),
+            pack_id="north-india-home-foods",
+            pack_version="2.4.0",
+        )
+
+
+def test_pack_locale_rejects_missing_or_oversized_manifest() -> None:
+    for payload in (
+        _manifest_archive(),
+        _manifest_archive(b"x" * (MAX_YAML_FILE_BYTES + 1)),
+    ):
+        with pytest.raises(ArtifactUnavailableError, match="food_record_locale_unavailable"):
+            _locale_from_pack_archive(
+                payload,
+                pack_id="north-india-home-foods",
+                pack_version="2.4.0",
+            )
+
+
+def test_pack_locale_rejects_duplicate_root_manifest() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("pack.yaml", b"id: north-india-home-foods\nversion: 2.4.0\n")
+        with pytest.warns(UserWarning, match="Duplicate name"):
+            archive.writestr("pack.yaml", b"id: different-pack\nversion: 2.4.0\n")
+
+    with pytest.raises(ArtifactUnavailableError, match="food_record_locale_unavailable"):
+        _locale_from_pack_archive(
+            buffer.getvalue(),
+            pack_id="north-india-home-foods",
+            pack_version="2.4.0",
+        )
 
 
 @pytest.mark.asyncio
@@ -491,6 +591,10 @@ def test_public_routes_do_not_acquire_a_database_session(tmp_path: Path) -> None
 
     with TestClient(app) as client:
         record = client.get(f"/api/v1/public/releases/{RELEASE}/foods/community/rajma-masala")
+        record_with_locale = client.get(
+            f"/api/v1/public/releases/{RELEASE}/foods/community/rajma-masala",
+            params={"include_record_locale": "true"},
+        )
         provenance = client.get(
             f"/api/v1/public/releases/{RELEASE}/foods/community/rajma-masala/provenance"
         )
@@ -502,6 +606,8 @@ def test_public_routes_do_not_acquire_a_database_session(tmp_path: Path) -> None
     assert database_calls == 0
     assert record.status_code == 200
     assert record.json()["record"]["name"] == "Rajma masala"
+    assert "record_locale" not in record.json()
+    assert record_with_locale.json()["record_locale"] == "en-IN"
     assert record.headers["cache-control"] == "public, max-age=31536000, immutable"
     assert provenance.content == PROVENANCE
     assert "default-src 'none'" in provenance.headers["content-security-policy"]

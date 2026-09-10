@@ -253,7 +253,7 @@ describe("browser API client", () => {
     );
 
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      "/api/v1/public/foods/community/rajma-masala?version=0.52.0.0",
+      "/api/v1/public/foods/community/rajma-masala?include_record_locale=true&version=0.52.0.0",
     );
     expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
     expect(record.foodLocalePreference).toBe("hi-IN");

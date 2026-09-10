@@ -32,6 +32,7 @@ from deploy.render_runtime import (
     run_api,
     run_natural_publication_proof,
     run_natural_publication_readiness,
+    run_owner_publication,
     run_predeploy,
     run_publication,
     run_publication_readiness,
@@ -282,6 +283,20 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     }
     assert web_variables["PUBLIC_ARTIFACT_READS_ENABLED"] == {
         "key": "PUBLIC_ARTIFACT_READS_ENABLED",
+        "value": "true",
+    }
+    assert web_variables["OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED"] == {
+        "key": "OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED",
+        "value": "true",
+    }
+    for key in (
+        "GOVERNANCE_STEWARD_UI_ENABLED",
+        "GOVERNANCE_MUTATIONS_ENABLED",
+        "GOVERNANCE_PUBLIC_DECISIONS_ENABLED",
+    ):
+        assert api_variables[key] == {"key": key, "value": "true"}
+    assert api_variables["EVIDENCE_UPLOADS_ENABLED"] == {
+        "key": "EVIDENCE_UPLOADS_ENABLED",
         "value": "false",
     }
     assert web_variables["OPENNOSH_EMBED_DISCOVERY_ENABLED"] == {
@@ -370,6 +385,8 @@ def test_render_blueprint_links_release_control_and_refresh_credentials_to_worke
         "opennosh-r2-writer",
     }
     assert variables["PUBLICATION_CLAIMS_ENABLED"]["value"] == "false"
+    assert variables["PUBLICATION_CONTINUOUS_CLAIMS_ENABLED"]["value"] == "false"
+    assert "PUBLICATION_ACTIVATION_IDS" not in variables
     assert variables["PUBLICATION_PREACTIVATION_SMOKE_ENABLED"]["value"] == "false"
     assert variables["GOVERNANCE_CODE_ATTESTATION_ENABLED"]["value"] == "true"
     assert variables["GOVERNANCE_CODE_ATTESTATION_INTERVAL_SECONDS"]["value"] == "30"
@@ -756,6 +773,8 @@ def test_render_readiness_uses_publication_role_without_enabling_claims(
     assert isinstance(environment, dict)
     assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
     assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert environment["ONLINE_RECEIPT_SIGNING_KEY"] == "receipt-private"
+    assert environment["PUBLICATION_ARTIFACT_BUCKET"] == "opennosh-public-commons"
     assert "RENDER_DATABASE_URL" not in environment
     assert options["check"] is True
 
@@ -799,6 +818,74 @@ def test_render_natural_proof_refuses_claims_enabled() -> None:
         run_natural_publication_proof(
             _claims_environment(),
             request_file="/tmp/natural-proof.json",
+        )
+
+
+def test_render_owner_publication_uses_bounded_role_without_persistent_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    captured: dict[str, object] = {}
+
+    def run(command: list[str], **options: object) -> None:
+        captured["command"] = command
+        captured["options"] = options
+
+    monkeypatch.setattr("deploy.render_runtime.subprocess.run", run)
+
+    run_owner_publication(
+        source,
+        actor_id="00000000-0000-4000-8000-000000000002",
+        pack_id="indian-sweets",
+        timeout_seconds=900,
+    )
+
+    assert captured["command"] == [
+        "opennosh",
+        "commons",
+        "run-owner-publication",
+        "--actor-id",
+        "00000000-0000-4000-8000-000000000002",
+        "--pack-id",
+        "indian-sweets",
+        "--timeout-seconds",
+        "900",
+        "--json",
+    ]
+    options = captured["options"]
+    assert isinstance(options, dict)
+    environment = options["env"]
+    assert isinstance(environment, dict)
+    assert environment["PUBLICATION_CLAIMS_ENABLED"] == "false"
+    assert make_url(environment["PUBLICATION_DATABASE_URL"]).username == PUBLICATION_ROLE
+    assert environment["ONLINE_RECEIPT_SIGNING_KEY"] == "receipt-private"
+    assert environment["PUBLICATION_ARTIFACT_BUCKET"] == "opennosh-public-commons"
+    assert "RENDER_DATABASE_URL" not in environment
+    assert "PUBLICATION_DATABASE_PASSWORD" not in environment
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("PUBLICATION_CLAIMS_ENABLED", "true"),
+        ("PUBLICATION_CONTINUOUS_CLAIMS_ENABLED", "true"),
+        ("PUBLICATION_ACTIVATION_IDS", "11111111-1111-4111-8111-111111111111"),
+    ],
+)
+def test_render_owner_publication_refuses_persistent_claims(key: str, value: str) -> None:
+    source = _claims_environment()
+    source["PUBLICATION_CLAIMS_ENABLED"] = "false"
+    source.pop("PUBLICATION_ACTIVATION_IDS")
+    source[key] = value
+
+    with pytest.raises(ValueError, match="persistent claims disabled"):
+        run_owner_publication(
+            source,
+            actor_id="00000000-0000-4000-8000-000000000002",
+            pack_id="indian-sweets",
+            timeout_seconds=900,
         )
 
 

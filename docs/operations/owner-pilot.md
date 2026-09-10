@@ -55,14 +55,33 @@ historical meaning after later revocation.
 5. Open the case in the steward queue. The owner notice explains that both actions
    belong to the same account. Claim the case and approve the exact candidate pack
    files and current base commit, with a factual review reason.
-6. Activate only that publication intent using the existing bounded activation
-   mechanism. Keep continuous claims disabled. Follow all protected merge checks.
+6. Leave the long-running worker's claim flags disabled. In the Render publication
+   worker shell, run the bounded owner command with the same actor and pack:
+
+   ```sh
+   python deploy/render_runtime.py owner-publication \
+     --actor-id ACTUAL_ACCOUNT_UUID \
+     --pack-id PACK_ID
+   ```
+
+   The command reads at most two candidates and continues only when exactly one
+   nonterminal publication has a complete same-actor owner lineage. It enables
+   claims only inside that process for the selected immutable intent, runs the
+   existing evidence, exact-head, protected-check, attestation, signing, receipt,
+   and pointer checks, prints a redacted terminal report, and exits. It never
+   changes the Render environment or scans unrelated queued records.
 
 The public decision exposes `approval_mode: owner` and both actor IDs. Its signed
 publication receipt uses `approving_actor_scope: pack:PACK_ID:owner`, preserving the
 existing receipt format. Existing independent receipts keep their original scope.
 Verify the signature, decision/draft lineage, merged pack data, public artifacts,
 and final Commons state before calling the live contribution published.
+
+If the command returns `blocked`, `failed`, `publish_blocked`, or `quarantined`,
+keep the original history and resolve the reported governance or provider cause.
+If it reports zero or multiple candidates, inspect the owner queue and identify
+one exact record before retrying; never relax the selector or enable continuous
+claims to clear a backlog.
 
 The new migration deliberately refuses rollback when owner decisions or citation
 copies exist. Do not delete this history to force a downgrade; apply a forward fix.

@@ -34,6 +34,7 @@ describe("public food record adapter", () => {
           state: "verified",
           stale_age_seconds: 0,
         },
+        record_locale: "en-IN",
         immutable_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala",
         provenance_url: "/api/v1/public/releases/0.52.0.0/foods/community/rajma-masala/provenance",
       },
@@ -45,6 +46,8 @@ describe("public food record adapter", () => {
       version: "0.52.0.0",
       lastVerified: "2026-08-25T12:00:00Z",
     });
+    expect(record.recordLocale).toBe("en-IN");
+    expect(record.foodLocalePreference).toBe("hi-IN");
     expect(record.immutableUrl).toContain("/releases/0.52.0.0/");
     expect(record.provenanceUrl?.endsWith("/provenance")).toBe(true);
   });

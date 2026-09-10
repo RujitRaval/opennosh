@@ -22,6 +22,17 @@ OBSERVED_AT = datetime(2026, 9, 1, 23, 30, tzinfo=UTC)
 COMMIT = "0" * 40
 
 
+def disabled_blueprint(tmp_path: Path) -> Path:
+    blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+    for service in blueprint["services"]:
+        for variable in service.get("envVars", []):
+            if variable.get("value") == "true":
+                variable["value"] = "false"
+    path = tmp_path / "render-disabled.yaml"
+    path.write_text(yaml.safe_dump(blueprint), encoding="utf-8")
+    return path
+
+
 def settings() -> Settings:
     return Settings.model_construct(
         app_environment="production",
@@ -50,7 +61,9 @@ def claims_report() -> dict[str, object]:
     }
 
 
-def test_disabled_readiness_is_deterministic_and_binds_activation_contract() -> None:
+def test_disabled_readiness_is_deterministic_and_binds_activation_contract(
+    tmp_path: Path,
+) -> None:
     contract = load_natural_activation_contract(
         ROOT / "config/natural-publication-proof-activation.v1.json"
     )
@@ -58,14 +71,14 @@ def test_disabled_readiness_is_deterministic_and_binds_activation_contract() -> 
     first = build_natural_publication_readiness(
         settings(),
         claims_report(),
-        blueprint_path=ROOT / "render.yaml",
+        blueprint_path=disabled_blueprint(tmp_path),
         contract=contract,
         observed_at=OBSERVED_AT,
     )
     second = build_natural_publication_readiness(
         settings(),
         claims_report(),
-        blueprint_path=ROOT / "render.yaml",
+        blueprint_path=disabled_blueprint(tmp_path),
         contract=contract,
         observed_at=OBSERVED_AT,
     )
@@ -137,7 +150,7 @@ def test_readiness_blocks_if_any_production_surface_is_enabled(
     key: str,
     failure: str,
 ) -> None:
-    blueprint = yaml.safe_load((ROOT / "render.yaml").read_text(encoding="utf-8"))
+    blueprint = yaml.safe_load(disabled_blueprint(tmp_path).read_text(encoding="utf-8"))
     target = next(item for item in blueprint["services"] if item["name"] == service)
     variable = next(item for item in target["envVars"] if item.get("key") == key)
     variable["value"] = "true"
@@ -158,7 +171,7 @@ def test_readiness_blocks_if_any_production_surface_is_enabled(
     assert failure in report["failures"]
 
 
-def test_readiness_blocks_non_idle_queue_and_claims_probe() -> None:
+def test_readiness_blocks_non_idle_queue_and_claims_probe(tmp_path: Path) -> None:
     claims = claims_report()
     claims["status"] = "blocked"
     claims["queue"] = {"active": 1, "picked": 1, "claimable": 1}
@@ -166,7 +179,7 @@ def test_readiness_blocks_non_idle_queue_and_claims_probe() -> None:
     report = build_natural_publication_readiness(
         settings(),
         claims,
-        blueprint_path=ROOT / "render.yaml",
+        blueprint_path=disabled_blueprint(tmp_path),
         contract=load_natural_activation_contract(
             ROOT / "config/natural-publication-proof-activation.v1.json"
         ),
@@ -252,6 +265,7 @@ def test_readiness_rejects_naive_time_and_runtime_drift() -> None:
 @pytest.mark.asyncio
 async def test_readiness_collector_reuses_one_observation(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     observed: list[datetime] = []
 
@@ -264,7 +278,7 @@ async def test_readiness_collector_reuses_one_observation(
         collect,
     )
     report = await collect_natural_publication_readiness(
-        settings(), blueprint_path=ROOT / "render.yaml", observed_at=OBSERVED_AT
+        settings(), blueprint_path=disabled_blueprint(tmp_path), observed_at=OBSERVED_AT
     )
 
     assert report["status"] == "ready"

@@ -39,9 +39,10 @@ export async function loadPublicFoodRecord({
   try {
     const response = await fetch(
       artifactReadsEnabled
-        ? `${apiOrigin}/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}${
-            releaseVersion ? `?${new URLSearchParams({ version: releaseVersion })}` : ""
-          }`
+        ? `${apiOrigin}/api/v1/public/foods/${source}/${encodeURIComponent(sourceId)}?${new URLSearchParams({
+            include_record_locale: "true",
+            ...(releaseVersion ? { version: releaseVersion } : {}),
+          })}`
         : `${apiOrigin}/api/v1/foods/${source}/${encodeURIComponent(sourceId)}`,
       {
         headers: requestHeaders,

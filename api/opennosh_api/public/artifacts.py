@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import fcntl
 import hashlib
+import io
 import json
 import os
 import re
 import tempfile
+import zipfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -17,6 +19,7 @@ from urllib.parse import quote
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from opennosh_api.foodpacks.validation import MAX_YAML_FILE_BYTES, parse_pack_manifest
 from opennosh_api.foods.schemas import FoodSource
 from opennosh_api.nutrition import HouseholdPortion
 from opennosh_api.public_commons.manifests import (
@@ -41,6 +44,7 @@ MAX_PACK_BYTES = 64 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _OBJECT_KEY = re.compile(r"^[a-z0-9][a-z0-9/._-]{0,1023}$")
 _VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$")
+_FOOD_LOCALE = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 
 
 class ArtifactReadError(RuntimeError):
@@ -217,6 +221,9 @@ class PublicFoodRecordResponse(BaseModel):
 
     schema_version: Literal["1.0"] = "1.0"
     record: PublicFoodRecord
+    record_locale: (
+        Annotated[str, Field(pattern=r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")] | None
+    ) = None
     release: PublicReleaseMetadata
     immutable_url: str
     provenance_url: str
@@ -410,6 +417,7 @@ class PublicArtifactReadService:
         self._checkpoint_lock = asyncio.Lock()
         self._pack_semaphore = asyncio.Semaphore(1)
         self._release_cache: OrderedDict[tuple[str, str], ResolvedRelease] = OrderedDict()
+        self._pack_locale_cache: OrderedDict[tuple[str, str, str], str] = OrderedDict()
 
     async def aclose(self) -> None:
         if self._store is not None:
@@ -443,13 +451,64 @@ class PublicArtifactReadService:
             raise ArtifactUnavailableError("food_record_invalid") from error
         if record.source is not source or record.source_id != source_id:
             raise ArtifactUnavailableError("food_record_identity_mismatch")
+        record_locale = await self._record_locale(record, release)
         base = f"/api/v1/public/releases/{release.manifest.release_version}"
         return PublicFoodRecordResponse(
             record=record,
+            record_locale=record_locale,
             release=release.metadata,
             immutable_url=f"{base}/foods/{source.value}/{source_id}",
             provenance_url=f"{base}/foods/{source.value}/{source_id}/provenance",
         )
+
+    async def _record_locale(
+        self,
+        record: PublicFoodRecord,
+        release: ResolvedRelease,
+    ) -> str | None:
+        attribution = record.attribution
+        if (
+            record.source is not FoodSource.COMMUNITY
+            or attribution.pack_id is None
+            or attribution.pack_version is None
+        ):
+            return None
+        cache_key = (
+            release.manifest.release_version,
+            attribution.pack_id,
+            attribution.pack_version,
+        )
+        cached = self._pack_locale_cache.get(cache_key)
+        if cached is not None:
+            self._pack_locale_cache.move_to_end(cache_key)
+            return cached
+        pack = next(
+            (
+                item
+                for item in release.manifest.packs
+                if item.pack_id == attribution.pack_id
+                and item.pack_version == attribution.pack_version
+            ),
+            None,
+        )
+        if pack is None:
+            return None
+        async with self._pack_semaphore:
+            cached = self._pack_locale_cache.get(cache_key)
+            if cached is not None:
+                self._pack_locale_cache.move_to_end(cache_key)
+                return cached
+            payload = await self._verified_read(pack.download, max_bytes=MAX_PACK_BYTES)
+            locale = _locale_from_pack_archive(
+                payload,
+                pack_id=attribution.pack_id,
+                pack_version=attribution.pack_version,
+            )
+            self._pack_locale_cache[cache_key] = locale
+            self._pack_locale_cache.move_to_end(cache_key)
+            while len(self._pack_locale_cache) > 64:
+                self._pack_locale_cache.popitem(last=False)
+            return locale
 
     async def provenance(
         self, source: FoodSource, source_id: str, *, release_version: str
@@ -549,9 +608,7 @@ class PublicArtifactReadService:
         exact: bool,
     ) -> ResolvedRelease:
         cache_key = (expected_version, "exact" if exact else descriptor.digest)
-        cached = (
-            self._release_cache.get(cache_key) if self._max_cached_releases > 0 else None
-        )
+        cached = self._release_cache.get(cache_key) if self._max_cached_releases > 0 else None
         if cached is not None:
             self._release_cache.move_to_end(cache_key)
             return cached
@@ -810,6 +867,41 @@ def _copy_release_digest(receipt: PublicationReceipt) -> str | None:
         ),
         None,
     )
+
+
+def _locale_from_pack_archive(payload: bytes, *, pack_id: str, pack_version: str) -> str:
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            manifests = [item for item in archive.infolist() if item.filename == "pack.yaml"]
+            if len(manifests) != 1:
+                raise ValueError("pack manifest missing or duplicated")
+            manifest = manifests[0]
+            if (
+                manifest.is_dir()
+                or manifest.flag_bits & 0x1
+                or manifest.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}
+                or manifest.file_size > MAX_YAML_FILE_BYTES
+            ):
+                raise ValueError("pack manifest is unsafe")
+            with archive.open(manifest) as handle:
+                manifest_bytes = handle.read(MAX_YAML_FILE_BYTES + 1)
+            if (
+                len(manifest_bytes) != manifest.file_size
+                or len(manifest_bytes) > MAX_YAML_FILE_BYTES
+            ):
+                raise ValueError("pack manifest is too large")
+            document = parse_pack_manifest(manifest_bytes.decode("utf-8", errors="strict"))
+    except (OSError, RuntimeError, UnicodeDecodeError, ValueError, zipfile.BadZipFile) as error:
+        raise ArtifactUnavailableError("food_record_locale_unavailable") from error
+    locale = document.get("locale")
+    if (
+        document.get("id") != pack_id
+        or str(document.get("version")) != pack_version
+        or not isinstance(locale, str)
+        or not _FOOD_LOCALE.fullmatch(locale)
+    ):
+        raise ArtifactUnavailableError("food_record_locale_unavailable")
+    return locale
 
 
 def artifact_descriptor(object_key: str, payload: bytes, media_type: str) -> ArtifactDescriptor:

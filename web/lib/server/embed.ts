@@ -108,9 +108,10 @@ async function loadRecord(input: EmbedRequest): Promise<LoadedRecord | "not-foun
 
   const apiOrigin = (process.env.API_URL ?? "http://localhost:8000").replace(/\/$/, "");
   const encodedId = encodeURIComponent(input.sourceId);
-  const path = input.releaseVersion
+  const recordPath = input.releaseVersion
     ? `/api/v1/public/releases/${input.releaseVersion}/foods/${input.source}/${encodedId}`
     : `/api/v1/public/foods/${input.source}/${encodedId}`;
+  const path = `${recordPath}?include_record_locale=true`;
   try {
     const response = await fetch(`${apiOrigin}${path}`, {
       cache: "no-store",
