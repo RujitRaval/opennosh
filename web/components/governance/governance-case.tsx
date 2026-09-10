@@ -159,6 +159,7 @@ export function GovernanceCase({ reviewCaseId }: { reviewCaseId: string }) {
 type ActionRunner = (action: () => Promise<unknown>) => Promise<void>;
 
 function StewardActions({ reviewCase, busy, run }: { reviewCase: GovernanceReviewCase; busy: boolean; run: ActionRunner }) {
+  const [fileCount, setFileCount] = useState(1);
   function decide(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -176,7 +177,9 @@ function StewardActions({ reviewCase, busy, run }: { reviewCase: GovernanceRevie
       pack_id: reviewCase.pack_id,
       record_id: String(data.get("record_id")),
       expected_base_commit: String(data.get("expected_base_commit")),
-      files: [{ path: String(data.get("path")), content: String(data.get("content")) }],
+      files: data.getAll("path").map((path, index) => ({
+        path: String(path), content: String(data.getAll("content")[index]),
+      })),
       reason: String(data.get("reason")),
     }));
   }
@@ -191,8 +194,12 @@ function StewardActions({ reviewCase, busy, run }: { reviewCase: GovernanceRevie
       <h3>Approve through protected publication</h3>
       <label>Record ID<input name="record_id" required maxLength={160} /></label>
       <label>Expected base commit<input name="expected_base_commit" required pattern="[0-9a-f]{40}([0-9a-f]{24})?" /></label>
-      <label>Governed file path<input name="path" required defaultValue={`packs/${reviewCase.pack_id}/foods/`} /></label>
-      <label>Reviewed file content<textarea name="content" required /></label>
+      {Array.from({ length: fileCount }, (_, index) => <div key={index}>
+        <label>{index === 0 ? "Governed file path" : `Governed file path ${index + 1}`}<input name="path" required defaultValue={index === 0 ? `packs/${reviewCase.pack_id}/foods/` : `packs/${reviewCase.pack_id}/`} /></label>
+        <label>{index === 0 ? "Reviewed file content" : `Reviewed file content ${index + 1}`}<textarea name="content" required /></label>
+      </div>)}
+      <button type="button" disabled={busy || fileCount >= 32} onClick={() => setFileCount((count) => count + 1)}>Add another reviewed file</button>
+      {fileCount > 1 ? <button type="button" disabled={busy} onClick={() => setFileCount((count) => count - 1)}>Remove last file</button> : null}
       <label>Public-safe reason<textarea name="reason" required maxLength={2000} /></label>
       <button disabled={busy}>Approve and enqueue publication</button>
     </form>

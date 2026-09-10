@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "runtimeImage": "mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e",
-  "generatedAt": "2026-09-08T02:53:16.456Z",
+  "generatedAt": "2026-09-10T15:33:04.335Z",
   "approval": {
-    "reason": "USDA FNDDS activation raises the governed reference-food count from 8,073 to 13,497.",
-    "designDecision": "No layout or styling decision changed; the Explore hub must display the truthful governed catalog count.",
-    "reviewerAcknowledgement": "Rujit Raval authorized this release and its production data activation in the current task."
+    "reason": "Add reference-only source rights for the existing-budget citation contribution workflow.",
+    "designDecision": "The fourth source-rights option fills the existing grid cell; inspection confirmed no other layout changes.",
+    "reviewerAcknowledgement": "Codex inspected the actual screen and pixel diff from CI run 34495790790 for the user-authorized owner contribution workflow."
   },
   "releaseBlockingPatterns": [
     "**/logo-colorways.png",
@@ -21,7 +21,7 @@
     "desktop-1440/contribution-details.png": "458ad37739ba134cb35e58d35966b6ed9a4c347852c1f7cd27f18f492957aae0",
     "desktop-1440/contribution-duplicates.png": "d1322e8d16b24c5a72dd5f388dd257d21e341a21f4a7152e4dd5c136fd3102bb",
     "desktop-1440/contribution-evidence.png": "0810d31a17b3db84e71e2eba9e0fcf113b8e5584246032f14ad2ef01ce970dee",
-    "desktop-1440/contribution-provenance.png": "cd8e04283848c693b9254c02be1ec9fad3b949eb22d22871efa120ddaaacb8f1",
+    "desktop-1440/contribution-provenance.png": "be6de1bd4e0a58ffcb855e1956a4305dfccc9e1391c5a87de2c91fe18c170637",
     "desktop-1440/contribution-repair.png": "60afa0457e1c03a28d5cec96ef54cd9f0a75ee4a159875d04be24145c72fe4dc",
     "desktop-1440/contribution-review.png": "affd6c90de33318e38fb1c4611d8fefce54f146d05d6057448b86c4dd1e60b3e",
     "desktop-1440/contribution-validation.png": "6a424f046a11f547f6fddcd5e59515d02d905599cd3a3d12c1d4f02bee9ea6e6",
