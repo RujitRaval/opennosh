@@ -2,9 +2,11 @@
 
 T2 makes a scoped steward approval the only routine human authorization for a pack change. The
 approval transaction records the exact files and digest, expected base commit, required checks,
-steward identity, and forge target before it wakes publication. A contributor cannot approve their
-own draft. Recusal, steward revocation, and the audited emergency pause are checked at approval and
-again against the merge time.
+steward identity, and forge target before it wakes publication. A contributor can approve their
+own draft only with an active exact-account, exact-pack owner authorization and ordinary steward
+role, recorded as owner approval. Independent review still rejects self-review. Recusal, authority
+revocation, and the audited emergency pause are checked at approval and again against the merge
+time. See the [owner-operated pilot](owner-pilot.md) for authorization and audit details.
 
 The publication worker uses a forge GitHub App with only metadata read, checks read, contents write,
 and pull-request write permissions. It cannot administer the repository, push to `main`, bypass rules,

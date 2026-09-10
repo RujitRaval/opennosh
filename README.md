@@ -423,7 +423,8 @@ POST  /api/v1/contribution-drafts/{draft_id}/submit
 Create, patch, and submit require the session CSRF token. Patches carry the expected draft version,
 a unique operation ID, and at most 25 field changes; submit carries the expected version, an
 idempotency key, and the complete typed evidence manifest. The submitted version, manifest, and
-preservation wake-up commit atomically; review never begins without that exact evidence. Every
+preservation handoff commit atomically; reference-only citations are preserved in that transaction,
+while other evidence classes enqueue their worker. Review never begins without that exact evidence. Every
 response is a capability document containing completed and accessible
 stages, blockers, the repaired safe stage, duplicate candidates, and the receipt when submitted.
 See [the contribution contract](docs/api-contracts.md#contribution-draft-contract).
@@ -436,10 +437,12 @@ preserved primary evidence. Authenticated clients may replay the exact manifest 
 idempotent evidence attachment endpoint and read its current public state. See the
 [evidence durability contract](docs/evidence-durability.md).
 
-The public browser can prepare and retain a device draft, but review handoff remains visibly
-disabled until the separately gated trusted upload/object-storage service and evidence worker are
-active. opennosh does not place browser proposals without complete typed evidence into the review
-queue. T34.2 adds the disabled camera/file journey, hostile-image rewrite, malware-scan port,
+The public browser can submit public-document citations with `reference-only` source rights.
+The existing database preserves and verifies at most 8 KiB of citation metadata per version;
+this path does not download, archive, or scan the source. The
+[owner-operated pilot](docs/operations/owner-pilot.md) documents exact-account authorization,
+truthful owner approval, and bounded publication. Other browser evidence handoffs remain gated.
+T34.2 adds the disabled camera/file journey, hostile-image rewrite, malware-scan port,
 exact-version attach, and immutable preservation path. Browser persistence contains only the opaque
 upload ID, safe state, source description, and redaction choice—never bytes, filenames, upload URLs,
 or capabilities. The committed Render topology, evidence replica count, navigation, and production
@@ -940,6 +943,7 @@ diagnostic reruns only collect evidence. See [Testing](docs/testing.md#risk-tier
 | `docs/operations/governed-forge.md` | Steward approval, protected-merge trust boundary, two-App permissions, activation, intervention, and recovery runbook | Operators + security reviewers |
 | `docs/operations/render-production.md` | Render deployment, isolated worker credentials, publication activation, federation enrollment, and live failure-drill ceremonies | Operators + security reviewers |
 | `docs/governance-stewardship.md` | Accountable review, dispute, appeal, activation, and rollback contract | Stewards + operators |
+| `docs/operations/owner-pilot.md` | Exact-account owner authorization, reference-only citation submission, bounded publication, and audit history | Pack owners + operators |
 | `DESIGN.md` | Living Commons brand, interface, accessibility, motion, and production asset contract | Designers + frontend contributors |
 | `docs/designs/opennosh-full-movement-platform.md` | Finalized public-platform vision, release trains, trust boundaries, and implementation sequence | Product, design, and engineering contributors |
 | `docs/designs/commons-missions.md` | Versioned Commons mission lifecycle, accepted-activity projection, trust boundaries, and activation gates | Product, backend, and release contributors |

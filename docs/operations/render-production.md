@@ -627,7 +627,9 @@ The command must preserve the terminal intent, create exactly one lineage-bound 
 and pending intent, rebind the same verified payload and evidence to the fresh base, and enqueue one
 activation wake-up. An identical retry is idempotent; a conflicting second successor fails closed.
 Active intervention, committed merge authorization, publication pause, missing steward authority,
-self-review, or recusal also fails closed. Save the redacted JSON receipt and confirm the predecessor
+self-review without an active exact-account, exact-pack owner authorization, or recusal also fails
+closed. The [owner-operated pilot](owner-pilot.md) records that authorization and owner approval
+explicitly. Save the redacted JSON receipt and confirm the predecessor
 is still terminal before proceeding. Keep `PUBLICATION_CLAIMS_ENABLED=false` and
 `PUBLICATION_ACTIVATION_IDS` unset until the new intent UUID has been independently reviewed and is
 the sole value selected through the activation ceremony above. Never select the terminal UUID.
@@ -1115,7 +1117,7 @@ PYTHONPATH=api:. python scripts/check_publication_readiness.py /tmp/publication-
 ```
 
 The report is acceptable only when the schema validator and recomputed digest pass, the deployed
-commit is exact, `living_commons.expected_migration_head` equals `20260907_0038`,
+commit is exact, `living_commons.expected_migration_head` equals `20260910_0041`,
 `living_commons.all_capabilities_disabled` is true, and every runtime flag above remains false.
 This verification does not authorize activation.
 
