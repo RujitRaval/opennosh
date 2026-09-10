@@ -21,6 +21,12 @@ count, preview policy, or database exposure requires a reviewed pull request and
 review. The disk intentionally trades zero-downtime API deploys and horizontal API scaling for the
 smallest independent durable checkpoint in this bounded release.
 
+The current [owner-pilot configuration](owner-pilot.md#authorize-the-actual-owner) enables the
+governance API, mutations, public decisions, web steward UI, and signed public artifact reads.
+Persistent publication claims and continuous claims remain false, activation IDs remain absent,
+and evidence uploads/sanitization remain false. The disabled T32/T34 ceremonies below describe
+the initial rollout and the controls for new deployments, rather than the current Blueprint values.
+
 ## Provisioning
 
 1. Merge the reviewed Blueprint change only after repository CI passes.
@@ -361,6 +367,10 @@ inside Render's 30-second shutdown window. Any validation, signing, upload, or r
 is logged as `state=retrying` and retried on the hourly refresh cadence without restarting the
 worker. A later success is logged as `state=recovered`. Contribution claims, forge access,
 governance attestation, and database access remain disabled until later T33 slices.
+
+If an old one-shot activation ID is already terminal at startup, claims stay idle and the worker
+logs that state while continuing enabled refresh, attestation, and Commons monitoring. Clear the
+terminal activation ID and keep persistent claims disabled before using the owner command.
 
 #### 1. Create an independent online signing identity
 

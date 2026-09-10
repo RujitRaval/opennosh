@@ -21,8 +21,14 @@ gates remain disabled until those separate capabilities are configured.
 
 ## Authorize the actual owner
 
-Keep feature activation and publication claims disabled until the deployment and
-readiness checks pass. Obtain the actual account UUID from the authenticated
+The current Render Blueprint enables the governance API, mutations, public decisions,
+web steward interface, and signed public artifact reads. It sets
+`GOVERNANCE_STEWARD_UI_ENABLED`, `GOVERNANCE_MUTATIONS_ENABLED`,
+`GOVERNANCE_PUBLIC_DECISIONS_ENABLED`, `OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED`,
+and `PUBLIC_ARTIFACT_READS_ENABLED` to `true`. Both publication-claim flags remain
+`false`, `PUBLICATION_ACTIVATION_IDS` stays absent, and upload/sanitization flags
+remain `false`. New deployments must complete readiness checks before activation.
+Obtain the actual account UUID from the authenticated
 account; never create a second identity to satisfy review checks. Record an ordinary
 active steward grant for the exact pack through the existing audited governance
 service. Then, with the migration database role:
@@ -71,6 +77,12 @@ historical meaning after later revocation.
    and pointer checks, prints a redacted terminal report, and exits. It never
    changes the Render environment or scans unrelated queued records.
 
+   `--timeout-seconds` defaults to 900 and bounds selection, startup, and polling;
+   the worker then performs its bounded shutdown drain. A timeout exits nonzero
+   without deleting the intent or its history. The direct application command is
+   `opennosh commons run-owner-publication --actor-id ACTOR_UUID --pack-id PACK_ID --json`;
+   the Render wrapper supplies its existing scoped credentials.
+
 The public decision exposes `approval_mode: owner` and both actor IDs. Its signed
 publication receipt uses `approving_actor_scope: pack:PACK_ID:owner`, preserving the
 existing receipt format. Existing independent receipts keep their original scope.
@@ -78,7 +90,7 @@ Verify the signature, decision/draft lineage, merged pack data, public artifacts
 and final Commons state before calling the live contribution published.
 
 If the command returns `blocked`, `failed`, `publish_blocked`, or `quarantined`,
-keep the original history and resolve the reported governance or provider cause.
+keep the original history and inspect the case and publication state for the governance or provider cause.
 If it reports zero or multiple candidates, inspect the owner queue and identify
 one exact record before retrying; never relax the selector or enable continuous
 claims to clear a backlog.

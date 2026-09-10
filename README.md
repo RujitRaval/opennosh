@@ -394,9 +394,14 @@ A failed refresh can expose only the checkpointed verified release and labels it
 Local/self-hosted development can set `PUBLIC_ARTIFACT_DIRECTORY` and
 `PUBLIC_ARTIFACT_CHECKPOINT_PATH`. Hosted production uses `PUBLIC_ARTIFACT_BASE_URL` for an HTTPS
 object-store/CDN origin, plus approved `PUBLIC_COMMONS_VERIFYING_KEYS` and
-`PUBLICATION_RECEIPT_VERIFYING_KEYS`. Keep `PUBLIC_ARTIFACT_READS_ENABLED=false` on the web service
-until the signed origin has passed the outage, tamper, rollback, and pinned-download checks in
+`PUBLICATION_RECEIPT_VERIFYING_KEYS`. The current Render Blueprint enables
+`PUBLIC_ARTIFACT_READS_ENABLED=true`; new deployments must first complete the signed-origin checks in
 [`docs/operations/render-production.md`](docs/operations/render-production.md).
+
+The public record page and embeds request `include_record_locale=true` to display the locale from
+the release-bound pack archive separately from the visitor's food-locale preference. The default
+v1 JSON body remains unchanged for existing clients. Signed reads also supply the release version,
+publication timestamp shown as the verification date, and any stale-alias warning.
 
 ### Contribute a food record
 
@@ -441,12 +446,14 @@ The public browser can submit public-document citations with `reference-only` so
 The existing database preserves and verifies at most 8 KiB of citation metadata per version;
 this path does not download, archive, or scan the source. The
 [owner-operated pilot](docs/operations/owner-pilot.md) documents exact-account authorization,
-truthful owner approval, and bounded publication. Other browser evidence handoffs remain gated.
+truthful owner approval, and the bounded `owner-publication` command. The Render Blueprint enables
+the governance interface, mutations, and public decisions while keeping persistent publication
+claims disabled. Other browser evidence handoffs remain gated.
 T34.2 adds the disabled camera/file journey, hostile-image rewrite, malware-scan port,
 exact-version attach, and immutable preservation path. Browser persistence contains only the opaque
 upload ID, safe state, source description, and redaction choice—never bytes, filenames, upload URLs,
-or capabilities. The committed Render topology, evidence replica count, navigation, and production
-flags remain unchanged; see the
+or capabilities. Evidence replicas remain at zero and upload/sanitization flags remain disabled;
+see the
 [evidence durability contract](docs/evidence-durability.md#activation-and-configuration).
 
 ### Open Food Facts barcode lookup

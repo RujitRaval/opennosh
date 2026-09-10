@@ -291,6 +291,13 @@ the schema-version-`1.0` `PublicFoodRecordResponse`, keeping the validated `Food
 resolved release version, publication time, `verified` or `stale` state, stale age, and exact
 immutable URLs.
 
+Both latest and exact food JSON routes accept `include_record_locale=true`. Only opted-in responses
+include nullable `record_locale`; the default v1 response body omits it for existing strict clients.
+For community records with pack attribution, the locale comes from `pack.yaml` in the verified,
+release-bound ZIP, with matching pack ID and version. It is separate from a visitor's requested
+food locale. The browser and embeds opt in; release publication time supplies their verification
+date, while stale state and age describe the latest alias.
+
 The latest pointer and release manifest are canonical schema-version-`1` Ed25519 envelopes verified
 by `PUBLIC_COMMONS_VERIFYING_KEYS`. The pointer is capped at 16 KiB, expires after no more than 24
 hours from its signed `issued_at`, and binds the exact manifest key, size, media type, and SHA-256
