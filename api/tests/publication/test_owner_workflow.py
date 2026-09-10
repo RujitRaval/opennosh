@@ -150,6 +150,38 @@ def test_owner_activation_is_exact_and_does_not_enable_continuous_claims() -> No
 
 
 @pytest.mark.asyncio
+async def test_owner_selection_rejects_invalid_pack_id_before_database_access() -> None:
+    with pytest.raises(ValueError, match="pack ID is invalid"):
+        await select_owner_publication(
+            object(),
+            actor_id=uuid4(),
+            pack_id="../indian-sweets",
+        )
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {
+            "publication_claims_enabled": True,
+            "publication_activation_ids": str(uuid4()),
+        },
+        {
+            "publication_claims_enabled": True,
+            "publication_continuous_claims_enabled": True,
+        },
+    ],
+)
+def test_owner_activation_rejects_persistent_claim_configuration(
+    override: dict[str, object],
+) -> None:
+    settings = Settings.model_validate(_settings().model_dump() | override)
+
+    with pytest.raises(ValueError, match="persistent claims to be disabled"):
+        owner_activation_settings(settings, uuid4())
+
+
+@pytest.mark.asyncio
 async def test_owner_workflow_waits_for_terminal_result_and_closes_driver() -> None:
     publication_id = uuid4()
     decision_id = uuid4()
@@ -215,6 +247,7 @@ async def test_owner_workflow_waits_for_terminal_result_and_closes_driver() -> N
     assert report.owner_authorization_id == str(authorization_id)
     assert report.receipt_digest == "a" * 64
     assert report.published_at == now.isoformat()
+    assert report.to_dict()["publication_intent_id"] == str(publication_id)
     assert driver.started is True
     assert driver.closed is True
 
