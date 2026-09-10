@@ -6,14 +6,14 @@ All notable changes to opennosh will be documented in this file.
 
 ### Fixed
 
-- Provision 0.5 CPU / 1 GB database compute for concurrent catalogue searches, keeping the existing
-  storage size and service topology. This requires approval of the additional $13/month before rollout.
-- Store catalogue search vectors once per snapshot row so matching and ranking do not repeatedly
-  tokenize the same text during requests. Preserve the exact ranking and retained cursor results.
-- Set a bounded 1.5-second production search statement budget for the deployed catalogue and CPU
-  capacity, retaining the existing two-attempt limit and background refresh.
-- Preserve the old expression index during rolling deployment and bound migration lock acquisition
-  and statement execution; include the new index in the existing least-privilege finalizer.
+- Bound fuzzy-name candidates using an indexed trigram count, preserving exact matches, ranking,
+  and cursor pages while avoiding impossible similarity checks on long names.
+- Share repeated default-catalogue queries through a bounded in-process cache and serialize cache
+  misses, with bounded queue admission and cancellation-safe release.
+- Keep the existing Basic-256mb database plan and all storage/service allocations. Set a bounded
+  1.5-second production search statement budget with the existing two-attempt limit.
+- Build the additive expression index online, repair interrupted index builds on retry, and retain
+  all catalogue rows, snapshot identities, and existing indexes through deployment and rollback.
 
 ## [0.99.1.0] - 2026-09-09
 

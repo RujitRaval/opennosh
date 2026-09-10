@@ -51,8 +51,8 @@ publication claims, evidence, governance, federation, missions, reuse, impact, o
   commit `50138b17b494ac90db65d328ed3f4a6170d919d7`.
 - [x] Commons retained 166 verified records across the 20:30 UTC activity bucket boundary.
 - [ ] Background snapshot replacement verified, but three concurrent ordinary searches still
-  exhaust the current 0.1 CPU database. The stored-vector and capacity follow-up awaits spending
-  approval and production acceptance.
+  exhaust the current 0.1 CPU database. PR #197 now uses a safe fuzzy-candidate bound and bounded query caching/serialization on the
+  existing database plan. The paid upgrade was declined; production acceptance remains pending.
 - [x] Worker logs show healthy startup at 20:25:55 UTC and successful checks every minute from
   20:26:55 through 20:58:58 UTC, with `failures=0` and commit `50138b17…`.
 - [ ] Current npm/PyPI packages published through release-confidence and trusted publishing.

@@ -29,6 +29,7 @@ from opennosh_api.foods.cursors import (
     SearchCursorPayload,
     search_fingerprint,
 )
+from opennosh_api.foods.query_runtime import FoodSearchQueryRuntime, FoodSearchQueueFullError
 from opennosh_api.foods.schemas import (
     CustomFoodCreate,
     CustomFoodResponse,
@@ -128,6 +129,18 @@ to_tsvector(
 )
 """.strip()
 
+# Similarity cannot exceed the query trigram count divided by the name count.
+# ceil is deliberately conservative at floating-point threshold boundaries;
+# PostgreSQL least ignores NULL, so threshold zero keeps every candidate.
+FOOD_SEARCH_NAME_CANDIDATE_BOUND = """
+AND cardinality(show_trgm(food.name)) <= CAST(
+                  least(2147483647, ceil(
+                      cardinality(show_trgm(CAST(:query AS text))) /
+                      NULLIF(current_setting('pg_trgm.similarity_threshold')::double precision, 0)
+                  )) AS integer
+              )
+""".strip()
+
 FOOD_SEARCH_SQL = f"""
 WITH ranked_matches AS (
     SELECT
@@ -167,7 +180,7 @@ WITH ranked_matches AS (
             similarity(food.name, CAST(:query AS text)),
             similarity(coalesce(food.name_local, ''), CAST(:query AS text)),
             ts_rank_cd(
-                food.search_vector,
+                {_SNAPSHOT_SEARCH_VECTOR},
                 plainto_tsquery('simple'::regconfig, CAST(:query AS text))
             )
         ) AS match_score,
@@ -180,10 +193,13 @@ WITH ranked_matches AS (
       )
       AND (
           food.source_id = CAST(:slug_query AS text)
-          OR food.search_vector @@
+          OR {_SNAPSHOT_SEARCH_VECTOR} @@
              plainto_tsquery('simple'::regconfig, CAST(:query AS text))
           OR food.source_id % CAST(:query AS text)
-          OR food.name % CAST(:query AS text)
+          OR (
+              food.name % CAST(:query AS text)
+              {FOOD_SEARCH_NAME_CANDIDATE_BOUND}
+          )
           OR food.name_local % CAST(:query AS text)
       )
 )
@@ -587,6 +603,7 @@ async def search_foods(
     federation_enabled: bool = False,
     selected_pack_ids: tuple[str, ...] = (),
     now: datetime | None = None,
+    query_runtime: FoodSearchQueryRuntime | None = None,
 ) -> FoodSearchResponse:
     current_time = now or datetime.now(UTC)
     federation_requested = federation_enabled and (
@@ -659,41 +676,53 @@ async def search_foods(
             raise FoodSearchProjectionBusyError from error
 
     after = payload.pos if payload is not None else (0, "0", "", "", "")
-    rows: list[RowMapping] = []
-    for attempt in range(FOOD_SEARCH_QUERY_ATTEMPTS):
+
+    async def execute_query() -> list[RowMapping]:
+        rows: list[RowMapping] = []
+        for attempt in range(FOOD_SEARCH_QUERY_ATTEMPTS):
+            try:
+                await database.execute(
+                    text("SELECT set_config('statement_timeout', :timeout, true)"),
+                    {"timeout": f"{statement_timeout_ms}ms"},
+                )
+                rows = list(
+                    (
+                        await database.execute(
+                            text(FOOD_SEARCH_SQL),
+                            {
+                                "query": query,
+                                "slug_query": query.casefold(),
+                                "locale": locale,
+                                "source_filter": source.value if source is not None else None,
+                                "snapshot_id": snapshot.snapshot_id,
+                                "has_cursor": payload is not None,
+                                "after_rank": after[0],
+                                "after_score": float(after[1]),
+                                "after_name": after[2],
+                                "after_source": after[3],
+                                "after_source_id": after[4],
+                                "fetch_limit": limit + 1,
+                            },
+                        )
+                    ).mappings()
+                )
+                return rows
+            except DBAPIError as error:
+                if getattr(error.orig, "sqlstate", None) != "57014":
+                    raise
+                await database.rollback()
+                if attempt + 1 == FOOD_SEARCH_QUERY_ATTEMPTS:
+                    raise FoodSearchTimeoutError from error
+        raise AssertionError("Search retry budget exhausted without a result")
+
+    if query_runtime is not None and not federation_requested and not selected_pack_ids:
+        cache_key = json.dumps([str(snapshot.snapshot_id), fingerprint, after, limit])
         try:
-            await database.execute(
-                text("SELECT set_config('statement_timeout', :timeout, true)"),
-                {"timeout": f"{statement_timeout_ms}ms"},
-            )
-            rows = list(
-                (
-                    await database.execute(
-                        text(FOOD_SEARCH_SQL),
-                        {
-                            "query": query,
-                            "slug_query": query.casefold(),
-                            "locale": locale,
-                            "source_filter": source.value if source is not None else None,
-                            "snapshot_id": snapshot.snapshot_id,
-                            "has_cursor": payload is not None,
-                            "after_rank": after[0],
-                            "after_score": float(after[1]),
-                            "after_name": after[2],
-                            "after_source": after[3],
-                            "after_source_id": after[4],
-                            "fetch_limit": limit + 1,
-                        },
-                    )
-                ).mappings()
-            )
-            break
-        except DBAPIError as error:
-            if getattr(error.orig, "sqlstate", None) != "57014":
-                raise
-            await database.rollback()
-            if attempt + 1 == FOOD_SEARCH_QUERY_ATTEMPTS:
-                raise FoodSearchTimeoutError from error
+            rows = await query_runtime.run(cache_key, execute_query)
+        except FoodSearchQueueFullError as error:
+            raise FoodSearchTimeoutError from error
+    else:
+        rows = await execute_query()
 
     has_more = len(rows) > limit
     visible_rows = rows[:limit]

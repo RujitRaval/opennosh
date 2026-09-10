@@ -182,32 +182,39 @@ The September 9 investigation found a second limit after snapshot warming was en
 ordinary searches. Index flushes and fresh snapshots were already present. Even a 2-second statement
 budget still failed concurrent requests. Do not treat a timeout increase alone as a reliability fix.
 
-Migration `20260909_0040` stores the exact existing `simple` search vector on each snapshot row and
-adds a GIN index. Matching and ranking now reuse it instead of repeatedly tokenizing text. The old
-expression index remains for rolling deployments; both are included in the fixed least-privilege
-flush function. Tests compare complete ordered cursor pages before upgrade, after upgrade, and after
-downgrade, including source and locale filters, Unicode, null fields, and exact source identifiers.
+Migration `20260909_0040` adds a small B-tree expression index on the number of trigrams in each
+snapshot name. A name cannot satisfy the existing similarity threshold if its trigram count exceeds
+the query's count divided by that threshold. A conservative rounded bound lets PostgreSQL discard
+those impossible candidates before full matching and ranking. It preserves the existing matching
+operators, scores, source/locale filters, snapshot identities, and cursor order. Regression tests
+compare every page before upgrade, after upgrade, and after downgrade, including thresholds zero,
+0.3, 0.5 and one, Unicode, null fields and exact source identifiers.
 
-The proposed Blueprint uses `0.5c-1g` (0.5 CPU / 1 GB), with the existing 5 GB storage unchanged, and a
-bounded 1.5-second search statement budget with at most two attempts. Render listed compute at
-$19/month versus the current $6/month on September 9. This additional $13/month requires the owner's
-approval before applying the plan or merging the release. Upgrade the database capacity first, wait
-for it to be available, then merge the checked application release. A Blueprint sync alone must not
-race this migration against the old database capacity.
+The API process serializes default-catalogue query cache misses and shares identical requests using
+a 128-entry, 60-second LRU cache. The key includes the retained snapshot, search fingerprint, cursor
+position and page size. Every request still validates its cursor and snapshot before cache access;
+rate limiting remains per request. Federation and selected-pack queries bypass this cache. Admission
+allows at most eight waiting queries, waits at most three seconds, and releases capacity on errors
+and cancellation. The production statement budget is 1.5 seconds with at most two attempts. This
+bounds work on the existing single API process; additional replicas would require a fresh capacity
+review.
 
-A local PostgreSQL 16 experiment used 54,652 retained rows and Docker CPU quotas. At 0.1 CPU, adding
-the stored column reached the 30-second migration timeout and rolled back; optimized three-query
-latency still reached 3.50 seconds. At 0.5 CPU, migration completed in 6.21 seconds and the three
-concurrent optimized queries completed in 14–259 ms. These are synthetic capacity experiments, not
-production acceptance. Production must still pass repeated concurrent requests and Commons checks
-after deployment. The migration takes an exclusive table lock for its rewrite; its lock wait is
-bounded to 2 seconds and each statement to 30 seconds. Schedule the brief database resize and rewrite
-with this interruption in mind. If lock acquisition fails, allow the transaction to roll back and
-retry the reviewed deployment after traffic settles.
+The database remains Basic-256mb (0.1 CPU / 256 MB), with 5 GB storage and existing service counts.
+No paid upgrade is part of this release. The previous proposal to use 0.5 CPU / 1 GB was declined;
+its stored-vector table rewrite has also been removed.
 
-Keep the additive schema when rolling back application processes. Dropping the new derived column
-is safe only after every application instance uses the old expression again. Snapshot identifiers,
-accepted catalogue records, ranking, and cursor semantics are preserved.
+Local PostgreSQL16 experiments at a 0.1 CPU quota used 54,652 retained rows. The candidate-count
+index removed 12,296 false candidates from the rice plan, reducing measured execution from about
+six seconds to 295 ms. Three simultaneous uncached queries completed around 1.8 seconds before
+serialization; final acceptance must measure the deployed queue/cache behavior and background
+refreshes. These are synthetic experiments, not production latency guarantees. The online index
+migration completed in 31.59 seconds at that quota without rewriting snapshot rows.
+
+The index is built concurrently with a 2-second lock wait and 120-second statement limit. Interrupted
+builds may leave an invalid index; retrying the migration removes only that invalid index and rebuilds
+it. Existing indexes and the least-privilege snapshot finalizer are unchanged. Application rollback
+can leave the additive index in place. Downgrade removes only this index, preserving all catalogue
+records, retained snapshots and cursor identities.
 
 ### T32 bounded artifact read-plane activation
 

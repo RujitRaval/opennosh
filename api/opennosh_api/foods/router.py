@@ -123,6 +123,11 @@ async def readiness(
             snapshot_build_timeout_ms=settings.food_search_snapshot_build_timeout_ms,
             statement_timeout_ms=settings.food_search_statement_timeout_ms,
             prefer_retained_snapshot=settings.food_search_snapshot_warm_enabled,
+            query_runtime=(
+                request.app.state.food_search_query_runtime
+                if settings.food_search_snapshot_warm_enabled
+                else None
+            ),
             federation_enabled=False,
         )
     except (FoodSearchProjectionBusyError, FoodSearchTimeoutError) as error:
@@ -226,6 +231,11 @@ async def search(
             snapshot_build_timeout_ms=settings.food_search_snapshot_build_timeout_ms,
             statement_timeout_ms=settings.food_search_statement_timeout_ms,
             prefer_retained_snapshot=settings.food_search_snapshot_warm_enabled,
+            query_runtime=(
+                request.app.state.food_search_query_runtime
+                if settings.food_search_snapshot_warm_enabled
+                else None
+            ),
             federation_enabled=settings.federation_search_enabled,
             selected_pack_ids=normalized_pack_ids,
         )

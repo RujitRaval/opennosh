@@ -634,3 +634,108 @@ def test_federated_food_detail_preserves_variant_and_nutrition_metadata(
     assert detail.variant_count == 2
     assert detail.nutrients == row["nutrients_json"]
     assert detail.portions[0].grams == 182
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["expired", "tampered", "removed_snapshot"])
+async def test_cached_page_still_requires_valid_cursor_and_retained_snapshot(
+    monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    from opennosh_api.foods.cursors import SearchCursorFailure
+    from opennosh_api.foods.query_runtime import FoodSearchQueryRuntime
+
+    class EmptyDatabase:
+        query_calls = 0
+
+        async def execute(self, statement, *args, **kwargs):
+            if "WITH ranked_matches" in str(statement):
+                self.query_calls += 1
+            return _EmptySearchResult()
+
+    now = datetime(2026, 9, 9, tzinfo=UTC)
+    snapshot = await _snapshot()
+    cursor = _key_ring().encode(
+        SearchCursorPayload(
+            v=2,
+            sid=snapshot.snapshot_id,
+            fp=search_fingerprint(query="apple", locale=None, source=None),
+            rv=2,
+            pos=(0, "0", "", "", ""),
+            size=20,
+            exp=int(now.timestamp()) + 60,
+        )
+    )
+    database = EmptyDatabase()
+    runtime = FoodSearchQueryRuntime()
+    monkeypatch.setattr(food_service, "_existing_snapshot", _snapshot)
+    kwargs = dict(
+        query="apple",
+        locale=None,
+        source=None,
+        limit=20,
+        cursor=cursor,
+        key_ring=_key_ring(),
+        cursor_lifetime_seconds=900,
+        snapshot_refresh_seconds=300,
+        snapshot_retention_seconds=1200,
+        snapshot_build_timeout_ms=30000,
+        statement_timeout_ms=500,
+        now=now,
+        query_runtime=runtime,
+    )
+    await search_foods(database, **kwargs)
+    await search_foods(database, **kwargs)
+    assert database.query_calls == 1
+    if failure == "expired":
+        from datetime import timedelta
+
+        kwargs["now"] = now + timedelta(seconds=61)
+    elif failure == "tampered":
+        kwargs["cursor"] = "invalid-signature"
+    else:
+
+        async def missing(*args, **kwargs):
+            raise SearchCursorError(SearchCursorFailure.RESTART, "Snapshot removed")
+
+        monkeypatch.setattr(food_service, "_existing_snapshot", missing)
+    with pytest.raises(SearchCursorError):
+        await search_foods(database, **kwargs)
+    assert database.query_calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source,packs", [(FoodSource.FEDERATION, ()), (None, ("one-pack",))])
+async def test_federated_and_pack_queries_bypass_default_query_cache(
+    monkeypatch: pytest.MonkeyPatch, source: FoodSource | None, packs: tuple[str, ...]
+) -> None:
+    class EmptyDatabase:
+        async def execute(self, *args, **kwargs):
+            return _EmptySearchResult()
+
+    class ForbiddenCache:
+        async def run(self, *args, **kwargs):
+            raise AssertionError("Federated queries must not enter the default cache")
+
+    async def projection(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(food_service, "_fresh_snapshot", _snapshot)
+    monkeypatch.setattr(food_service, "active_federation_projection", projection)
+    result = await search_foods(
+        EmptyDatabase(),
+        query="apple",
+        locale=None,
+        source=source,
+        limit=20,
+        cursor=None,
+        key_ring=_key_ring(),
+        cursor_lifetime_seconds=900,
+        snapshot_refresh_seconds=300,
+        snapshot_retention_seconds=1200,
+        snapshot_build_timeout_ms=30000,
+        statement_timeout_ms=500,
+        federation_enabled=True,
+        selected_pack_ids=packs,
+        query_runtime=ForbiddenCache(),
+    )
+    assert result.items == []
