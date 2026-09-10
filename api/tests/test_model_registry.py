@@ -60,7 +60,9 @@ EXPECTED_TABLE_OWNERS = {
     "governance_review_private_notes": (
         "opennosh_api.governance.models.GovernanceReviewPrivateNote"
     ),
-    "governance_owner_authorizations": "opennosh_api.governance.models.GovernanceOwnerAuthorization",
+    "governance_owner_authorizations": (
+        "opennosh_api.governance.models.GovernanceOwnerAuthorization"
+    ),
     "evidence_citation_copies": "opennosh_api.evidence.models.EvidenceCitationCopy",
     "governance_role_assignments": ("opennosh_api.governance.models.GovernanceRoleAssignment"),
     "mission_contribution_bindings": (

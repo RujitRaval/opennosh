@@ -302,7 +302,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
       return;
     }
     if (!draft) return;
-    if (citationHandoff && !citationPublisher.trim()) return showErrors(["Enter the publisher of the source you reviewed."]);
+    if (citationHandoff && !citationPublisher.trim()) return showErrors([copy.citation.publisherRequired]);
     const blockers = localStageBlockers(draft, "review");
     if (blockers.length) return showErrors(blockers.map((item) => item.message));
     setBusy(true);
@@ -373,7 +373,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           });
         }
         if (evidence.source_draft_version !== remote.draftVersion || evidence.public_state !== "reference_only") {
-          throw new Error("The saved citation does not match this version. Reopen the evidence step before submitting.");
+          throw new Error(copy.citation.versionMismatch);
         }
       } else {
       if (remote.fields.evidence_type !== "packaging_label") {
@@ -534,7 +534,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           <Field name="attribution" label={copy.fields.attribution} hint={copy.fields.attributionHint}><input id="contribution-attribution" value={fields.attribution} onChange={(event) => update("attribution", event.target.value)} {...described("attribution")} /></Field>
           <fieldset><legend>{copy.licenseLegend}</legend><div className="contribution-choice-grid">
             {([["contributor-original", copy.licenses.original], ["CC0-1.0", copy.licenses.cc0], ["public-domain", copy.licenses.publicDomain]] as const).map(([value, label]) => <label key={value}><input type="radio" name="source_license" checked={fields.source_license === value} onChange={() => update("source_license", value)} /><span>{label}</span></label>)}
-            {fields.evidence_type === "public_document" ? <label><input type="radio" name="source_license" checked={fields.source_license === "reference-only"} onChange={() => update("source_license", "reference-only")} /><span>Reference only — cite the source without copying its files</span></label> : null}
+            {fields.evidence_type === "public_document" ? <label><input type="radio" name="source_license" checked={fields.source_license === "reference-only"} onChange={() => update("source_license", "reference-only")} /><span>{copy.citation.referenceOnly}</span></label> : null}
           </div></fieldset>
         </> : null}
 
@@ -546,9 +546,9 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           </div>)}
           <div className="review-warning"><strong>{copy.reviewWarning}</strong><p>{copy.reviewWarningBody}</p></div>
           {citationHandoff ? <div className="review-warning">
-            <label htmlFor="citation-publisher">Source publisher</label>
-            <input id="citation-publisher" value={citationPublisher} maxLength={500} onChange={(event) => setCitationPublisher(event.target.value)} placeholder="For example, Haldiram’s" />
-            <p>Confirm that you reviewed this public source. We preserve its citation, not a copy of the page or image. Enter only factual details in your own words.</p>
+            <label htmlFor="citation-publisher">{copy.citation.publisher}</label>
+            <input id="citation-publisher" value={citationPublisher} maxLength={500} onChange={(event) => setCitationPublisher(event.target.value)} placeholder={copy.citation.publisherPlaceholder} />
+            <p>{copy.citation.notice}</p>
           </div> : null}
           {!handoffEnabled ? <div className="review-warning" role="status">
             <strong>{copy.evidenceHandoffGateTitle}</strong>
