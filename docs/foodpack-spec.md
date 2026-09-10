@@ -81,7 +81,14 @@ entry_count: 47
 
 `contributed_by` is the contributor's GitHub username without `@`. opennosh preserves it in exports and displays it as visible entry-level credit.
 
-`source_license` is one of `contributor-original`, `CC0-1.0`, or `public-domain`. Use `contributor-original` only for material the contributor created and may dedicate under CC0. `government_database` entries require an `https` `source_uri` and a source license of `CC0-1.0` or `public-domain`. CI rejects restrictive, unknown, or free-text license values; those sources belong outside community packs under their own isolated license boundary.
+`source_license` is one of `contributor-original`, `CC0-1.0`, `public-domain`, or `reference-only`.
+Use `contributor-original` only for material the contributor created and may dedicate under CC0.
+`government_database` entries require an `https` `source_uri` and a source license of `CC0-1.0`
+or `public-domain`. `reference-only` requires `manufacturer_label` provenance and nonempty
+`source_uri` and `source_note`; it records a citation without granting archival rights or claiming
+source-byte verification. See the [owner-operated pilot](operations/owner-pilot.md).
+CI rejects other restrictive, unknown, or free-text license values; those sources belong outside
+community packs under their own isolated license boundary.
 
 ### `provenance` enum — no free text
 | Value | Meaning |

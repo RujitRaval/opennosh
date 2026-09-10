@@ -1587,6 +1587,7 @@
       },
       "ContributionSourceLicense": {
         "enum": [
+          "reference-only",
           "contributor-original",
           "CC0-1.0",
           "public-domain"
@@ -5334,10 +5335,43 @@
       "PublicDecisionResponse": {
         "additionalProperties": false,
         "properties": {
+          "approval_mode": {
+            "default": "independent",
+            "enum": [
+              "independent",
+              "owner"
+            ],
+            "title": "Approval Mode",
+            "type": "string"
+          },
+          "contributor_actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contributor Actor Id"
+          },
           "decided_at": {
             "format": "date-time",
             "title": "Decided At",
             "type": "string"
+          },
+          "deciding_actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deciding Actor Id"
           },
           "decision_id": {
             "format": "uuid",
@@ -5420,9 +5454,16 @@
             "type": "string"
           },
           "observed_digest": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Observed Digest",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Digest"
           },
           "publisher": {
             "maxLength": 500,
@@ -5465,7 +5506,6 @@
           "license",
           "title",
           "observed_at",
-          "observed_digest",
           "rights_state"
         ],
         "title": "PublicDocumentManifest",
@@ -7807,7 +7847,8 @@
           "viewer_role": {
             "enum": [
               "contributor",
-              "steward"
+              "steward",
+              "owner"
             ],
             "title": "Viewer Role",
             "type": "string"
@@ -9177,7 +9218,7 @@
   },
   "info": {
     "title": "opennosh API",
-    "version": "0.99.2.0",
+    "version": "0.100.0.0",
     "x-opennosh-contract-version": "2.0.0"
   },
   "openapi": "3.1.0",

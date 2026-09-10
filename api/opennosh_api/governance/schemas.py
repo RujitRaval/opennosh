@@ -123,7 +123,7 @@ class ReviewCaseResponse(BaseModel):
     source_draft_version: Annotated[int, Field(ge=1)]
     pack_id: Annotated[str, Field(min_length=1, max_length=160)]
     submitted_fields: dict[str, Any]
-    viewer_role: Literal["contributor", "steward"]
+    viewer_role: Literal["contributor", "steward", "owner"]
     state: ReviewCaseState
     revision: Annotated[int, Field(ge=1)]
     assigned_steward_actor_id: UUID | None
@@ -177,6 +177,9 @@ class PublicDecisionResponse(BaseModel):
     reason: Annotated[str, Field(min_length=1, max_length=2000)]
     decided_at: datetime
     publication_state: str | None
+    approval_mode: Literal["independent", "owner"] = "independent"
+    contributor_actor_id: UUID | None = None
+    deciding_actor_id: UUID | None = None
 
 
 class ReviewResponseRequest(ReviewCaseAction):

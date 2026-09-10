@@ -44,7 +44,7 @@ export interface GovernanceReviewCase {
   source_draft_version: number;
   pack_id: string;
   submitted_fields: Record<string, unknown>;
-  viewer_role: "contributor" | "steward";
+  viewer_role: "contributor" | "steward" | "owner";
   state: GovernanceReviewState;
   revision: number;
   assigned_steward_actor_id: string | null;

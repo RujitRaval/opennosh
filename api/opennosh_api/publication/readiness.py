@@ -28,7 +28,7 @@ _QUEUE_STATES = frozenset(
     {"queued", "picked", "successful", "exception", "canceled", "deleted", "failed"}
 )
 _FEDERATION_STATES = frozenset({"requested", "verified", "active", "quarantined", "revoked"})
-_LIVING_COMMONS_MIGRATION = "20260909_0040"
+_LIVING_COMMONS_MIGRATION = "20260910_0041"
 _LIVING_COMMONS_FLAGS = (
     "reuse_registry_mutations_enabled",
     "reuse_verification_enabled",

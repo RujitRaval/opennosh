@@ -122,13 +122,17 @@ class PostgresGovernanceGate:
     @staticmethod
     async def _binding_for(connection: Any, publication_id: UUID) -> GovernanceBinding:
         row = await connection.fetchrow(
-                """
+            """
                 SELECT p.id AS publication_id,
                        d.id AS decision_id,
                        d.pack_id,
                        d.contributor_actor_id,
                        d.deciding_actor_id,
                        d.decided_at,
+                       d.approval_mode,
+                       owner_auth.id AS owner_authorization_id,
+                       owner_auth.granted_at AS owner_granted_at,
+                       owner_auth.revoked_at AS owner_revoked_at,
                        d.approved_changes_json,
                        d.expected_base_commit,
                        d.required_checks_json,
@@ -148,6 +152,10 @@ class PostgresGovernanceGate:
                   ON r.pack_id = d.pack_id
                  AND r.actor_id = d.deciding_actor_id
                  AND r.role = 'steward'
+                LEFT JOIN governance_owner_authorizations owner_auth
+                  ON owner_auth.id = d.owner_authorization_id
+                 AND owner_auth.pack_id = d.pack_id
+                 AND owner_auth.actor_id = d.deciding_actor_id
                 LEFT JOIN governance_recusals rec
                   ON rec.source_draft_id = d.source_draft_id
                  AND rec.actor_id = d.deciding_actor_id
@@ -188,6 +196,10 @@ class PostgresGovernanceGate:
             required_checks=tuple(str(item) for item in raw_checks),
             forge_target=str(row["forge_target"]),
             role_granted_at=row["granted_at"],
+            approval_mode=row["approval_mode"],
+            owner_authorization_id=row["owner_authorization_id"],
+            owner_granted_at=row["owner_granted_at"],
+            owner_revoked_at=row["owner_revoked_at"],
             role_revoked_at=row["revoked_at"],
             recused_at=row["recused_at"],
             intervention_action=row["intervention_action"],
@@ -200,9 +212,5 @@ class PostgresGovernanceGate:
 
 
 def _validate_hash(value: str, *, lengths: set[int], label: str) -> None:
-    if len(value) not in lengths or any(
-        character not in "0123456789abcdef" for character in value
-    ):
-        raise ValueError(
-            f"Merge authorization {label} must be bounded lowercase hexadecimal"
-        )
+    if len(value) not in lengths or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError(f"Merge authorization {label} must be bounded lowercase hexadecimal")

@@ -10,7 +10,7 @@ the contribution until that manifest has the durable acknowledgements required b
 |---|---|---|---|
 | Sanitized media | SHA-256 digest, safe image format, source description, rights acknowledgement, redaction state, private storage reference | Independently durable immutable sanitized copy with the same digest | `evidence_preserved` |
 | Versioned public dataset | Dataset, release, record, publisher, license, URI, and canonical record digest | Signed manifest; also a durable record snapshot when archival is permitted | `source_verified` |
-| Public document | Canonical URI, publisher, title, observation time and digest, license, and rights state | Archived bytes with the observed digest when permitted; otherwise the immutable citation manifest | `reference_preserved` or `reference_only` |
+| Public document | Canonical URI, publisher, title, observation time, license, and rights state; observed digest required for archives and optional for reference-only citations | Archived bytes with the observed digest when permitted; otherwise the immutable citation manifest | `reference_preserved` or `reference_only` |
 | Maintainer attestation | Authority, scope, signed statement, signature, time, license, and supporting reference | Immutable signed attestation manifest | `attested` |
 
 Dataset and attestation signatures use Ed25519 and are verified against principal-bound keys in
@@ -21,6 +21,13 @@ or invalid signature fails closed.
 opennosh retained primary source bytes.
 
 ## Trust flow
+
+Reference-only public documents take a bounded database path: the submission transaction copies
+at most 8 KiB of canonical citation metadata into `evidence_reference_copies`, reads it back,
+verifies the digest, and records its immutable acknowledgement. It reuses an existing verified
+acknowledgement on replay. No source page or image is downloaded, archived, or scanned. The
+worker flow below applies to the other evidence classes; citation preservation needs no new worker
+or storage service. See the [owner-operated pilot](operations/owner-pilot.md).
 
 ```text
 Contribution draft version
@@ -54,7 +61,7 @@ heartbeats; preservation handlers may use only the remainder.
 
 Authenticated clients normally include a complete typed manifest in
 `POST /api/v1/contribution-drafts/{draft_id}/submit`. Submission, exact-version manifest binding,
-and the preservation wake-up commit in one transaction, so review cannot begin with an orphaned
+and either citation preservation or the worker wake-up commit in one transaction, so review cannot begin with an orphaned
 evidence handoff. `PUT /api/v1/contribution-drafts/{draft_id}/evidence` is the idempotent repair
 path for an already submitted exact version, and `GET` on the same route returns its public state.
 Retries with identical proof are idempotent; reuse of a submission key with different evidence
@@ -113,8 +120,8 @@ worker to zero. Do not delete quarantine or immutable history during rollback.
 Account and draft issuance/completion/attach rate limits, race-safe limits of five outstanding
 sessions per account and two per draft, and a process-wide observation semaphore are enforced in
 the implementation. OCR remains a later boundary and is not performed by either the browser or
-worker. Until every activation gate passes, the public contribution journey keeps review handoff
-visibly closed instead of creating submissions that cannot satisfy the evidence gate. See
+worker. The public contribution journey permits the bounded reference-only citation handoff;
+other browser evidence handoffs stay closed until their activation gates pass. See
 [T34](https://github.com/RujitRaval/opennosh/issues/134) for the remaining sequence.
 
 ## Replay, tamper, and removal behavior
@@ -123,11 +130,11 @@ visibly closed instead of creating submissions that cannot satisfy the evidence 
 - Reusing a draft version, object key, acknowledgement kind, or destination with different proof
   raises a conflict instead of overwriting history.
 - Any evidence ID, class, manifest digest, or source-byte digest mismatch fails closed.
-- Missing source bytes never create a durable acknowledgement.
+- Missing source bytes never create a byte-preservation acknowledgement.
 - Exhausted preservation failures become visible terminal states rather than permanent `pending`
   claims.
-- Rights-restricted documents preserve a citation manifest and observed digest without claiming an
-  archived copy.
+- Rights-restricted documents preserve a citation manifest and any supplied observed digest without
+  claiming an archived copy or verification of missing source bytes.
 - Governed removal requires an active steward for the draft's pack and preserves the original
   manifest, acknowledgements, prior public state, actor, time, and reason. The visible state becomes
   `tombstoned`; new acknowledgements are rejected. Removal cannot race an active merge authority.
@@ -135,4 +142,5 @@ visibly closed instead of creating submissions that cannot satisfy the evidence 
 The migrations add `evidence_manifests`, `evidence_durable_acknowledgements`,
 `evidence_removal_tombstones`, and disabled `evidence_upload_sessions`. Upload rows include only
 declarations, hashes, opaque object keys, safe states, exact revisions, typed failures, and
-transition times. Evidence bytes remain outside PostgreSQL, Git, and browser persistence.
+transition times. Source pages and image bytes remain outside PostgreSQL, Git, and browser
+persistence; bounded canonical reference-only citation metadata is copied into PostgreSQL.

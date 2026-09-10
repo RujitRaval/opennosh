@@ -101,6 +101,8 @@ def _payload_for(
     elif isinstance(manifest, VersionedPublicDatasetManifest):
         expected = manifest.canonical_record_digest
     elif isinstance(manifest, PublicDocumentManifest):
+        if manifest.observed_digest is None:
+            raise EvidenceSourceUnavailableError("Archived document requires an observed digest")
         expected = manifest.observed_digest
     else:
         raise AssertionError(

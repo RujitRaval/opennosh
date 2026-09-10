@@ -7,6 +7,7 @@ import type {
   ContributionDraftCreate,
   ContributionDraftPatch,
   ContributionEvidenceStatus,
+  ContributionEvidenceAttach,
   ContributionSubmit,
   EvidenceUploadAttachRequest,
   EvidenceUploadCompleteRequest,
@@ -176,6 +177,10 @@ export const api = {
     `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence-uploads/${encodeURIComponent(uploadId)}/attach`,
     { method: "POST", body: JSON.stringify(input) },
   ).then(evidenceUploadSession),
+  attachContributionEvidence: (draftId: string, input: ContributionEvidenceAttach) => request<ContributionEvidenceStatus>(
+    `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence`,
+    { method: "PUT", body: JSON.stringify(input) },
+  ),
   contributionEvidence: (draftId: string, signal?: AbortSignal) => request<ContributionEvidenceStatus>(
     `/api/v1/contribution-drafts/${encodeURIComponent(draftId)}/evidence`,
     { signal },

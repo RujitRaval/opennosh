@@ -27,6 +27,7 @@ from opennosh_api.governance.models import (
     GovernanceReviewCase,
     GovernanceReviewEvent,
 )
+from opennosh_api.governance.owner import active_owner_authorization
 from opennosh_api.governance.review_service import (
     ReviewCaseError,
     approve_review_case,
@@ -137,7 +138,7 @@ def _event_response(event: GovernanceReviewEvent) -> ReviewEventResponse:
 def _case_response(
     review_case: GovernanceReviewCase,
     *,
-    viewer_role: Literal["contributor", "steward"],
+    viewer_role: Literal["contributor", "steward", "owner"],
     events: tuple[GovernanceReviewEvent, ...] = (),
     disputes: tuple[GovernanceDispute, ...] = (),
     appeals: tuple[GovernanceAppeal, ...] = (),
@@ -201,10 +202,24 @@ async def _complete_case_response(
 ) -> ReviewCaseResponse:
     events = await list_review_events(database, review_case_id=review_case.id)
     disputes, appeals = await list_disputes_and_appeals(database, review_case_id=review_case.id)
+    owner = (
+        await active_owner_authorization(
+            database,
+            pack_id=review_case.pack_id,
+            actor_id=actor_id,
+            now=datetime.now(UTC),
+        )
+        if review_case.contributor_actor_id == actor_id
+        else None
+    )
     return _case_response(
         review_case,
         viewer_role=(
-            "contributor" if review_case.contributor_actor_id == actor_id else "steward"
+            "owner"
+            if owner is not None
+            else "contributor"
+            if review_case.contributor_actor_id == actor_id
+            else "steward"
         ),
         events=events,
         disputes=disputes,
@@ -315,6 +330,9 @@ async def public_decision(
         reason=decision.reason,
         decided_at=decision.decided_at,
         publication_state=publication_state,
+        approval_mode=decision.approval_mode,  # type: ignore[arg-type]
+        contributor_actor_id=decision.contributor_actor_id,
+        deciding_actor_id=decision.deciding_actor_id,
     )
 
 
@@ -651,12 +669,8 @@ async def respond_to_case(
             now=datetime.now(UTC),
         )
         await database.commit()
-        prior_result = await _complete_case_response(
-            database, prior_case, actor_id=current.user_id
-        )
-        next_result = await _complete_case_response(
-            database, next_case, actor_id=current.user_id
-        )
+        prior_result = await _complete_case_response(database, prior_case, actor_id=current.user_id)
+        next_result = await _complete_case_response(database, next_case, actor_id=current.user_id)
     except ReviewCaseError as error:
         await database.rollback()
         _raise_review_error(error)

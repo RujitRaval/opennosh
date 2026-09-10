@@ -457,7 +457,11 @@ def receipt_draft_from_snapshot(
         record_id=snapshot.record_id,
         reviewed_decision_id=snapshot.reviewed_decision_id,
         approving_actor_id=snapshot.approving_actor_id,
-        approving_actor_scope=f"pack:{snapshot.pack_id}:steward",
+        approving_actor_scope=(
+            f"pack:{snapshot.pack_id}:owner"
+            if snapshot.approval_mode == "owner"
+            else f"pack:{snapshot.pack_id}:steward"
+        ),
         approved_payload_digest=snapshot.approved_payload_digest,
         expected_base_commit=snapshot.expected_base_commit,
         merged_commit=commit.external_reference,

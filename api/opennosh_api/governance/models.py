@@ -57,6 +57,43 @@ class GovernanceRoleAssignment(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class GovernanceOwnerAuthorization(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "governance_owner_authorizations"
+    __table_args__ = (
+        CheckConstraint("role = 'owner'", name="role_allowed"),
+        CheckConstraint("length(trim(grant_reason)) > 0", name="grant_reason_nonempty"),
+        CheckConstraint(
+            "revoked_at IS NULL OR revoked_at >= granted_at",
+            name="revocation_after_grant",
+        ),
+        CheckConstraint(
+            "(revoked_at IS NULL AND revoked_by_actor_id IS NULL AND "
+            "revocation_reason IS NULL) OR "
+            "(revoked_at IS NOT NULL AND revoked_by_actor_id IS NOT NULL AND "
+            "revocation_reason IS NOT NULL AND length(trim(revocation_reason)) > 0)",
+            name="revocation_audit_complete",
+        ),
+        UniqueConstraint("pack_id", "actor_id", "role", name="uq_governance_owner_scope"),
+        Index("ix_governance_owners_actor_scope", "actor_id", "pack_id", "role"),
+    )
+
+    pack_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    granted_by_actor_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    grant_reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_by_actor_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    revocation_reason: Mapped[str | None] = mapped_column(String(1000))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class GovernanceRecusal(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "governance_recusals"
     __table_args__ = (
@@ -82,6 +119,13 @@ class GovernanceRecusal(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
 class GovernanceDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "governance_decisions"
     __table_args__ = (
+        CheckConstraint(
+            "(approval_mode = 'independent' AND owner_authorization_id IS NULL "
+            "AND contributor_actor_id != deciding_actor_id) OR "
+            "(approval_mode = 'owner' AND owner_authorization_id IS NOT NULL "
+            "AND contributor_actor_id = deciding_actor_id)",
+            name="approval_mode_valid",
+        ),
         CheckConstraint(
             "outcome IN ('approved','changes_requested','rejected')",
             name="outcome_allowed",
@@ -138,6 +182,12 @@ class GovernanceDecision(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     deciding_actor_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approval_mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="independent", server_default="independent"
+    )
+    owner_authorization_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("governance_owner_authorizations.id", ondelete="RESTRICT")
     )
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     reason: Mapped[str] = mapped_column(String(2000), nullable=False)

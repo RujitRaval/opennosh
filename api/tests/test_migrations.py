@@ -17,6 +17,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
 
 EXPECTED_TABLES = {
+    "governance_owner_authorizations",
+    "evidence_citation_copies",
     "alembic_version",
     "auth_rate_limits",
     "auth_sessions",

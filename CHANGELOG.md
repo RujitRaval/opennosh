@@ -2,6 +2,20 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.100.0.0] - 2026-09-10
+
+### Added
+
+- Allow explicitly authorized pack owners to submit and approve their own contributions,
+  retaining both actor identities, a revocable authorization, and an immutable owner decision.
+- Identify owner approval in public decisions, the review interface, and signed publication
+  receipt scopes while keeping independent-review proofs strict.
+- Preserve bounded public-source citation metadata in the existing PostgreSQL database with
+  atomic digest verification and idempotent acknowledgement. Reference-only contributions can
+  be submitted through the browser without uploading source files or adding services.
+- Accept reference-only manufacturer-label citations without claiming archival rights,
+  source-byte verification, or malware scanning. Uploaded-file gates remain disabled.
+
 ## [0.99.2.0] - 2026-09-09
 
 ### Fixed

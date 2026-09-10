@@ -15,6 +15,8 @@ from alembic import command
 from fastapi.testclient import TestClient
 from opennosh_api.contributions.schemas import ContributionCapability, ContributionSubmit
 from opennosh_api.contributions.service import ContributionValidationError, submit_draft
+from opennosh_api.evidence.contracts import parse_manifest
+from opennosh_api.evidence.repository import create_manifest
 from opennosh_api.evidence.storage import (
     EvidenceUploadObjectTooLargeError,
     EvidenceUploadStorageError,
@@ -63,6 +65,25 @@ async def _backdate_operation(database_url: str, operation_id: str) -> None:
                     "WHERE operation_id = :operation_id"
                 ),
                 {"operation_id": operation_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _seed_legacy_pending_reference(
+    database_url: str,
+    draft_id: str,
+    manifest: dict[str, object],
+) -> None:
+    """A pre-pilot worker attachment may still be pending during an upgrade."""
+    engine = create_async_engine(database_url)
+    try:
+        async with async_sessionmaker(engine)() as session, session.begin():
+            await create_manifest(
+                session,
+                source_draft_id=UUID(draft_id),
+                source_draft_version=2,
+                manifest=parse_manifest(manifest),
             )
     finally:
         await engine.dispose()
@@ -577,15 +598,13 @@ def test_submit_adopts_server_attached_evidence_without_reexposing_private_manif
     )
     assert failed_patched.status_code == 200
     failed_evidence_id = str(uuid4())
-    failed_attached = contribution_clients.owner.put(
-        f"{route}/{failed_draft_id}/evidence",
-        headers=csrf,
-        json={
-            "expected_draft_version": 2,
-            "manifest": {**manifest, "evidence_id": failed_evidence_id},
-        },
+    asyncio.run(
+        _seed_legacy_pending_reference(
+            INTEGRATION_DATABASE_URL,
+            failed_draft_id,
+            {**manifest, "evidence_id": failed_evidence_id},
+        )
     )
-    assert failed_attached.status_code == 200
     asyncio.run(
         _set_evidence_preservation_failure(
             INTEGRATION_DATABASE_URL,
@@ -763,7 +782,8 @@ def test_contribution_lifecycle_is_isolated_versioned_and_idempotent(
     assert attached.status_code == replayed_attachment.status_code == 200
     assert attached.json() == replayed_attachment.json()
     assert attached.json()["evidence_id"] == evidence_id
-    assert attached.json()["preservation_pending"] is True
+    assert attached.json()["preservation_pending"] is False
+    assert attached.json()["public_state"] == "reference_only"
     assert attached.json()["preservation_failed"] is False
     assert attached.json()["preservation_failure_code"] is None
     status_response = contribution_clients.owner.get(f"{route}/{draft_id}/evidence")

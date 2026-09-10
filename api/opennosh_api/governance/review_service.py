@@ -33,6 +33,7 @@ from opennosh_api.governance.models import (
     GovernanceReviewEvent,
     GovernanceRoleAssignment,
 )
+from opennosh_api.governance.owner import active_owner_authorization
 from opennosh_api.governance.reviews import (
     DisputeCategory,
     ReviewCaseState,
@@ -137,7 +138,16 @@ async def _require_steward_can_review(
         actor_id=actor_id,
         now=now,
     )
-    if review_case.contributor_actor_id == actor_id:
+    if (
+        review_case.contributor_actor_id == actor_id
+        and await active_owner_authorization(
+            session,
+            pack_id=review_case.pack_id,
+            actor_id=actor_id,
+            now=now,
+        )
+        is None
+    ):
         raise ReviewCaseError("self_review_prohibited")
     recusal_id = await session.scalar(
         select(GovernanceRecusal.id).where(
@@ -653,6 +663,13 @@ async def record_nonapproval_decision(
     ):
         raise ReviewCaseError("approved_decision_requires_intervention")
     event_type = ReviewEventType(outcome.value)
+    owner_authorization = (
+        await active_owner_authorization(
+            session, pack_id=review_case.pack_id, actor_id=actor_id, now=now
+        )
+        if draft.user_id == actor_id
+        else None
+    )
     decision = GovernanceDecision(
         id=decision_id_generator(),
         prior_decision_id=None if prior_decision is None else prior_decision.id,
@@ -662,6 +679,8 @@ async def record_nonapproval_decision(
         record_id=f"draft:{draft.id}",
         contributor_actor_id=draft.user_id,
         deciding_actor_id=actor_id,
+        approval_mode="owner" if owner_authorization is not None else "independent",
+        owner_authorization_id=None if owner_authorization is None else owner_authorization.id,
         outcome=outcome.value,
         reason=normalized_reason,
         approved_payload_digest=None,

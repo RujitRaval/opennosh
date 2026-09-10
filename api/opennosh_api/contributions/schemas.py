@@ -43,6 +43,7 @@ class ContributionEvidenceType(StrEnum):
 
 
 class ContributionSourceLicense(StrEnum):
+    REFERENCE_ONLY = "reference-only"
     CONTRIBUTOR_ORIGINAL = "contributor-original"
     CC0 = "CC0-1.0"
     PUBLIC_DOMAIN = "public-domain"

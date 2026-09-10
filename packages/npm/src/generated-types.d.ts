@@ -801,7 +801,7 @@ export type ContributionReviewState = 'draft' | 'in_review' | 'changes_requested
 /**
  * ContributionSourceLicense
  */
-export type ContributionSourceLicense = 'contributor-original' | 'CC0-1.0' | 'public-domain';
+export type ContributionSourceLicense = 'reference-only' | 'contributor-original' | 'CC0-1.0' | 'public-domain';
 
 /**
  * ContributionStage
@@ -2874,9 +2874,21 @@ export type PublicComponentStatus = {
  */
 export type PublicDecisionResponse = {
     /**
+     * Approval Mode
+     */
+    approval_mode?: 'independent' | 'owner';
+    /**
+     * Contributor Actor Id
+     */
+    contributor_actor_id?: string | null;
+    /**
      * Decided At
      */
     decided_at: string;
+    /**
+     * Deciding Actor Id
+     */
+    deciding_actor_id?: string | null;
     /**
      * Decision Id
      */
@@ -2927,7 +2939,7 @@ export type PublicDocumentManifest = {
     /**
      * Observed Digest
      */
-    observed_digest: string;
+    observed_digest?: string | null;
     /**
      * Publisher
      */
@@ -4215,7 +4227,7 @@ export type ReviewCaseResponse = {
     /**
      * Viewer Role
      */
-    viewer_role: 'contributor' | 'steward';
+    viewer_role: 'contributor' | 'steward' | 'owner';
 };
 
 /**

@@ -26,8 +26,12 @@ wake-up. No other review action can enqueue publication.
 
 Disputes contain only a bounded category, public-safe reason, requested remedy, decision/version
 binding, responsible actors, and timestamps. An appeal targets one resolved dispute and must be
-resolved by a different active pack steward. Self-review, inactive or revoked roles, prior recusal,
-cross-pack access, stale versions, and stale revisions fail closed.
+resolved by a different active pack steward. Same-actor approval requires an active owner
+authorization for that exact account and pack in addition to the ordinary steward role; it is
+recorded as `approval_mode: owner` with both actor identities and the authorization ID. Independent
+review still rejects self-review. Inactive or revoked authority, prior recusal, cross-pack access,
+stale versions, and stale revisions fail closed. The
+[owner-operated pilot](operations/owner-pilot.md) documents grants, revocation, and receipt scope.
 
 ## HTTP and browser boundary
 

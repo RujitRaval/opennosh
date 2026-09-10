@@ -112,6 +112,40 @@ describe("accountable governance browser surface", () => {
     expect(screen.queryByRole("heading", { name: "Respond with a new exact version" })).not.toBeInTheDocument();
   });
 
+  it("lets an owner approve pack metadata and a food record in one exact change set", async () => {
+    apiState.reviewCase.mockResolvedValue({ ...reviewCase(), viewer_role: "owner" });
+    apiState.approve.mockResolvedValue({});
+    render(<GovernanceCase reviewCaseId="55555555-5555-4555-8555-555555555555" />);
+    await screen.findByRole("button", { name: "Approve and enqueue publication" });
+    expect(screen.getByText(/Both actions are attributed to your account/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Record ID"), { target: { value: "red-lentils" } });
+    fireEvent.change(screen.getByLabelText("Expected base commit"), { target: { value: "a".repeat(40) } });
+    fireEvent.change(screen.getByLabelText("Governed file path"), { target: { value: "packs/global-core/foods/red-lentils.yaml" } });
+    fireEvent.change(screen.getByLabelText("Reviewed file content"), { target: { value: "food record" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add another reviewed file" }));
+    fireEvent.change(screen.getByLabelText("Governed file path 2"), { target: { value: "packs/global-core/pack.yaml" } });
+    fireEvent.change(screen.getByLabelText("Reviewed file content 2"), { target: { value: "pack metadata" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add another reviewed file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove last file" }));
+    expect(screen.queryByLabelText("Governed file path 3")).not.toBeInTheDocument();
+    fireEvent.change(screen.getAllByLabelText("Public-safe reason", { selector: "textarea" })[1]!, {
+      target: { value: "Owner reviewed the food and pack metadata together." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Approve and enqueue publication" }));
+    await waitFor(() => expect(apiState.approve).toHaveBeenCalledWith(
+      "55555555-5555-4555-8555-555555555555",
+      {
+        expected_revision: 2, pack_id: "global-core", record_id: "red-lentils",
+        expected_base_commit: "a".repeat(40),
+        files: [
+          { path: "packs/global-core/foods/red-lentils.yaml", content: "food record" },
+          { path: "packs/global-core/pack.yaml", content: "pack metadata" },
+        ],
+        reason: "Owner reviewed the food and pack metadata together.",
+      },
+    ));
+  });
+
   it("shows contributor follow-up without steward-only controls", async () => {
     apiState.reviewCase.mockResolvedValue({
       ...reviewCase("changes_requested"),

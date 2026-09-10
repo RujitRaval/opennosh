@@ -156,6 +156,7 @@ class PublicationSnapshot:
     evidence_acknowledgements: tuple[Mapping[str, object], ...]
     steps: tuple[PublicationStepSnapshot, ...]
     acknowledgements: tuple[DurableAcknowledgementSnapshot, ...]
+    approval_mode: str = "independent"
 
     def __post_init__(self) -> None:
         if self.workflow_revision < 0:

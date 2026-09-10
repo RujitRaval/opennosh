@@ -122,6 +122,9 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [mobileActionsVisible, setMobileActionsVisible] = useState(false);
+  const [citationPublisher, setCitationPublisher] = useState("");
+  const citationHandoff = draft?.fields.evidence_type === "public_document" && draft?.fields.source_license === "reference-only";
+  const handoffEnabled = TYPED_EVIDENCE_HANDOFF_ENABLED || citationHandoff;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const errorSummary = useRef<HTMLDivElement>(null);
@@ -294,11 +297,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
   }
 
   async function submit(auth?: { email: string; password: string }) {
-    if (!TYPED_EVIDENCE_HANDOFF_ENABLED) {
+    if (!handoffEnabled) {
       showErrors([copy.evidenceHandoffGateBody]);
       return;
     }
     if (!draft) return;
+    if (citationHandoff && !citationPublisher.trim()) return showErrors([copy.citation.publisherRequired]);
     const blockers = localStageBlockers(draft, "review");
     if (blockers.length) return showErrors(blockers.map((item) => item.message));
     setBusy(true);
@@ -353,6 +357,25 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           }],
         });
       }
+      if (citationHandoff) {
+        let evidence;
+        try { evidence = await api.contributionEvidence(remote.draftId); }
+        catch (caught) { if (!(caught instanceof ApiError) || caught.status !== 404) throw caught; }
+        if (!evidence) {
+          evidence = await api.attachContributionEvidence(remote.draftId, {
+            expected_draft_version: remote.draftVersion,
+            manifest: {
+              schema_version: "1.0", evidence_id: crypto.randomUUID(), evidence_class: "public_document",
+              canonical_uri: remote.fields.source_uri, publisher: citationPublisher.trim(),
+              title: remote.fields.name, license: "reference-only", rights_state: "reference_only",
+              observed_at: new Date().toISOString(), observed_digest: null, storage_reference: null,
+            },
+          });
+        }
+        if (evidence.source_draft_version !== remote.draftVersion || evidence.public_state !== "reference_only") {
+          throw new Error(copy.citation.versionMismatch);
+        }
+      } else {
       if (remote.fields.evidence_type !== "packaging_label") {
         showErrors([copy.evidenceUpload.packagingOnly]);
         router.replace(contributionStageHref(language, remote.draftId, "evidence"));
@@ -374,6 +397,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
         }
         router.replace(contributionStageHref(language, remote.draftId, "evidence"));
         return;
+      }
       }
       const submitted = await api.submitContributionDraft(remote.draftId, {
         expected_draft_version: remote.draftVersion, idempotency_key: crypto.randomUUID(),
@@ -510,6 +534,7 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
           <Field name="attribution" label={copy.fields.attribution} hint={copy.fields.attributionHint}><input id="contribution-attribution" value={fields.attribution} onChange={(event) => update("attribution", event.target.value)} {...described("attribution")} /></Field>
           <fieldset><legend>{copy.licenseLegend}</legend><div className="contribution-choice-grid">
             {([["contributor-original", copy.licenses.original], ["CC0-1.0", copy.licenses.cc0], ["public-domain", copy.licenses.publicDomain]] as const).map(([value, label]) => <label key={value}><input type="radio" name="source_license" checked={fields.source_license === value} onChange={() => update("source_license", value)} /><span>{label}</span></label>)}
+            {fields.evidence_type === "public_document" ? <label><input type="radio" name="source_license" checked={fields.source_license === "reference-only"} onChange={() => update("source_license", "reference-only")} /><span>{copy.citation.referenceOnly}</span></label> : null}
           </div></fieldset>
         </> : null}
 
@@ -520,7 +545,12 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
             <button type="button" onClick={() => navigate(item.slug)}>{copy.actions.edit}</button>
           </div>)}
           <div className="review-warning"><strong>{copy.reviewWarning}</strong><p>{copy.reviewWarningBody}</p></div>
-          {!TYPED_EVIDENCE_HANDOFF_ENABLED ? <div className="review-warning" role="status">
+          {citationHandoff ? <div className="review-warning">
+            <label htmlFor="citation-publisher">{copy.citation.publisher}</label>
+            <input id="citation-publisher" value={citationPublisher} maxLength={500} onChange={(event) => setCitationPublisher(event.target.value)} placeholder={copy.citation.publisherPlaceholder} />
+            <p>{copy.citation.notice}</p>
+          </div> : null}
+          {!handoffEnabled ? <div className="review-warning" role="status">
             <strong>{copy.evidenceHandoffGateTitle}</strong>
             <p>{copy.evidenceHandoffGateBody}</p>
           </div> : null}
@@ -530,18 +560,18 @@ export function ContributionJourney({ language, routeDraftId, requestedStage }: 
             <p>{copy.accountBody}</p>
             <label>{copy.email}<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
             <label>{copy.password}<input required minLength={12} type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            <button className="contribution-primary" type="submit" disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : copy.signInHandoff}</button>
+            <button className="contribution-primary" type="submit" disabled={busy || !handoffEnabled}>{busy ? copy.handing : copy.signInHandoff}</button>
           </form> : null}
         </section> : null}
       </div>
       <div ref={inlineActions} className="contribution-actions contribution-actions-inline">
         {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
-        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : TYPED_EVIDENCE_HANDOFF_ENABLED ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
+        {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !handoffEnabled}>{busy ? copy.handing : handoffEnabled ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
       </div>
     </article>
     <div className={`contribution-actions contribution-actions-mobile${mobileActionsVisible ? " is-visible" : ""}`}>
       {stageMeta.previous ? <button type="button" className="contribution-back" onClick={() => navigate(stageMeta.previous!)}>← {copy.actions.back}</button> : <span />}
-      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !TYPED_EVIDENCE_HANDOFF_ENABLED}>{busy ? copy.handing : TYPED_EVIDENCE_HANDOFF_ENABLED ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
+      {stageMeta.next ? <button type="button" className="contribution-primary" onClick={continueJourney}>{copy.actions.continue} →</button> : <button type="button" className="contribution-primary" onClick={() => void submit()} disabled={busy || !handoffEnabled}>{busy ? copy.handing : handoffEnabled ? copy.actions.submit + " →" : copy.evidenceHandoffGateAction}</button>}
     </div>
   </main>;
 }

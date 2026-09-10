@@ -179,7 +179,7 @@ function isFieldValue(field: ContributionFieldName, value: unknown): boolean {
     ].includes(String(value));
   }
   if (field === "source_license") {
-    return value === null || ["contributor-original", "CC0-1.0", "public-domain"].includes(String(value));
+    return value === null || ["contributor-original", "CC0-1.0", "public-domain", "reference-only"].includes(String(value));
   }
   if (field === "portion_unit") {
     return ["g", "oz", "lb", "serving"].includes(String(value));

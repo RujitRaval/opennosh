@@ -45,6 +45,8 @@ EXPECTED_TABLES = {
     "mission_progress_records",
     "mission_progress_activations",
     "governance_role_assignments",
+    "governance_owner_authorizations",
+    "evidence_citation_copies",
     "governance_recusals",
     "governance_decisions",
     "governance_merge_authorizations",

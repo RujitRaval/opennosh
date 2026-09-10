@@ -361,7 +361,11 @@ than authorizing a forged URL.
 `POST /api/v1/contribution-drafts/{draft_id}/submit` accepts the expected draft version, an
 idempotency key, and a complete discriminated `evidence_manifest`. The server rechecks duplicates,
 every stage, evidence class, source URI, and source license before atomically binding the exact
-submitted version, creating its preservation wake-up, and moving the draft to `in_review`.
+submitted version, preserving its citation or creating its worker wake-up, and moving the draft to
+`in_review`. A public-document manifest with `rights_state: reference_only` preserves at most
+8 KiB of canonical metadata in PostgreSQL with digest readback in the same transaction. Its
+`observed_digest` is optional; omission claims no source-byte verification. This path never fetches
+the source URL. Archivable documents still require a storage reference and observed digest.
 Missing or untrusted byte-backed evidence fails closed. The idempotency key is bound to the
 canonical request; reusing it with different evidence fails visibly. The receipt says
 `received_for_review` and includes a submission ID, timestamps, public attribution, and stable

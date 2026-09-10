@@ -28,6 +28,7 @@ from opennosh_api.governance.models import (
     GovernanceRecusal,
     GovernanceRoleAssignment,
 )
+from opennosh_api.governance.owner import active_owner_authorization
 from opennosh_api.jobs import JobQueue
 from opennosh_api.publication.models import PublicationIntent
 from opennosh_api.publication.receipts import ReceiptEventType
@@ -107,8 +108,16 @@ async def approve_contribution(
         raise GovernanceDecisionError("contribution_not_found")
     if draft.review_state != "in_review":
         raise GovernanceDecisionError("contribution_not_in_review")
+    owner_authorization = None
     if draft.user_id == command.deciding_actor_id:
-        raise GovernanceDecisionError("self_review_prohibited")
+        owner_authorization = await active_owner_authorization(
+            session,
+            pack_id=str(draft.fields_json.get("pack_id", "")),
+            actor_id=command.deciding_actor_id,
+            now=now,
+        )
+        if owner_authorization is None:
+            raise GovernanceDecisionError("self_review_prohibited")
     if draft.fields_json.get("pack_id") != command.approved_changes.pack_id:
         raise GovernanceDecisionError("pack_scope_mismatch")
 
@@ -199,6 +208,8 @@ async def approve_contribution(
         record_id=command.record_id,
         contributor_actor_id=draft.user_id,
         deciding_actor_id=command.deciding_actor_id,
+        approval_mode="owner" if owner_authorization is not None else "independent",
+        owner_authorization_id=None if owner_authorization is None else owner_authorization.id,
         outcome="approved",
         reason=command.reason,
         approved_payload_digest=command.approved_changes.digest,
@@ -326,8 +337,16 @@ async def resubmit_publication(
         raise GovernanceDecisionError("contribution_not_publication_pending")
     if draft.draft_version != prior_decision.source_draft_version:
         raise GovernanceDecisionError("contribution_version_changed")
+    owner_authorization = None
     if draft.user_id == command.deciding_actor_id:
-        raise GovernanceDecisionError("self_review_prohibited")
+        owner_authorization = await active_owner_authorization(
+            session,
+            pack_id=str(draft.fields_json.get("pack_id", "")),
+            actor_id=command.deciding_actor_id,
+            now=now,
+        )
+        if owner_authorization is None:
+            raise GovernanceDecisionError("self_review_prohibited")
 
     role = await session.scalar(
         select(GovernanceRoleAssignment).where(
@@ -397,6 +416,8 @@ async def resubmit_publication(
         record_id=prior_decision.record_id,
         contributor_actor_id=prior_decision.contributor_actor_id,
         deciding_actor_id=command.deciding_actor_id,
+        approval_mode="owner" if owner_authorization is not None else "independent",
+        owner_authorization_id=None if owner_authorization is None else owner_authorization.id,
         outcome="approved",
         reason=command.reason,
         approved_payload_digest=prior_decision.approved_payload_digest,
@@ -650,7 +671,16 @@ async def intervene_publication(
         raise GovernanceDecisionError("governance_decision_not_found")
     if decision.pack_id != pack_id:
         raise GovernanceDecisionError("publication_governance_binding_mismatch")
-    if decision.contributor_actor_id == actor_id:
+    if (
+        decision.contributor_actor_id == actor_id
+        and await active_owner_authorization(
+            session,
+            pack_id=pack_id,
+            actor_id=actor_id,
+            now=now,
+        )
+        is None
+    ):
         raise GovernanceDecisionError("self_review_prohibited")
     role = await session.scalar(
         select(GovernanceRoleAssignment.id).where(

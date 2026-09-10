@@ -165,7 +165,9 @@ class RecordingDatabase:
             return self.decision
         return None
 
-    async def scalar(self, _statement: object) -> str:
+    async def scalar(self, statement: object) -> str | None:
+        if "governance_owner_authorizations" in str(statement):
+            return None
         return "planned"
 
 
@@ -230,6 +232,9 @@ def _enabled_client(
         pack_id="starter-us",
         source_draft_version=1,
         outcome="approved",
+        approval_mode="independent",
+        contributor_actor_id=USER_ID,
+        deciding_actor_id=USER_ID,
         reason="Verified against the submitted evidence.",
         decided_at=now,
     )

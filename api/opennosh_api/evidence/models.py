@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     UniqueConstraint,
     func,
@@ -48,8 +49,7 @@ class EvidenceUploadSession(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             name="observed_sha256_valid",
         ),
         CheckConstraint(
-            "observed_revision_sha256 IS NULL "
-            "OR observed_revision_sha256 ~ '^[0-9a-f]{64}$'",
+            "observed_revision_sha256 IS NULL OR observed_revision_sha256 ~ '^[0-9a-f]{64}$'",
             name="observed_revision_sha256_valid",
         ),
         CheckConstraint("capability_hash ~ '^[0-9a-f]{64}$'", name="capability_hash_valid"),
@@ -348,3 +348,15 @@ class EvidenceRemovalTombstone(CreatedAtMixin, Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class EvidenceCitationCopy(CreatedAtMixin, Base):
+    __tablename__ = "evidence_citation_copies"
+    __table_args__ = (
+        CheckConstraint("octet_length(canonical_bytes) BETWEEN 1 AND 8192", name="bytes_bounded"),
+    )
+    evidence_id: Mapped[UUID] = mapped_column(
+        ForeignKey("evidence_manifests.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    canonical_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
