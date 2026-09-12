@@ -179,88 +179,36 @@ async def _exercise_owner_workflow(database_url: str) -> None:
         database_url=database_url,
         database_capacity_manifest_path="config/database-capacity.local.v1.json",
     )
-    try:
-        readiness = await collect_owner_mission_readiness(
-            settings,
-            actor_id=owner_id,
-            mission_key=f"integration-{draft_id.hex}",
-            pack_id=pack_id,
-            record_ids=(record_id,),
-        )
-        report = await run_owner_mission(
-            settings,
-            actor_id=owner_id,
-            mission_key=f"integration-{draft_id.hex}",
-            pack_id=pack_id,
-            record_ids=(record_id,),
-            approved_readiness_digest=readiness.readiness_digest,
-        )
-        replay = await run_owner_mission(
-            settings,
-            actor_id=owner_id,
-            mission_key=f"integration-{draft_id.hex}",
-            pack_id=pack_id,
-            record_ids=(record_id,),
-            approved_readiness_digest=readiness.readiness_digest,
-        )
+    readiness = await collect_owner_mission_readiness(
+        settings,
+        actor_id=owner_id,
+        mission_key=f"integration-{draft_id.hex}",
+        pack_id=pack_id,
+        record_ids=(record_id,),
+    )
+    report = await run_owner_mission(
+        settings,
+        actor_id=owner_id,
+        mission_key=f"integration-{draft_id.hex}",
+        pack_id=pack_id,
+        record_ids=(record_id,),
+        approved_readiness_digest=readiness.readiness_digest,
+    )
+    replay = await run_owner_mission(
+        settings,
+        actor_id=owner_id,
+        mission_key=f"integration-{draft_id.hex}",
+        pack_id=pack_id,
+        record_ids=(record_id,),
+        approved_readiness_digest=readiness.readiness_digest,
+    )
 
-        assert report == replay
-        assert report.approval_mode == "owner"
-        assert report.owner_authorization_id == str(authorization_id)
-        assert report.accepted_count == report.acceptance_target == 1
-        assert report.record_ids == (record_id,)
-        assert report.receipt_digests == (receipt_digest,)
-    finally:
-        # The integration database is shared by the API job. Remove this test's
-        # committed workflow rows so later public-catalog tests cannot observe a
-        # newer approved mission from this fixture.
-        connection = await asyncpg.connect(asyncpg_dsn(database_url))
-        try:
-            mission_ids = await connection.fetch(
-                "SELECT DISTINCT mission_id FROM mission_definitions "
-                "WHERE proposed_by_actor_id = $1",
-                owner_id,
-            )
-            for row in mission_ids:
-                mission_id = row["mission_id"]
-                await connection.execute(
-                    "DELETE FROM mission_progress_records WHERE checkpoint_id IN "
-                    "(SELECT id FROM mission_progress_checkpoints WHERE mission_id = $1)",
-                    mission_id,
-                )
-                await connection.execute(
-                    "DELETE FROM mission_progress_activations WHERE mission_id = $1",
-                    mission_id,
-                )
-                await connection.execute(
-                    "DELETE FROM mission_progress_checkpoints WHERE mission_id = $1",
-                    mission_id,
-                )
-                await connection.execute(
-                    "DELETE FROM mission_contribution_bindings WHERE mission_id = $1",
-                    mission_id,
-                )
-                await connection.execute(
-                    "DELETE FROM mission_lifecycle_events WHERE mission_id = $1",
-                    mission_id,
-                )
-                await connection.execute(
-                    "DELETE FROM mission_definitions WHERE mission_id = $1",
-                    mission_id,
-                )
-            await connection.execute("DELETE FROM accepted_events WHERE id = $1", accepted_id)
-            await connection.execute(
-                "DELETE FROM publication_receipts WHERE publication_intent_id = $1", intent_id
-            )
-            await connection.execute("DELETE FROM publication_intents WHERE id = $1", intent_id)
-            await connection.execute("DELETE FROM governance_decisions WHERE id = $1", decision_id)
-            await connection.execute("DELETE FROM contribution_drafts WHERE id = $1", draft_id)
-            await connection.execute(
-                "DELETE FROM governance_owner_authorizations WHERE id = $1", authorization_id
-            )
-            await connection.execute("DELETE FROM users WHERE id = $1", owner_id)
-        finally:
-            await connection.close()
+    assert report == replay
+    assert report.approval_mode == "owner"
+    assert report.owner_authorization_id == str(authorization_id)
+    assert report.accepted_count == report.acceptance_target == 1
+    assert report.record_ids == (record_id,)
+    assert report.receipt_digests == (receipt_digest,)
 
 
 @pytest.mark.skipif(

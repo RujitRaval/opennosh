@@ -30,7 +30,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from api.tests.test_migrations import migration_config
 
 INTEGRATION_DATABASE_URL = os.getenv("INTEGRATION_DATABASE_URL")
-NOW = datetime(2026, 9, 2, 22, tzinfo=UTC)
+# Integration tests share the append-only mission ledger. Place this fixture after
+# every committed mission fixture so ``limit=1`` continues to exercise moderation
+# before limiting without assuming an otherwise empty database.
+NOW = datetime(2099, 9, 2, 22, tzinfo=UTC)
 PACK_ID = "opennosh-starter"
 
 
