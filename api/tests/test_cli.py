@@ -284,6 +284,155 @@ def test_owner_publication_maps_redacted_failures(
     assert output.out == ""
 
 
+def _owner_mission_readiness() -> cli.OwnerMissionReadiness:
+    return cli.OwnerMissionReadiness(
+        schema_version="1.0",
+        status="ready",
+        readiness_digest="a" * 64,
+        release_version="0.102.0.0",
+        deployed_commit="b" * 40,
+        mission_key="indian-sweets-owner-pilot-2026-09",
+        pack_id="indian-sweets",
+        acceptance_target=1,
+        definition={},
+        actor_reference_sha256="c" * 64,
+        records=(),
+        current_mission_flags={},
+        authorized_operations=(),
+        activation_changes={},
+    )
+
+
+def _owner_mission_report() -> cli.OwnerMissionReport:
+    return cli.OwnerMissionReport(
+        schema_version="1.0",
+        mission_id="11111111-1111-4111-8111-111111111111",
+        definition_id="22222222-2222-4222-8222-222222222222",
+        proposal_event_id="33333333-3333-4333-8333-333333333333",
+        approval_event_id="44444444-4444-4444-8444-444444444444",
+        approval_mode="owner",
+        owner_authorization_id="55555555-5555-4555-8555-555555555555",
+        pack_id="indian-sweets",
+        acceptance_target=1,
+        accepted_count=1,
+        matched_event_count=1,
+        event_set_digest="d" * 64,
+        checkpoint_id="66666666-6666-4666-8666-666666666666",
+        record_ids=("haldirams-baklava-mix-dry-fruit-tart",),
+        receipt_digests=("e" * 64,),
+        readiness_digest="a" * 64,
+    )
+
+
+def test_owner_mission_readiness_cli_reports_digest(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def collect(*_args: object, **options: object) -> cli.OwnerMissionReadiness:
+        assert options["record_ids"] == ("haldirams-baklava-mix-dry-fruit-tart",)
+        return _owner_mission_readiness()
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_owner_mission_readiness", collect)
+
+    assert (
+        cli.main(
+            [
+                "missions",
+                "owner-pilot-readiness",
+                "--actor-id",
+                "11111111-1111-4111-8111-111111111111",
+                "--mission-key",
+                "indian-sweets-owner-pilot-2026-09",
+                "--pack-id",
+                "indian-sweets",
+                "--record-id",
+                "haldirams-baklava-mix-dry-fruit-tart",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr()
+    assert f"Owner mission ready: {'a' * 64}" in output.out
+    assert output.err == ""
+
+
+def test_owner_mission_run_cli_reports_attributed_progress(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def run(*_args: object, **options: object) -> cli.OwnerMissionReport:
+        assert options["approved_readiness_digest"] == "a" * 64
+        return _owner_mission_report()
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "run_owner_mission", run)
+    arguments = cli.build_parser().parse_args(
+        [
+            "missions",
+            "run-owner-pilot",
+            "--actor-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--mission-key",
+            "indian-sweets-owner-pilot-2026-09",
+            "--pack-id",
+            "indian-sweets",
+            "--record-id",
+            "haldirams-baklava-mix-dry-fruit-tart",
+            "--approved-readiness-digest",
+            "a" * 64,
+            "--json",
+        ]
+    )
+
+    assert cli.run_mission_command(arguments) == 0
+    output = capsys.readouterr()
+    assert '"approval_mode": "owner"' in output.out
+    assert '"accepted_count": 1' in output.out
+    assert output.err == ""
+
+
+@pytest.mark.parametrize(
+    ("error", "exit_code", "message"),
+    [
+        (cli.OwnerMissionSelectionError("safe-selection-code"), 4, "safe-selection-code"),
+        (RuntimeError("private provider detail"), 5, "RuntimeError"),
+    ],
+)
+def test_owner_mission_cli_maps_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception,
+    exit_code: int,
+    message: str,
+) -> None:
+    async def reject(*_args: object, **_options: object) -> cli.OwnerMissionReadiness:
+        raise error
+
+    monkeypatch.setattr(cli, "get_settings", lambda: object())
+    monkeypatch.setattr(cli, "collect_owner_mission_readiness", reject)
+    arguments = cli.build_parser().parse_args(
+        [
+            "missions",
+            "owner-pilot-readiness",
+            "--actor-id",
+            "11111111-1111-4111-8111-111111111111",
+            "--mission-key",
+            "indian-sweets-owner-pilot-2026-09",
+            "--pack-id",
+            "indian-sweets",
+            "--record-id",
+            "haldirams-baklava-mix-dry-fruit-tart",
+        ]
+    )
+
+    assert cli.run_mission_command(arguments) == exit_code
+    output = capsys.readouterr()
+    assert message in output.err
+    assert "private provider detail" not in output.err
+    assert output.out == ""
+
+
 def test_exercise_import_command_parses_offline_paths() -> None:
     arguments = cli.build_parser().parse_args(
         ["exercises", "import-wger", "one.json", "two.json", "--batch-size", "25", "--json"]
