@@ -95,5 +95,50 @@ If it reports zero or multiple candidates, inspect the owner queue and identify
 one exact record before retrying; never relax the selector or enable continuous
 claims to clear a backlog.
 
+## Run one small owner mission
+
+Owner missions use the same account and active pack grant. Keep all five mission flags disabled
+while preparing and running the one-off. After the selected records have published receipts, run
+the read-only readiness command from the Render API service shell:
+
+```sh
+python deploy/render_runtime.py owner-mission-readiness \
+  --actor-id ACTUAL_ACCOUNT_UUID \
+  --mission-key indian-sweets-owner-pilot-2026-09 \
+  --pack-id indian-sweets \
+  --record-id PUBLISHED_RECORD_ID
+```
+
+The report binds the account by hash, mission key, pack, exact draft versions, accepted events,
+receipt digests, disabled flag state, one-off operations, and planned public exposure into one
+SHA-256 digest. Obtain explicit authorization for that digest. Then run the matching command:
+
+```sh
+python deploy/render_runtime.py owner-mission \
+  --actor-id ACTUAL_ACCOUNT_UUID \
+  --mission-key indian-sweets-owner-pilot-2026-09 \
+  --pack-id indian-sweets \
+  --record-id PUBLISHED_RECORD_ID \
+  --approved-readiness-digest APPROVED_SHA256
+```
+
+The command refuses a stale or changed digest. It deterministically proposes and owner-approves the
+mission, binds only the exact owner-authored published draft versions, rebuilds from reconciled
+accepted events and signed receipt records, atomically activates the checkpoint, and exits. Safe
+retries reuse the same lifecycle facts and checkpoint. It does not change Render settings, create a
+service, or consume a separate database role.
+
+After the report shows `approval_mode=owner` and `accepted_count=acceptance_target`, expose only the
+mission catalog: set `MISSION_PUBLIC_ENABLED=true` on `opennosh-api` in the Blueprint and add
+`commons-missions` to the web navigation list through a reviewed deployment. Keep mutation,
+long-running projection, activity-map, and mission-pack-release flags false. Verify the public
+mission response against the report's mission ID, count, and event-set digest.
+
+Rollback through the Blueprint by restoring `MISSION_PUBLIC_ENABLED=false` and removing
+`commons-missions` from public navigation. The mission facts, bindings, checkpoints, accepted
+events, releases, and receipts remain append-only. A successful rollback hides the navigation and
+returns the disabled empty mission response while the API, publication worker, and Commons snapshot
+remain healthy.
+
 The new migration deliberately refuses rollback when owner decisions or citation
 copies exist. Do not delete this history to force a downgrade; apply a forward fix.

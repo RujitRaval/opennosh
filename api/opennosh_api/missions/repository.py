@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from opennosh_api.contributions.models import ContributionDraft
 from opennosh_api.foodpacks.validation import parse_pack_manifest
 from opennosh_api.governance.contracts import ApprovedChangeSet
-from opennosh_api.governance.models import GovernanceDecision
+from opennosh_api.governance.models import GovernanceDecision, GovernanceOwnerAuthorization
+from opennosh_api.governance.owner import active_owner_authorization
 from opennosh_api.missions.contracts import AcceptedMissionFact, MissionBindingFact
 from opennosh_api.missions.models import (
     MissionContributionBinding,
@@ -74,6 +75,16 @@ class MissionRepository:
         await self._session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
             {"scope": f"opennosh:mission-binding:{draft_id}:{draft_version}"},
+        )
+
+    async def active_owner_authorization(
+        self, *, actor_id: UUID, pack_id: str, at: datetime
+    ) -> GovernanceOwnerAuthorization | None:
+        return await active_owner_authorization(
+            self._session,
+            actor_id=actor_id,
+            pack_id=pack_id,
+            now=at,
         )
 
     async def definition(self, definition_id: UUID) -> MissionDefinition | None:

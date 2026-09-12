@@ -89,6 +89,16 @@ class MissionLifecycleEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
             name="release_receipt_shape",
         ),
         CheckConstraint(
+            "(action = 'approve' AND approval_mode IN ('independent','owner')) OR "
+            "(action != 'approve' AND approval_mode IS NULL)",
+            name="approval_mode_shape",
+        ),
+        CheckConstraint(
+            "(approval_mode = 'owner' AND owner_authorization_id IS NOT NULL) OR "
+            "(approval_mode IS DISTINCT FROM 'owner' AND owner_authorization_id IS NULL)",
+            name="owner_authorization_shape",
+        ),
+        CheckConstraint(
             "prior_event_id IS NULL OR prior_event_id != id",
             name="prior_event_not_self",
         ),
@@ -125,6 +135,10 @@ class MissionLifecycleEvent(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     action: Mapped[str] = mapped_column(String(24), nullable=False)
     actor_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approval_mode: Mapped[str | None] = mapped_column(String(16))
+    owner_authorization_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("governance_owner_authorizations.id", ondelete="RESTRICT")
     )
     public_reason: Mapped[str] = mapped_column(String(2000), nullable=False)
     next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

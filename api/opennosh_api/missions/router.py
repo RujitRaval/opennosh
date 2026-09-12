@@ -84,6 +84,7 @@ def _lifecycle_response(event: MissionLifecycleEvent) -> MissionLifecycleRespons
         sequence=event.sequence,
         action=MissionLifecycleAction(event.action),
         state=lifecycle_state(event),
+        approval_mode=event.approval_mode,  # type: ignore[arg-type]
         public_reason=event.public_reason,
         next_review_at=event.next_review_at,
         release_receipt_digest=event.release_receipt_digest,

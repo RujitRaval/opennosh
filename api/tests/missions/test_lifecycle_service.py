@@ -33,6 +33,7 @@ class FakeMissionStore:
         self.definitions: dict[UUID, MissionDefinition] = {}
         self.events: dict[UUID, MissionLifecycleEvent] = {}
         self.stewards = {PROPOSER_ID, STEWARD_ID}
+        self.owners: dict[UUID, SimpleNamespace] = {}
         self.checkpoint: SimpleNamespace | None = None
         self.progress_current = True
         self.receipts: dict[str, SimpleNamespace] = {}
@@ -70,6 +71,13 @@ class FakeMissionStore:
     ) -> bool:
         return actor_id in self.stewards and pack_id == "opennosh-starter" and at >= NOW
 
+    async def active_owner_authorization(
+        self, *, actor_id: UUID, pack_id: str, at: datetime
+    ) -> SimpleNamespace | None:
+        if pack_id != "opennosh-starter" or at < NOW:
+            return None
+        return self.owners.get(actor_id)
+
     def add_definition(self, definition: MissionDefinition) -> None:
         self.definitions[definition.id] = definition
 
@@ -92,13 +100,18 @@ def _spec(*, target: int = 10) -> MissionDefinitionSpec:
     )
 
 
-def _proposal(*, event_id: UUID | None = None, reason: str = "Open a measurable gap."):
+def _proposal(
+    *,
+    event_id: UUID | None = None,
+    reason: str = "Open a measurable gap.",
+    responsible_actor_id: UUID = STEWARD_ID,
+):
     return ProposeMission(
         mission_id=MISSION_ID,
         definition_id=DEFINITION_ID,
         event_id=event_id or uuid4(),
         actor_id=PROPOSER_ID,
-        responsible_steward_actor_id=STEWARD_ID,
+        responsible_steward_actor_id=responsible_actor_id,
         definition=_spec(),
         public_reason=reason,
     )
@@ -210,12 +223,38 @@ async def test_approval_is_moderated_and_optimistically_concurrent() -> None:
     stale = _transition(proposed, MissionLifecycleAction.APPROVE)
     approved = await transition_mission(store, stale, now=NOW + timedelta(minutes=1))
     assert lifecycle_state(approved) is MissionLifecycleState.ACTIVE
+    assert approved.approval_mode == "independent"
+    assert approved.owner_authorization_id is None
     with pytest.raises(MissionLifecycleError, match="mission_revision_conflict"):
         await transition_mission(
             store,
             _transition(proposed, MissionLifecycleAction.CLOSE),
             now=NOW + timedelta(minutes=2),
         )
+
+
+@pytest.mark.asyncio
+async def test_owner_can_propose_and_approve_with_explicit_attribution() -> None:
+    store = FakeMissionStore()
+    store.stewards.clear()
+    authorization_id = uuid4()
+    store.owners[PROPOSER_ID] = SimpleNamespace(id=authorization_id)
+
+    _definition, proposed = await propose_mission(
+        store,
+        _proposal(responsible_actor_id=PROPOSER_ID),
+        now=NOW,
+    )
+    approved = await transition_mission(
+        store,
+        _transition(proposed, MissionLifecycleAction.APPROVE, actor_id=PROPOSER_ID),
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert lifecycle_state(approved) is MissionLifecycleState.ACTIVE
+    assert approved.actor_id == PROPOSER_ID
+    assert approved.approval_mode == "owner"
+    assert approved.owner_authorization_id == authorization_id
 
 
 @pytest.mark.asyncio
