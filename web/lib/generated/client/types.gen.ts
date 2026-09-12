@@ -2257,6 +2257,10 @@ export type MissionLifecycleAction = 'propose' | 'approve' | 'pause' | 'resume' 
 export type MissionLifecycleResponse = {
     action: MissionLifecycleAction;
     /**
+     * Approval Mode
+     */
+    approval_mode?: 'independent' | 'owner' | null;
+    /**
      * Definition Id
      */
     definition_id: string;

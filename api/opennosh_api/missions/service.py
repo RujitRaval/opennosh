@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from opennosh_api.governance.models import GovernanceOwnerAuthorization
 from opennosh_api.missions.contracts import (
     MissionDefinitionSpec,
     MissionLifecycleAction,
@@ -75,9 +76,7 @@ class MissionStore(Protocol):
 
     async def latest_lifecycle_event(self, mission_id: UUID) -> MissionLifecycleEvent | None: ...
 
-    async def active_progress(
-        self, definition_id: UUID
-    ) -> MissionProgressCheckpoint | None: ...
+    async def active_progress(self, definition_id: UUID) -> MissionProgressCheckpoint | None: ...
 
     async def progress_is_current(self, checkpoint: MissionProgressCheckpoint) -> bool: ...
 
@@ -86,6 +85,10 @@ class MissionStore(Protocol):
     async def actor_is_active_human_steward(
         self, *, actor_id: UUID, pack_id: str, at: datetime
     ) -> bool: ...
+
+    async def active_owner_authorization(
+        self, *, actor_id: UUID, pack_id: str, at: datetime
+    ) -> GovernanceOwnerAuthorization | None: ...
 
     def add_definition(self, definition: MissionDefinition) -> None: ...
 
@@ -112,17 +115,27 @@ async def propose_mission(
         return definition, replay
     if await store.latest_definition(command.mission_id) is not None:
         raise MissionLifecycleError("mission_already_exists")
-    if not await store.actor_is_active_human_steward(
+    proposer_is_steward = await store.actor_is_active_human_steward(
         actor_id=command.actor_id,
         pack_id=command.definition.target_pack_id,
         at=now,
-    ):
+    )
+    owner_authorization = await store.active_owner_authorization(
+        actor_id=command.actor_id,
+        pack_id=command.definition.target_pack_id,
+        at=now,
+    )
+    if not proposer_is_steward and owner_authorization is None:
         raise MissionLifecycleError("mission_actor_not_active_steward")
-    if not await store.actor_is_active_human_steward(
+    responsible_is_steward = await store.actor_is_active_human_steward(
         actor_id=command.responsible_steward_actor_id,
         pack_id=command.definition.target_pack_id,
         at=now,
-    ):
+    )
+    responsible_is_owner = (
+        owner_authorization is not None and command.responsible_steward_actor_id == command.actor_id
+    )
+    if not responsible_is_steward and not responsible_is_owner:
         raise MissionLifecycleError("responsible_steward_not_active")
 
     definition = MissionDefinition(
@@ -182,11 +195,17 @@ async def transition_mission(
     definition = await store.definition(command.definition_id)
     if definition is None or definition.mission_id != command.mission_id:
         raise MissionLifecycleError("mission_definition_not_found")
-    if not await store.actor_is_active_human_steward(
+    actor_is_steward = await store.actor_is_active_human_steward(
         actor_id=command.actor_id,
         pack_id=definition.target_pack_id,
         at=now,
-    ):
+    )
+    owner_authorization = await store.active_owner_authorization(
+        actor_id=command.actor_id,
+        pack_id=definition.target_pack_id,
+        at=now,
+    )
+    if not actor_is_steward and owner_authorization is None:
         raise MissionLifecycleError("mission_actor_not_active_steward")
     latest_definition = await store.latest_definition(command.mission_id)
     if latest_definition is None or latest_definition.id != definition.id:
@@ -200,12 +219,14 @@ async def transition_mission(
         raise MissionLifecycleError("mission_event_time_invalid")
     if prior.definition_id != definition.id:
         raise MissionLifecycleError("mission_definition_not_current")
-    if (
-        prior.action == MissionLifecycleAction.PROPOSE.value
-        and command.action is MissionLifecycleAction.APPROVE
-        and prior.actor_id == command.actor_id
-    ):
-        raise MissionLifecycleError("mission_self_approval_prohibited")
+    approval_mode: str | None = None
+    if command.action is MissionLifecycleAction.APPROVE:
+        if prior.actor_id == command.actor_id:
+            if owner_authorization is None:
+                raise MissionLifecycleError("mission_self_approval_prohibited")
+            approval_mode = "owner"
+        else:
+            approval_mode = "independent"
 
     current_state = _state_for_action(MissionLifecycleAction(prior.action))
     state_after(current_state, command.action)
@@ -232,6 +253,10 @@ async def transition_mission(
         prior_event_id=prior.id,
         action=command.action.value,
         actor_id=command.actor_id,
+        approval_mode=approval_mode,
+        owner_authorization_id=(
+            owner_authorization.id if owner_authorization is not None else None
+        ),
         public_reason=command.public_reason,
         next_review_at=command.next_review_at,
         release_receipt_digest=command.release_receipt_digest,

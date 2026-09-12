@@ -2,6 +2,21 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.102.0.0] - 2026-09-12
+
+### Added
+
+- Add a digest-bound, one-off owner mission command that proves an exact set of owner-published
+  records and signed receipts, creates and owner-approves a measurable mission, binds immutable
+  draft versions, and rebuilds accepted-event progress using the existing API database budget.
+- Record owner mission approvals with the active pack authorization while preserving independent
+  approval behavior and public actor privacy.
+
+### Changed
+
+- Permit an explicitly authorized pack owner to propose, operate, and approve a mission for that
+  pack with both lifecycle actions attributed to the same account.
+
 ## [0.101.0.0] - 2026-09-10
 
 ### Added

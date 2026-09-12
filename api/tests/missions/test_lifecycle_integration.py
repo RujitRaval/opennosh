@@ -230,6 +230,76 @@ async def _exercise_concurrency(database_url: str) -> None:
         await engine.dispose()
 
 
+async def _exercise_owner_approval(database_url: str) -> None:
+    owner_id = uuid4()
+    authorization_id = uuid4()
+    mission_id = uuid4()
+    definition_id = uuid4()
+    proposal_id = uuid4()
+    approval_id = uuid4()
+    suffix = mission_id.hex
+    connection = await asyncpg.connect(asyncpg_dsn(database_url))
+    try:
+        await connection.execute(
+            "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, 'hash')",
+            owner_id,
+            f"mission-owner-{suffix}@example.test",
+        )
+        await connection.execute(
+            "INSERT INTO governance_owner_authorizations "
+            "(id, pack_id, actor_id, role, granted_by_actor_id, grant_reason, granted_at) "
+            "VALUES ($1, 'indian-sweets', $2, 'owner', $2, 'owner mission test', $3)",
+            authorization_id,
+            owner_id,
+            NOW,
+        )
+    finally:
+        await connection.close()
+
+    engine = create_async_engine(database_url)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session, session.begin():
+            definition, proposal = await propose_mission(
+                MissionRepository(session),
+                ProposeMission(
+                    mission_id=mission_id,
+                    definition_id=definition_id,
+                    event_id=proposal_id,
+                    actor_id=owner_id,
+                    responsible_steward_actor_id=owner_id,
+                    definition=MissionDefinitionSpec(
+                        gap_kind=MissionGapKind.DATASET,
+                        title="Expand Indian sweets",
+                        summary="Prove an owner-run mission with explicit attribution.",
+                        target_pack_id="indian-sweets",
+                        target_dataset="foods",
+                        acceptance_target=1,
+                        acceptance_criteria="Count one verified published record.",
+                    ),
+                    public_reason="Open the bounded owner mission.",
+                ),
+                now=NOW,
+            )
+            approval = await transition_mission(
+                MissionRepository(session),
+                TransitionMission(
+                    mission_id=mission_id,
+                    definition_id=definition.id,
+                    event_id=approval_id,
+                    expected_prior_event_id=proposal.id,
+                    actor_id=owner_id,
+                    action=MissionLifecycleAction.APPROVE,
+                    public_reason="Owner-approve the bounded pilot.",
+                ),
+                now=NOW + timedelta(seconds=1),
+            )
+            assert approval.approval_mode == "owner"
+            assert approval.owner_authorization_id == authorization_id
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.skipif(
     INTEGRATION_DATABASE_URL is None,
     reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
@@ -238,3 +308,13 @@ def test_concurrent_lifecycle_decisions_serialize_and_facts_remain_append_only()
     assert INTEGRATION_DATABASE_URL is not None
     alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
     asyncio.run(_exercise_concurrency(INTEGRATION_DATABASE_URL))
+
+
+@pytest.mark.skipif(
+    INTEGRATION_DATABASE_URL is None,
+    reason="INTEGRATION_DATABASE_URL is required for PostgreSQL integration tests",
+)
+def test_owner_can_propose_and_approve_under_active_pack_authorization() -> None:
+    assert INTEGRATION_DATABASE_URL is not None
+    alembic_command.upgrade(migration_config(INTEGRATION_DATABASE_URL), "head")
+    asyncio.run(_exercise_owner_approval(INTEGRATION_DATABASE_URL))

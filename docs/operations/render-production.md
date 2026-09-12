@@ -1120,6 +1120,22 @@ Rollback disables the five switches without deleting mission facts or changing t
 enabled publication-claims mode. Retain all definitions, lifecycle events, bindings, checkpoints,
 accepted events, signed releases, and receipts for a later deterministic rebuild.
 
+For the owner-operated pilot, use the digest-bound one-off workflow in
+[owner-pilot.md](owner-pilot.md#run-one-small-owner-mission). Its readiness report must show all five
+mission switches false and bind every selected accepted event and signed receipt. The exact approval
+message is:
+
+```text
+I approve owner mission activation for readiness digest <sha256>, the exact one-off owner proposal,
+owner approval, contribution bindings and progress rebuild in that report, and public mission catalog
+navigation. Mutation, continuous projection, activity-map, and mission-pack-release flags remain off.
+```
+
+After that exact message, run the one-off while all flags remain false. Only after it reports the
+target met may a reviewed Blueprint deployment enable `MISSION_PUBLIC_ENABLED` on `opennosh-api`
+and add `commons-missions` to the web navigation list. Rollback restores those two values and keeps
+all append-only facts.
+
 ## T34.8 disabled deployment readiness
 
 The reuse, impact, and public-status pages are deployed but intentionally absent from public
@@ -1146,7 +1162,7 @@ PYTHONPATH=api:. python scripts/check_publication_readiness.py /tmp/publication-
 ```
 
 The report is acceptable only when the schema validator and recomputed digest pass, the deployed
-commit is exact, `living_commons.expected_migration_head` equals `20260910_0041`,
+commit is exact, `living_commons.expected_migration_head` equals `20260912_0042`,
 `living_commons.all_capabilities_disabled` is true, and every runtime flag above remains false.
 This verification does not authorize activation.
 

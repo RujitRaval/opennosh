@@ -50,6 +50,14 @@ from opennosh_api.governance.service import (
 )
 from opennosh_api.importers.wger import WgerFormatError, import_wger
 from opennosh_api.jobs.pgqueuer import PgQueuerJobQueue
+from opennosh_api.missions.owner_workflow import (
+    OwnerMissionReadiness,
+    OwnerMissionReadinessError,
+    OwnerMissionReport,
+    OwnerMissionSelectionError,
+    collect_owner_mission_readiness,
+    run_owner_mission,
+)
 from opennosh_api.public.artifacts import ArtifactReadError
 from opennosh_api.public.bootstrap import (
     build_starter_release,
@@ -200,6 +208,27 @@ def build_parser() -> argparse.ArgumentParser:
     owner_publication.add_argument("--pack-id", required=True)
     owner_publication.add_argument("--timeout-seconds", type=float, default=900)
     owner_publication.add_argument("--json", action="store_true")
+    missions = commands.add_parser("missions", help="Manage governed Commons missions")
+    mission_commands = missions.add_subparsers(dest="mission_command", required=True)
+    owner_readiness = mission_commands.add_parser(
+        "owner-pilot-readiness",
+        help="Build the exact disabled owner-mission activation digest",
+    )
+    owner_readiness.add_argument("--actor-id", type=UUID, required=True)
+    owner_readiness.add_argument("--mission-key", required=True)
+    owner_readiness.add_argument("--pack-id", required=True)
+    owner_readiness.add_argument("--record-id", action="append", required=True)
+    owner_readiness.add_argument("--json", action="store_true")
+    owner_mission = mission_commands.add_parser(
+        "run-owner-pilot",
+        help="Create, owner-approve, bind, and rebuild one exact owner mission",
+    )
+    owner_mission.add_argument("--actor-id", type=UUID, required=True)
+    owner_mission.add_argument("--mission-key", required=True)
+    owner_mission.add_argument("--pack-id", required=True)
+    owner_mission.add_argument("--record-id", action="append", required=True)
+    owner_mission.add_argument("--approved-readiness-digest", required=True)
+    owner_mission.add_argument("--json", action="store_true")
     add_public_parser(commands)
     add_packs_parser(commands)
     add_federation_parser(commands)
@@ -669,6 +698,50 @@ def _run_owner_publication(arguments: argparse.Namespace) -> int:
     return 0 if payload["state"] == "published" else 2
 
 
+def run_mission_command(arguments: argparse.Namespace) -> int:
+    report: OwnerMissionReadiness | OwnerMissionReport
+    try:
+        if arguments.mission_command == "owner-pilot-readiness":
+            report = asyncio.run(
+                collect_owner_mission_readiness(
+                    get_settings(),
+                    actor_id=arguments.actor_id,
+                    mission_key=arguments.mission_key,
+                    pack_id=arguments.pack_id,
+                    record_ids=tuple(arguments.record_id),
+                )
+            )
+        elif arguments.mission_command == "run-owner-pilot":
+            report = asyncio.run(
+                run_owner_mission(
+                    get_settings(),
+                    actor_id=arguments.actor_id,
+                    mission_key=arguments.mission_key,
+                    pack_id=arguments.pack_id,
+                    record_ids=tuple(arguments.record_id),
+                    approved_readiness_digest=arguments.approved_readiness_digest,
+                )
+            )
+        else:
+            raise AssertionError(f"unsupported missions command: {arguments.mission_command}")
+    except (OwnerMissionReadinessError, OwnerMissionSelectionError) as error:
+        print(f"Owner mission failed: {error}", file=sys.stderr)
+        return 4
+    except (OSError, RuntimeError, ValueError, ValidationError, SQLAlchemyError) as error:
+        print(f"Owner mission failed: {type(error).__name__}", file=sys.stderr)
+        return 5
+    payload = report.to_dict()
+    if arguments.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    elif arguments.mission_command == "owner-pilot-readiness":
+        print(f"Owner mission ready: {payload['readiness_digest']}")
+    else:
+        print(
+            f"Owner mission complete: {payload['mission_id']} accepted={payload['accepted_count']}"
+        )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     raw_arguments = list(argv) if argv is not None else sys.argv[1:]
     json_public_command = (
@@ -704,6 +777,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_exercise_command(arguments)
     if arguments.command == "commons":
         return run_commons_command(arguments)
+    if arguments.command == "missions":
+        return run_mission_command(arguments)
     if arguments.command == "public":
         return run_public_command(arguments)
     if arguments.command == "packs":

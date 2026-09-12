@@ -135,6 +135,7 @@ class MissionLifecycleResponse(BaseModel):
     sequence: Annotated[int, Field(gt=0)]
     action: MissionLifecycleAction
     state: MissionLifecycleState
+    approval_mode: Literal["independent", "owner"] | None = None
     public_reason: Annotated[str, Field(min_length=1, max_length=2000)]
     next_review_at: datetime | None = None
     release_receipt_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None

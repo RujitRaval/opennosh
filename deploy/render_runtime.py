@@ -877,6 +877,37 @@ def run_owner_publication(
     )
 
 
+def run_owner_mission(
+    source: Mapping[str, str],
+    *,
+    actor_id: str,
+    mission_key: str,
+    pack_id: str,
+    record_ids: list[str],
+    approved_readiness_digest: str | None,
+) -> None:
+    """Prepare or run one digest-bound owner mission using the existing API role."""
+
+    environment = api_environment(source)
+    command = [
+        "opennosh",
+        "missions",
+        ("run-owner-pilot" if approved_readiness_digest is not None else "owner-pilot-readiness"),
+        "--actor-id",
+        actor_id,
+        "--mission-key",
+        mission_key,
+        "--pack-id",
+        pack_id,
+    ]
+    for record_id in record_ids:
+        command.extend(("--record-id", record_id))
+    if approved_readiness_digest is not None:
+        command.extend(("--approved-readiness-digest", approved_readiness_digest))
+    command.append("--json")
+    subprocess.run(command, check=True, env=environment)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -889,6 +920,8 @@ def main() -> int:
             "natural-publication-readiness",
             "natural-publication-proof",
             "owner-publication",
+            "owner-mission-readiness",
+            "owner-mission",
             "usda-reference-release",
         ),
     )
@@ -896,7 +929,10 @@ def main() -> int:
     parser.add_argument("--manifest")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--actor-id")
+    parser.add_argument("--mission-key")
     parser.add_argument("--pack-id")
+    parser.add_argument("--record-id", action="append", default=[])
+    parser.add_argument("--approved-readiness-digest")
     parser.add_argument("--timeout-seconds", type=float, default=900)
     arguments = parser.parse_args()
     if arguments.mode == "predeploy":
@@ -919,6 +955,29 @@ def main() -> int:
             actor_id=arguments.actor_id,
             pack_id=arguments.pack_id,
             timeout_seconds=arguments.timeout_seconds,
+        )
+    elif arguments.mode in {"owner-mission-readiness", "owner-mission"}:
+        if (
+            arguments.actor_id is None
+            or arguments.mission_key is None
+            or arguments.pack_id is None
+            or not arguments.record_id
+        ):
+            parser.error(
+                f"{arguments.mode} requires --actor-id, --mission-key, --pack-id, "
+                "and at least one --record-id"
+            )
+        if arguments.mode == "owner-mission" and arguments.approved_readiness_digest is None:
+            parser.error("owner-mission requires --approved-readiness-digest")
+        run_owner_mission(
+            os.environ,
+            actor_id=arguments.actor_id,
+            mission_key=arguments.mission_key,
+            pack_id=arguments.pack_id,
+            record_ids=arguments.record_id,
+            approved_readiness_digest=(
+                arguments.approved_readiness_digest if arguments.mode == "owner-mission" else None
+            ),
         )
     elif arguments.mode == "usda-reference-release":
         run_usda_reference_release(

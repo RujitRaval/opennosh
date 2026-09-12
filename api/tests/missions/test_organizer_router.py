@@ -121,6 +121,7 @@ def _event(action: str, *, sequence: int) -> SimpleNamespace:
         definition_id=DEFINITION_ID,
         sequence=sequence,
         action=action,
+        approval_mode="independent" if action == "approve" else None,
         public_reason=f"Apply {action} with a public explanation.",
         next_review_at=None,
         release_receipt_digest=None,
