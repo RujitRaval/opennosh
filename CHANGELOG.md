@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.103.0.2] - 2026-09-14
+
+### Added
+
+- Restore the approved public owner mission after the production rollback drill confirmed that
+  mission proof and the signed Commons release remain intact while public surfaces are disabled.
+
 ## [0.103.0.1] - 2026-09-14
 
 ### Fixed
