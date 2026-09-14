@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.103.0.1] - 2026-09-14
+
+### Fixed
+
+- Exercise the reviewed Commons mission rollback by removing public mission navigation and
+  returning the mission catalog to its disabled fail-closed state without deleting mission proof.
+
 ## [0.103.0.0] - 2026-09-14
 
 ### Added
