@@ -73,7 +73,7 @@ services:
       - key: MISSION_PROJECTION_ENABLED
         value: "false"
       - key: MISSION_PUBLIC_ENABLED
-        value: "false"
+        value: "true"
       - key: MISSION_ACTIVITY_MAP_ENABLED
         value: "false"
       - key: MISSION_PACK_RELEASE_ENABLED
@@ -236,7 +236,7 @@ services:
       - key: OPENNOSH_PUBLIC_ROOT_ENABLED
         value: "true"
       - key: OPENNOSH_PUBLIC_NAV_FEATURES
-        value: "explorer-search"
+        value: "explorer-search,commons-missions"
       - key: OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED
         value: "false"
       - key: OPENNOSH_GOVERNANCE_STEWARD_UI_ENABLED
