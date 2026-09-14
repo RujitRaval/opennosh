@@ -2,6 +2,17 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.102.0.1] - 2026-09-14
+
+### Fixed
+
+- Allow a governed publication to add records to an existing pack by accepting unchanged files
+  only when their bytes match the previously signed pack artifact.
+- Require an existing-pack release to use a newer semantic version, preserve prior pack versions,
+  and replace only public records proven to belong to the signed baseline.
+- Recover the bounded owner workflow after a protected merge without enabling persistent Render
+  publication claims or weakening exact-head, approved-change, signature, and receipt checks.
+
 ## [0.102.0.0] - 2026-09-12
 
 ### Added

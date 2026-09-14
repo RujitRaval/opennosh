@@ -341,6 +341,7 @@ class GitHubForgeClient:
         *,
         expected_commit: str,
         expected_tree_digest: str,
+        trusted_baseline_files: Mapping[str, bytes] | None = None,
     ) -> MergedPackMaterial:
         """Read the governed pack and shared license files from the merged tree."""
 
@@ -376,6 +377,7 @@ class GitHubForgeClient:
             approved_paths=frozenset(
                 file.path for file in mutation.binding.approved_changes.files
             ),
+            trusted_baseline_files=trusted_baseline_files or {},
         )
         return MergedPackMaterial(
             commit_sha=expected_commit,
@@ -652,6 +654,7 @@ class GitHubForgeClient:
         tree_sha: str,
         pack_id: str,
         approved_paths: frozenset[str],
+        trusted_baseline_files: Mapping[str, bytes],
     ) -> dict[str, bytes]:
         tree = await self._request(
             "GET",
@@ -675,7 +678,10 @@ class GitHubForgeClient:
             and str(entry["path"]).startswith(pack_root)
         ]
         pack_paths = {str(entry["path"]) for entry in pack_entries}
-        if pack_paths != approved_paths:
+        baseline_paths = frozenset(trusted_baseline_files)
+        if any(not path.startswith(pack_root) for path in baseline_paths):
+            raise ForgeConflictError("trusted_pack_baseline_invalid")
+        if pack_paths != approved_paths | baseline_paths:
             raise ForgeConflictError("merged_pack_inventory_mismatch")
         selected = [
             *pack_entries,
@@ -690,7 +696,13 @@ class GitHubForgeClient:
         if not selected or len(selected) > 256:
             raise ForgeTerminalError("github_merged_pack_unbounded")
         typed_selected = [dict(entry) for entry in selected]
-        return await self._read_selected_blobs(owner, repository, typed_selected)
+        files = await self._read_selected_blobs(owner, repository, typed_selected)
+        for path, expected in trusted_baseline_files.items():
+            if path in approved_paths:
+                continue
+            if files.get(path.removeprefix("packs/")) != expected:
+                raise ForgeConflictError("merged_pack_baseline_mismatch")
+        return files
 
     async def _read_selected_blobs(
         self,

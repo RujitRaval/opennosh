@@ -77,6 +77,11 @@ historical meaning after later revocation.
    and pointer checks, prints a redacted terminal report, and exits. It never
    changes the Render environment or scans unrelated queued records.
 
+   For an addition to an already published pack, the worker reads that pack's newest signed
+   archive as a trust baseline. Files omitted from the new decision are accepted only when the
+   merged Git bytes match the signed archive exactly. The reviewed manifest must advance the pack
+   semantic version; altered, missing, unexpected, or cross-pack files fail closed before signing.
+
    `--timeout-seconds` defaults to 900 and bounds selection, startup, and polling;
    the worker then performs its bounded shutdown drain. A timeout exits nonzero
    without deleting the intent or its history. The direct application command is

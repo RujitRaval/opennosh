@@ -637,6 +637,12 @@ PgQueuer filter and exits after the intent reaches a terminal state. Its JSON re
 contains the decision and authorization IDs plus the receipt digest and reference,
 so the operator can verify attribution without copying secret configuration.
 
+When that intent adds to an existing pack, the canonical material authority downloads the newest
+pack archive from the currently verified signed release. Unreviewed paths are admitted only when
+their merged bytes match that signed baseline exactly. The reviewed manifest must advance the pack
+semantic version, and only records belonging to the baseline pack may be replaced in the latest
+manifest. Any altered baseline byte, unexpected path, or reused version fails before signing.
+
 If the selected intent becomes terminal before merge authorization, keep claims disabled and leave
 that intent unchanged. A governed resubmission is allowed only for `blocked`, `failed`,
 `publish_blocked`, or `quarantined` history with no intervention and no committed merge
