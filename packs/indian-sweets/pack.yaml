@@ -1,9 +1,9 @@
 id: indian-sweets
 name: Indian sweets
 description: Factual nutrition records for Indian sweets, with manufacturer label citations.
-version: 1.0.0
+version: 1.1.0
 locale: en-IN
 license: CC0-1.0
 maintainers:
   - github: RujitRaval
-entry_count: 1
+entry_count: 2

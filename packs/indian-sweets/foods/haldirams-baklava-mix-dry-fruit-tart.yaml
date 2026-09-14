@@ -1,0 +1,23 @@
+- slug: haldirams-baklava-mix-dry-fruit-tart
+  name: Haldiram's Baklava Mix Dry Fruit Tart
+  category: sweet
+  tags: [indian-sweet, pastry, nuts, manufacturer-label]
+  contributed_by: RujitRaval
+  provenance: manufacturer_label
+  source_uri: https://haldirams.com/product/premium-sweets/baklava-mix-dry-fruit-tart
+  source_license: reference-only
+  source_note: >-
+    Nutrition values transcribed from Haldiram's official product page, observed
+    2026-09-12. The manufacturer lists approximate values per 100 g: 430 kcal,
+    70.14 g carbohydrate, 12.83 g fat, and 8.4 g protein. The product is described
+    as a flaky pastry assortment filled with premium nuts. This is an original
+    factual transcription; the manufacturer's page is cited, not relicensed or archived.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 430
+    protein_g: 8.4
+    fat_g: 12.83
+    carbohydrate_g: 70.14
+  portions:
+    - name: 100 g reference
+      grams: 100
