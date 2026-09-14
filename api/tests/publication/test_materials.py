@@ -43,6 +43,7 @@ from opennosh_api.publication.materials import (
     CanonicalReleasePublicationSource,
     TrustedPackBaseline,
     _build_release_material,
+    _semver_key,
     _write_pack_files,
 )
 from opennosh_api.publication.state import (
@@ -503,6 +504,24 @@ def test_release_material_is_additive_content_addressed_and_deterministic() -> N
         (PACK_ID, "1.1.0"),
     ]
 
+    absent_baseline = replace(
+        updated_proof,
+        baseline=replace(updated_proof.baseline, pack_version="0.9.0"),
+    )
+    with pytest.raises(ValueError, match="baseline is absent"):
+        _build_release_material(_intent(), absent_baseline, first.manifest)
+
+    unchanged_version_files = dict(updated_files)
+    unchanged_version_files[f"{PACK_ID}/pack.yaml"] = unchanged_version_files[
+        f"{PACK_ID}/pack.yaml"
+    ].replace(b"version: 1.1.0", b"version: 1.0.0")
+    unchanged_version = replace(
+        updated_proof,
+        pack=replace(updated_proof.pack, files=unchanged_version_files),
+    )
+    with pytest.raises(ValueError, match="requires a newer pack version"):
+        _build_release_material(_intent(), unchanged_version, first.manifest)
+
     invalid_proof = replace(
         proof,
         pack=MergedPackMaterial(
@@ -513,6 +532,11 @@ def test_release_material_is_additive_content_addressed_and_deterministic() -> N
     )
     with pytest.raises(ValueError, match="not releaseable"):
         _build_release_material(_intent(), invalid_proof, current)
+
+
+def test_pack_version_comparison_rejects_non_semantic_versions() -> None:
+    with pytest.raises(ValueError, match="must be semantic versioning"):
+        _semver_key("v1")
 
 
 @pytest.mark.asyncio

@@ -266,12 +266,45 @@ async def test_github_accepts_only_byte_identical_signed_baseline_files() -> Non
     )
     assert material.files["global-core/foods/unapproved.json"] == b"{}"
 
+    approved_path = "packs/global-core/foods/lentils.json"
+    material = await client.read_merged_pack(
+        mutation,
+        expected_commit=observed.merged_commit,
+        expected_tree_digest=observed.merged_tree_digest,
+        trusted_baseline_files={
+            baseline_path: b"{}",
+            approved_path: b"superseded by the approved content",
+        },
+    )
+    assert material.files["global-core/foods/lentils.json"] == CONTENT.encode()
+
     with pytest.raises(ForgeConflictError, match="merged_pack_baseline_mismatch"):
         await client.read_merged_pack(
             mutation,
             expected_commit=observed.merged_commit,
             expected_tree_digest=observed.merged_tree_digest,
             trusted_baseline_files={baseline_path: b"changed"},
+        )
+    await http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_github_rejects_a_signed_baseline_outside_the_bound_pack() -> None:
+    http = httpx.AsyncClient(
+        base_url="https://api.github.test", transport=httpx.MockTransport(handler())
+    )
+    client = GitHubForgeClient(installation_token, client=http)
+    mutation = ForgeMutation(binding=mutation_binding(), idempotency_key="b" * 64)
+    observed = await client.observe(mutation)
+    assert observed.merged_commit is not None
+    assert observed.merged_tree_digest is not None
+
+    with pytest.raises(ForgeConflictError, match="trusted_pack_baseline_invalid"):
+        await client.read_merged_pack(
+            mutation,
+            expected_commit=observed.merged_commit,
+            expected_tree_digest=observed.merged_tree_digest,
+            trusted_baseline_files={"packs/another-pack/pack.yaml": b"{}"},
         )
     await http.aclose()
 
