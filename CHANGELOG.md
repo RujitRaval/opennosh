@@ -2,6 +2,15 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.103.0.0] - 2026-09-14
+
+### Added
+
+- Expose the first owner-run Commons mission after its digest-bound one-off workflow verified one
+  accepted `indian-sweets` record and its signed publication receipt.
+- Add Commons missions to public navigation while keeping mission mutations, continuous
+  projection, activity-map publication, and mission-pack releases disabled.
+
 ## [0.102.0.1] - 2026-09-14
 
 ### Fixed

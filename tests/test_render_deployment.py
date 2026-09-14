@@ -314,11 +314,18 @@ def test_render_blueprint_generates_secrets_and_keeps_the_api_private() -> None:
     for name in (
         "MISSION_MUTATIONS_ENABLED",
         "MISSION_PROJECTION_ENABLED",
-        "MISSION_PUBLIC_ENABLED",
         "MISSION_ACTIVITY_MAP_ENABLED",
         "MISSION_PACK_RELEASE_ENABLED",
     ):
         assert api_variables[name] == {"key": name, "value": "false"}
+    assert api_variables["MISSION_PUBLIC_ENABLED"] == {
+        "key": "MISSION_PUBLIC_ENABLED",
+        "value": "true",
+    }
+    assert web_variables["OPENNOSH_PUBLIC_NAV_FEATURES"] == {
+        "key": "OPENNOSH_PUBLIC_NAV_FEATURES",
+        "value": "explorer-search,commons-missions",
+    }
     assert api_variables["PUBLIC_ARTIFACT_CHECKPOINT_PATH"] == {
         "key": "PUBLIC_ARTIFACT_CHECKPOINT_PATH",
         "value": "/var/lib/opennosh/public-artifacts/checkpoint/latest-v1.json",
