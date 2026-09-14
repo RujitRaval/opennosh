@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -40,7 +41,9 @@ from opennosh_api.publication.materials import (
     CanonicalReleaseManifestSource,
     CanonicalReleaseMaterial,
     CanonicalReleasePublicationSource,
+    TrustedPackBaseline,
     _build_release_material,
+    _semver_key,
     _write_pack_files,
 )
 from opennosh_api.publication.state import (
@@ -137,6 +140,7 @@ class Forge:
     def __init__(self, binding: GovernanceBinding) -> None:
         self.binding = binding
         self.mutations: list[ForgeMutation] = []
+        self.baselines: list[Mapping[str, bytes] | None] = []
 
     async def observe(self, mutation: ForgeMutation) -> ForgeObservation:
         self.mutations.append(mutation)
@@ -148,10 +152,12 @@ class Forge:
         *,
         expected_commit: str,
         expected_tree_digest: str,
+        trusted_baseline_files: Mapping[str, bytes] | None = None,
     ) -> MergedPackMaterial:
         assert mutation == self.mutations[-1]
         assert expected_commit == "c" * 40
         assert expected_tree_digest == "d" * 64
+        self.baselines.append(trusted_baseline_files)
         return MergedPackMaterial(
             commit_sha=expected_commit,
             tree_digest=expected_tree_digest,
@@ -160,13 +166,34 @@ class Forge:
 
 
 class Reader:
-    def __init__(self, manifest: PublicReadReleaseManifest) -> None:
+    def __init__(
+        self,
+        manifest: PublicReadReleaseManifest,
+        pack_payload: bytes | None = None,
+    ) -> None:
         self.manifest = manifest
+        self.pack_payload = pack_payload
         self.closed = False
 
     async def resolve_release(self, *, release_version: str | None) -> object:
-        assert release_version is None
+        assert release_version is None or release_version == self.manifest.release_version
         return SimpleNamespace(manifest=self.manifest)
+
+    async def pack(
+        self,
+        pack_id: str,
+        pack_version: str,
+        *,
+        release_version: str,
+    ) -> tuple[bytes, object, object]:
+        assert self.pack_payload is not None
+        assert release_version == self.manifest.release_version
+        descriptor = next(
+            item
+            for item in self.manifest.packs
+            if item.pack_id == pack_id and item.pack_version == pack_version
+        )
+        return self.pack_payload, descriptor, SimpleNamespace(manifest=self.manifest)
 
     async def aclose(self) -> None:
         self.closed = True
@@ -196,7 +223,18 @@ async def test_material_authority_reopens_the_commit_step_branch_identity() -> N
     authority = CanonicalPublicationMaterialAuthority(
         governance_gate=cast(GovernanceGate, Gate(binding)),
         forge=cast(ForgeMaterialClient, forge),
-        current_release=cast(Any, SimpleNamespace()),
+        current_release=cast(
+            Any,
+            Reader(
+                PublicReadReleaseManifest(
+                    release_version="0.59.0.0",
+                    published_at=NOW - timedelta(days=1),
+                    publication_receipt_key=(
+                        "receipts/v1/00000000-0000-4000-8000-000000000098.json"
+                    ),
+                )
+            ),
+        ),
         writer=cast(S3R2ObjectWriter, SimpleNamespace()),
         bucket="opennosh-public-commons",
         manifest_keys=cast(ManifestKeyRing, SimpleNamespace()),
@@ -417,6 +455,73 @@ def test_release_material_is_additive_content_addressed_and_deterministic() -> N
     with pytest.raises(ValueError, match="replace an existing community food"):
         _build_release_material(_intent(), proof, food_only_current)
 
+    updated_files = dict(_pack_files())
+    updated_files[f"{PACK_ID}/pack.yaml"] = updated_files[
+        f"{PACK_ID}/pack.yaml"
+    ].replace(b"version: 1.0.0", b"version: 1.1.0").replace(
+        b"entry_count: 2", b"entry_count: 3"
+    )
+    updated_files[f"{PACK_ID}/foods/foods.yaml"] += b"""
+- slug: newly-added-lentils
+  name: Newly added lentils
+  category: legume
+  contributed_by: test-contributor
+  provenance: own_measurement
+  source_uri: null
+  source_license: contributor-original
+  source_note: Weighed and calculated from a documented household batch.
+  basis: per_100g
+  nutrients:
+    energy_kcal: 116
+    protein_g: 9
+    fat_g: 0.4
+    carbohydrate_g: 20
+  portions:
+    - name: 1 cup
+      grams: 198
+"""
+    updated_proof = replace(
+        proof,
+        pack=MergedPackMaterial(
+            commit_sha="e" * 40,
+            tree_digest="f" * 64,
+            files=updated_files,
+        ),
+        baseline=TrustedPackBaseline(
+            pack_version="1.0.0",
+            files=_pack_files(),
+            record_ids=frozenset({"balanced-thepla", "public-domain-lassi"}),
+        ),
+    )
+    updated = _build_release_material(_intent(), updated_proof, first.manifest)
+    assert [item.source_id for item in updated.manifest.foods] == [
+        "balanced-thepla",
+        "newly-added-lentils",
+        "public-domain-lassi",
+    ]
+    assert [(item.pack_id, item.pack_version) for item in updated.manifest.packs] == [
+        (PACK_ID, "1.0.0"),
+        (PACK_ID, "1.1.0"),
+    ]
+
+    absent_baseline = replace(
+        updated_proof,
+        baseline=replace(updated_proof.baseline, pack_version="0.9.0"),
+    )
+    with pytest.raises(ValueError, match="baseline is absent"):
+        _build_release_material(_intent(), absent_baseline, first.manifest)
+
+    unchanged_version_files = dict(updated_files)
+    unchanged_version_files[f"{PACK_ID}/pack.yaml"] = unchanged_version_files[
+        f"{PACK_ID}/pack.yaml"
+    ].replace(b"version: 1.1.0", b"version: 1.0.0")
+    unchanged_version = replace(
+        updated_proof,
+        pack=replace(updated_proof.pack, files=unchanged_version_files),
+    )
+    with pytest.raises(ValueError, match="requires a newer pack version"):
+        _build_release_material(_intent(), unchanged_version, first.manifest)
+
     invalid_proof = replace(
         proof,
         pack=MergedPackMaterial(
@@ -427,6 +532,62 @@ def test_release_material_is_additive_content_addressed_and_deterministic() -> N
     )
     with pytest.raises(ValueError, match="not releaseable"):
         _build_release_material(_intent(), invalid_proof, current)
+
+
+def test_pack_version_comparison_rejects_non_semantic_versions() -> None:
+    with pytest.raises(ValueError, match="must be semantic versioning"):
+        _semver_key("v1")
+
+
+@pytest.mark.asyncio
+async def test_material_authority_passes_the_signed_pack_as_the_only_baseline() -> None:
+    binding = _binding()
+    initial_proof = CanonicalMergedProof(
+        binding=binding,
+        observation=_observation(binding),
+        pack=MergedPackMaterial(
+            commit_sha="c" * 40,
+            tree_digest="d" * 64,
+            files=_pack_files(),
+        ),
+    )
+    empty = PublicReadReleaseManifest(
+        release_version="0.60.0.0",
+        published_at=NOW - timedelta(days=1),
+        publication_receipt_key=(
+            "receipts/v1/00000000-0000-4000-8000-000000000099.json"
+        ),
+    )
+    initial = _build_release_material(_intent(), initial_proof, empty)
+    pack_object = next(
+        item for item in initial.objects if item.media_type == "application/zip"
+    )
+    forge = Forge(binding)
+    authority = CanonicalPublicationMaterialAuthority(
+        governance_gate=cast(GovernanceGate, Gate(binding)),
+        forge=cast(ForgeMaterialClient, forge),
+        current_release=cast(Any, Reader(initial.manifest, pack_object.payload)),
+        writer=cast(S3R2ObjectWriter, SimpleNamespace()),
+        bucket="opennosh-public-commons",
+        manifest_keys=cast(ManifestKeyRing, SimpleNamespace()),
+    )
+
+    proof = await authority.merged_proof(_intent())
+
+    assert proof.baseline is not None
+    assert proof.baseline.pack_version == "1.0.0"
+    assert proof.baseline.record_ids == {
+        "balanced-thepla",
+        "public-domain-lassi",
+    }
+    assert forge.baselines == [
+        {
+            f"packs/{PACK_ID}/pack.yaml": _pack_files()[f"{PACK_ID}/pack.yaml"],
+            f"packs/{PACK_ID}/foods/foods.yaml": _pack_files()[
+                f"{PACK_ID}/foods/foods.yaml"
+            ],
+        }
+    ]
 
 
 def test_first_contribution_pack_passes_governed_release_material_path() -> None:

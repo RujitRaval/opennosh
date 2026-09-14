@@ -108,6 +108,7 @@ class ForgeMaterialClient(ForgeClient, Protocol):
         *,
         expected_commit: str,
         expected_tree_digest: str,
+        trusted_baseline_files: Mapping[str, bytes] | None = None,
     ) -> MergedPackMaterial: ...
 
 

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
+import re
 import tempfile
+import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC
@@ -61,10 +64,18 @@ class CanonicalReleaseMaterial:
 
 
 @dataclass(frozen=True, slots=True)
+class TrustedPackBaseline:
+    pack_version: str
+    files: Mapping[str, bytes]
+    record_ids: frozenset[str]
+
+
+@dataclass(frozen=True, slots=True)
 class CanonicalMergedProof:
     binding: GovernanceBinding
     observation: ForgeObservation
     pack: MergedPackMaterial
+    baseline: TrustedPackBaseline | None = None
 
 
 class CanonicalPublicationMaterialAuthority:
@@ -123,18 +134,54 @@ class CanonicalPublicationMaterialAuthority:
                 or observation.merged_payload_digest != binding.approved_changes.digest
             ):
                 raise ValueError("Canonical material requires one verified merged Git tree")
+            current = await self._current_release.resolve_release(release_version=None)
+            baseline = await self._trusted_pack_baseline(
+                binding.pack_id,
+                current.manifest,
+            )
             pack = await self._forge.read_merged_pack(
                 mutation,
                 expected_commit=observation.merged_commit,
                 expected_tree_digest=observation.merged_tree_digest,
+                trusted_baseline_files=(
+                    {
+                        f"packs/{path}": payload
+                        for path, payload in baseline.files.items()
+                        if path.startswith(f"{binding.pack_id}/")
+                    }
+                    if baseline is not None
+                    else None
+                ),
             )
             proof = CanonicalMergedProof(
                 binding=binding,
                 observation=observation,
                 pack=pack,
+                baseline=baseline,
             )
             self._proofs[intent.publication_id] = proof
             return proof
+
+    async def _trusted_pack_baseline(
+        self,
+        pack_id: str,
+        current: PublicReadReleaseManifest,
+    ) -> TrustedPackBaseline | None:
+        candidates = [item for item in current.packs if item.pack_id == pack_id]
+        if not candidates:
+            return None
+        latest = max(candidates, key=lambda item: _semver_key(item.pack_version))
+        payload, _, _ = await self._current_release.pack(
+            pack_id,
+            latest.pack_version,
+            release_version=current.release_version,
+        )
+        return await asyncio.to_thread(
+            _trusted_pack_baseline_from_archive,
+            pack_id,
+            latest.pack_version,
+            payload,
+        )
 
     async def release(self, intent: EffectIntent) -> CanonicalReleaseMaterial:
         cached = self._releases.get(intent.publication_id)
@@ -388,10 +435,21 @@ def _build_release_material(
         ):
             details = "; ".join(issue.message for issue in prepared.errors[:5])
             raise ValueError(f"Merged food pack is not releaseable: {details}")
-        if any(item.pack_id == prepared.pack_id for item in current.packs):
+        existing_pack_versions = {
+            item.pack_version for item in current.packs if item.pack_id == prepared.pack_id
+        }
+        baseline = proof.baseline
+        if existing_pack_versions and baseline is None:
             raise ValueError(
-                "Automatic publication currently requires a new canonical pack ID"
+                "Automatic publication requires a new canonical pack ID or verified baseline"
             )
+        if baseline is not None:
+            if baseline.pack_version not in existing_pack_versions:
+                raise ValueError("Existing-pack baseline is absent from the current release")
+            if prepared.pack_version in existing_pack_versions or (
+                _semver_key(prepared.pack_version) <= _semver_key(baseline.pack_version)
+            ):
+                raise ValueError("Existing-pack publication requires a newer pack version")
 
         pack_bytes = _pack_archive(packs_root, pack_directory)
         pack_descriptor = _content_addressed_descriptor(
@@ -450,17 +508,20 @@ def _build_release_material(
             )
         updated_slugs = {food.source_id for food in foods}
         existing_slugs = {
-            food.source_id
-            for food in current.foods
-            if food.source is FoodSource.COMMUNITY
+            food.source_id for food in current.foods if food.source is FoodSource.COMMUNITY
         }
-        if updated_slugs & existing_slugs:
+        allowed_replacements = baseline.record_ids if baseline is not None else frozenset()
+        if (updated_slugs & existing_slugs) - allowed_replacements:
             raise ValueError(
                 "Automatic publication cannot replace an existing community food yet"
             )
+        merged_food_map = {(item.source.value, item.source_id): item for item in current.foods}
+        merged_food_map.update(
+            {(item.source.value, item.source_id): item for item in foods}
+        )
         merged_foods = tuple(
             sorted(
-                (*current.foods, *foods),
+                merged_food_map.values(),
                 key=lambda item: (item.source.value, item.source_id),
             )
         )
@@ -503,6 +564,71 @@ def _write_pack_files(root: Path, files: Mapping[str, bytes]) -> None:
             raise ValueError("Merged pack file escapes the release root")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payload)
+
+
+_SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+].*)?$")
+
+
+def _semver_key(value: str) -> tuple[int, int, int]:
+    match = _SEMVER.fullmatch(value)
+    if match is None:
+        raise ValueError("Pack version must be semantic versioning")
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
+
+def _trusted_pack_baseline_from_archive(
+    pack_id: str,
+    pack_version: str,
+    payload: bytes,
+) -> TrustedPackBaseline:
+    files: dict[str, bytes] = {}
+    seen_names: set[str] = set()
+    total = 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            members = archive.infolist()
+            if not members or len(members) > 102:
+                raise ValueError("Trusted pack archive inventory is invalid")
+            for member in members:
+                path = PurePosixPath(member.filename)
+                if (
+                    member.filename in seen_names
+                    or member.is_dir()
+                    or path.is_absolute()
+                    or ".." in path.parts
+                    or path.as_posix() != member.filename
+                ):
+                    raise ValueError("Trusted pack archive path is invalid")
+                seen_names.add(member.filename)
+                if member.filename in {"CC0-1.0.txt", "LICENSE.md"}:
+                    continue
+                key = f"{pack_id}/{path.as_posix()}"
+                if key in files or member.file_size <= 0 or member.file_size > 1_000_000:
+                    raise ValueError("Trusted pack archive member is invalid")
+                content = archive.read(member)
+                total += len(content)
+                if total > 5_000_000:
+                    raise ValueError("Trusted pack archive is too large")
+                files[key] = content
+    except zipfile.BadZipFile as error:
+        raise ValueError("Trusted pack archive is invalid") from error
+    with tempfile.TemporaryDirectory(prefix="opennosh-trusted-pack-") as temporary:
+        root = Path(temporary) / "packs"
+        _write_pack_files(root, files)
+        prepared = prepare_food_pack(root / pack_id)
+    if (
+        prepared.pack_rejected
+        or prepared.errors
+        or prepared.pack_id != pack_id
+        or prepared.pack_version != pack_version
+        or not prepared.records
+    ):
+        raise ValueError("Trusted pack archive does not match its signed descriptor")
+    return TrustedPackBaseline(
+        pack_version=pack_version,
+        files=files,
+        record_ids=frozenset(record.slug for record in prepared.records),
+    )
 
 
 def _release_version(merged_timestamp: float, publication_id: UUID) -> str:
