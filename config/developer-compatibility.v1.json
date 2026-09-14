@@ -2,9 +2,9 @@
   "$schema": "../schemas/developer-compatibility.schema.json",
   "schema_version": "1.0",
   "status": "preview",
-  "release_version": "0.103.0.0",
+  "release_version": "0.103.0.1",
   "public_origin": "https://opennosh.org",
-  "compatibility_sha256": "bb8d0ae7cb0924050e738e78194dd46321aa7d6a1a8e076dd19a928175531a83",
+  "compatibility_sha256": "9e4997953952f3593e69f4d34ab41a64993edb83059e10904ca796d52f0834e2",
   "openapi": {
     "current": "2.0.0",
     "supported": [
@@ -31,16 +31,16 @@
     },
     "python": {
       "package": "opennosh",
-      "current": "0.103.0.0",
-      "previous": "0.102.0.1",
+      "current": "0.103.0.1",
+      "previous": "0.103.0.0",
       "contract_major": 2,
       "status": "preview",
       "deprecation_date": null
     },
     "cli": {
       "package": "opennosh",
-      "current": "0.103.0.0",
-      "previous": "0.102.0.1",
+      "current": "0.103.0.1",
+      "previous": "0.103.0.0",
       "contract_major": 2,
       "status": "preview",
       "deprecation_date": null
