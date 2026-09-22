@@ -1,6 +1,26 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test("production-length release IDs fit the mobile footer", async ({ page, request }) => {
+  const apiPort = process.env.E2E_API_PORT || "8001";
+  const stateUrl = `http://127.0.0.1:${apiPort}/__visual/commons-state`;
+  expect((await request.post(`${stateUrl}?state=long-release`)).ok()).toBe(true);
+  try {
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/en");
+      const proof = page.locator(".footer-release-proof");
+      await expect(proof).toContainText("1.1789403839.1913319310.1709894574");
+      const box = await proof.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    }
+  } finally {
+    expect((await request.post(`${stateUrl}?state=unavailable`)).ok()).toBe(true);
+  }
+});
+
 test("verified release proof never overlaps the hero label at narrow widths", async ({ page, request }) => {
   // Regression: announcement QA found the absolutely positioned count on top of the hero label.
   const apiPort = process.env.E2E_API_PORT || "8001";
