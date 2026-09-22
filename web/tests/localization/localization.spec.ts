@@ -55,7 +55,7 @@ test("all shipped-language routes and contribution stages agree on English @ship
   await expect(page).toHaveTitle("Food data belongs to everyone - opennosh");
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     "content",
-    "Search, verify, improve, and reuse an open, versioned food-data commons.",
+    "An open food-data beta with public search, source context, owner-reviewed contributions, and a private nutrition tracker.",
   );
   await page.goto("/en/notices");
   await expect(page).toHaveTitle("Licenses and data notices - opennosh");
