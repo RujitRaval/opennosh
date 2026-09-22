@@ -143,7 +143,7 @@ export function buildPublicNavigation(
           ? {
               label: hub.action,
               compactLabel: hub.compactAction,
-              href: "https://github.com/RujitRaval/opennosh",
+              href: "https://github.com/RujitRaval/opennosh/blob/main/docs/operations/developer-starters.md",
               external: true,
             }
           : { label: hub.action, compactLabel: hub.compactAction, href: "#search" };

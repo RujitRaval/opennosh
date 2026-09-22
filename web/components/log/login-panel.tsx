@@ -49,7 +49,7 @@ export function LoginPanel({ message, onAuthenticate, onRecover }: LoginPanelPro
           <p className="eyebrow">Nutrition, without judgment</p>
           <h1 id="auth-title">A clear view of what fuels you.</h1>
           <p className="lede">
-            Your daily food log, macro targets, body records, and strength work—private by default
+            Your daily food log, macro targets, and body records—private by default
             and built on open food data.
           </p>
         </div>

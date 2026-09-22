@@ -1,6 +1,31 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test("verified release proof never overlaps the hero label at narrow widths", async ({ page, request }) => {
+  // Regression: announcement QA found the absolutely positioned count on top of the hero label.
+  const apiPort = process.env.E2E_API_PORT || "8001";
+  const stateUrl = `http://127.0.0.1:${apiPort}/__visual/commons-state`;
+  expect((await request.post(`${stateUrl}?state=live`)).ok()).toBe(true);
+  try {
+    for (const width of [320, 375, 768]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/en");
+      await expect(page.locator(".hero-proof")).toBeVisible();
+      const label = await page.locator(".hero-meta").boundingBox();
+      const proof = await page.locator(".hero-proof").boundingBox();
+      const title = await page.locator(".hero-title").boundingBox();
+      expect(label).not.toBeNull();
+      expect(proof).not.toBeNull();
+      expect(title).not.toBeNull();
+      expect(proof!.y).toBeGreaterThanOrEqual(label!.y + label!.height);
+      expect(title!.y).toBeGreaterThanOrEqual(proof!.y + proof!.height);
+      expect(proof!.x + proof!.width).toBeLessThanOrEqual(width);
+    }
+  } finally {
+    expect((await request.post(`${stateUrl}?state=unavailable`)).ok()).toBe(true);
+  }
+});
+
 test("public root redirects into the localized movement site", async ({ page }) => {
   await page.goto("/?food_locale=fr-FR");
 

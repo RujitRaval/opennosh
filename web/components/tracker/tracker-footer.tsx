@@ -14,6 +14,7 @@ export function TrackerFooter({
       <nav aria-label="Public commons links">
         <CrossRootLink href={publicReturnPath}>Return to the commons</CrossRootLink>
         <CrossRootLink href={routes.publicNotices(language)}>Licenses &amp; data notices</CrossRootLink>
+        <CrossRootLink href={`${routes.publicNotices(language)}#hosted-data`}>Hosting &amp; your data</CrossRootLink>
       </nav>
     </footer>
   );

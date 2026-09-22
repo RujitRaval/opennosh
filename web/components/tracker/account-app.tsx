@@ -109,6 +109,12 @@ export function AccountApp() {
             }}>{busy ? "Reopening…" : "Reopen guided setup"}</button>
           </section>
           <RecoveryCard onRotated={(code) => { setRecoveryCode(code); setMessageIsError(false); setMessage("Your previous recovery code no longer works."); }} />
+          <section className="settings-card">
+            <p className="section-kicker">Data portability</p>
+            <h2>Export your private data</h2>
+            <p>Download your Tracker records as JSON before deleting your account or moving to another instance. Keep this file private.</p>
+            <a className="button button-secondary" href="/api/v1/export/me" download>Download my data</a>
+          </section>
           <DeleteCard email={user.email} onDeleted={() => { setUser(null); setMessageIsError(false); setMessage("Your account and private Tracker records were deleted."); }} />
         </div>
       </main>

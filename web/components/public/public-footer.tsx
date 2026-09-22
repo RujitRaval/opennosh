@@ -23,6 +23,7 @@ export function PublicFooter({
       </Link>
       <nav aria-label={copy.shell.footerNavigation}>
         <Link href={routes.publicNotices(language)} prefetch={false}>{copy.shell.licenses}</Link>
+        <Link href={`${routes.publicNotices(language)}#hosted-data`} prefetch={false}>{copy.shell.hostedData}</Link>
         <a href="https://github.com/RujitRaval/opennosh">{copy.shell.source}</a>
         <CrossRootLink href={routes.tracker.home}>{copy.shell.privateTracker}</CrossRootLink>
       </nav>
