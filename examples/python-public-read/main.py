@@ -18,7 +18,7 @@ def run_public_read(
     client: Any | None = None,
 ) -> dict[str, object]:
     selected_target = target or os.environ.get("OPENNOSH_TARGET", "hosted")
-    selected_query = query or os.environ.get("OPENNOSH_QUERY", "rajma")
+    selected_query = query or os.environ.get("OPENNOSH_QUERY", "thepla")
     reader = client or OpenNoshClient(selected_target)
     search = reader.search_foods(selected_query, limit=1)
     if not search.data.items:

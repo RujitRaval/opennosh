@@ -12,8 +12,14 @@ For a first hosted request, no account or package installation is needed:
 curl 'https://opennosh.org/api/v1/foods/search?q=thepla&limit=1'
 ```
 
-For the examples below, first clone `https://github.com/RujitRaval/opennosh.git` and enter the
-checkout. The supported beta packages are npm `opennosh@0.103.1` and Python `opennosh==0.103.1.0`.
+For the examples below, first clone the release and enter the checkout:
+
+```sh
+git clone --branch v0.103.1.0 --single-branch https://github.com/RujitRaval/opennosh.git
+cd opennosh
+```
+
+The supported beta packages are npm `opennosh@0.103.1` and Python `opennosh==0.103.1.0`.
 The SDK compatibility contract remains preview. The website and local database are installed with
 the [Docker Compose quick start](../../README.md#quick-start), not by installing the SDK alone.
 
@@ -35,9 +41,16 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-Both use `hosted` by default. Set `OPENNOSH_TARGET` to an origin-only HTTPS self-hosted endpoint, or
+Each command block starts from the repository root. Both use `hosted` and the bundled Thepla
+record by default. Set `OPENNOSH_TARGET` to an origin-only HTTPS self-hosted endpoint, or
 an exact loopback HTTP origin during local development. `OPENNOSH_QUERY` changes the demonstration
 search term. Neither setting may contain credentials.
+
+The default Compose quick start loads searchable foods, but does not publish signed Commons
+artifacts. These starters deliberately require that release proof and will fail on a fresh local
+instance until its [public artifact reader](../../README.md#immutable-public-food-reads) is configured.
+Use the hosted default for this walkthrough, or test local search directly with
+`curl 'http://localhost:8000/api/v1/foods/search?q=thepla&limit=1'`.
 
 ## Package evidence
 

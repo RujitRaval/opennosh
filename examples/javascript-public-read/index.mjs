@@ -6,7 +6,7 @@ const releasePattern = /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/;
 
 export async function runPublicRead({
   target = process.env.OPENNOSH_TARGET || "hosted",
-  query = process.env.OPENNOSH_QUERY || "rajma",
+  query = process.env.OPENNOSH_QUERY || "thepla",
   client = new OpenNoshClient(target),
 } = {}) {
   const search = await client.searchFoods({ q: query, limit: 1 });

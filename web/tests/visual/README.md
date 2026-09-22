@@ -18,7 +18,7 @@ data-contract, motion-budget, or live design review.
 
 ## Matrix
 
-The 41 committed PNGs cover 320 px reflow, representative mobile, tablet, desktop, and wide desktop;
+The 46 committed PNGs cover 320 px reflow, representative mobile, tablet, desktop, and wide desktop;
 all five public proof states; Explore entry; the trust-first food record; every contribution stage;
 validation and duplicate repair; all six logo colorways; public loading and unavailable boundaries;
 the Tracker sign-in, onboarding, daily log, catalogue results, Trends, Records, and Account across

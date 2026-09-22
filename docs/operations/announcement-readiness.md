@@ -9,8 +9,13 @@ strength entry are outside this beta. No additional paid service is authorized b
 
 ## Verification ledger
 
-Checked September 22, 2026. Release publication and operational checks remain distinct gates;
-a passing application suite does not prove production backup recovery.
+This is the September 22, 2026 pre-merge verification snapshot, not a continuously updated status
+page. Release publication and operational checks remain distinct gates; a passing application
+suite does not prove production backup recovery. After merge, the planned
+[v0.103.1.0 release](https://github.com/RujitRaval/opennosh/releases/tag/v0.103.1.0) records the exact
+source tag/commit and release notes. The
+[publish packages workflow](https://github.com/RujitRaval/opennosh/actions/workflows/publish-packages.yml)
+provides the post-merge registry publication evidence; pending rows below describe this snapshot.
 
 | Check | Evidence / state |
 |---|---|

@@ -35,11 +35,15 @@ removes the account's private Tracker records from the active database and revok
 It does not retract public contributions, review decisions, signed releases, receipts, or Git history.
 Contributor-credit removal requests follow [the contribution policy](../CONTRIBUTING.md).
 
-Existing database backups are not rewritten by account deletion. Provider backup and log retention
-must be checked against the current service plan; the dated production verification and restore
-procedure are recorded in [announcement readiness](operations/announcement-readiness.md). This beta
-does not promise instantaneous erasure from backup copies. Recovery must account for deletions made
-after the chosen backup before reopening the restored service.
+Existing database backups are not rewritten by account deletion. Render's
+[published backup policy](https://render.com/docs/postgresql-backups) retains logical exports for
+seven days and provides point-in-time recovery for three days on Hobby workspaces or seven days on
+Pro and higher workspaces with paid databases. The actual hosted workspace's current recovery
+window still needs verification; provider policy alone is not evidence of a successful restore.
+The dated production verification and restore procedure are recorded in
+[announcement readiness](operations/announcement-readiness.md). No custom provider-log retention
+has been verified. This beta does not promise instantaneous erasure from backup copies. Recovery
+must account for deletions made after the chosen backup before reopening the restored service.
 
 ## Recovery and service availability
 
