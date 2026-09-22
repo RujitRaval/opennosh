@@ -682,6 +682,7 @@ export const enCatalog = {
     hostedRetention: "Tracker records remain until you remove them or delete your account in Account settings. Account deletion removes private Tracker data from the active database and revokes sessions. Public contributions, review decisions, Git history, and published releases remain public. Backup copies and provider logs follow the operational retention described in the hosting guide; deleting an account does not immediately rewrite existing backups.",
     hostedRecovery: "Save your one-time recovery code: password recovery requires that code, not an email reset link. Export your private data from the Tracker before deleting your account. Support cannot recover a lost recovery code.",
     hostedContact: "For support, data questions, or a deletion problem, contact",
+    hostedEmail: "support@opennosh.org",
     hostedGuide: "Hosting, retention, and recovery guide",
     readPrefix: "Read the",
     completeNotice: "complete distribution notice",

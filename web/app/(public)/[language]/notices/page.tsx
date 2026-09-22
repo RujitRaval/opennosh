@@ -82,7 +82,7 @@ export default async function NoticesPage({
         <p>{copy.hostedLocal}</p>
         <p>{copy.hostedRetention}</p>
         <p>{copy.hostedRecovery}</p>
-        <p>{copy.hostedContact} <a href="mailto:support@opennosh.org">support@opennosh.org</a>.</p>
+        <p>{copy.hostedContact} <a href="mailto:support@opennosh.org">{copy.hostedEmail}</a>.</p>
         <a href="https://github.com/RujitRaval/opennosh/blob/main/docs/hosting-and-data.md">{copy.hostedGuide} ↗</a>
       </section>
 
