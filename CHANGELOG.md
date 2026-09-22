@@ -2,6 +2,13 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.103.1.1] - 2026-09-22
+
+### Fixed
+
+- Wrap long signed data-release identifiers in the public footer so the production release proof
+  fits a 320-pixel screen without horizontal scrolling.
+
 ## [0.103.1.0] - 2026-09-22
 
 ### Changed

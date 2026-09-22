@@ -21,6 +21,10 @@ const publicFoodFixture = {
 const commonsFixtures = JSON.parse(
   await readFile(new URL("./contracts/public/commons-states.json", import.meta.url), "utf8"),
 );
+commonsFixtures["long-release"] = {
+  ...commonsFixtures.live,
+  release: { ...commonsFixtures.live.release, version: "1.1789403839.1913319310.1709894574" },
+};
 let commonsState = "unavailable";
 let missionState = "live";
 const publicMissionsFixture = {
