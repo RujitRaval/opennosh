@@ -7,8 +7,8 @@ preserves the existing `opennosh` bootstrap command.
 import { OpenNoshClient } from "opennosh";
 
 const client = new OpenNoshClient("hosted");
-const search = await client.searchFoods({ q: "lentils", limit: 10 });
-const first = search.data.items.find(({ source }) => source === "usda" || source === "community");
+const search = await client.searchFoods({ q: "thepla", limit: 10 });
+const first = search.data.items.find(({ source }) => source === "community");
 if (!first) throw new Error("No public food record found");
 const food = await client.getPublicFood({
   source: first.source,
@@ -36,11 +36,14 @@ adoption or general availability.
 ## Bootstrap a self-hosted checkout
 
 ```sh
-npx opennosh init my-opennosh
+npx opennosh@0.103.1 init my-opennosh
 cd my-opennosh
+git fetch origin tag v0.103.1.0
+git checkout --detach v0.103.1.0
 ```
 
-The command clones the public repository without overwriting an existing path. It does not install
+The command clones the current default branch without overwriting an existing path. The fetch and
+checkout commands then pin the source to the matching application release. The bootstrap does not install
 Docker, change global configuration, collect telemetry, or run services automatically. Continue
 with the repository README to review the configuration and start the application.
 

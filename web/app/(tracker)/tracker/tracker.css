@@ -1959,6 +1959,14 @@ select {
     min-height: 4.5rem;
   }
 
+  .tracker-identity .tracker-wordmark {
+    width: clamp(7rem, 25vw, 9.5rem);
+  }
+
+  .tracker-mode {
+    display: none;
+  }
+
   .account-menu {
     grid-area: account;
   }

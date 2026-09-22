@@ -138,4 +138,15 @@ test("new accounts save recovery proof and resume after setup", async ({ page })
   await expect(page.getByRole("heading", { name: /nutrition at a glance/i })).toBeVisible();
   await expect(page.getByRole("link", { name: "Records" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const identity = await page.locator(".tracker-wordmark").boundingBox();
+    const account = await page.locator(".account-menu").boundingBox();
+    expect(identity).not.toBeNull();
+    expect(account).not.toBeNull();
+    expect(identity!.x + identity!.width).toBeLessThanOrEqual(account!.x);
+    expect(account!.x + account!.width).toBeLessThanOrEqual(width);
+    await expect(page.locator(".tracker-mode")).toBeHidden();
+  }
 });

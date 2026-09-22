@@ -9,6 +9,6 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "opennosh": "^0.88.0"
+    "opennosh": "0.103.1"
   }
 }

@@ -2,6 +2,26 @@
 
 opennosh has a scoped v1 implementation and is open for contributions. Discuss feature changes in an issue before writing code. Small documentation corrections and reproducible bug fixes can proceed directly.
 
+## Food suggestions during the beta
+
+This is an owner-operated pilot. Rujit Raval is responsible for review, publication, and support.
+For a first food suggestion, [open an issue](https://github.com/RujitRaval/opennosh/issues/new) or
+email `support@opennosh.org` with the food name, locale, preparation, and a durable public source.
+Do not include personal health records or private account exports. Food suggestions are reviewed
+weekly when capacity allows; there is no guaranteed publication date.
+
+The web contribution form saves an unfinished draft on your device. Start with a public document
+reference; uploads and source-image preservation are not enabled. Contact the owner before
+expecting an ordinary submitted draft to publish. The current supported production publication
+path is the [authorized owner pilot](docs/operations/owner-pilot.md), which requires an explicit
+operator step. Owner approval is labeled and must not be described as independent review.
+A submitted or approved proposal is not a published record: publication is complete only when its
+signed release and public receipt are verified.
+
+Experienced contributors can propose a small pack change through GitHub using the workflow below.
+The owner will review the evidence and arrange the governed publication path; a GitHub merge alone
+does not establish publication in the hosted Commons.
+
 ## Contributor workflow
 
 1. Update local `main` with `git pull --ff-only origin main`.

@@ -122,6 +122,25 @@ export default async function PublicHubPage({
         )}
       </section>
 
+      {hub === "contribute" ? (
+        <section className="hub-launch-guide" aria-labelledby="pilot-title">
+          <h2 id="pilot-title">{copy.navigation.pilotTitle}</h2>
+          <p>{copy.navigation.pilotBody}</p>
+          <p>{copy.navigation.pilotReview}</p>
+          <a href="https://github.com/RujitRaval/opennosh/issues/new">{copy.navigation.pilotLink} ↗</a>
+        </section>
+      ) : null}
+
+      {hub === "build" ? (
+        <section className="hub-launch-guide" aria-labelledby="developer-title">
+          <h2 id="developer-title">{copy.navigation.developerTitle}</h2>
+          <p>{copy.navigation.developerBody}</p>
+          <pre><code>{"curl 'https://opennosh.org/api/v1/foods/search?q=thepla&limit=1'"}</code></pre>
+          <p><a href="https://github.com/RujitRaval/opennosh/blob/main/docs/operations/developer-starters.md">{copy.navigation.developerLink} ↗</a></p>
+          <p><a href="https://github.com/RujitRaval/opennosh#quick-start">{copy.navigation.selfHostLink} ↗</a></p>
+        </section>
+      ) : null}
+
       {hub === "explore" && currentHub.children.some((child) => child.id === "search")
         ? (
           <PublicFoodSearch

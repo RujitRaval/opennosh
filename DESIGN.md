@@ -319,6 +319,14 @@ It demonstrates the homepage, search, activity model, food record, measurement t
 | 2026-08-24 | Adopt route-scoped reproducible font delivery | Stable public URLs and explicit public-head preloads prevent Living Commons fonts from leaking into Tracker; pinned subsets enforce transfer and CLS budgets. |
 | 2026-08-25 | Extend Living Commons identity into the private Tracker utility mode | Approved wordmarks, palette, hard-edged hierarchy, and movement language now connect both roots while the Tracker remains calm, private, and free of public font or motion bytes. |
 
+### September 22 beta readiness
+
+The launch cleanup keeps the signed record count in normal hero flow below its label, adds beta and
+hosted-data context, and exposes private JSON export in Account settings. At narrow widths the
+Tracker hides its redundant mode label and scales the wordmark so Account and Sign out remain
+separate usable controls. These changes implement the owner's requested five launch fixes; rendered
+mobile/desktop baselines are inspected by Codex and recorded with that limited scope.
+
 ## Production delivery contract
 
 - `web/app/base.css` contains surface-neutral document primitives. `web/app/(public)/[language]/tokens.css` is the runtime source for public color, type, spacing, radius, focus, and motion tokens; `public.css` composes with those tokens.

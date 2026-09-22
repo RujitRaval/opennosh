@@ -1,5 +1,10 @@
 # Living Commons launch status — 2026-09-09
 
+Historical ledger. Search acceptance and package publication below were subsequently completed;
+the [T34 issue](https://github.com/RujitRaval/opennosh/issues/134) records that evidence and the later
+owner-operated pilot. Use [public beta release verification](announcement-readiness.md) for current
+announcement checks. Independent stewardship is deferred and is not a prerequisite for the owner pilot.
+
 This ledger separates merged implementation, deployed capability, and retained production proof.
 An implementation issue being closed is not evidence that its production feature is enabled.
 

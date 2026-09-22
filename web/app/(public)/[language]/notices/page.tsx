@@ -75,6 +75,17 @@ export default async function NoticesPage({
         <p>{copy.privateBody}</p>
       </section>
 
+      <section id="hosted-data" aria-labelledby="hosted-data-title">
+        <h2 id="hosted-data-title">{copy.hostedTitle}</h2>
+        <p>{copy.hostedOperator}</p>
+        <p>{copy.hostedPrivate}</p>
+        <p>{copy.hostedLocal}</p>
+        <p>{copy.hostedRetention}</p>
+        <p>{copy.hostedRecovery}</p>
+        <p>{copy.hostedContact} <a href="mailto:support@opennosh.org">{copy.hostedEmail}</a>.</p>
+        <a href="https://github.com/RujitRaval/opennosh/blob/main/docs/hosting-and-data.md">{copy.hostedGuide} ↗</a>
+      </section>
+
       <p className="legal-detail-link">
         {copy.readPrefix}{" "}
         <a href="https://github.com/RujitRaval/opennosh/blob/main/NOTICE.md">

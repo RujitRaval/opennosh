@@ -11,7 +11,7 @@ npm start
 The hosted service is the default. Select a self-hosted origin without editing the code:
 
 ```sh
-OPENNOSH_TARGET=https://nosh.example OPENNOSH_QUERY=rajma npm start
+OPENNOSH_TARGET=https://nosh.example OPENNOSH_QUERY=thepla npm start
 ```
 
 The client sends no credentials, cookies, automatic retries, or telemetry. A missing or unbound

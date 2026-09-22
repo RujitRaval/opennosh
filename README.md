@@ -1,16 +1,11 @@
 # opennosh
 
-Self-hosted nutrition and strength tracking built around food data the community can improve.
+An open food-data beta with public search, owner-reviewed contributions, and a private nutrition tracker you can self-host.
 
 Website: [opennosh.org](https://opennosh.org) — the public Commons and private Tracker are live on
 the production Render deployment.
 
-![Animated opennosh launch demo: open the Living Commons, search the 166-record starter collection for Rajma masala, create a private Tracker account, save the one-time recovery code, choose US units and targets, then open the daily log.](docs/assets/opennosh-launch-demo.gif)
-
-_Search real starter records, see source and license context, then create and set up a recoverable private Tracker account. The animation plays once;
-[view the final ready-to-log screen](docs/assets/opennosh-tracker-ready.png)._
-
-> **Build status:** The scoped v1 implementation and both human review gates are complete. The [v1 implementation epic](https://github.com/RujitRaval/opennosh/issues/3) records the shipped work and public-launch evidence.
+> **Beta scope:** Public food search, source and license context, private nutrition tracking, and an owner-operated contribution pilot are available. Rujit Raval reviews and publishes accepted contributions. Independent stewardship, photo uploads, hosted barcode lookup, hosted strength entry, federation, and reuse/impact features are not part of this launch. See [how to contribute](CONTRIBUTING.md#food-suggestions-during-the-beta) and [hosting and your data](docs/hosting-and-data.md).
 
 The application is MIT-licensed. Community food packs are dedicated under CC0 1.0 with visible contributor credit. The repository is public, security researchers can use GitHub's private vulnerability-reporting flow, and general messages can be sent to `support@opennosh.org` through free inbound forwarding.
 
@@ -18,21 +13,47 @@ See [`NOTICE.md`](NOTICE.md) for the combined distribution notice and [`LICENSES
 for the repository-wide licensing map. The running web app exposes the same source-separated summary
 at `/notices`, linked from the global footer.
 
-The canonical public packages are live: install the Python application and CLI with
-`pip install opennosh==0.22.0.0`, or start a safe local checkout with
-`npx opennosh@0.22.0 init my-opennosh`. The [PyPI](https://pypi.org/project/opennosh/0.22.0.0/)
-and [npm](https://www.npmjs.com/package/opennosh) releases are controlled by active GitHub Actions
-trusted publishers using short-lived OIDC credentials. Exact release hashes, controls, and
-verification evidence are recorded in [`docs/package-operations.md`](docs/package-operations.md).
+The supported beta release is **0.103.1.0** (Python/application) and **0.103.1** (npm).
+Install the Python application modules, SDK, and CLI with `pip install opennosh==0.103.1.0`.
+The web application is distributed through the source checkout and Docker Compose; installing the
+Python package alone does not start the website.
+
+For a local checkout, use `npx opennosh@0.103.1 init my-opennosh`, then follow the quick start below.
+The bootstrap command clones the current default branch; it does not pin the checkout to the npm
+package version. The quick start below pins the source to the matching `v0.103.1.0` release tag;
+the [launch verification](docs/operations/announcement-readiness.md) records publication status. [PyPI](https://pypi.org/project/opennosh/) and
+[npm](https://www.npmjs.com/package/opennosh) use GitHub Actions trusted publishing with short-lived
+OIDC credentials. The SDKs remain preview software.
+
+Try a public request without installing anything:
+
+```sh
+curl 'https://opennosh.org/api/v1/foods/search?q=thepla&limit=1'
+```
+
+The [JavaScript and Python quick starts](docs/operations/developer-starters.md) show how to retain
+source, license, attribution, and release proof.
 
 ## Quick start
 
+Install Git and Docker with the Compose plugin, and start Docker before running these commands.
 Docker Compose starts PostgreSQL, validates the global database-capacity contract, runs one migration
 job, then starts the FastAPI web role, the Next.js app, and its nginx ingress:
 
 ```bash
+git clone --branch v0.103.1.0 --single-branch https://github.com/RujitRaval/opennosh.git
+cd opennosh
 cp .env.example .env
 docker compose up --build
+```
+
+If you already used `npx opennosh init`, enter that checkout, run
+`git fetch origin tag v0.103.1.0` and `git checkout --detach v0.103.1.0`, then start at
+`cp .env.example .env`.
+The local database begins empty. In a second terminal, load the bundled starter foods:
+
+```bash
+docker compose exec api opennosh foods load /app/packs --json
 ```
 
 Open the web app at <http://localhost:3000>. The API health endpoint is <http://localhost:8000/healthz>; it returns `200` when PostgreSQL is reachable and a safe `503` degraded response when the database is unavailable.
@@ -92,15 +113,16 @@ no-op, and refuses to overwrite a newer pack version.
 
 ### Starter food packs
 
-opennosh publishes five signed CC0 community packs with 166 entries:
+The checkout bundles six CC0 community packs with 168 entries:
 
 - 1 common fruit;
 - 50 Gujarati home-cooking foods;
 - 60 North Indian staples;
-- 30 common vegetarian proteins; and
-- 25 generic supplements and powders.
+- 30 common vegetarian proteins;
+- 25 generic supplements and powders; and
+- 2 owner-reviewed packaged sweets from the contribution pilot.
 
-All 145 government-database entries link to an exact USDA FoodData Central record. The 21
+Within the original 166-entry starter collection, all 145 government-database entries link to an exact USDA FoodData Central record. The 21
 calculated entries disclose component weights, FDC IDs, and cooked yield. Every entry has visible
 credit and a named portion. See [the source, spot-check, checksum, and zero-warning validation
 evidence](docs/starter-pack-quality.md).
@@ -168,8 +190,9 @@ and typed problem details:
 from opennosh_api.sdk import AsyncOpenNoshClient, OpenNoshClient
 
 client = OpenNoshClient("hosted")
-results = client.search_foods("rajma", locale="en-IN", limit=10)
-food = client.get_public_food("community", results.data.items[0].source_id)
+results = client.search_foods("thepla", locale="en-IN", limit=10)
+match = next(item for item in results.data.items if item.source.value == "community")
+food = client.get_public_food("community", match.source_id)
 
 async_client = AsyncOpenNoshClient("https://nosh.example")
 missions = await async_client.list_missions(limit=20)
@@ -179,11 +202,20 @@ Use the matching command-line reads against hosted opennosh or an explicit self-
 
 ```shell
 opennosh public capabilities --json
-opennosh public search rajma --locale en-IN
-opennosh public food community rajma-masala
-opennosh public manifest 0.88.0.0 --target https://nosh.example --json
-opennosh public provenance 0.88.0.0 community rajma-masala
-opennosh public download-pack 0.88.0.0 indian-staples-north 1.0.0 --output pack.zip
+opennosh public search thepla --locale en-IN
+opennosh public food community gujarati-plain-thepla --json
+```
+
+For immutable reads, copy the signed `release.release_version` from that food detail and the
+pack version from its release manifest. These data-release versions are independent of the
+installed SDK/application version:
+
+```shell
+RELEASE_VERSION='<signed-release-version-from-food-detail>'
+opennosh public manifest "$RELEASE_VERSION" --json
+opennosh public provenance "$RELEASE_VERSION" community gujarati-plain-thepla
+PACK_VERSION='<gujarati-home-cooking-version-from-manifest>'
+opennosh public download-pack "$RELEASE_VERSION" gujarati-home-cooking "$PACK_VERSION" --output pack.zip
 opennosh packs validate pack.zip --json
 ```
 
@@ -215,8 +247,8 @@ Embed a proof-bearing public food card without a loader or custom element:
 
 ```html
 <iframe
-  title="opennosh food: Rajma masala"
-  src="https://opennosh.org/embed/v1/foods/community/rajma-masala"
+  title="opennosh food: Plain thepla"
+  src="https://opennosh.org/embed/v1/foods/community/gujarati-plain-thepla"
   sandbox="allow-scripts allow-same-origin allow-popups"
   style="width:100%;height:320px;border:0"
 ></iframe>
@@ -352,8 +384,9 @@ location, and the response exposes no filterable total from which a smaller coho
 inferred. See the
 [Commons mission activity contract](docs/api-contracts.md#commons-mission-activity-contract).
 The Commons page renders the independently validated catalog and regional surface only when
-`OPENNOSH_PUBLIC_NAV_FEATURES` includes `commons-missions`. Render intentionally omits that web
-feature alongside the five disabled mission switches until a later digest-bound activation.
+`OPENNOSH_PUBLIC_NAV_FEATURES` includes `commons-missions`. Render enables this navigation and
+`MISSION_PUBLIC_ENABLED` for the owner pilot. Mission mutations, continuous projection,
+activity-map publication, and mission-pack release remain disabled.
 
 Compose mounts `${PUBLIC_COMMONS_ARTIFACT_DIRECTORY:-./var/public-commons}` read-only at
 `/app/public-commons`. Place `latest.json` at the root and release manifests under `releases/`. Both
@@ -501,8 +534,8 @@ continuing. opennosh does not email or retain a revealable copy of that code. `P
 successful recovery invalidates prior sessions, rotates the recovery code, signs the browser in,
 and shows the replacement code once. Authenticated Account settings can change Metric or US
 customary units, change the password, rotate the recovery code after password confirmation, reopen
-guided setup, or permanently delete the account and its private Tracker data. Public contribution
-history remains part of the Commons record.
+guided setup, download a private JSON export, or permanently delete the account and its private
+Tracker data. Public contribution history remains part of the Commons record.
 
 `GET /api/v1/auth/session-state` is the browser-safe startup probe: it returns `200` with either the
 current user or an explicit signed-out state. The authenticated lifecycle mutations are `PUT
@@ -519,7 +552,7 @@ account or sign in, save the one-time recovery code, choose Metric or US customa
 set user-chosen training/rest nutrition targets, search the ranked local catalogue, filter USDA or
 community results, and log a food by grams or a named household portion under any meal name.
 Guided setup can be skipped without changing an existing target schedule and reopened later from
-`/tracker/account`. That Account route also manages units, password, recovery-code rotation, and
+`/tracker/account`. That Account route also manages units, password, recovery-code rotation, export, and
 permanent deletion. `/tracker/records` records private body measurements immediately; strength
 entry stays visibly unavailable in production until an attributed exercise catalogue is loaded and
 `OPENNOSH_TRACKER_STRENGTH_ENTRY_ENABLED` is deliberately enabled.
