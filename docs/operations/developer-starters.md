@@ -6,6 +6,17 @@ the source, license, attribution, release, and direct provenance path.
 
 ## Run a starter
 
+For a first hosted request, no account or package installation is needed:
+
+```sh
+curl 'https://opennosh.org/api/v1/foods/search?q=thepla&limit=1'
+```
+
+For the examples below, first clone `https://github.com/RujitRaval/opennosh.git` and enter the
+checkout. The supported beta packages are npm `opennosh@0.103.1` and Python `opennosh==0.103.1.0`.
+The SDK compatibility contract remains preview. The website and local database are installed with
+the [Docker Compose quick start](../../README.md#quick-start), not by installing the SDK alone.
+
 For JavaScript:
 
 ```sh

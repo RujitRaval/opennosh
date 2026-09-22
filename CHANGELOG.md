@@ -2,6 +2,22 @@
 
 All notable changes to opennosh will be documented in this file.
 
+## [0.103.1.0] - 2026-09-22
+
+### Changed
+
+- Describe the hosted beta's public food search, private nutrition Tracker, and owner-reviewed
+  contribution workflow, with clear support, recovery, data handling, and feature boundaries.
+- Point installation instructions at the supported beta release and expose the developer quick
+  start from Build.
+
+### Fixed
+
+- Keep the homepage's verified record count below its label across screen sizes and replace
+  outdated search availability copy. Keep mobile Tracker account controls clear of the wordmark.
+- Describe the available Tracker features without advertising disabled strength entry.
+- Expose the existing private JSON export from Account settings.
+
 ## [0.103.0.2] - 2026-09-14
 
 ### Added
